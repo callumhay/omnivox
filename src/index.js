@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
 
 var scene = new THREE.Scene();
 var camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
@@ -6,6 +7,8 @@ var camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeigh
 var renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
+
+var controls = new OrbitControls(camera, renderer.domElement);
 
 const texelUnitSize = 1.0;
 const ledUnitSize = texelUnitSize / 2.0;
@@ -57,6 +60,8 @@ for (let x = 0; x < xSize; x++) {
 }
 
 camera.position.z = 10;
+controls.update();
+
 let tanFOV = Math.tan(((Math.PI / 180) * camera.fov / 2));
 let windowHeight = window.innerHeight;
 
@@ -65,6 +70,7 @@ const animate = function () {
 
   //cube.rotation.x += 0.01;
   //cube.rotation.y += 0.01;
+  controls.update();
   renderer.render(scene, camera);
 };
 
@@ -79,6 +85,7 @@ function onWindowResize(event) {
     
     camera.updateProjectionMatrix();
     camera.lookAt(scene.position);
+    controls.update();
 
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.render(scene, camera);
