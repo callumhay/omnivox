@@ -4,21 +4,26 @@ const voxelUnitSize = 1.0;
 const halfVoxelUnitSize = voxelUnitSize / 2.0;
 const ledUnitSize = voxelUnitSize / 4.0;
 
-const voxelGridSize = 4;
+const voxelGridSize = 8;
 const xSize = voxelGridSize;
 const ySize = voxelGridSize;
 const zSize = voxelGridSize;
 
+export const BLEND_MODE_OVERWRITE = 0;
+export const BLEND_MODE_ADDITIVE  = 1;
+
 class VoxelDisplay {
   constructor(scene) {
+
     this.voxels = [];
+    this.blendMode = BLEND_MODE_OVERWRITE;
 
     const ledGeometry = new THREE.BoxGeometry(ledUnitSize, ledUnitSize, ledUnitSize);
     const outlineGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(voxelUnitSize, voxelUnitSize, voxelUnitSize));
 
     const outlineMaterial = new THREE.LineBasicMaterial({color: 0xffffff});
     outlineMaterial.transparent = true;
-    outlineMaterial.opacity = 0.25;
+    outlineMaterial.opacity = 0.1;
 
     const halfTranslationUnits = (voxelGridSize*voxelUnitSize)/2.0;
     const worldTranslation = new THREE.Vector3(-halfTranslationUnits, -halfTranslationUnits, -halfTranslationUnits);
@@ -41,18 +46,19 @@ class VoxelDisplay {
             outlineMesh: outlineMesh,
             
             setColourRGB: function(r, g, b) { this.ledMesh.material.color.setRGB(r, g, b); },
-            setColour: function(colour) { this.ledMesh.material.color.set(colour); }
+            setColour: function(colour) { this.ledMesh.material.color.set(colour); },
+            addColour: function(colour) { return this.ledMesh.material.color.add(colour); },
           };
             
           scene.add(ledMesh);
           scene.add(outlineMesh);
           
-          let currTranslation = new THREE.Vector3(
+          const currTranslation = new THREE.Vector3(
             x*voxelUnitSize + halfVoxelUnitSize,
             y*voxelUnitSize + halfVoxelUnitSize,
             z*voxelUnitSize + halfVoxelUnitSize
           );
-          currTranslation = currTranslation.add(worldTranslation);
+          currTranslation.add(worldTranslation);
           
           ledMesh.position.set(currTranslation.x, currTranslation.y, currTranslation.z);
           outlineMesh.position.set(currTranslation.x, currTranslation.y, currTranslation.z);
@@ -63,21 +69,41 @@ class VoxelDisplay {
     }
   }
 
-  setVoxelXYZ(x, y, z, colour) {
-    const roundedX = Math.round(x);
-    const roundedY = Math.round(y);
-    const roundedZ = Math.round(z);
+  voxelSizeInUnits() {
+    return voxelUnitSize;
+  }
+  voxelGridSizeInUnits() {
+    return voxelUnitSize * voxelGridSize;
+  }
+
+  setVoxel(pt, colour) {
+    const roundedX = Math.round(pt.x);
+    const roundedY = Math.round(pt.y);
+    const roundedZ = Math.round(pt.z);
 
     if (roundedX >= 0 && roundedX < this.voxels.length &&
         roundedY >= 0 && roundedY < this.voxels[roundedX].length &&
         roundedZ >= 0 && roundedZ < this.voxels[roundedX][roundedY].length) {
 
-      this.voxels[roundedX][roundedY][roundedZ].setColour(colour);
+      this.voxels[roundedX][roundedY][roundedZ].setColourRGB(colour.r, colour.g, colour.b);
     } 
   }
-  setVoxel(pt, colour) {
-    this.setVoxelXYZ(pt.x, pt.y, pt.z, colour);
+
+  addToVoxel(pt, colour) {
+    const roundedX = Math.round(pt.x);
+    const roundedY = Math.round(pt.y);
+    const roundedZ = Math.round(pt.z);
+
+    if (roundedX >= 0 && roundedX < this.voxels.length &&
+        roundedY >= 0 && roundedY < this.voxels[roundedX].length &&
+        roundedZ >= 0 && roundedZ < this.voxels[roundedX][roundedY].length) {
+
+      const voxel = this.voxels[roundedX][roundedY][roundedZ];
+      voxel.addColour(colour);
+    } 
   }
+
+
 
   clearRGB(r=0, g=0, b=0) {
     for (let x = 0; x < this.voxels.length; x++) {
@@ -90,6 +116,23 @@ class VoxelDisplay {
   }
   clear(colour) {
     this.clearRGB(colour.r, colour.g, colour.b);
+  }
+
+  /**
+   * Draw a coloured point (the point will be sampled to the nearest voxel).
+   * @param {THREE.Vector3} pt - The position to draw the point at.
+   * @param {THREE.Color} colour - The colour of the point
+   */
+  drawPoint(pt, colour) {
+    switch (this.blendMode) {
+      case BLEND_MODE_ADDITIVE:
+        this.addToVoxel(pt, colour);
+        break;
+      case BLEND_MODE_OVERWRITE:
+      default:
+        this.setVoxel(pt, colour);
+        break;
+    }
   }
 
   /**
@@ -121,7 +164,7 @@ class VoxelDisplay {
 			err_1 = dy2 - l;
 			err_2 = dz2 - l;
 			for (i = 0; i < l; i++) {
-				this.setVoxel(currentPoint, colour);
+				this.drawPoint(currentPoint, colour);
 				if (err_1 > 0) {
 					currentPoint.y += y_inc;
 					err_1 -= dx2;
@@ -139,7 +182,7 @@ class VoxelDisplay {
 			err_1 = dx2 - m;
 			err_2 = dz2 - m;
 			for (i = 0; i < m; i++) {
-				this.setVoxel(currentPoint, colour);
+				this.drawPoint(currentPoint, colour);
 				if (err_1 > 0) {
 					currentPoint.x += x_inc;
 					err_1 -= dy2;
@@ -157,7 +200,7 @@ class VoxelDisplay {
 			err_1 = dy2 - n;
 			err_2 = dx2 - n;
 			for (i = 0; i < n; i++) {
-        this.setVoxel(currentPoint, colour);
+        this.drawPoint(currentPoint, colour);
 				if (err_1 > 0) {
 					currentPoint.y += y_inc;
 					err_1 -= dz2;
@@ -172,7 +215,7 @@ class VoxelDisplay {
 			}
 		}
 
-		this.setVoxel(currentPoint, colour);
+		this.drawPoint(currentPoint, colour);
   }
 
 }
