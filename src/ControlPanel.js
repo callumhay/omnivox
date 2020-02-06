@@ -80,7 +80,7 @@ class ControlPanel {
       reset: () => { this.colourAnimator.reset(); },
     };
   
-    const folder = this.gui.addFolder("Colour Change Controls");
+    const folder = this.gui.addFolder("Colour Change Controls 5");
     folder.addColor(voxelColourSettings, 'colourStart').onChange((value) => {
       this.colourAnimator.setConfig({...this.colourAnimator.config, colourStart:GuiColorToTHREEColor(value)});
     });

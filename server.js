@@ -20,7 +20,7 @@ reload(app).then((reloadReturned) => {
   server.listen(app.get('port'), function () {
     console.log('Web server listening on port ' + app.get('port'));
 
-    watch.watchTree(path.resolve(__dirname, 'dist'), function (f, curr, prev) {
+    watch.watchTree(path.resolve(__dirname, 'dist'), {interval: 1},function (f, curr, prev) {
       console.log('Tree changed, reloading browser');
       // Fire server-side reload event
       reloadReturned.reload();
