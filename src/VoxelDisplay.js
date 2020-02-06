@@ -80,6 +80,15 @@ class VoxelDisplay {
   voxelGridSizeInUnits() {
     return voxelUnitSize * voxelGridSize;
   }
+  voxelDisplayBox() {
+    const minBound = 0;
+    const maxBound = voxelGridSize-1;
+    return new THREE.Box3(
+      new THREE.Vector3(minBound,minBound,minBound), 
+      new THREE.Vector3(maxBound,maxBound,maxBound)
+    );
+  }
+
   /**
    * Build a flat list of all of the possible voxel indices (x,y,z) in this display
    * as a list of THREE.Vector3 objects.

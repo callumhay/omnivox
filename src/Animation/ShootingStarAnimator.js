@@ -85,10 +85,16 @@ class ShootingStarAnimator extends VoxelAnimator {
     // Clean up all finished animations
     this.currAnimatorMap = this.currAnimatorMap.filter((animatorObj) => (!animatorObj.animator.animationFinished));
 
-    // Check to see whether this shooting star is finished i.e., is out of bounds and has no animations left
+    // Check to see whether this shooting star is finished i.e., is out of bounds, not heading towards
+    // the bounds, and has no animations left
     if (this.currAnimatorMap.length === 0 && !currPosInBounds) {
-      this.animationFinished = true;
-      return;
+      const nVelocity = this.velocity.clone().normalize();
+      const velocityRay = new THREE.Ray(this.currPosition, nVelocity);
+      const voxelsBox = this.voxels.voxelDisplayBox();
+      if (velocityRay.intersectBox(voxelsBox) === null) {
+        this.animationFinished = true;
+        return;
+      }
     }
 
     const sampleStepSize = this.voxels.voxelSizeInUnits() / (2 + VOXEL_EPSILON); // Sample at a reasonable enough rate
