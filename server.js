@@ -17,6 +17,7 @@ let server = http.createServer(app);
 
 //todo(mje): we can update this so we don't even need webpack, can just do everything with node.
 //https://www.npmjs.com/package/bundle-js
+//right now we need to run npm start in parallel with npm run build to get live refresh/reloading to work
 
 reload(app).then((reloadReturned) => {
   // Reload started, start web server
