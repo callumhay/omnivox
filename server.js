@@ -15,6 +15,9 @@ app.get("/", (req, res) => {
 
 let server = http.createServer(app);
 
+//todo(mje): we can update this so we don't even need webpack, can just do everything with node.
+//https://www.npmjs.com/package/bundle-js
+
 reload(app).then((reloadReturned) => {
   // Reload started, start web server
   server.listen(app.get('port'), function () {
