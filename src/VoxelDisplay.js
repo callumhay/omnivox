@@ -35,7 +35,12 @@ class VoxelDisplay {
         let currYArr = [];
         currXArr.push(currYArr);
         for (let z = 0; z < zSize; z++) {
-          const ledMesh = new THREE.Mesh(ledGeometry, new THREE.MeshBasicMaterial({color: 0x00ff00}));
+
+          const ledMatrial = new THREE.MeshBasicMaterial({color: 0x00ff00});
+          ledMatrial.transparent = true;
+          ledMatrial.opacity = 0.9;
+
+          const ledMesh = new THREE.Mesh(ledGeometry, ledMatrial);
           const outlineMesh = new THREE.LineSegments(outlineGeometry, outlineMaterial);
               
           const currZObj = {
@@ -75,6 +80,35 @@ class VoxelDisplay {
   voxelGridSizeInUnits() {
     return voxelUnitSize * voxelGridSize;
   }
+  /**
+   * Build a flat list of all of the possible voxel indices (x,y,z) in this display
+   * as a list of THREE.Vector3 objects.
+   */
+  voxelIndexList() {
+    const idxList = [];
+    for (let x = 0; x < this.voxels.length; x++) {
+      for (let y = 0; y < this.voxels[x].length; y++) {
+        for (let z = 0; z < this.voxels[x][y].length; z++) {
+          idxList.push(new THREE.Vector3(x,y,z));
+        }
+      }
+    }
+    return idxList;
+  }
+
+  /**
+   * Check whether the given point is in the local space bounds of this voxel display.
+   * @param {THREE.Vector3} pt 
+   */
+  isInBounds(pt) {
+    const roundedX = Math.round(pt.x);
+    const roundedY = Math.round(pt.y);
+    const roundedZ = Math.round(pt.z);
+
+    return roundedX >= 0 && roundedX < this.voxels.length &&
+      roundedY >= 0 && roundedY < this.voxels[roundedX].length &&
+      roundedZ >= 0 && roundedZ < this.voxels[roundedX][roundedY].length;
+  }
 
   setVoxel(pt, colour) {
     const roundedX = Math.round(pt.x);
@@ -102,8 +136,6 @@ class VoxelDisplay {
       voxel.addColour(colour);
     } 
   }
-
-
 
   clearRGB(r=0, g=0, b=0) {
     for (let x = 0; x < this.voxels.length; x++) {
