@@ -68,8 +68,7 @@ const animate = function () {
   let currFrameTime = Date.now();
   let dt = (currFrameTime - lastFrameTime) / 1000;
 
-  // Clear the voxels at the start of the frame
-  voxels.clearRGB(0,0,0);
+  //voxels.clearRGB(0,0,0);
   if (currAnimator) {
     currAnimator.animate(dt);
   }

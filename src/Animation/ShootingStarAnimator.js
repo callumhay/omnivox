@@ -20,15 +20,22 @@ export const shootingStarAnimatorDefaultConfig = {
 class ShootingStarAnimator extends VoxelAnimator {
   constructor(voxels, config = shootingStarAnimatorDefaultConfig) {
     super(voxels, config);
+    this.reset();
+  }
 
-    const {startPosition, velocity} = config;
+  setConfig(c) {
+    super.setConfig(c);
+    const {startPosition, velocity} = c;
 
-    this.startPosition = new THREE.Vector3(startPosition.x, startPosition.y, startPosition.z);
-    this.currPosition = new THREE.Vector3(startPosition.x, startPosition.y, startPosition.z);
-    this.velocity = new THREE.Vector3(velocity.x, velocity.y, velocity.z);
-
-    this.currAnimatorMap = []; // An array of voxel positions to active animators
-    this.animationFinished = false;
+    if (startPosition !== this.startPosition) {
+      this.startPosition = new THREE.Vector3(startPosition.x, startPosition.y, startPosition.z);
+    }
+    if (startPosition !== this.currPosition) {
+      this.currPosition = new THREE.Vector3(startPosition.x, startPosition.y, startPosition.z);
+    }
+    if (velocity !== this.velocity) {
+      this.velocity = new THREE.Vector3(velocity.x, velocity.y, velocity.z);
+    }
   }
 
   addPositionToAnimatorMap(pos) {
@@ -45,7 +52,7 @@ class ShootingStarAnimator extends VoxelAnimator {
     const animatorObj = {
       voxelPosition: pos,
       animator: new VoxelColourAnimator(this.voxels, {
-        voxelPosition: pos,
+        voxelPositions: [pos],
         colourStart: colour,
         colourEnd: {r:0, g:0, b:0},
         startTimeSecs: 0.0,
@@ -101,6 +108,13 @@ class ShootingStarAnimator extends VoxelAnimator {
     }
     
     this.currPosition.add(incVelocity);
+  }
+
+  reset() {
+    super.reset();
+    this.currAnimatorMap = []; // An array of voxel positions to active animators
+    this.animationFinished = false;
+    this.currPosition.set(this.startPosition.x, this.startPosition.y, this.startPosition.z);
   }
 };
 
