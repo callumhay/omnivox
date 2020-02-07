@@ -4,4 +4,3 @@ dist/main.js
 # Webstorm artifacts
 .DS_Store
 .idea/
-package-lock.json
