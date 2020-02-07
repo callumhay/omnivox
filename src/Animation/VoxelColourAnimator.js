@@ -1,12 +1,17 @@
 import * as THREE from 'three';
-import VoxelAnimator from './VoxelAnimator';
+import VoxelAnimator, {REPEAT_INFINITE_TIMES} from './VoxelAnimator';
+
+export const COLOUR_INTERPOLATION_HSL = 0;
+export const COLOUR_INTERPOLATION_RGB = 1;
 
 export const voxelColourAnimatorDefaultConfig = {
   voxelPositions: [{x:0, y:0, z:0}],
   colourStart: {r:0, g:0, b:0},
   colourEnd: {r:1, g:1, b:1},
+  colourInterpolationType: COLOUR_INTERPOLATION_HSL,
   startTimeSecs: 0.0,
   endTimeSecs: 10.0,
+  repeat: 0,
 };
 
 class VoxelColourAnimator extends VoxelAnimator {
@@ -33,24 +38,52 @@ class VoxelColourAnimator extends VoxelAnimator {
   animate(dt) {
     super.animate(dt);
 
-    const {startTimeSecs, endTimeSecs} = this.config;
+    const {startTimeSecs, endTimeSecs, colourInterpolationType} = this.config;
 
+    let dtRemaining = dt;
     if (this.currTime >= startTimeSecs) {
       const lerpAlpha = (this.currTime - startTimeSecs) / (endTimeSecs - startTimeSecs);
-      const currColour = this.colourStart.clone().lerp(this.colourEnd, lerpAlpha);
+      const currColour = this.colourStart.clone();
+      
+      switch (colourInterpolationType) {
+        default:
+        case COLOUR_INTERPOLATION_HSL:
+          currColour.lerpHSL(this.colourEnd, lerpAlpha);
+          break;
+        case COLOUR_INTERPOLATION_RGB:
+          currColour.lerp(this.colourEnd, lerpAlpha);
+          break;
+      }
+
       this.voxelPositions.forEach(voxelPos => {
         this.voxels.setVoxel(voxelPos, currColour);
       });
-      this.animationFinished = (this.currTime >= endTimeSecs);
+
+      const isFinishedCurrentLoop = (this.currTime >= endTimeSecs);
+      if (isFinishedCurrentLoop) {
+        this.incrementPlayCounter();
+        if (this.repeat !== REPEAT_INFINITE_TIMES && this.getPlayCounter() >= this.repeat) {
+          this.animationFinished = true;
+        }
+        else {
+          // Find out how much time spilled over into the next animation before resetting the loop
+          dtRemaining = dt - (endTimeSecs - this.currTime);
+          this.resetLoop();
+        }
+      }
     }
 
-    this.currTime = Math.min(endTimeSecs, this.currTime + dt); // Clamp to the end time
+    this.currTime = Math.min(endTimeSecs, this.currTime + dtRemaining); // Clamp to the end time
   }
 
   reset() {
     super.reset();
-    this.currTime = 0;
+    this.resetLoop();
     this.animationFinished = false;
+  }
+
+  resetLoop() {
+    this.currTime = 0;
   }
 }
 

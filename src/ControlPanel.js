@@ -111,6 +111,7 @@ class ControlPanel {
       speed: currVel.length(),
       direction: {x: nCurrVel.x, y: nCurrVel.y, z: nCurrVel.z},
       fadeTime: this.shootingStarAnimator.config.fadeTimeSecs,
+      repeat: this.shootingStarAnimator.config.repeat,
       reset: () => { 
         this.shootingStarAnimator.reset();
         this.voxelDisplay.clearRGB(0,0,0);
@@ -118,6 +119,9 @@ class ControlPanel {
     };
 
     const folder = this.gui.addFolder("Shooting Star Controls");
+    folder.add(shootingStarSettings, 'repeat', -1, 10, 1).onChange((value) => {
+      this.shootingStarAnimator.setConfig({...this.shootingStarAnimator.config, repeat:value});
+    });
     folder.addColor(shootingStarSettings, 'colour').onChange((value) => {
       this.shootingStarAnimator.setConfig({...this.shootingStarAnimator.config, colour:GuiColorToTHREEColor(value)});
     });

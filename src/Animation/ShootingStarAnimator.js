@@ -1,15 +1,16 @@
 import * as THREE from 'three';
 
-import VoxelAnimator from './VoxelAnimator';
+import VoxelAnimator, {REPEAT_INFINITE_TIMES} from './VoxelAnimator';
 import VoxelColourAnimator from './VoxelColourAnimator';
 
 import {VOXEL_EPSILON} from '../MathUtils';
 
 export const shootingStarAnimatorDefaultConfig = {
   colour: {r:1, g:1, b:1},
-  startPosition: {x:0, y:0, z:0},
-  velocity: {x:1, y:0, z:0},
-  fadeTimeSecs: 2.0,
+  startPosition: {x:0, y:0, z:7},
+  velocity: {x:5, y:0, z:0},
+  fadeTimeSecs: 0.75,
+  repeat: -1,
 };
 
 /**
@@ -77,22 +78,32 @@ class ShootingStarAnimator extends VoxelAnimator {
       this.addPositionToAnimatorMap(roundedCurrPos);
     }
 
-    // Go through all the animators and animate the active ones
+    // Animate/tick the active animator objects
     this.currAnimatorMap.forEach((animatorObj) => {
       animatorObj.animator.animate(dt);
     });
 
-    // Clean up all finished animations
+    // Clean up all finished animations (only keep the ones that haven't finished)
     this.currAnimatorMap = this.currAnimatorMap.filter((animatorObj) => (!animatorObj.animator.animationFinished));
 
-    // Check to see whether this shooting star is finished i.e., is out of bounds, not heading towards
-    // the bounds, and has no animations left
+    // Check to see whether this shooting star is finished: 
+    // i.e., out of bounds, not heading towards the bounds, and has no animations left
     if (this.currAnimatorMap.length === 0 && !currPosInBounds) {
+
       const nVelocity = this.velocity.clone().normalize();
       const velocityRay = new THREE.Ray(this.currPosition, nVelocity);
       const voxelsBox = this.voxels.voxelDisplayBox();
+
       if (velocityRay.intersectBox(voxelsBox) === null) {
-        this.animationFinished = true;
+        // This loop has finished... check to see if there are repeats
+        this.incrementPlayCounter();
+        if (this.repeat !== REPEAT_INFINITE_TIMES && this.getPlayCounter() >= this.repeat) {
+          this.animationFinished = true;
+        }
+        else {
+          this.resetLoop();
+        }
+
         return;
       }
     }
@@ -118,8 +129,12 @@ class ShootingStarAnimator extends VoxelAnimator {
 
   reset() {
     super.reset();
+    this.resetLoop();
     this.currAnimatorMap = []; // An array of voxel positions to active animators
     this.animationFinished = false;
+  }
+
+  resetLoop() {
     this.currPosition.set(this.startPosition.x, this.startPosition.y, this.startPosition.z);
   }
 };
