@@ -1,15 +1,31 @@
 const path = require('path');
 const express = require('express');
-const server = express();
+const watch = require('watch');
+const http = require('http');
+const reload = require('reload');
 
-server.use(express.static(path.join(__dirname, 'dist')));
+let app = express();
+let distPath = path.join(__dirname, 'dist');
 
-server.get("/", (req, res) => {
-  res.sendFile(__dirname + '/dist/index.html');
+app.use(express.static(distPath));
+app.set('port', 4000);
+app.get("/", (req, res) => {
+  res.sendFile(path.join(distPath, index.html));
 });
 
-const port = 4000;
+let server = http.createServer(app);
 
-server.listen(port, () => {
-  console.log(`Server listening at ${port}`);
+reload(app).then((reloadReturned) => {
+  // Reload started, start web server
+  server.listen(app.get('port'), function () {
+    console.log('Web server listening on port ' + app.get('port'));
+  });
+
+  // Watch this path for changes and reload the browser
+  watch.watchTree(path.resolve(__dirname, 'dist'), {interval: 1},function (f, curr, prev) {
+    console.log('Tree changed, reloading browser');
+    reloadReturned.reload();
+  });
+}).catch(function (err) {
+  console.error('Reload could not start, could not start server/sample app', err)
 });
