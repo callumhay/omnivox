@@ -49,7 +49,6 @@ function onWindowResize(event) {
 //voxels.drawLine(new THREE.Vector3(0,0,0), new THREE.Vector3(4,4,4), new THREE.Color(1,0,0))
 //voxels.addToVoxel(new THREE.Vector3(0,0,0), new THREE.Color(0,1,0));
 
-
 const shootingStarSpeed = 5;
 const shootingStar = new ShootingStarAnimator(voxels, {
   colour: new THREE.Color(1, 0, 1),
