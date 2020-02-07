@@ -3,6 +3,7 @@ import * as THREE from 'three';
 
 import VoxelColourAnimator from './Animation/VoxelColourAnimator';
 import ShootingStarAnimator from './Animation/ShootingStarAnimator';
+import ShootingStarShowerAnimator from './Animation/ShootingStarShowerAnimator';
 
 const ROUTINE_TYPE_VOXEL_COLOUR  = "Colour Change"
 const ROUTINE_TYPE_SHOOTING_STAR = "Shooting Star";
@@ -29,8 +30,8 @@ class ControlPanel {
     this.colourAnimator.setConfig({...this.colourAnimator.config,
       voxelPositions: voxelDisplay.voxelIndexList(),
     });
-
     this.shootingStarAnimator = new ShootingStarAnimator(voxelDisplay);
+    this.starShowerAnimator = new ShootingStarShowerAnimator(voxelDisplay);
 
     this.settings = {
       routineTypes: '',
@@ -63,6 +64,8 @@ class ControlPanel {
           this.currAnimator = this.shootingStarAnimator;
           break;
         case ROUTINE_TYPE_STAR_SHOWER:
+          this.currFolder = this.buildStarShowerAnimatorControls();
+          this.currAnimator = this.starShowerAnimator;
           break;
         default:
           break;
@@ -183,6 +186,99 @@ class ControlPanel {
     folder.add(shootingStarSettings, 'reset');
     folder.open();
   
+    return folder;
+  }
+
+  buildStarShowerAnimatorControls() {
+    const currConfig = this.starShowerAnimator.config;
+    const starShowerSettings = {
+      minSpawnPos: {x: currConfig.positionRandomizer.min.x, y: currConfig.positionRandomizer.min.y, z: currConfig.positionRandomizer.min.z},
+      maxSpawnPos: {x: currConfig.positionRandomizer.max.x, y: currConfig.positionRandomizer.max.y, z: currConfig.positionRandomizer.max.z},
+      direction: {x: currConfig.directionRandomizer.baseDirection.x, y: currConfig.directionRandomizer.baseDirection.y, z: currConfig.directionRandomizer.baseDirection.z},
+      directionVariance: currConfig.directionRandomizer.radAngle, // [0, PI]
+      speedMin: currConfig.speedRandomizer.min,
+      speedMax: currConfig.speedRandomizer.max,
+      spawnRate: currConfig.spawnRate,
+      colourMin: currConfig.colourRandomizer.min, // HSL
+      colourMax: currConfig.colourRandomizer.max, // HSL
+      reset: () => { 
+        this.starShowerAnimator.reset();
+        this.voxelDisplay.clearRGB(0,0,0);
+      },
+    };
+
+    const folder = this.gui.addFolder("Star Shower Controls");
+    folder.add(starShowerSettings, 'spawnRate', 0.25, 50.0, 0.25).onChange((value) => {
+      this.starShowerAnimator.setConfig({...this.starShowerAnimator.config, 
+        spawnRate: value
+      });
+    });
+
+    const onChangeDir = (value, component) => {
+      const currRandomizer = this.starShowerAnimator.config.directionRandomizer;
+      currRandomizer.baseDirection[component] = value;
+      currRandomizer.baseDirection.normalize();
+      this.starShowerAnimator.setConfig(this.starShowerAnimator.config);
+      starShowerSettings.direction = {x: currRandomizer.baseDirection.x, y: currRandomizer.baseDirection.y, z: currRandomizer.baseDirection.z};
+    };
+    const dirFolder = folder.addFolder("Direction");
+    dirFolder.add(starShowerSettings.direction, 'x', -1, 1, 0.01).onChange((value) => {
+      onChangeDir(value, 'x');
+    });
+    dirFolder.add(starShowerSettings.direction, 'y', -1, 1, 0.01).onChange((value) => {
+      onChangeDir(value, 'y');
+    });
+    dirFolder.add(starShowerSettings.direction, 'z', -1, 1, 0.01).onChange((value) => {
+      onChangeDir(value, 'z');
+    });
+    dirFolder.open();
+    
+    const onChangePositionMin = (value, component) => {
+      const actualVal = Math.min(value, starShowerSettings.maxSpawnPos[component]);
+      const currRandomizer = this.starShowerAnimator.config.positionRandomizer;
+      currRandomizer.min[component] = actualVal;
+      this.starShowerAnimator.setConfig(this.starShowerAnimator.config);
+      starShowerSettings.minSpawnPos[component] = actualVal;
+    };
+    const onChangePositionMax = (value, component) => {
+      const actualVal = Math.max(value, starShowerSettings.minSpawnPos[component]);
+      const currRandomizer = this.starShowerAnimator.config.positionRandomizer;
+      currRandomizer.max[component] = actualVal;
+      this.starShowerAnimator.setConfig(this.starShowerAnimator.config);
+      starShowerSettings.maxSpawnPos[component] = actualVal;
+    };
+    const positionMax = 2*this.voxelDisplay.voxelGridSizeInUnits();
+
+    const posFolder = folder.addFolder("Position Spawning");
+    const minPosFolder = posFolder.addFolder("Min");
+    minPosFolder.add(starShowerSettings.minSpawnPos, 'x', -positionMax, positionMax, 1).onChange((value) => {
+      onChangePositionMin(value, 'x');
+    });
+    minPosFolder.add(starShowerSettings.minSpawnPos, 'y', -positionMax, positionMax, 1).onChange((value) => {
+      onChangePositionMin(value, 'y');
+    });
+    minPosFolder.add(starShowerSettings.minSpawnPos, 'z', -positionMax, positionMax, 1).onChange((value) => {
+      onChangePositionMin(value, 'z');
+    });
+    minPosFolder.open();
+
+    const maxPosFolder = posFolder.addFolder("Max");
+    maxPosFolder.add(starShowerSettings.maxSpawnPos, 'x', -positionMax, positionMax, 1).onChange((value) => {
+      onChangePositionMax(value, 'x');
+    });
+    maxPosFolder.add(starShowerSettings.maxSpawnPos, 'y', -positionMax, positionMax, 1).onChange((value) => {
+      onChangePositionMax(value, 'y');
+    });
+    maxPosFolder.add(starShowerSettings.maxSpawnPos, 'z', -positionMax, positionMax, 1).onChange((value) => {
+      onChangePositionMax(value, 'z');
+    });
+
+    maxPosFolder.open();
+    posFolder.open();
+
+    folder.add(starShowerSettings, 'reset');
+    folder.open();
+
     return folder;
   }
 

@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
 
 import ControlPanel from './ControlPanel';
-
 import VoxelDisplay from './VoxelDisplay';
-import ShootingStarAnimator from './Animation/ShootingStarAnimator';
+
+import {Vector3DirectionRandomizer} from './Animation/Randomizers';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
@@ -45,19 +45,10 @@ function onWindowResize(event) {
   renderer.render(scene, camera);
 }
 
-//clearRGB(voxels, 1, 0, 0);
-//voxels.drawLine(new THREE.Vector3(0,0,0), new THREE.Vector3(4,4,4), new THREE.Color(1,0,0))
-//voxels.addToVoxel(new THREE.Vector3(0,0,0), new THREE.Color(0,1,0));
-
-const shootingStarSpeed = 5;
-const shootingStar = new ShootingStarAnimator(voxels, {
-  colour: new THREE.Color(1, 0, 1),
-  startPosition: new THREE.Vector3(7, 7, 7),
-  velocity: new THREE.Vector3(-shootingStarSpeed, -shootingStarSpeed, -shootingStarSpeed),
-  fadeTimeSecs: Math.PI / shootingStarSpeed,
-});
-
 const controlPanelGui = new ControlPanel(voxels);
+
+//let testDirRandomizer = new Vector3DirectionRandomizer(new THREE.Vector3(0,0,-1), Math.PI/4.0);
+//let count = 0;
 
 let lastFrameTime = Date.now();
 const animate = function () {
@@ -66,6 +57,15 @@ const animate = function () {
 
   let currFrameTime = Date.now();
   let dt = (currFrameTime - lastFrameTime) / 1000;
+
+  /*
+  count += dt;
+  if (count > 1.0) {
+    count = 0;
+    let randomDir = testDirRandomizer.generate();
+    scene.add(new THREE.ArrowHelper(randomDir, new THREE.Vector3(0, 0, 0), 10, 0xff0000));
+  }
+  */
 
   //voxels.clearRGB(0,0,0);
   if (currAnimator) {

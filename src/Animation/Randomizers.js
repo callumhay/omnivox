@@ -1,11 +1,15 @@
 import * as THREE from 'three';
+import { VOXEL_EPSILON } from '../MathUtils';
 
-class Randomizer {
+export class Randomizer {
   constructor() {
   }
 
-  generate() {}
-
+  generate() {
+  }
+  static getRandomFloat(min, max) {
+    return min + Math.random() * (max - min);
+  }
   static getRandomInt(min, max) {
     min = Math.ceil(min);
     max = Math.floor(max);
@@ -28,8 +32,12 @@ export class UniformFloatRandomizer extends Randomizer {
     this.max = max;
   }
 
+  get average() {
+    return (this.min + this.max) / 2.0;
+  }
+
   generate() {
-    return min + Math.random() * (max - min);
+    return Randomizer.getRandomFloat(this.min, this.max);
   }
 }
 
@@ -43,6 +51,10 @@ export class UniformIntRandomizer extends Randomizer {
     this.min = min;
     this.max = max;
     this.isMaxExclusive = isMaxExclusive;
+  }
+
+  get average() {
+    return (this.min + this.max) / 2.0;
   }
 
   generate() {
@@ -80,22 +92,38 @@ export class UniformVector3Randomizer extends Randomizer {
 }
 
 export class Vector3DirectionRandomizer extends Randomizer {
-  contructor(baseDirection = new THREE.Vector3(1,0,0), radAngleMin = 0, radAngleMax = Math.PI) {
+  constructor(baseDirection, radAngle = 0) {
     super();
     this.baseDirection = baseDirection.clone().normalize();
-    this.radAngleMin = radAngleMin;
-    this.radAngleMax = radAngleMax;
+    this.radAngle = radAngle;
   }
-  generate() {
-    // Get a random angle to rotate by
-    const randAngleInRads = THREE.MathUtils.randFloat(this.radAngleMin, this.radAngleMax);
-    const spherical = new THREE.Spherical().setFromVector3(this.baseDirection);
-    
-    spherical.phi += randAngleInRads;
-    spherical.theta += randAngleInRads;
-    spherical.makeSafe();
 
-    return new THREE.Vector3().setFromSpherical(spherical);
+  generate() {
+    // Generate points on the spherical cap around the north pole.
+    // See https://math.stackexchange.com/a/205589/81266
+    const z = THREE.MathUtils.randFloat(0,1) * (1 - Math.cos(this.radAngle)) + Math.cos(this.radAngle);
+    const phi = THREE.MathUtils.randFloat(0,1) *  2 * Math.PI;
+    const x = Math.sqrt(1-z*z)*Math.cos(phi);
+    const y = Math.sqrt(1-z*z)*Math.sin(phi);
+    
+    const zVec = new THREE.Vector3(0,0,1);
+    const result = new THREE.Vector3(x, y, z);
+
+    // If the spherical cap is centered around the north pole, we're done
+    if (this.baseDirection.distanceToSquared(zVec) < VOXEL_EPSILON) {
+      return result;
+    }
+
+    // Otherwise we need to get a perpendicular rotation axis 'u' and rotation angle 'rot'
+    const u = new THREE.Vector3();
+    u.crossVectors(zVec, this.baseDirection);
+    const rot = Math.acos(this.baseDirection.dot(zVec));
+    
+    // Convert rotation axis and angle to a rotation matrix
+    const R = new THREE.Matrix4();
+    R.makeRotationAxis(u, rot);
+    
+    return result.applyMatrix4(R);
   }
 }
 
@@ -103,12 +131,15 @@ export class ColourRandomizer extends Randomizer {
   constructor(min = new THREE.Color(0,0,0), max = new THREE.Color(1,1,1)) {
     super();
 
-    const minHSL = min.getHSL();
-    const maxHSL = max.getHSL();
+    this.min = min.clone();
+    this.max = max.clone();
 
-    this.hRandomizer = new UniformIntRandomizer(Math.floor(255*minHSL.h), Math.floor(255*maxHSL.h), false);
-    this.sRandomizer = new UniformIntRandomizer(Math.floor(255*minHSL.s), Math.floor(255*maxHSL.s), false);
-    this.lRandomizer = new UniformIntRandomizer(Math.floor(255*minHSL.l), Math.floor(255*maxHSL.l), false);
+    min.getHSL(this.min);
+    max.getHSL(this.max);
+
+    this.hRandomizer = new UniformIntRandomizer(Math.floor(255*this.min.h), Math.floor(255*this.max.h), false);
+    this.sRandomizer = new UniformIntRandomizer(Math.floor(255*this.min.s), Math.floor(255*this.max.s), false);
+    this.lRandomizer = new UniformIntRandomizer(Math.floor(255*this.min.l), Math.floor(255*this.max.l), false);
   }
 
   generate() {

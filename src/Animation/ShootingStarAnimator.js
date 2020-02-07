@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 import VoxelAnimator, {REPEAT_INFINITE_TIMES} from './VoxelAnimator';
-import VoxelColourAnimator from './VoxelColourAnimator';
+import VoxelColourAnimator, {INTERPOLATION_SMOOTHER} from './VoxelColourAnimator';
 
 import {VOXEL_EPSILON} from '../MathUtils';
 
@@ -58,6 +58,7 @@ class ShootingStarAnimator extends VoxelAnimator {
         colourEnd: {r:0, g:0, b:0},
         startTimeSecs: 0.0,
         endTimeSecs: fadeTimeSecs,
+        interpolation: INTERPOLATION_SMOOTHER,
       }),
     };
     this.currAnimatorMap.push(animatorObj);
@@ -94,7 +95,8 @@ class ShootingStarAnimator extends VoxelAnimator {
       const velocityRay = new THREE.Ray(this.currPosition, nVelocity);
       const voxelsBox = this.voxels.voxelDisplayBox();
 
-      if (velocityRay.intersectBox(voxelsBox) === null) {
+      const target = new THREE.Vector3();
+      if (velocityRay.intersectBox(voxelsBox, target) === null) {
         // This loop has finished... check to see if there are repeats
         this.incrementPlayCounter();
         if (this.repeat !== REPEAT_INFINITE_TIMES && this.getPlayCounter() >= this.repeat) {

@@ -4,11 +4,16 @@ import VoxelAnimator, {REPEAT_INFINITE_TIMES} from './VoxelAnimator';
 export const COLOUR_INTERPOLATION_HSL = 0;
 export const COLOUR_INTERPOLATION_RGB = 1;
 
+export const INTERPOLATION_LERP = 0;
+export const INTERPOLATION_SMOOTH = 1;
+export const INTERPOLATION_SMOOTHER = 2;
+
 export const voxelColourAnimatorDefaultConfig = {
   voxelPositions: [{x:0, y:0, z:0}],
   colourStart: {r:0, g:0, b:0},
   colourEnd: {r:1, g:1, b:1},
   colourInterpolationType: COLOUR_INTERPOLATION_HSL,
+  interpolation: INTERPOLATION_LERP,
   startTimeSecs: 0.0,
   endTimeSecs: 10.0,
   repeat: 0,
@@ -38,20 +43,34 @@ class VoxelColourAnimator extends VoxelAnimator {
   animate(dt) {
     super.animate(dt);
 
-    const {startTimeSecs, endTimeSecs, colourInterpolationType} = this.config;
+    const {startTimeSecs, endTimeSecs, colourInterpolationType, interpolation} = this.config;
 
     let dtRemaining = dt;
     if (this.currTime >= startTimeSecs) {
-      const lerpAlpha = (this.currTime - startTimeSecs) / (endTimeSecs - startTimeSecs);
+      
+      let interpolateAlpha = 0;
+      switch (interpolation) {
+        default:
+        case INTERPOLATION_LERP:
+          interpolateAlpha = (this.currTime - startTimeSecs) / (endTimeSecs - startTimeSecs);
+          break;
+        case INTERPOLATION_SMOOTH:
+          interpolateAlpha = THREE.MathUtils.smoothstep(this.currTime, startTimeSecs, endTimeSecs);
+          break;
+        case INTERPOLATION_SMOOTHER:
+          interpolateAlpha = THREE.MathUtils.smootherstep(this.currTime, startTimeSecs, endTimeSecs);
+          break;
+      }
+      
       const currColour = this.colourStart.clone();
       
       switch (colourInterpolationType) {
         default:
         case COLOUR_INTERPOLATION_HSL:
-          currColour.lerpHSL(this.colourEnd, lerpAlpha);
+          currColour.lerpHSL(this.colourEnd, interpolateAlpha);
           break;
         case COLOUR_INTERPOLATION_RGB:
-          currColour.lerp(this.colourEnd, lerpAlpha);
+          currColour.lerp(this.colourEnd, interpolateAlpha);
           break;
       }
 
