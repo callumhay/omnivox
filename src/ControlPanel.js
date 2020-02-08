@@ -14,6 +14,13 @@ const ROUTINE_TYPES = [
   ROUTINE_TYPE_STAR_SHOWER,
 ];
 
+const VOXEL_COLOUR_SHAPE_TYPE_ALL = "All";
+const VOXEL_COLOUR_SHAPE_TYPE_SPHERE = "Sphere";
+const VOXEL_COLOUR_SHAPE_TYPES = [
+  VOXEL_COLOUR_SHAPE_TYPE_ALL,
+  VOXEL_COLOUR_SHAPE_TYPE_SPHERE,
+];
+
 const THREEColorToGuiColor = (c) => {
   return [parseInt(c.r*255), parseInt(c.g*255), parseInt(c.b*255)];
 }
@@ -26,10 +33,9 @@ class ControlPanel {
     this.gui = new dat.GUI({preset:'Default'});
     this.voxelDisplay = voxelDisplay;
 
+    const halfVoxelDisplayUnits = (this.voxelDisplay.voxelGridSizeInUnits()-this.voxelDisplay.voxelSizeInUnits())/2;
+    
     this.colourAnimator = new VoxelColourAnimator(voxelDisplay);
-    this.colourAnimator.setConfig({...this.colourAnimator.config,
-      voxelPositions: voxelDisplay.voxelIndexList(),
-    });
     this.shootingStarAnimator = new ShootingStarAnimator(voxelDisplay);
     this.starShowerAnimator = new ShootingStarShowerAnimator(voxelDisplay);
 
@@ -42,6 +48,8 @@ class ControlPanel {
     this.settings = {
       routine: ROUTINE_TYPE_VOXEL_COLOUR,
       voxelColourSettings: {...this.colourAnimator.config,
+        shapeType: VOXEL_COLOUR_SHAPE_TYPE_ALL,
+        sphereProperties: {center: {x:halfVoxelDisplayUnits, y:halfVoxelDisplayUnits, z:halfVoxelDisplayUnits}, radius:halfVoxelDisplayUnits},
         colourStart: THREEColorToGuiColor(this.colourAnimator.config.colourStart),
         colourEnd: THREEColorToGuiColor(this.colourAnimator.config.colourEnd),
         reset: () => { this.colourAnimator.reset(); },
@@ -79,11 +87,14 @@ class ControlPanel {
     
 
     this.currFolder = null;
+    this.shapeSettingsFolder = null;
     this.currAnimator = this.colourAnimator;
 
     this.gui.remember(this.settings);
     
     this.gui.remember(this.settings.voxelColourSettings);
+    this.gui.remember(this.settings.voxelColourSettings.sphereProperties);
+    this.gui.remember(this.settings.voxelColourSettings.sphereProperties.center);
 
     this.gui.remember(this.settings.shootingStarSettings);
     this.gui.remember(this.settings.shootingStarSettings.startPosition);
@@ -94,13 +105,13 @@ class ControlPanel {
     this.gui.remember(this.settings.starShowerSettings.maxSpawnPos);
     this.gui.remember(this.settings.starShowerSettings.direction);
 
-    const routineTypesController = this.gui.add(this.settings, 'routine', ROUTINE_TYPES);
-    routineTypesController.onChange((value) => {
+    this.gui.add(this.settings, 'routine', ROUTINE_TYPES).onChange((value) => {
 
       // Clear the display and remove any GUI elements from before
       this.voxelDisplay.clearRGB(0,0,0);
       if (this.currFolder) {
         this.gui.removeFolder(this.currFolder);
+        this.currFolder = null;
       }
 
       switch (value) {
@@ -120,9 +131,7 @@ class ControlPanel {
           break;
       }
       this.currAnimator.reset();
-    });
-
-    routineTypesController.setValue(this.settings.routine);
+    }).setValue(this.settings.routine);
 
     this.gui.open();
   }
@@ -131,7 +140,7 @@ class ControlPanel {
     const {voxelColourSettings} = this.settings;
   
     const folder = this.gui.addFolder("Colour Change Controls");
-
+   
     folder.add(voxelColourSettings, 'colourInterpolationType', COLOUR_INTERPOLATION_TYPES).onChange((value) => {
       this.colourAnimator.setConfig({...this.colourAnimator.config, colourInterpolationType:value});
     }).setValue(voxelColourSettings.colourInterpolationType);
@@ -157,6 +166,55 @@ class ControlPanel {
     }).setValue(voxelColourSettings.endTimeSecs);
     
     folder.add(voxelColourSettings, 'reset');
+
+    folder.add(voxelColourSettings, 'shapeType', VOXEL_COLOUR_SHAPE_TYPES).onChange((value) => {
+      if (this.shapeSettingsFolder) {
+        folder.removeFolder(this.shapeSettingsFolder);
+        this.shapeSettingsFolder = null;
+      }
+      switch (value) {
+        case VOXEL_COLOUR_SHAPE_TYPE_ALL:
+          this.voxelDisplay.clearRGB(0,0,0);
+          this.colourAnimator.setConfig({...this.colourAnimator.config,
+            voxelPositions: this.voxelDisplay.voxelIndexList(),
+          });
+          break;
+        case VOXEL_COLOUR_SHAPE_TYPE_SPHERE:
+          this.shapeSettingsFolder = folder.addFolder("Sphere Properties");
+          this.shapeSettingsFolder.add(voxelColourSettings.sphereProperties, 'radius', 0.5, this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+            this.voxelDisplay.clearRGB(0,0,0);
+            this.colourAnimator.setConfig({...this.colourAnimator.config,
+              voxelPositions: this.voxelDisplay.voxelSphereList(new THREE.Vector3(voxelColourSettings.sphereProperties.center.x,voxelColourSettings.sphereProperties.center.y,voxelColourSettings.sphereProperties.center.z), value, false),
+            });
+          }).setValue(voxelColourSettings.sphereProperties.radius);
+
+          const onChangeCenter = (value, component) => {
+            this.voxelDisplay.clearRGB(0,0,0);
+            const newCenter = new THREE.Vector3(voxelColourSettings.sphereProperties.center.x,voxelColourSettings.sphereProperties.center.y,voxelColourSettings.sphereProperties.center.z);
+            newCenter[component] = value;
+            this.colourAnimator.setConfig({...this.colourAnimator.config,
+              voxelPositions: this.voxelDisplay.voxelSphereList(newCenter, voxelColourSettings.sphereProperties.radius, false),
+            });
+          };
+          const centerFolder = this.shapeSettingsFolder.addFolder("Center");
+          centerFolder.add(voxelColourSettings.sphereProperties.center, 'x', -this.voxelDisplay.voxelGridSizeInUnits(), this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+            onChangeCenter(value, 'x');
+          }).setValue(voxelColourSettings.sphereProperties.center.x);
+          centerFolder.add(voxelColourSettings.sphereProperties.center, 'y', -this.voxelDisplay.voxelGridSizeInUnits(), this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+            onChangeCenter(value, 'y');
+          }).setValue(voxelColourSettings.sphereProperties.center.y);
+          centerFolder.add(voxelColourSettings.sphereProperties.center, 'z', -this.voxelDisplay.voxelGridSizeInUnits(), this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+            onChangeCenter(value, 'z');
+          }).setValue(voxelColourSettings.sphereProperties.center.z);
+
+          this.shapeSettingsFolder.open();
+
+          break;
+        default:
+          break;
+      }
+    }).setValue(voxelColourSettings.shapeType);
+
 
     folder.open();
   

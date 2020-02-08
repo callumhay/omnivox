@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { VOXEL_EPSILON } from './MathUtils';
 
 const voxelUnitSize = 1.0;
 const halfVoxelUnitSize = voxelUnitSize / 2.0;
@@ -257,6 +258,46 @@ class VoxelDisplay {
 		}
 
 		this.drawPoint(currentPoint, colour);
+  }
+
+  voxelSphereList(center = new THREE.Vector3(0,0,0), radius=1, fill=false) {
+    // Create a bounding box for the sphere: 
+    // Centered at the given center with a half width/height/depth of the given radius
+    const sphereBounds = new THREE.Sphere(center, radius);
+    const sphereBoundingBox = new THREE.Box3(center.clone().subScalar(radius), center.clone().addScalar(radius));
+
+    const VOXEL_ERR_UNITS = this.voxelSizeInUnits() / (2.0 + VOXEL_EPSILON);
+
+    // Now we go through all the voxels in the bounding box and fill in the appropriate voxels
+    const voxelPts = [];
+    for (let x = sphereBoundingBox.min.x; x <= sphereBoundingBox.max.x; x++) {
+      for (let y = sphereBoundingBox.min.y; y <= sphereBoundingBox.max.y; y++) {
+        for (let z = sphereBoundingBox.min.z; z <= sphereBoundingBox.max.z; z++) {
+          // Check whether the current voxel is inside the radius of the sphere
+          const currPt = new THREE.Vector3(x,y,z);
+          const distToCurrPt = sphereBounds.distanceToPoint(currPt);
+          if (fill) {
+            if (distToCurrPt < VOXEL_ERR_UNITS) {
+              voxelPts.push(currPt);
+            }
+          }
+          else {
+            if (Math.abs(distToCurrPt) < VOXEL_ERR_UNITS) {
+              voxelPts.push(currPt);
+            }
+          }
+        }
+      }
+    }
+
+    return voxelPts;
+  }
+
+  drawSphere(center, radius, colour, fill=false) {
+    const spherePts = this.getSphereVoxelPoints(center, radius, fill);
+    spherePts.forEach((pt) => {
+      this.drawPoint(pt, colour);
+    });
   }
 
 }
