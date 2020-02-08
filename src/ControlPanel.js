@@ -49,7 +49,7 @@ class ControlPanel {
       routine: ROUTINE_TYPE_VOXEL_COLOUR,
       voxelColourSettings: {...this.colourAnimator.config,
         shapeType: VOXEL_COLOUR_SHAPE_TYPE_ALL,
-        sphereProperties: {center: {x:halfVoxelDisplayUnits, y:halfVoxelDisplayUnits, z:halfVoxelDisplayUnits}, radius:halfVoxelDisplayUnits},
+        sphereProperties: {center: {x:halfVoxelDisplayUnits, y:halfVoxelDisplayUnits, z:halfVoxelDisplayUnits}, radius:halfVoxelDisplayUnits, fill:false},
         colourStart: THREEColorToGuiColor(this.colourAnimator.config.colourStart),
         colourEnd: THREEColorToGuiColor(this.colourAnimator.config.colourEnd),
         reset: () => { this.colourAnimator.reset(); },
@@ -112,6 +112,7 @@ class ControlPanel {
       if (this.currFolder) {
         this.gui.removeFolder(this.currFolder);
         this.currFolder = null;
+        this.shapeSettingsFolder = null;
       }
 
       switch (value) {
@@ -181,10 +182,28 @@ class ControlPanel {
           break;
         case VOXEL_COLOUR_SHAPE_TYPE_SPHERE:
           this.shapeSettingsFolder = folder.addFolder("Sphere Properties");
+          this.shapeSettingsFolder.add(voxelColourSettings.sphereProperties, 'fill').onChange((value) => {
+            this.voxelDisplay.clearRGB(0,0,0);
+            this.colourAnimator.setConfig({...this.colourAnimator.config,
+              voxelPositions: this.voxelDisplay.voxelSphereList(
+                new THREE.Vector3(
+                  voxelColourSettings.sphereProperties.center.x,
+                  voxelColourSettings.sphereProperties.center.y,
+                  voxelColourSettings.sphereProperties.center.z
+                ), voxelColourSettings.sphereProperties.radius, value 
+              ),
+            });
+          }).setValue(voxelColourSettings.sphereProperties.fill);
           this.shapeSettingsFolder.add(voxelColourSettings.sphereProperties, 'radius', 0.5, this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
             this.voxelDisplay.clearRGB(0,0,0);
             this.colourAnimator.setConfig({...this.colourAnimator.config,
-              voxelPositions: this.voxelDisplay.voxelSphereList(new THREE.Vector3(voxelColourSettings.sphereProperties.center.x,voxelColourSettings.sphereProperties.center.y,voxelColourSettings.sphereProperties.center.z), value, false),
+              voxelPositions: this.voxelDisplay.voxelSphereList(
+                new THREE.Vector3(
+                  voxelColourSettings.sphereProperties.center.x,
+                  voxelColourSettings.sphereProperties.center.y,
+                  voxelColourSettings.sphereProperties.center.z
+                ), value, voxelColourSettings.sphereProperties.fill
+              ),
             });
           }).setValue(voxelColourSettings.sphereProperties.radius);
 
@@ -193,7 +212,7 @@ class ControlPanel {
             const newCenter = new THREE.Vector3(voxelColourSettings.sphereProperties.center.x,voxelColourSettings.sphereProperties.center.y,voxelColourSettings.sphereProperties.center.z);
             newCenter[component] = value;
             this.colourAnimator.setConfig({...this.colourAnimator.config,
-              voxelPositions: this.voxelDisplay.voxelSphereList(newCenter, voxelColourSettings.sphereProperties.radius, false),
+              voxelPositions: this.voxelDisplay.voxelSphereList(newCenter, voxelColourSettings.sphereProperties.radius, voxelColourSettings.sphereProperties.fill),
             });
           };
           const centerFolder = this.shapeSettingsFolder.addFolder("Center");

@@ -260,6 +260,34 @@ class VoxelDisplay {
 		this.drawPoint(currentPoint, colour);
   }
 
+  voxelBoxList(minPt = new THREE.Vector3(0,0,0), maxPt = new THREE.Vector3(1,1,1), fill=false) {
+    const voxelPts = [];
+    if (fill) {
+      for (let x = minPt.x; x <= maxPt.x; x++) {
+        for (let y = minPt.y; y <= maxPt.y; y++) {
+          for (let z = minPt.z; z <= maxPt.z; z++) {
+            voxelPts.push(new THREE.Vector3(x,y,z));
+          }
+        }
+      }
+    }
+    else {
+      // Not filling the box... just go around the outside of it
+      for (let x = minPt.x; x <= maxPt.x; x += (maxPt.x-minPt.x)) {
+        for (let y = minPt.y; y <= maxPt.y; y += (maxPt.y-minPt.y)) {
+          for (let z = minPt.z; z <= maxPt.z; z += (maxPt.z-minPt.z)) {
+            voxelPts.push(new THREE.Vector3(x,y,z));
+          }
+        }
+      }
+    }
+    return voxelPts;
+  }
+
+  drawBox(minPt, maxPt, colour, fill=false) {
+
+  }
+
   voxelSphereList(center = new THREE.Vector3(0,0,0), radius=1, fill=false) {
     // Create a bounding box for the sphere: 
     // Centered at the given center with a half width/height/depth of the given radius
@@ -268,7 +296,7 @@ class VoxelDisplay {
 
     const VOXEL_ERR_UNITS = this.voxelSizeInUnits() / (2.0 + VOXEL_EPSILON);
 
-    // Now we go through all the voxels in the bounding box and fill in the appropriate voxels
+    // Now we go through all the voxels in the bounding box and build a point list
     const voxelPts = [];
     for (let x = sphereBoundingBox.min.x; x <= sphereBoundingBox.max.x; x++) {
       for (let y = sphereBoundingBox.min.y; y <= sphereBoundingBox.max.y; y++) {
