@@ -8,7 +8,7 @@ export class Randomizer {
   generate() {
   }
   static getRandomFloat(min, max) {
-    return min + Math.random() * (max - min);
+    return THREE.MathUtils.randFloat(min, max);
   }
   static getRandomInt(min, max) {
     min = Math.ceil(min);
@@ -131,15 +131,35 @@ export class ColourRandomizer extends Randomizer {
   constructor(min = new THREE.Color(0,0,0), max = new THREE.Color(1,1,1)) {
     super();
 
-    this.min = min.clone();
-    this.max = max.clone();
+    let _min = min.clone();
+    let _max = max.clone();
+    
+    this.getMin = () => (_min);
+    this.setMin = (m) => { m.getHSL(_min); };
+    this.getMax = () => (_max);
+    this.setMax = (m) => { m.getHSL(_max); };
 
-    min.getHSL(this.min);
-    max.getHSL(this.max);
+    this.setMin(min);
+    this.setMax(max);
 
-    this.hRandomizer = new UniformIntRandomizer(Math.floor(255*this.min.h), Math.floor(255*this.max.h), false);
-    this.sRandomizer = new UniformIntRandomizer(Math.floor(255*this.min.s), Math.floor(255*this.max.s), false);
-    this.lRandomizer = new UniformIntRandomizer(Math.floor(255*this.min.l), Math.floor(255*this.max.l), false);
+    this.setRandomizers = (min, max) => {
+      this.hRandomizer = new UniformIntRandomizer(Math.floor(255*min.h), Math.floor(255*max.h), false);
+      this.sRandomizer = new UniformIntRandomizer(Math.floor(255*min.s), Math.floor(255*max.s), false);
+      this.lRandomizer = new UniformIntRandomizer(Math.floor(255*min.l), Math.floor(255*max.l), false);
+    }
+    this.setRandomizers(_min, _max);
+  }
+
+  get min() { return this.getMin(); }
+  get max() { return this.getMax(); }
+
+  set min(min) {
+    this.setMin(min);
+    this.setRandomizers(this.getMin(), this.getMax())
+  }
+  set max(max) {
+    this.setMax(max);
+    this.setRandomizers(this.getMin(), this.getMax());
   }
 
   generate() {

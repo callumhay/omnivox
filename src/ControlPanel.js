@@ -1,7 +1,7 @@
 import * as dat from 'dat.gui';
 import * as THREE from 'three';
 
-import VoxelColourAnimator from './Animation/VoxelColourAnimator';
+import VoxelColourAnimator, {COLOUR_INTERPOLATION_TYPES, INTERPOLATION_TYPES} from './Animation/VoxelColourAnimator';
 import ShootingStarAnimator from './Animation/ShootingStarAnimator';
 import ShootingStarShowerAnimator from './Animation/ShootingStarShowerAnimator';
 
@@ -23,7 +23,7 @@ const GuiColorToTHREEColor = (c) => {
 
 class ControlPanel {
   constructor(voxelDisplay) {
-    this.gui = new dat.GUI();
+    this.gui = new dat.GUI({preset:'Default'});
     this.voxelDisplay = voxelDisplay;
 
     this.colourAnimator = new VoxelColourAnimator(voxelDisplay);
@@ -33,19 +33,68 @@ class ControlPanel {
     this.shootingStarAnimator = new ShootingStarAnimator(voxelDisplay);
     this.starShowerAnimator = new ShootingStarShowerAnimator(voxelDisplay);
 
+    const velocity = this.shootingStarAnimator.config.velocity;
+    const currVel = new THREE.Vector3(velocity.x, velocity.y, velocity.z);
+    const nCurrVel = currVel.clone().normalize();
+    const startPos = this.shootingStarAnimator.config.startPosition;
+    const starShowerConfig = this.starShowerAnimator.config;
+
     this.settings = {
-      routineTypes: '',
+      routine: ROUTINE_TYPE_VOXEL_COLOUR,
+      voxelColourSettings: {...this.colourAnimator.config,
+        colourStart: THREEColorToGuiColor(this.colourAnimator.config.colourStart),
+        colourEnd: THREEColorToGuiColor(this.colourAnimator.config.colourEnd),
+        reset: () => { this.colourAnimator.reset(); },
+      },
+
+      shootingStarSettings: {...this.shootingStarAnimator.config,
+        colour: THREEColorToGuiColor(this.shootingStarAnimator.config.colour),
+        startPosition: {x: startPos.x, y: startPos.y, z: startPos.z},
+        speed: currVel.length(),
+        direction: {x: nCurrVel.x, y: nCurrVel.y, z: nCurrVel.z},
+        fadeTime: this.shootingStarAnimator.config.fadeTimeSecs,
+        repeat: this.shootingStarAnimator.config.repeat,
+        reset: () => { 
+          this.shootingStarAnimator.reset();
+          this.voxelDisplay.clearRGB(0,0,0);
+        },
+      },
+
+      starShowerSettings: {
+        minSpawnPos: {x: starShowerConfig.positionRandomizer.min.x, y: starShowerConfig.positionRandomizer.min.y, z: starShowerConfig.positionRandomizer.min.z},
+        maxSpawnPos: {x: starShowerConfig.positionRandomizer.max.x, y: starShowerConfig.positionRandomizer.max.y, z: starShowerConfig.positionRandomizer.max.z},
+        direction: {x: starShowerConfig.directionRandomizer.baseDirection.x, y: starShowerConfig.directionRandomizer.baseDirection.y, z: starShowerConfig.directionRandomizer.baseDirection.z},
+        directionVariance: starShowerConfig.directionRandomizer.radAngle, // [0, PI]
+        speedMin: starShowerConfig.speedRandomizer.min,
+        speedMax: starShowerConfig.speedRandomizer.max,
+        spawnRate: starShowerConfig.spawnRate,
+        colourMin: THREEColorToGuiColor(starShowerConfig.colourRandomizer.min), 
+        colourMax: THREEColorToGuiColor(starShowerConfig.colourRandomizer.max), 
+        reset: () => { 
+          this.starShowerAnimator.reset();
+          this.voxelDisplay.clearRGB(0,0,0);
+        },
+      },
     };
+    
 
     this.currFolder = null;
     this.currAnimator = this.colourAnimator;
 
-    this.setupControlPanel();
-  }
+    this.gui.remember(this.settings);
+    
+    this.gui.remember(this.settings.voxelColourSettings);
 
-  setupControlPanel() {
+    this.gui.remember(this.settings.shootingStarSettings);
+    this.gui.remember(this.settings.shootingStarSettings.startPosition);
+    this.gui.remember(this.settings.shootingStarSettings.direction);
 
-    const routineTypesController = this.gui.add(this.settings, 'routineTypes', ROUTINE_TYPES);
+    this.gui.remember(this.settings.starShowerSettings);
+    this.gui.remember(this.settings.starShowerSettings.minSpawnPos);
+    this.gui.remember(this.settings.starShowerSettings.maxSpawnPos);
+    this.gui.remember(this.settings.starShowerSettings.direction);
+
+    const routineTypesController = this.gui.add(this.settings, 'routine', ROUTINE_TYPES);
     routineTypesController.onChange((value) => {
 
       // Clear the display and remove any GUI elements from before
@@ -70,76 +119,73 @@ class ControlPanel {
         default:
           break;
       }
+      this.currAnimator.reset();
     });
-    routineTypesController.setValue(ROUTINE_TYPE_VOXEL_COLOUR);
-  
+
+    routineTypesController.setValue(this.settings.routine);
+
     this.gui.open();
   }
 
   buildVoxelColourControls() {
-    const voxelColourSettings = {...this.colourAnimator.config,
-      colourStart: THREEColorToGuiColor(this.colourAnimator.config.colourStart),
-      colourEnd: THREEColorToGuiColor(this.colourAnimator.config.colourEnd),
-      reset: () => { this.colourAnimator.reset(); },
-    };
+    const {voxelColourSettings} = this.settings;
   
     const folder = this.gui.addFolder("Colour Change Controls");
+
+    folder.add(voxelColourSettings, 'colourInterpolationType', COLOUR_INTERPOLATION_TYPES).onChange((value) => {
+      this.colourAnimator.setConfig({...this.colourAnimator.config, colourInterpolationType:value});
+    }).setValue(voxelColourSettings.colourInterpolationType);
+    
+    folder.add(voxelColourSettings, 'interpolationType', INTERPOLATION_TYPES).onChange((value) => {
+      this.colourAnimator.setConfig({...this.colourAnimator.config, interpolationType:value});
+    }).setValue(voxelColourSettings.interpolationType);
+
     folder.addColor(voxelColourSettings, 'colourStart').onChange((value) => {
       this.colourAnimator.setConfig({...this.colourAnimator.config, colourStart:GuiColorToTHREEColor(value)});
-    });
+    }).setValue(voxelColourSettings.colourStart);
+    
     folder.addColor(voxelColourSettings, 'colourEnd').onChange((value) => {
       this.colourAnimator.setConfig({...this.colourAnimator.config, colourEnd:GuiColorToTHREEColor(value)});
-    });
+    }).setValue(voxelColourSettings.colourEnd);
+    
     folder.add(voxelColourSettings, 'startTimeSecs', 0.0, 30.0, 0.1).onChange((value) => {
       this.colourAnimator.setConfig({...this.colourAnimator.config, startTimeSecs:value});
-    });
+    }).setValue(voxelColourSettings.startTimeSecs);
+    
     folder.add(voxelColourSettings, 'endTimeSecs', 0.0, 30.0, 0.1).onChange((value) => {
       this.colourAnimator.setConfig({...this.colourAnimator.config, endTimeSecs:value});
-    });
+    }).setValue(voxelColourSettings.endTimeSecs);
+    
     folder.add(voxelColourSettings, 'reset');
+
     folder.open();
   
     return folder;
   }
 
   buildShootingStarAnimatorControls() {
-    const velocity = this.shootingStarAnimator.config.velocity;
-    const currVel = new THREE.Vector3(velocity.x, velocity.y, velocity.z);
-    const nCurrVel = currVel.clone().normalize();
-    const startPos = this.shootingStarAnimator.config.startPosition;
-
-    const shootingStarSettings = {...this.shootingStarAnimator.config,
-      colour: THREEColorToGuiColor(this.shootingStarAnimator.config.colour),
-      startPosition: {x: startPos.x, y: startPos.y, z: startPos.z},
-      speed: currVel.length(),
-      direction: {x: nCurrVel.x, y: nCurrVel.y, z: nCurrVel.z},
-      fadeTime: this.shootingStarAnimator.config.fadeTimeSecs,
-      repeat: this.shootingStarAnimator.config.repeat,
-      reset: () => { 
-        this.shootingStarAnimator.reset();
-        this.voxelDisplay.clearRGB(0,0,0);
-      },
-    };
+    const {shootingStarSettings} = this.settings;
 
     const folder = this.gui.addFolder("Shooting Star Controls");
     folder.add(shootingStarSettings, 'repeat', -1, 10, 1).onChange((value) => {
       this.shootingStarAnimator.setConfig({...this.shootingStarAnimator.config, repeat:value});
-    });
+    }).setValue(shootingStarSettings.repeat);
+
     folder.addColor(shootingStarSettings, 'colour').onChange((value) => {
       this.shootingStarAnimator.setConfig({...this.shootingStarAnimator.config, colour:GuiColorToTHREEColor(value)});
-    });
+    }).setValue(shootingStarSettings.colour);
+
     folder.add(shootingStarSettings, 'fadeTime', 0.1, 10.0, 0.1).onChange((value) => {
       this.shootingStarAnimator.setConfig({...this.shootingStarAnimator.config, fadeTimeSecs: value});
-    });
-    folder.add(shootingStarSettings, 'speed', -10.0, 10.0, 0.5).onChange((value) => {
+    }).setValue(shootingStarSettings.fadeTime);
 
+    folder.add(shootingStarSettings, 'speed', -10.0, 10.0, 0.5).onChange((value) => {
       const currDir = shootingStarSettings.direction;
       const currVel = new THREE.Vector3(currDir.x, currDir.y, currDir.z).multiplyScalar(shootingStarSettings.speed);
-
       this.shootingStarAnimator.setConfig({...this.shootingStarAnimator.config,
         velocity: currVel,
       });
-    });
+    }).setValue(shootingStarSettings.speed);
     
     const directionFolder = folder.addFolder("Direction");
     const onDirectionChange = (value, component) => {
@@ -154,13 +200,13 @@ class ControlPanel {
 
     directionFolder.add(shootingStarSettings.direction, 'x', 0, 1, 0.1).onChange((value) => {
       onDirectionChange(value, 'x');
-    });
+    }).setValue(shootingStarSettings.direction.x);
     directionFolder.add(shootingStarSettings.direction, 'y', 0, 1, 0.1).onChange((value) => {
       onDirectionChange(value, 'y');
-    });
+    }).setValue(shootingStarSettings.direction.y);
     directionFolder.add(shootingStarSettings.direction, 'z', 0, 1, 0.1).onChange((value) => {
       onDirectionChange(value, 'z');
-    });
+    }).setValue(shootingStarSettings.direction.z);
     directionFolder.open();
 
     const gridSize = this.voxelDisplay.voxelGridSizeInUnits() / this.voxelDisplay.voxelSizeInUnits();
@@ -174,13 +220,13 @@ class ControlPanel {
     };
     startPosFolder.add(shootingStarSettings.startPosition, 'x', 0, gridSize-1, 1).onChange((value) => {
       onStartPositionChange(value, 'x');
-    });
+    }).setValue(shootingStarSettings.startPosition.x);
     startPosFolder.add(shootingStarSettings.startPosition, 'y', 0, gridSize-1, 1).onChange((value) => {
       onStartPositionChange(value, 'y');
-    });
+    }).setValue(shootingStarSettings.startPosition.y);
     startPosFolder.add(shootingStarSettings.startPosition, 'z', 0, gridSize-1, 1).onChange((value) => {
       onStartPositionChange(value, 'z');
-    });
+    }).setValue(shootingStarSettings.startPosition.z);
     startPosFolder.open();
 
     folder.add(shootingStarSettings, 'reset');
@@ -190,47 +236,68 @@ class ControlPanel {
   }
 
   buildStarShowerAnimatorControls() {
-    const currConfig = this.starShowerAnimator.config;
-    const starShowerSettings = {
-      minSpawnPos: {x: currConfig.positionRandomizer.min.x, y: currConfig.positionRandomizer.min.y, z: currConfig.positionRandomizer.min.z},
-      maxSpawnPos: {x: currConfig.positionRandomizer.max.x, y: currConfig.positionRandomizer.max.y, z: currConfig.positionRandomizer.max.z},
-      direction: {x: currConfig.directionRandomizer.baseDirection.x, y: currConfig.directionRandomizer.baseDirection.y, z: currConfig.directionRandomizer.baseDirection.z},
-      directionVariance: currConfig.directionRandomizer.radAngle, // [0, PI]
-      speedMin: currConfig.speedRandomizer.min,
-      speedMax: currConfig.speedRandomizer.max,
-      spawnRate: currConfig.spawnRate,
-      colourMin: currConfig.colourRandomizer.min, // HSL
-      colourMax: currConfig.colourRandomizer.max, // HSL
-      reset: () => { 
-        this.starShowerAnimator.reset();
-        this.voxelDisplay.clearRGB(0,0,0);
-      },
-    };
+    const {starShowerSettings} = this.settings;
 
     const folder = this.gui.addFolder("Star Shower Controls");
     folder.add(starShowerSettings, 'spawnRate', 0.25, 50.0, 0.25).onChange((value) => {
       this.starShowerAnimator.setConfig({...this.starShowerAnimator.config, 
         spawnRate: value
       });
-    });
+    }).setValue(starShowerSettings.spawnRate);
+
+    folder.addColor(starShowerSettings, 'colourMin').onChange((value) => {
+      const currRandomizer = this.starShowerAnimator.config.colourRandomizer;
+      currRandomizer.min = GuiColorToTHREEColor(value);
+      this.starShowerAnimator.setConfig(this.starShowerAnimator.config);
+    }).setValue(starShowerSettings.colourMin);
+
+    folder.addColor(starShowerSettings, 'colourMax').onChange((value) => {
+      const currRandomizer = this.starShowerAnimator.config.colourRandomizer;
+      currRandomizer.max = GuiColorToTHREEColor(value);
+      this.starShowerAnimator.setConfig(this.starShowerAnimator.config);
+    }).setValue(starShowerSettings.colourMax);
+
+    const onChangeSpd = (value, component) => {
+      const currRandomizer = this.starShowerAnimator.config.speedRandomizer;
+      currRandomizer[component] = value;
+      this.starShowerAnimator.setConfig(this.starShowerAnimator.config);
+    };
+    folder.add(starShowerSettings, 'speedMin', 1, 25.0, 0.5).onChange((value) => {
+      const actualVal = Math.min(value, starShowerSettings.speedMax);
+      onChangeSpd(actualVal, 'min');
+      starShowerSettings.speedMin = actualVal;
+    }).setValue(starShowerSettings.speedMin);
+    folder.add(starShowerSettings, 'speedMax', 1, 25.0, 0.5).onChange((value) => {
+      const actualVal = Math.max(value, starShowerSettings.speedMin);
+      onChangeSpd(actualVal, 'max');
+      starShowerSettings.speedMax = actualVal;
+    }).setValue(starShowerSettings.speedMax);
+
+    folder.add(starShowerSettings, 'directionVariance', 0, Math.PI, Math.PI/16).onChange((value) => {
+      const currRandomizer = this.starShowerAnimator.config.directionRandomizer;
+      currRandomizer.radAngle = value;
+      this.starShowerAnimator.setConfig(this.starShowerAnimator.config);
+    }).setValue(starShowerSettings.directionVariance);
 
     const onChangeDir = (value, component) => {
       const currRandomizer = this.starShowerAnimator.config.directionRandomizer;
+
+      currRandomizer.baseDirection = new THREE.Vector3(starShowerSettings.direction.x, starShowerSettings.direction.y, starShowerSettings.direction.z);
       currRandomizer.baseDirection[component] = value;
       currRandomizer.baseDirection.normalize();
+
       this.starShowerAnimator.setConfig(this.starShowerAnimator.config);
-      starShowerSettings.direction = {x: currRandomizer.baseDirection.x, y: currRandomizer.baseDirection.y, z: currRandomizer.baseDirection.z};
     };
     const dirFolder = folder.addFolder("Direction");
     dirFolder.add(starShowerSettings.direction, 'x', -1, 1, 0.01).onChange((value) => {
       onChangeDir(value, 'x');
-    });
+    }).setValue(starShowerSettings.direction.x);
     dirFolder.add(starShowerSettings.direction, 'y', -1, 1, 0.01).onChange((value) => {
       onChangeDir(value, 'y');
-    });
+    }).setValue(starShowerSettings.direction.y);
     dirFolder.add(starShowerSettings.direction, 'z', -1, 1, 0.01).onChange((value) => {
       onChangeDir(value, 'z');
-    });
+    }).setValue(starShowerSettings.direction.z);
     dirFolder.open();
     
     const onChangePositionMin = (value, component) => {
@@ -253,25 +320,25 @@ class ControlPanel {
     const minPosFolder = posFolder.addFolder("Min");
     minPosFolder.add(starShowerSettings.minSpawnPos, 'x', -positionMax, positionMax, 1).onChange((value) => {
       onChangePositionMin(value, 'x');
-    });
+    }).setValue(starShowerSettings.minSpawnPos.x);
     minPosFolder.add(starShowerSettings.minSpawnPos, 'y', -positionMax, positionMax, 1).onChange((value) => {
       onChangePositionMin(value, 'y');
-    });
+    }).setValue(starShowerSettings.minSpawnPos.y);
     minPosFolder.add(starShowerSettings.minSpawnPos, 'z', -positionMax, positionMax, 1).onChange((value) => {
       onChangePositionMin(value, 'z');
-    });
+    }).setValue(starShowerSettings.minSpawnPos.z);
     minPosFolder.open();
 
     const maxPosFolder = posFolder.addFolder("Max");
     maxPosFolder.add(starShowerSettings.maxSpawnPos, 'x', -positionMax, positionMax, 1).onChange((value) => {
       onChangePositionMax(value, 'x');
-    });
+    }).setValue(starShowerSettings.maxSpawnPos.x);
     maxPosFolder.add(starShowerSettings.maxSpawnPos, 'y', -positionMax, positionMax, 1).onChange((value) => {
       onChangePositionMax(value, 'y');
-    });
+    }).setValue(starShowerSettings.maxSpawnPos.y);
     maxPosFolder.add(starShowerSettings.maxSpawnPos, 'z', -positionMax, positionMax, 1).onChange((value) => {
       onChangePositionMax(value, 'z');
-    });
+    }).setValue(starShowerSettings.maxSpawnPos.z);
 
     maxPosFolder.open();
     posFolder.open();

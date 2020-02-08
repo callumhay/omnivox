@@ -30,10 +30,10 @@ class ShootingStarShowerAnimator extends VoxelAnimator {
   animate(dt) {
 
     // Check whether it's time to spawn a new shooting star
-    if (this.currSpawnTimer >= (1.0 / this.currSpawnRate)) {
+    const spawnTime = (1.0 / this.currSpawnRate);
+    while (this.currSpawnTimer >= spawnTime) {
       this.spawnStar();
-
-      this.currSpawnTimer = 0;
+      this.currSpawnTimer -= spawnTime;
       this.currSpawnCounter++;
       if (this.currSpawnCounter >= this.currSpawnRate) {
         this.currSpawnCounter = 0;
@@ -75,7 +75,7 @@ class ShootingStarShowerAnimator extends VoxelAnimator {
       colour: starColour,
       startPosition: starPos,
       velocity: starDir.multiplyScalar(starSpd),
-      fadeTimeSecs: Math.PI / starSpd,
+      fadeTimeSecs: 1.5*Math.PI / starSpd,
       repeat: 0,
     };
     this.activeShootingStars.push(new ShootingStarAnimator(this.voxels, starConfig));
