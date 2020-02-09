@@ -260,7 +260,7 @@ class VoxelDisplay {
 		this.drawPoint(currentPoint, colour);
   }
 
-  voxelBoxList(minPt = new THREE.Vector3(0,0,0), maxPt = new THREE.Vector3(1,1,1), fill=false) {
+  voxelBoxList(minPt=new THREE.Vector3(0,0,0), maxPt=new THREE.Vector3(1,1,1), fill=false) {
     const voxelPts = [];
     if (fill) {
       for (let x = minPt.x; x <= maxPt.x; x++) {
@@ -274,8 +274,22 @@ class VoxelDisplay {
     else {
       // Not filling the box... just go around the outside of it
       for (let x = minPt.x; x <= maxPt.x; x += (maxPt.x-minPt.x)) {
-        for (let y = minPt.y; y <= maxPt.y; y += (maxPt.y-minPt.y)) {
-          for (let z = minPt.z; z <= maxPt.z; z += (maxPt.z-minPt.z)) {
+        for (let y = minPt.y; y <= maxPt.y; y++) {
+          for (let z = minPt.z; z <= maxPt.z; z++) {
+            voxelPts.push(new THREE.Vector3(x,y,z));
+          }
+        }
+      }
+      for (let y = minPt.y; y <= maxPt.y; y += (maxPt.y-minPt.y)) {
+        for (let x = minPt.x+1; x < maxPt.x; x++) {
+          for (let z = minPt.z; z <= maxPt.z; z++) {
+            voxelPts.push(new THREE.Vector3(x,y,z));
+          }
+        }
+      }
+      for (let z = minPt.z; z <= maxPt.z; z += (maxPt.z-minPt.z)) {
+        for (let x = minPt.x+1; x < maxPt.x; x++) {
+          for (let y = minPt.y+1; y < maxPt.y; y++) {
             voxelPts.push(new THREE.Vector3(x,y,z));
           }
         }
@@ -284,11 +298,14 @@ class VoxelDisplay {
     return voxelPts;
   }
 
-  drawBox(minPt, maxPt, colour, fill=false) {
-
+  drawBox(minPt=new THREE.Vector3(0,0,0), maxPt=new THREE.Vector3(1,1,1), colour=new THREE.Color(1,1,1), fill=false) {
+    const boxPts = this.voxelBoxList(minPt, maxPt, fill);
+    boxPts.forEach((pt) => {
+      this.drawPoint(pt, colour);
+    });
   }
 
-  voxelSphereList(center = new THREE.Vector3(0,0,0), radius=1, fill=false) {
+  voxelSphereList(center=new THREE.Vector3(0,0,0), radius=1, fill=false) {
     // Create a bounding box for the sphere: 
     // Centered at the given center with a half width/height/depth of the given radius
     const sphereBounds = new THREE.Sphere(center, radius);
@@ -321,8 +338,8 @@ class VoxelDisplay {
     return voxelPts;
   }
 
-  drawSphere(center, radius, colour, fill=false) {
-    const spherePts = this.getSphereVoxelPoints(center, radius, fill);
+  drawSphere(center=new THREE.Vector3(0,0,0), radius=1, colour=new THREE.Color(1,1,1), fill=false) {
+    const spherePts = this.voxelSphereList(center, radius, fill);
     spherePts.forEach((pt) => {
       this.drawPoint(pt, colour);
     });

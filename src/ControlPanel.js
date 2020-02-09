@@ -14,11 +14,13 @@ const ROUTINE_TYPES = [
   ROUTINE_TYPE_STAR_SHOWER,
 ];
 
-const VOXEL_COLOUR_SHAPE_TYPE_ALL = "All";
+const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
 const VOXEL_COLOUR_SHAPE_TYPE_SPHERE = "Sphere";
+const VOXEL_COLOUR_SHAPE_TYPE_BOX    = "Box";
 const VOXEL_COLOUR_SHAPE_TYPES = [
   VOXEL_COLOUR_SHAPE_TYPE_ALL,
   VOXEL_COLOUR_SHAPE_TYPE_SPHERE,
+  VOXEL_COLOUR_SHAPE_TYPE_BOX,
 ];
 
 const THREEColorToGuiColor = (c) => {
@@ -50,6 +52,7 @@ class ControlPanel {
       voxelColourSettings: {...this.colourAnimator.config,
         shapeType: VOXEL_COLOUR_SHAPE_TYPE_ALL,
         sphereProperties: {center: {x:halfVoxelDisplayUnits, y:halfVoxelDisplayUnits, z:halfVoxelDisplayUnits}, radius:halfVoxelDisplayUnits, fill:false},
+        boxProperties: {center: {x:halfVoxelDisplayUnits, y:halfVoxelDisplayUnits, z:halfVoxelDisplayUnits}, width:2*halfVoxelDisplayUnits-2, height:2*halfVoxelDisplayUnits-2, depth:2*halfVoxelDisplayUnits-2, fill:false},
         colourStart: THREEColorToGuiColor(this.colourAnimator.config.colourStart),
         colourEnd: THREEColorToGuiColor(this.colourAnimator.config.colourEnd),
         reset: () => { this.colourAnimator.reset(); },
@@ -95,6 +98,8 @@ class ControlPanel {
     this.gui.remember(this.settings.voxelColourSettings);
     this.gui.remember(this.settings.voxelColourSettings.sphereProperties);
     this.gui.remember(this.settings.voxelColourSettings.sphereProperties.center);
+    this.gui.remember(this.settings.voxelColourSettings.boxProperties);
+    this.gui.remember(this.settings.voxelColourSettings.boxProperties.center);
 
     this.gui.remember(this.settings.shootingStarSettings);
     this.gui.remember(this.settings.shootingStarSettings.startPosition);
@@ -174,13 +179,15 @@ class ControlPanel {
         this.shapeSettingsFolder = null;
       }
       switch (value) {
+
         case VOXEL_COLOUR_SHAPE_TYPE_ALL:
           this.voxelDisplay.clearRGB(0,0,0);
           this.colourAnimator.setConfig({...this.colourAnimator.config,
             voxelPositions: this.voxelDisplay.voxelIndexList(),
           });
           break;
-        case VOXEL_COLOUR_SHAPE_TYPE_SPHERE:
+
+        case VOXEL_COLOUR_SHAPE_TYPE_SPHERE: {
           this.shapeSettingsFolder = folder.addFolder("Sphere Properties");
           this.shapeSettingsFolder.add(voxelColourSettings.sphereProperties, 'fill').onChange((value) => {
             this.voxelDisplay.clearRGB(0,0,0);
@@ -207,7 +214,7 @@ class ControlPanel {
             });
           }).setValue(voxelColourSettings.sphereProperties.radius);
 
-          const onChangeCenter = (value, component) => {
+          const onChangeSphereCenter = (value, component) => {
             this.voxelDisplay.clearRGB(0,0,0);
             const newCenter = new THREE.Vector3(voxelColourSettings.sphereProperties.center.x,voxelColourSettings.sphereProperties.center.y,voxelColourSettings.sphereProperties.center.z);
             newCenter[component] = value;
@@ -216,27 +223,93 @@ class ControlPanel {
             });
           };
           const centerFolder = this.shapeSettingsFolder.addFolder("Center");
-          centerFolder.add(voxelColourSettings.sphereProperties.center, 'x', -this.voxelDisplay.voxelGridSizeInUnits(), this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
-            onChangeCenter(value, 'x');
+          centerFolder.add(voxelColourSettings.sphereProperties.center, 'x', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+            onChangeSphereCenter(value, 'x');
           }).setValue(voxelColourSettings.sphereProperties.center.x);
-          centerFolder.add(voxelColourSettings.sphereProperties.center, 'y', -this.voxelDisplay.voxelGridSizeInUnits(), this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
-            onChangeCenter(value, 'y');
+          centerFolder.add(voxelColourSettings.sphereProperties.center, 'y', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+            onChangeSphereCenter(value, 'y');
           }).setValue(voxelColourSettings.sphereProperties.center.y);
-          centerFolder.add(voxelColourSettings.sphereProperties.center, 'z', -this.voxelDisplay.voxelGridSizeInUnits(), this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
-            onChangeCenter(value, 'z');
+          centerFolder.add(voxelColourSettings.sphereProperties.center, 'z', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+            onChangeSphereCenter(value, 'z');
           }).setValue(voxelColourSettings.sphereProperties.center.z);
 
           this.shapeSettingsFolder.open();
-
+          
           break;
+        }
+
+        case VOXEL_COLOUR_SHAPE_TYPE_BOX: {
+
+          const buildBoxPts = (currBoxProperties) => {
+            const halfWidth = currBoxProperties.width/2.0;
+            const halfHeight = currBoxProperties.height/2.0;
+            const halfDepth = currBoxProperties.depth/2.0;
+
+            return this.voxelDisplay.voxelBoxList(
+              new THREE.Vector3(
+                currBoxProperties.center.x-halfWidth,
+                currBoxProperties.center.y-halfHeight,
+                currBoxProperties.center.z-halfDepth
+              ), 
+              new THREE.Vector3(
+                currBoxProperties.center.x+halfWidth,
+                currBoxProperties.center.y+halfHeight,
+                currBoxProperties.center.z+halfDepth,
+              ), currBoxProperties.fill 
+            );
+          };
+
+          const onChangeBasicBoxProperty = (value, property) => {
+            this.voxelDisplay.clearRGB(0,0,0);
+            this.colourAnimator.setConfig({...this.colourAnimator.config, voxelPositions: buildBoxPts({...voxelColourSettings.boxProperties, [property]:value})});
+          };
+          const onChangeBoxCenter = (value, component) => {
+            this.voxelDisplay.clearRGB(0,0,0);
+            const newCenter = new THREE.Vector3(voxelColourSettings.boxProperties.center.x,voxelColourSettings.boxProperties.center.y,voxelColourSettings.boxProperties.center.z);
+            newCenter[component] = value;
+            this.colourAnimator.setConfig({...this.colourAnimator.config,
+              voxelPositions: buildBoxPts({...voxelColourSettings.boxProperties, center:newCenter}),
+            });
+          };
+
+          this.shapeSettingsFolder = folder.addFolder("Box Properties");
+          this.shapeSettingsFolder.add(voxelColourSettings.boxProperties, 'fill').onChange((value) => {
+            onChangeBasicBoxProperty(value, 'fill');
+          }).setValue(voxelColourSettings.boxProperties.fill);
+
+          const dimensionsFolder = this.shapeSettingsFolder.addFolder("Dimensions");
+          dimensionsFolder.add(voxelColourSettings.boxProperties, 'width', 0.5, 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+            onChangeBasicBoxProperty(value, 'width');
+          }).setValue(voxelColourSettings.boxProperties.width);
+          dimensionsFolder.add(voxelColourSettings.boxProperties, 'height', 0.5, 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+            onChangeBasicBoxProperty(value, 'height');
+          }).setValue(voxelColourSettings.boxProperties.height);
+          dimensionsFolder.add(voxelColourSettings.boxProperties, 'depth', 0.5, 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+            onChangeBasicBoxProperty(value, 'depth');
+          }).setValue(voxelColourSettings.boxProperties.depth);
+          dimensionsFolder.open();
+
+          const centerFolder = this.shapeSettingsFolder.addFolder("Center");
+          centerFolder.add(voxelColourSettings.boxProperties.center, 'x', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+            onChangeBoxCenter(value, 'x');
+          }).setValue(voxelColourSettings.boxProperties.center.x);
+          centerFolder.add(voxelColourSettings.boxProperties.center, 'y', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+            onChangeBoxCenter(value, 'y');
+          }).setValue(voxelColourSettings.boxProperties.center.y);
+          centerFolder.add(voxelColourSettings.boxProperties.center, 'z', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+            onChangeBoxCenter(value, 'z');
+          }).setValue(voxelColourSettings.boxProperties.center.z);
+          centerFolder.open();
+          
+          this.shapeSettingsFolder.open();
+          break;
+        }
         default:
           break;
       }
     }).setValue(voxelColourSettings.shapeType);
 
-
     folder.open();
-  
     return folder;
   }
 
