@@ -273,21 +273,21 @@ class VoxelDisplay {
     }
     else {
       // Not filling the box... just go around the outside of it
-      for (let x = minPt.x; x <= maxPt.x; x += (maxPt.x-minPt.x)) {
+      for (let x = minPt.x; x <= maxPt.x; x += Math.floor(maxPt.x-minPt.x)) {
         for (let y = minPt.y; y <= maxPt.y; y++) {
           for (let z = minPt.z; z <= maxPt.z; z++) {
             voxelPts.push(new THREE.Vector3(x,y,z));
           }
         }
       }
-      for (let y = minPt.y; y <= maxPt.y; y += (maxPt.y-minPt.y)) {
+      for (let y = minPt.y; y <= maxPt.y; y += Math.floor(maxPt.y-minPt.y)) {
         for (let x = minPt.x+1; x < maxPt.x; x++) {
           for (let z = minPt.z; z <= maxPt.z; z++) {
             voxelPts.push(new THREE.Vector3(x,y,z));
           }
         }
       }
-      for (let z = minPt.z; z <= maxPt.z; z += (maxPt.z-minPt.z)) {
+      for (let z = minPt.z; z <= maxPt.z; z += Math.floor(maxPt.z-minPt.z)) {
         for (let x = minPt.x+1; x < maxPt.x; x++) {
           for (let y = minPt.y+1; y < maxPt.y; y++) {
             voxelPts.push(new THREE.Vector3(x,y,z));
