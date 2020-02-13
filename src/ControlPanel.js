@@ -4,14 +4,17 @@ import * as THREE from 'three';
 import VoxelColourAnimator, {COLOUR_INTERPOLATION_TYPES, INTERPOLATION_TYPES} from './Animation/VoxelColourAnimator';
 import ShootingStarAnimator from './Animation/ShootingStarAnimator';
 import ShootingStarShowerAnimator from './Animation/ShootingStarShowerAnimator';
+import ShapeWaveAnimator, {shapeWaveAnimatorDefaultConfig} from './Animation/ShapeWaveAnimator';
 
 const ROUTINE_TYPE_VOXEL_COLOUR  = "Colour Change"
 const ROUTINE_TYPE_SHOOTING_STAR = "Shooting Star";
 const ROUTINE_TYPE_STAR_SHOWER   = "Star Shower";
+const ROUTINE_SHAPE_WAVES        = "Shape Waves";
 const ROUTINE_TYPES = [
   ROUTINE_TYPE_VOXEL_COLOUR,
   ROUTINE_TYPE_SHOOTING_STAR,
   ROUTINE_TYPE_STAR_SHOWER,
+  ROUTINE_SHAPE_WAVES,
 ];
 
 const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
@@ -40,6 +43,7 @@ class ControlPanel {
     this.colourAnimator = new VoxelColourAnimator(voxelDisplay);
     this.shootingStarAnimator = new ShootingStarAnimator(voxelDisplay);
     this.starShowerAnimator = new ShootingStarShowerAnimator(voxelDisplay);
+    this.shapeWaveAnimator = new ShapeWaveAnimator(voxelDisplay);
 
     const velocity = this.shootingStarAnimator.config.velocity;
     const currVel = new THREE.Vector3(velocity.x, velocity.y, velocity.z);
@@ -86,6 +90,16 @@ class ControlPanel {
           this.voxelDisplay.clearRGB(0,0,0);
         },
       },
+
+      shapeWaveSettings: {
+        center: {x: shapeWaveAnimatorDefaultConfig.center.x, y: shapeWaveAnimatorDefaultConfig.center.y, z: shapeWaveAnimatorDefaultConfig.center.z },
+        shapeType: shapeWaveAnimatorDefaultConfig.waveShape,
+        waveSpeed: shapeWaveAnimatorDefaultConfig.waveSpeed,
+        reset: () => { 
+          this.shapeWaveAnimator.reset();
+          this.voxelDisplay.clearRGB(0,0,0);
+        },
+      },
     };
     
 
@@ -110,6 +124,9 @@ class ControlPanel {
     this.gui.remember(this.settings.starShowerSettings.maxSpawnPos);
     this.gui.remember(this.settings.starShowerSettings.direction);
 
+    this.gui.remember(this.settings.shapeWaveSettings);
+    this.gui.remember(this.settings.shapeWaveSettings.center);
+
     this.gui.add(this.settings, 'routine', ROUTINE_TYPES).onChange((value) => {
 
       // Clear the display and remove any GUI elements from before
@@ -133,6 +150,9 @@ class ControlPanel {
           this.currFolder = this.buildStarShowerAnimatorControls();
           this.currAnimator = this.starShowerAnimator;
           break;
+        case ROUTINE_SHAPE_WAVES:
+          this.currFolder = this.buildShapeWavesAnimatorControls();
+          this.currAnimator = this.shapeWaveAnimator;
         default:
           break;
       }
@@ -232,6 +252,7 @@ class ControlPanel {
           centerFolder.add(voxelColourSettings.sphereProperties.center, 'z', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
             onChangeSphereCenter(value, 'z');
           }).setValue(voxelColourSettings.sphereProperties.center.z);
+          centerFolder.open();
 
           this.shapeSettingsFolder.open();
           
@@ -494,6 +515,19 @@ class ControlPanel {
     posFolder.open();
 
     folder.add(starShowerSettings, 'reset');
+    folder.open();
+
+    return folder;
+  }
+
+  buildShapeWavesAnimatorControls() {
+    const {shapeWaveSettings} = this.settings;
+
+    const folder = this.gui.addFolder("Shape Wave Controls");
+
+    // TODO
+
+    folder.add(shapeWaveSettings, 'reset');
     folder.open();
 
     return folder;

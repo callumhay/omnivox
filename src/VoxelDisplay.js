@@ -309,7 +309,7 @@ class VoxelDisplay {
     // Create a bounding box for the sphere: 
     // Centered at the given center with a half width/height/depth of the given radius
     const sphereBounds = new THREE.Sphere(center, radius);
-    const sphereBoundingBox = new THREE.Box3(center.clone().subScalar(radius), center.clone().addScalar(radius));
+    const sphereBoundingBox = new THREE.Box3(center.clone().subScalar(radius).floor(), center.clone().addScalar(radius).ceil());
 
     const VOXEL_ERR_UNITS = this.voxelSizeInUnits() / (2.0 + VOXEL_EPSILON);
 
