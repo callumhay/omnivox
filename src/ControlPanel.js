@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import VoxelColourAnimator, {COLOUR_INTERPOLATION_TYPES, INTERPOLATION_TYPES} from './Animation/VoxelColourAnimator';
 import ShootingStarAnimator from './Animation/ShootingStarAnimator';
 import ShootingStarShowerAnimator from './Animation/ShootingStarShowerAnimator';
-import ShapeWaveAnimator, {shapeWaveAnimatorDefaultConfig} from './Animation/ShapeWaveAnimator';
+import ShapeWaveAnimator, {shapeWaveAnimatorDefaultConfig, WAVE_SHAPE_TYPES} from './Animation/ShapeWaveAnimator';
 
 const ROUTINE_TYPE_VOXEL_COLOUR  = "Colour Change"
 const ROUTINE_TYPE_SHOOTING_STAR = "Shooting Star";
@@ -95,6 +95,7 @@ class ControlPanel {
         center: {x: shapeWaveAnimatorDefaultConfig.center.x, y: shapeWaveAnimatorDefaultConfig.center.y, z: shapeWaveAnimatorDefaultConfig.center.z },
         shapeType: shapeWaveAnimatorDefaultConfig.waveShape,
         waveSpeed: shapeWaveAnimatorDefaultConfig.waveSpeed,
+        waveGap: shapeWaveAnimatorDefaultConfig.waveGap,
         reset: () => { 
           this.shapeWaveAnimator.reset();
           this.voxelDisplay.clearRGB(0,0,0);
@@ -525,7 +526,41 @@ class ControlPanel {
 
     const folder = this.gui.addFolder("Shape Wave Controls");
 
-    // TODO
+    folder.add(shapeWaveSettings, 'waveSpeed', 0.5, 25.0, 0.5).onChange((value) => {
+      const currConfig = this.shapeWaveAnimator.config;
+      currConfig.waveSpeed = value;
+      this.shapeWaveAnimator.setConfig(currConfig);
+    }).setValue(shapeWaveSettings.waveSpeed);
+    folder.add(shapeWaveSettings, 'waveGap', 0.0, 25.0, 1).onChange((value) => {
+      const currConfig = this.shapeWaveAnimator.config;
+      currConfig.waveGap = value;
+      this.shapeWaveAnimator.setConfig(currConfig);
+    }).setValue(shapeWaveSettings.waveGap);
+
+
+    folder.add(shapeWaveSettings, 'shapeType', WAVE_SHAPE_TYPES).onChange((value) => {
+      const currConfig = this.shapeWaveAnimator.config;
+      currConfig.waveShape = value;
+      this.shapeWaveAnimator.setConfig(currConfig);
+    }).setValue(shapeWaveSettings.shapeType);
+
+    const onChangeWaveCenter = (value, component) => {
+      const currConfig = this.shapeWaveAnimator.config;
+      currConfig.center[component] = value;
+      this.shapeWaveAnimator.setConfig(currConfig);
+    };
+
+    const centerFolder = folder.addFolder("Center");
+    centerFolder.add(shapeWaveSettings.center, 'x', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+      onChangeWaveCenter(value, 'x');
+    }).setValue(shapeWaveSettings.center.x);
+    centerFolder.add(shapeWaveSettings.center, 'y', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+      onChangeWaveCenter(value, 'y');
+    }).setValue(shapeWaveSettings.center.y);
+    centerFolder.add(shapeWaveSettings.center, 'z', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+      onChangeWaveCenter(value, 'z');
+    }).setValue(shapeWaveSettings.center.z);
+    centerFolder.open();
 
     folder.add(shapeWaveSettings, 'reset');
     folder.open();

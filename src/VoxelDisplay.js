@@ -273,28 +273,49 @@ class VoxelDisplay {
     }
     else {
       // Not filling the box... just go around the outside of it
-      for (let x = minPt.x; x <= maxPt.x; x += Math.floor(maxPt.x-minPt.x)) {
-        for (let y = minPt.y; y <= maxPt.y; y++) {
-          for (let z = minPt.z; z <= maxPt.z; z++) {
+      const floorMinPt = minPt.clone().floor();
+      const ceilMaxPt  = maxPt.clone().ceil();
+
+      let incX = Math.floor(ceilMaxPt.x-floorMinPt.x);
+      if (incX <= 0) {
+        incX = ceilMaxPt.x-floorMinPt.x;
+      }
+
+      for (let x = floorMinPt.x; x <= ceilMaxPt.x; x += incX) {
+        for (let y = floorMinPt.y; y <= ceilMaxPt.y; y++) {
+          for (let z = floorMinPt.z; z <= ceilMaxPt.z; z++) {
             voxelPts.push(new THREE.Vector3(x,y,z));
           }
         }
       }
-      for (let y = minPt.y; y <= maxPt.y; y += Math.floor(maxPt.y-minPt.y)) {
-        for (let x = minPt.x+1; x < maxPt.x; x++) {
-          for (let z = minPt.z; z <= maxPt.z; z++) {
+
+      let incY = Math.floor(ceilMaxPt.y-floorMinPt.y);
+      if (incY <= 0) {
+        incY = ceilMaxPt.y-floorMinPt.y;
+      }
+
+      for (let y = floorMinPt.y; y <= ceilMaxPt.y; y += incY) {
+        for (let x = floorMinPt.x+1; x < ceilMaxPt.x; x++) {
+          for (let z = floorMinPt.z; z <= ceilMaxPt.z; z++) {
             voxelPts.push(new THREE.Vector3(x,y,z));
           }
         }
       }
-      for (let z = minPt.z; z <= maxPt.z; z += Math.floor(maxPt.z-minPt.z)) {
-        for (let x = minPt.x+1; x < maxPt.x; x++) {
-          for (let y = minPt.y+1; y < maxPt.y; y++) {
+
+      let incZ = Math.floor(ceilMaxPt.z-floorMinPt.z);
+      if (incZ <= 0) {
+        incZ = ceilMaxPt.z-floorMinPt.z;
+      }
+
+      for (let z = floorMinPt.z; z <= ceilMaxPt.z; z += incZ) {
+        for (let x = floorMinPt.x+1; x < ceilMaxPt.x; x++) {
+          for (let y = floorMinPt.y+1; y < ceilMaxPt.y; y++) {
             voxelPts.push(new THREE.Vector3(x,y,z));
           }
         }
       }
     }
+
     return voxelPts;
   }
 
