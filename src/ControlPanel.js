@@ -96,6 +96,7 @@ class ControlPanel {
         shapeType: shapeWaveAnimatorDefaultConfig.waveShape,
         waveSpeed: shapeWaveAnimatorDefaultConfig.waveSpeed,
         waveGap: shapeWaveAnimatorDefaultConfig.waveGap,
+        colourPalette: shapeWaveAnimatorDefaultConfig.colourPalette,
         reset: () => { 
           this.shapeWaveAnimator.reset();
           this.voxelDisplay.clearRGB(0,0,0);
@@ -561,6 +562,17 @@ class ControlPanel {
       onChangeWaveCenter(value, 'z');
     }).setValue(shapeWaveSettings.center.z);
     centerFolder.open();
+
+    /*
+    const paletteFolder = folder.addFolder("Colour Palette");
+    shapeWaveSettings.colourPalette.forEach((colour, idx) => {
+      paletteFolder.addColor(shapeWaveSettings.colourPalette, idx).onChange((value) => {
+
+      }).setValue(value);
+    });
+    */
+
+
 
     folder.add(shapeWaveSettings, 'reset');
     folder.open();

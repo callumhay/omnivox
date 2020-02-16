@@ -39,7 +39,7 @@ class VoxelDisplay {
 
           const ledMatrial = new THREE.MeshBasicMaterial({color: 0x00ff00});
           ledMatrial.transparent = true;
-          ledMatrial.opacity = 0.9;
+          ledMatrial.opacity = 0.75;
 
           const ledMesh = new THREE.Mesh(ledGeometry, ledMatrial);
           const outlineMesh = new THREE.LineSegments(outlineGeometry, outlineMaterial);
@@ -51,8 +51,12 @@ class VoxelDisplay {
             ledMesh: ledMesh,
             outlineMesh: outlineMesh,
             
-            setColourRGB: function(r, g, b) { this.ledMesh.material.color.setRGB(r, g, b); },
-            setColour: function(colour) { this.ledMesh.material.color.set(colour); },
+            setColourRGB: function(r, g, b) {
+              this.ledMesh.material.color.setRGB(r, g, b);
+            },
+            setColour: function(colour) { 
+              this.ledMesh.material.color.set(colour);
+            },
             addColour: function(colour) { return this.ledMesh.material.color.add(colour); },
           };
             

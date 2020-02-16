@@ -10,15 +10,50 @@ export const WAVE_SHAPE_TYPES = [
   WAVE_SHAPE_SPHERE,
 ];
 
+
+const EIGHTIES_MAGENTA_HEX    = 0xF00078;
+const EIGHTIES_YELLOW_HEX     = 0xFFC70E;
+const EIGHTIES_LIME_HEX       = 0x99FC20;
+const EIGHTIES_PURPLE_HEX     = 0x993F87;
+const EIGHTIES_TEAL_HEX       = 0x1B8772;
+const EIGHTIES_TURQUOISE_HEX  = 0x338F8E;
+const EIGHTIES_SEAFOAM_HEX    = 0x4CE7C7;
+const EIGHTIES_CYAN_HEX       = 0x00E6FE;
+const EIGHTIES_STRAWBERRY_HEX = 0xFB2E2B;
+const EIGHTIES_ORANGE_HEX     = 0xFF9933;
+const EIGHTIES_BLUE_HEX       = 0x24739F;
+
+const EIGHTIES_COLOUR_PALETTE = [
+  new THREE.Color(EIGHTIES_MAGENTA_HEX),
+  new THREE.Color(EIGHTIES_YELLOW_HEX),
+  new THREE.Color(EIGHTIES_LIME_HEX),
+  new THREE.Color(EIGHTIES_PURPLE_HEX),
+  new THREE.Color(EIGHTIES_TEAL_HEX),
+  new THREE.Color(EIGHTIES_TURQUOISE_HEX),
+  new THREE.Color(EIGHTIES_SEAFOAM_HEX),
+  new THREE.Color(EIGHTIES_CYAN_HEX),
+  new THREE.Color(EIGHTIES_STRAWBERRY_HEX),
+  new THREE.Color(EIGHTIES_ORANGE_HEX),
+  new THREE.Color(EIGHTIES_BLUE_HEX),
+];
+
+const RGB_COLOUR_PALETTE = [
+  new THREE.Color(0xff0000),
+  new THREE.Color(0x00ff00),
+  new THREE.Color(0x0000ff)
+];
+
 export const shapeWaveAnimatorDefaultConfig = {
   waveShape: WAVE_SHAPE_SPHERE,
   center: {x: 3.5, y: 3.5, z: 3.5},
   waveSpeed: 3, // units / second
   waveGap: 1, // space between waves
-  colourPalette: [new THREE.Color(0xff0000), new THREE.Color(0x00ff00), new THREE.Color(0x0000ff)],
-
+  colourPalette: EIGHTIES_COLOUR_PALETTE,
   repeat: -1, // This needs to be here for the VoxelAnimator setConfig
 };
+
+
+
 
 class WaveShape {
   constructor(voxelDisplay, center, shape, colour) {
@@ -89,24 +124,24 @@ class WaveShape {
     this.radius += dt*waveSpeed;
 
     if (!this.isInsideVoxelDisplay()) {
-      this.animationFinished = true;
-      // Draw the last spheres before going outside of the display...
+      // Draw the last shapes before going outside of the display...
 
       // Find the largest radius from the center of this wave to the outside of the voxel grid
       const voxelGridSize = this.voxelDisplay.voxelGridSizeInUnits() + VOXEL_EPSILON;
       const maxVoxelSpacePt = new THREE.Vector3(voxelGridSize,voxelGridSize,voxelGridSize);
-
-      const distMinVec = new THREE.Vector3(Math.abs(this.center.x), Math.abs(this.center.y), Math.abs(this.center.z)); // since the min point is (0,0,0) just use the absolute value of the center
+      const distMinVec = new THREE.Vector3(Math.abs(this.center.x), Math.abs(this.center.y), Math.abs(this.center.z)); // Since the min point is (0,0,0) just use the absolute value of the center
       const distMaxVec = new THREE.Vector3().subVectors(maxVoxelSpacePt, this.center);
       distMaxVec.set(Math.abs(distMaxVec.x), Math.abs(distMaxVec.y), Math.abs(distMaxVec.z));
       distMaxVec.max(distMinVec);
 
-      const maxRadius = distMaxVec.length() + VOXEL_EPSILON;
+      const maxRadius = distMaxVec.length() + VOXEL_EPSILON; // Furthest distance from the center of the wave to the bounds of the voxel grid
       while (this.lastDrawRadius <= maxRadius) {
         const currDrawRadius = this.lastDrawRadius + redrawSampleUnits;
         this.drawVoxels(currDrawRadius);
         this.lastDrawRadius = currDrawRadius;
       }
+
+      this.animationFinished = true;
     }
   }
 };
