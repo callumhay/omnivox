@@ -21,6 +21,7 @@
   "devDependencies": {
     "dat.gui": "^0.7.6",
     "reload": "^3.0.4",
+    "seedrandom": "^3.0.5",
     "watch": "^1.0.2"
   }
 }

@@ -5,16 +5,19 @@ import VoxelColourAnimator, {COLOUR_INTERPOLATION_TYPES, INTERPOLATION_TYPES} fr
 import ShootingStarAnimator from './Animation/ShootingStarAnimator';
 import ShootingStarShowerAnimator from './Animation/ShootingStarShowerAnimator';
 import ShapeWaveAnimator, {shapeWaveAnimatorDefaultConfig, WAVE_SHAPE_TYPES} from './Animation/ShapeWaveAnimator';
+import GameOfLifeAnimator, { gameOfLifeAnimatorDefaultConfig } from './Animation/GameOfLifeAnimator';
 
 const ROUTINE_TYPE_VOXEL_COLOUR  = "Colour Change"
 const ROUTINE_TYPE_SHOOTING_STAR = "Shooting Star";
 const ROUTINE_TYPE_STAR_SHOWER   = "Star Shower";
 const ROUTINE_SHAPE_WAVES        = "Shape Waves";
+const ROUTINE_GAME_OF_LIFE       = "Game of Life";
 const ROUTINE_TYPES = [
   ROUTINE_TYPE_VOXEL_COLOUR,
   ROUTINE_TYPE_SHOOTING_STAR,
   ROUTINE_TYPE_STAR_SHOWER,
   ROUTINE_SHAPE_WAVES,
+  ROUTINE_GAME_OF_LIFE,
 ];
 
 const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
@@ -44,6 +47,7 @@ class ControlPanel {
     this.shootingStarAnimator = new ShootingStarAnimator(voxelDisplay);
     this.starShowerAnimator = new ShootingStarShowerAnimator(voxelDisplay);
     this.shapeWaveAnimator = new ShapeWaveAnimator(voxelDisplay);
+    this.gameOfLifeAnimator = new GameOfLifeAnimator(voxelDisplay);
 
     const velocity = this.shootingStarAnimator.config.velocity;
     const currVel = new THREE.Vector3(velocity.x, velocity.y, velocity.z);
@@ -102,9 +106,16 @@ class ControlPanel {
           this.voxelDisplay.clearRGB(0,0,0);
         },
       },
+
+      gameOfLifeSettings: {
+        seed: gameOfLifeAnimatorDefaultConfig.seed,
+        reset: () => { 
+          this.voxelDisplay.clearRGB(0,0,0);
+          this.gameOfLifeAnimator.reset();
+        },
+      }
     };
     
-
     this.currFolder = null;
     this.shapeSettingsFolder = null;
     this.currAnimator = this.colourAnimator;
@@ -128,6 +139,8 @@ class ControlPanel {
 
     this.gui.remember(this.settings.shapeWaveSettings);
     this.gui.remember(this.settings.shapeWaveSettings.center);
+
+    this.gui.remember(this.settings.gameOfLifeSettings);
 
     this.gui.add(this.settings, 'routine', ROUTINE_TYPES).onChange((value) => {
 
@@ -155,6 +168,11 @@ class ControlPanel {
         case ROUTINE_SHAPE_WAVES:
           this.currFolder = this.buildShapeWavesAnimatorControls();
           this.currAnimator = this.shapeWaveAnimator;
+          break;
+        case ROUTINE_GAME_OF_LIFE:
+          this.currFolder = this.buildGameOfLifeAnimatorControls();
+          this.currAnimator = this.gameOfLifeAnimator;
+          break;
         default:
           break;
       }
@@ -575,6 +593,24 @@ class ControlPanel {
 
 
     folder.add(shapeWaveSettings, 'reset');
+    folder.open();
+
+    return folder;
+  }
+
+  buildGameOfLifeAnimatorControls() {
+    const {gameOfLifeSettings} = this.settings;
+
+    const folder = this.gui.addFolder("Game of Life Controls");
+
+    folder.add(gameOfLifeSettings, 'seed').onChange((value) => {
+      const currConfig = this.gameOfLifeAnimator.config;
+      currConfig['seed'] = value;
+      this.gameOfLifeAnimator.setConfig(currConfig);
+    });
+
+
+    folder.add(gameOfLifeSettings, 'reset');
     folder.open();
 
     return folder;

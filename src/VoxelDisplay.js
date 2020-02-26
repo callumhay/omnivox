@@ -94,6 +94,10 @@ class VoxelDisplay {
     );
   }
 
+  xSize() { return this.voxels.length; }
+  ySize() { return this.voxels[0].length; }
+  zSize() { return this.voxels[0][0].length; }
+
   /**
    * Build a flat list of all of the possible voxel indices (x,y,z) in this display
    * as a list of THREE.Vector3 objects.
@@ -122,6 +126,10 @@ class VoxelDisplay {
     return roundedX >= 0 && roundedX < this.voxels.length &&
       roundedY >= 0 && roundedY < this.voxels[roundedX].length &&
       roundedZ >= 0 && roundedZ < this.voxels[roundedX][roundedY].length;
+  }
+
+  getVoxelColour(pt) {
+    return this.voxels[pt.x][pt.y][pt.z].ledMesh.material.color.clone();
   }
 
   setVoxel(pt, colour) {
