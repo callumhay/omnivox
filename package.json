@@ -24,6 +24,7 @@
     "reload": "^3.0.4",
     "watch": "^1.0.2",
     "webpack": "^4.41.6",
-    "webpack-cli": "^3.3.11"
+    "webpack-cli": "^3.3.11",
+    "seedrandom": "^3.0.5"
   }
 }
