@@ -1,84 +1,39 @@
 import * as THREE from 'three';
 import {VOXEL_ERR_UNITS} from './MathUtils';
 
-const voxelUnitSize = 1.0; // THIS MUST ALWAYS BE 1!!!
-const halfVoxelUnitSize = voxelUnitSize / 2.0;
-const ledUnitSize = voxelUnitSize / 4.0;
-
-const voxelGridSize = 8;
-
 export const BLEND_MODE_OVERWRITE = 0;
 export const BLEND_MODE_ADDITIVE  = 1;
 
+class VoxelModel {
 
-
-class VoxelDisplay {
-  constructor(scene) {
-
-    this.gridSize = voxelGridSize;
-    this.voxels = [];
+  constructor(gridSize) {
+    this.gridSize = gridSize;
     this.blendMode = BLEND_MODE_OVERWRITE;
 
-    const ledGeometry = new THREE.BoxGeometry(ledUnitSize, ledUnitSize, ledUnitSize);
-    const outlineGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(voxelUnitSize, voxelUnitSize, voxelUnitSize));
-
-    const outlineMaterial = new THREE.LineBasicMaterial({color: 0xffffff});
-    outlineMaterial.transparent = true;
-    outlineMaterial.opacity = 0.1;
-
-    const halfTranslationUnits = (voxelGridSize*voxelUnitSize)/2.0;
-    const worldTranslation = new THREE.Vector3(-halfTranslationUnits, -halfTranslationUnits, -halfTranslationUnits);
-
-    for (let x = 0; x < this.gridSize; x++) {
+    // Build the 3D array of voxels
+    this.voxels = [];
+    for (let x = 0; x < gridSize; x++) {
       let currXArr = [];
       this.voxels.push(currXArr);
-      for (let y = 0; y < this.gridSize; y++) {
+      for (let y = 0; y < gridSize; y++) {
         let currYArr = [];
         currXArr.push(currYArr);
-        for (let z = 0; z < this.gridSize; z++) {
-
-          const ledMatrial = new THREE.MeshBasicMaterial({color: 0x000000});
-          ledMatrial.transparent = true;
-          ledMatrial.opacity = 0.85;
-
-          const ledMesh = new THREE.Mesh(ledGeometry, ledMatrial);
-          const outlineMesh = new THREE.LineSegments(outlineGeometry, outlineMaterial);
-              
-          const currZObj = {
-            ledMesh: ledMesh,
-            outlineMesh: outlineMesh,
-
-            getColour: function() {
-              return this.ledMesh.material.color;
-            },
-            setColourRGB: function(r, g, b) {
-              this.ledMesh.material.color.setRGB(r, g, b);
-            },
-            setColour: function(colour) { 
-              this.ledMesh.material.color.set(colour);
-            },
-            addColour: function(colour) { return this.ledMesh.material.color.add(colour); },
+        for (let z = 0; z < gridSize; z++) {
+          const voxelObj = {
+            colour: new THREE.Color(0,0,0),
+            setColourRGB: function(r, g, b) { this.colour.setRGB(r,g,b); },
+            setColour: function(colour) { this.colour.set(colour); },
+            addColour: function(colour) { return this.colour.add(colour); },
           };
-            
-          scene.add(ledMesh);
-          scene.add(outlineMesh);
-          
-          const currTranslation = new THREE.Vector3(
-            x*voxelUnitSize + halfVoxelUnitSize,
-            y*voxelUnitSize + halfVoxelUnitSize,
-            z*voxelUnitSize + halfVoxelUnitSize
-          );
-          currTranslation.add(worldTranslation);
-          
-          ledMesh.position.set(currTranslation.x, currTranslation.y, currTranslation.z);
-          outlineMesh.position.set(currTranslation.x, currTranslation.y, currTranslation.z);
-          
-          currYArr.push(currZObj);
+          currYArr.push(voxelObj);
         }
       }
     }
   }
 
+  /**
+   * Get the local space Axis-Aligned Bounding Box for all voxels.
+   */
   voxelDisplayBox() {
     const minBound = 0;
     const maxBound = this.gridSize-1;
@@ -105,7 +60,7 @@ class VoxelDisplay {
   }
 
   /**
-   * Check whether the given point is in the local space bounds of this voxel display.
+   * Check whether the given point is in the local space bounds of the voxels.
    * @param {THREE.Vector3} pt 
    */
   isInBounds(pt) {
@@ -118,6 +73,7 @@ class VoxelDisplay {
       roundedZ >= 0 && roundedZ < this.voxels[roundedX][roundedY].length;
   }
 
+  
   setVoxel(pt, colour) {
     const roundedX = Math.round(pt.x);
     const roundedY = Math.round(pt.y);
@@ -127,7 +83,7 @@ class VoxelDisplay {
         roundedY >= 0 && roundedY < this.voxels[roundedX].length &&
         roundedZ >= 0 && roundedZ < this.voxels[roundedX][roundedY].length) {
 
-      this.voxels[roundedX][roundedY][roundedZ].setColourRGB(colour.r, colour.g, colour.b);
+      this.voxels[roundedX][roundedY][roundedZ].setColour(colour);
     } 
   }
 
@@ -145,18 +101,16 @@ class VoxelDisplay {
     } 
   }
 
-  clearRGB(r=0, g=0, b=0) {
+  clear(colour) {
     for (let x = 0; x < this.voxels.length; x++) {
       for (let y = 0; y < this.voxels[x].length; y++) {
         for (let z = 0; z < this.voxels[x][y].length; z++) {
-          this.voxels[x][y][z].setColourRGB(r,g,b);
+          this.voxels[x][y][z].setColour(colour);
         }
       }
     }
   }
-  clear(colour) {
-    this.clearRGB(colour.r, colour.g, colour.b);
-  }
+
 
   /**
    * Draw a coloured point (the point will be sampled to the nearest voxel).
@@ -165,9 +119,11 @@ class VoxelDisplay {
    */
   drawPoint(pt, colour) {
     switch (this.blendMode) {
+
       case BLEND_MODE_ADDITIVE:
         this.addToVoxel(pt, colour);
         break;
+
       case BLEND_MODE_OVERWRITE:
       default:
         this.setVoxel(pt, colour);
@@ -175,7 +131,7 @@ class VoxelDisplay {
     }
   }
 
-  /**
+ /**
    * Draw a line through voxel space from the start point to the end point with the given colour.
    * @param {Vector3} p1 - The position where the line starts, in local coordinates.
    * @param {Vector3} p2 - The position where the line ends, in local coordinates.
@@ -364,4 +320,4 @@ class VoxelDisplay {
 
 }
 
-export default VoxelDisplay;
+export default VoxelModel;

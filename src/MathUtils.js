@@ -1,4 +1,5 @@
 export const VOXEL_EPSILON = 0.00001;
+export const VOXEL_ERR_UNITS = 1.0 / (2.0 + VOXEL_EPSILON);
 
 export const hslToHsvColor = (hsl) => {
   const v = hsl.l + hsl.s*Math.min(hsl.l,1-hsl.l);

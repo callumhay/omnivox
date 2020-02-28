@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import VoxelAnimator, {REPEAT_INFINITE_TIMES} from './VoxelAnimator';
 import VoxelColourAnimator, {INTERPOLATION_SMOOTHER} from './VoxelColourAnimator';
 
-import {VOXEL_EPSILON} from '../MathUtils';
+import {VOXEL_EPSILON, VOXEL_ERR_UNITS} from '../MathUtils';
 
 export const shootingStarAnimatorDefaultConfig = {
   colour: {r:1, g:1, b:1},
@@ -112,7 +112,7 @@ class ShootingStarAnimator extends VoxelAnimator {
       }
     }
 
-    const sampleStepSize = this.voxels.voxelSizeInUnits() / (2 + VOXEL_EPSILON); // Sample at a reasonable enough rate
+    const sampleStepSize = VOXEL_ERR_UNITS; // Sample at a reasonable enough rate
     const sqSampleStepSize = sampleStepSize * sampleStepSize;
     const incVelocity = this.velocity.clone().multiplyScalar(dt);
     const sqLenIncVel = incVelocity.lengthSq();

@@ -1,13 +1,37 @@
 const path = require('path');
 
-module.exports = {
+const distPath = path.resolve(__dirname, 'dist');
+
+const webClientConfig = {
+  target: 'web',
   mode: 'production',
-  entry: './src/index.js',
+  entry: {
+    main: './src/index.js',
+  },
   output: {
-    filename: 'main.js',
-    path: path.resolve(__dirname, 'dist'),
+    filename: '[name].js',
+    path: distPath,
   },
   optimization: {
     minimize: true,
   }
 };
+
+
+const serverConfig = {
+  target: 'node',
+  mode: 'production',
+  entry: {
+    server: './server.js',
+  },
+  output: {
+    filename: '[name].js',
+    path: distPath,
+  },
+  optimization: {
+    minimize: true,
+  }
+};
+
+
+module.exports = [webClientConfig, serverConfig];

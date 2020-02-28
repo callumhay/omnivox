@@ -4,8 +4,7 @@ import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
 import ControlPanel from './ControlPanel';
 import VoxelDisplay from './VoxelDisplay';
 
-import {Vector3DirectionRandomizer} from './Animation/Randomizers';
-
+// Setup the Editor...
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 
@@ -66,8 +65,6 @@ const animate = function () {
     scene.add(new THREE.ArrowHelper(randomDir, new THREE.Vector3(0, 0, 0), 10, 0xff0000));
   }
   */
-
-  //voxels.clearRGB(0,0,0);
   if (currAnimator) {
     currAnimator.animate(dt);
   }
@@ -80,8 +77,4 @@ const animate = function () {
   lastFrameTime = currFrameTime;
 };
 
-
-
 animate();
-
-

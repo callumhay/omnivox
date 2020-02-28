@@ -1,15 +1,8 @@
 import * as THREE from 'three';
 
 import VoxelAnimator from './VoxelAnimator';
-import {VOXEL_EPSILON} from '../MathUtils';
-
-export const WAVE_SHAPE_CUBE   = 'cube';
-export const WAVE_SHAPE_SPHERE = 'sphere';
-export const WAVE_SHAPE_TYPES = [
-  WAVE_SHAPE_CUBE,
-  WAVE_SHAPE_SPHERE,
-];
-
+import {Randomizer} from './Randomizers';
+import {VOXEL_EPSILON, VOXEL_ERR_UNITS} from '../MathUtils';
 
 const EIGHTIES_MAGENTA_HEX    = 0xF00078;
 const EIGHTIES_YELLOW_HEX     = 0xFFC70E;
@@ -23,7 +16,8 @@ const EIGHTIES_STRAWBERRY_HEX = 0xFB2E2B;
 const EIGHTIES_ORANGE_HEX     = 0xFF9933;
 const EIGHTIES_BLUE_HEX       = 0x24739F;
 
-const EIGHTIES_COLOUR_PALETTE = [
+// Colour Palette Constants
+export const EIGHTIES_COLOUR_PALETTE = [
   new THREE.Color(EIGHTIES_MAGENTA_HEX),
   new THREE.Color(EIGHTIES_YELLOW_HEX),
   new THREE.Color(EIGHTIES_LIME_HEX),
@@ -36,11 +30,26 @@ const EIGHTIES_COLOUR_PALETTE = [
   new THREE.Color(EIGHTIES_ORANGE_HEX),
   new THREE.Color(EIGHTIES_BLUE_HEX),
 ];
-
-const RGB_COLOUR_PALETTE = [
+export const RGB_COLOUR_PALETTE = [
   new THREE.Color(0xff0000),
   new THREE.Color(0x00ff00),
   new THREE.Color(0x0000ff)
+];
+
+// Wave Shape Constants
+export const WAVE_SHAPE_CUBE   = 'cube';
+export const WAVE_SHAPE_SPHERE = 'sphere';
+export const WAVE_SHAPE_TYPES = [
+  WAVE_SHAPE_CUBE,
+  WAVE_SHAPE_SPHERE,
+];
+
+// Colour selection constants
+export const COLOUR_SELECTION_SEQUENTIAL = 1;
+export const COLOUR_SELECTION_RANDOM     = 2;
+export const COLOUR_SELECTION_TYPES = [
+  COLOUR_SELECTION_SEQUENTIAL,
+  COLOUR_SELECTION_RANDOM,
 ];
 
 export const shapeWaveAnimatorDefaultConfig = {
@@ -49,10 +58,9 @@ export const shapeWaveAnimatorDefaultConfig = {
   waveSpeed: 3, // units / second
   waveGap: 1, // space between waves
   colourPalette: EIGHTIES_COLOUR_PALETTE,
+  colourSelectionMode: COLOUR_SELECTION_RANDOM,
   repeat: -1, // This needs to be here for the VoxelAnimator setConfig
 };
-
-
 
 
 class WaveShape {
@@ -61,9 +69,6 @@ class WaveShape {
     this.center = new THREE.Vector3(center.x, center.y, center.z);
     this.shape  = shape;
     this.colour = colour;
-
-    this.minSampleUnitsBeforeRedraw = () => (this.voxelDisplay.voxelSizeInUnits() / 3);
-
     this.radius = 0;
     this.lastDrawRadius = 0;
     this.animationFinished = false;
@@ -92,7 +97,7 @@ class WaveShape {
     return this.center.clone().addScalar(r);
   }
   isInsideVoxelDisplay() {
-    const voxelGridSize = this.voxelDisplay.voxelGridSizeInUnits() + VOXEL_EPSILON;
+    const voxelGridSize = this.voxelDisplay.gridSize + VOXEL_EPSILON;
     const minBoundsPt = new THREE.Vector3(-VOXEL_EPSILON,-VOXEL_EPSILON,-VOXEL_EPSILON);
     const maxBoundsPt = new THREE.Vector3(voxelGridSize, voxelGridSize, voxelGridSize);
 
@@ -113,7 +118,7 @@ class WaveShape {
       return;
     }
 
-    const redrawSampleUnits = this.minSampleUnitsBeforeRedraw();
+    const redrawSampleUnits = VOXEL_ERR_UNITS;
 
     while (this.radius - this.lastDrawRadius >= redrawSampleUnits) {
       const currDrawRadius = this.lastDrawRadius + redrawSampleUnits;
@@ -127,7 +132,7 @@ class WaveShape {
       // Draw the last shapes before going outside of the display...
 
       // Find the largest radius from the center of this wave to the outside of the voxel grid
-      const voxelGridSize = this.voxelDisplay.voxelGridSizeInUnits() + VOXEL_EPSILON;
+      const voxelGridSize = this.voxelDisplay.gridSize + VOXEL_EPSILON;
       const maxVoxelSpacePt = new THREE.Vector3(voxelGridSize,voxelGridSize,voxelGridSize);
       const distMinVec = new THREE.Vector3(Math.abs(this.center.x), Math.abs(this.center.y), Math.abs(this.center.z)); // Since the min point is (0,0,0) just use the absolute value of the center
       const distMaxVec = new THREE.Vector3().subVectors(maxVoxelSpacePt, this.center);
@@ -151,16 +156,37 @@ class ShapeWaveAnimator extends VoxelAnimator {
     super(voxels, config);
     this.reset();
 
-    let colourCounter = 0;
-    const getColourCounter = () => (colourCounter);
-    const incrementColourCounter = () => {colourCounter++;};
+    // We define our colour selection based on the selection mode - we load up the colour queue with
+    // the configured colour palette and then we pick off the colours that make sense based on the selection mode
+    let colourQueue = [];
+    this.getNextColour = () => {
+      const {colourPalette, colourSelectionMode} = this.config;
+      let nextColour = null;
+
+      if (colourQueue.length === 0) {
+        colourQueue = [...colourPalette];
+      }
+
+      switch (colourSelectionMode) {
+
+        case COLOUR_SELECTION_RANDOM:
+          const randIdx = Randomizer.getRandomInt(0, colourQueue.length);
+          nextColour = colourQueue[randIdx];
+          colourQueue.splice(randIdx, 1);
+          break;
+
+        case COLOUR_SELECTION_SEQUENTIAL:
+        default:
+          nextColour = colourQueue.pop();
+          break;
+      }
+
+      return nextColour;
+    };
 
     this.buildWaveShapeAnimator = () => {
-      const {center, waveShape, colourPalette} = this.config;
-  
-      const currColour = colourPalette[getColourCounter() % colourPalette.length];
-      incrementColourCounter();
-  
+      const {center, waveShape} = this.config;
+      const currColour = this.getNextColour();
       return new WaveShape(voxels, center, waveShape, currColour);
     };
   }
@@ -172,7 +198,7 @@ class ShapeWaveAnimator extends VoxelAnimator {
   animate(dt) {
     const {waveSpeed, waveGap} = this.config;
 
-    const voxelSampleSize = this.voxels.voxelSizeInUnits() * (1 + waveGap);
+    const voxelSampleSize = 1 + waveGap;
     const lastShape = this.activeShapes.length > 0 ? this.activeShapes[this.activeShapes.length-1] : null;
     if (!lastShape || lastShape.radius >= voxelSampleSize) {
       this.activeShapes.push(this.buildWaveShapeAnimator());

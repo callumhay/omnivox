@@ -38,7 +38,7 @@ class ControlPanel {
     this.gui = new dat.GUI({preset:'Default'});
     this.voxelDisplay = voxelDisplay;
 
-    const halfVoxelDisplayUnits = (this.voxelDisplay.voxelGridSizeInUnits()-this.voxelDisplay.voxelSizeInUnits())/2;
+    const halfVoxelDisplayUnits = (this.voxelDisplay.gridSize-1)/2;
     
     this.colourAnimator = new VoxelColourAnimator(voxelDisplay);
     this.shootingStarAnimator = new ShootingStarAnimator(voxelDisplay);
@@ -223,7 +223,7 @@ class ControlPanel {
               ),
             });
           }).setValue(voxelColourSettings.sphereProperties.fill);
-          this.shapeSettingsFolder.add(voxelColourSettings.sphereProperties, 'radius', 0.5, this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+          this.shapeSettingsFolder.add(voxelColourSettings.sphereProperties, 'radius', 0.5, this.voxelDisplay.gridSize, 0.5).onChange((value) => {
             this.voxelDisplay.clearRGB(0,0,0);
             this.colourAnimator.setConfig({...this.colourAnimator.config,
               voxelPositions: this.voxelDisplay.voxelSphereList(
@@ -244,14 +244,16 @@ class ControlPanel {
               voxelPositions: this.voxelDisplay.voxelSphereList(newCenter, voxelColourSettings.sphereProperties.radius, voxelColourSettings.sphereProperties.fill),
             });
           };
+
           const centerFolder = this.shapeSettingsFolder.addFolder("Center");
-          centerFolder.add(voxelColourSettings.sphereProperties.center, 'x', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+          const voxelGridSize = this.voxelDisplay.gridSize;
+          centerFolder.add(voxelColourSettings.sphereProperties.center, 'x', -voxelGridSize, 2*voxelGridSize, 0.5).onChange((value) => {
             onChangeSphereCenter(value, 'x');
           }).setValue(voxelColourSettings.sphereProperties.center.x);
-          centerFolder.add(voxelColourSettings.sphereProperties.center, 'y', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+          centerFolder.add(voxelColourSettings.sphereProperties.center, 'y', -voxelGridSize, 2*voxelGridSize, 0.5).onChange((value) => {
             onChangeSphereCenter(value, 'y');
           }).setValue(voxelColourSettings.sphereProperties.center.y);
-          centerFolder.add(voxelColourSettings.sphereProperties.center, 'z', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+          centerFolder.add(voxelColourSettings.sphereProperties.center, 'z', -voxelGridSize, 2*voxelGridSize, 0.5).onChange((value) => {
             onChangeSphereCenter(value, 'z');
           }).setValue(voxelColourSettings.sphereProperties.center.z);
           centerFolder.open();
@@ -301,25 +303,26 @@ class ControlPanel {
           }).setValue(voxelColourSettings.boxProperties.fill);
 
           const dimensionsFolder = this.shapeSettingsFolder.addFolder("Dimensions");
-          dimensionsFolder.add(voxelColourSettings.boxProperties, 'width', 0.5, 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+          const voxelGridSize = this.voxelDisplay.gridSize;
+          dimensionsFolder.add(voxelColourSettings.boxProperties, 'width', 0.5, 2*voxelGridSize, 0.5).onChange((value) => {
             onChangeBasicBoxProperty(value, 'width');
           }).setValue(voxelColourSettings.boxProperties.width);
-          dimensionsFolder.add(voxelColourSettings.boxProperties, 'height', 0.5, 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+          dimensionsFolder.add(voxelColourSettings.boxProperties, 'height', 0.5, 2*voxelGridSize, 0.5).onChange((value) => {
             onChangeBasicBoxProperty(value, 'height');
           }).setValue(voxelColourSettings.boxProperties.height);
-          dimensionsFolder.add(voxelColourSettings.boxProperties, 'depth', 0.5, 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+          dimensionsFolder.add(voxelColourSettings.boxProperties, 'depth', 0.5, 2*voxelGridSize, 0.5).onChange((value) => {
             onChangeBasicBoxProperty(value, 'depth');
           }).setValue(voxelColourSettings.boxProperties.depth);
           dimensionsFolder.open();
 
           const centerFolder = this.shapeSettingsFolder.addFolder("Center");
-          centerFolder.add(voxelColourSettings.boxProperties.center, 'x', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+          centerFolder.add(voxelColourSettings.boxProperties.center, 'x', -voxelGridSize, 2*voxelGridSize, 0.5).onChange((value) => {
             onChangeBoxCenter(value, 'x');
           }).setValue(voxelColourSettings.boxProperties.center.x);
-          centerFolder.add(voxelColourSettings.boxProperties.center, 'y', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+          centerFolder.add(voxelColourSettings.boxProperties.center, 'y', -voxelGridSize, 2*voxelGridSize, 0.5).onChange((value) => {
             onChangeBoxCenter(value, 'y');
           }).setValue(voxelColourSettings.boxProperties.center.y);
-          centerFolder.add(voxelColourSettings.boxProperties.center, 'z', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+          centerFolder.add(voxelColourSettings.boxProperties.center, 'z', -voxelGridSize, 2*voxelGridSize, 0.5).onChange((value) => {
             onChangeBoxCenter(value, 'z');
           }).setValue(voxelColourSettings.boxProperties.center.z);
           centerFolder.open();
@@ -382,7 +385,7 @@ class ControlPanel {
     }).setValue(shootingStarSettings.direction.z);
     directionFolder.open();
 
-    const gridSize = this.voxelDisplay.voxelGridSizeInUnits() / this.voxelDisplay.voxelSizeInUnits();
+    const gridSize = this.voxelDisplay.gridSize;
     const startPosFolder = folder.addFolder("Start Position");
     const onStartPositionChange = (value, component) => {
       const currPos = shootingStarSettings.startPosition;
@@ -487,8 +490,8 @@ class ControlPanel {
       this.starShowerAnimator.setConfig(this.starShowerAnimator.config);
       starShowerSettings.maxSpawnPos[component] = actualVal;
     };
-    const positionMax = 2*this.voxelDisplay.voxelGridSizeInUnits();
 
+    const positionMax = 2*this.voxelDisplay.gridSize;
     const posFolder = folder.addFolder("Position Spawning");
     const minPosFolder = posFolder.addFolder("Min");
     minPosFolder.add(starShowerSettings.minSpawnPos, 'x', -positionMax, positionMax, 1).onChange((value) => {
@@ -552,13 +555,14 @@ class ControlPanel {
     };
 
     const centerFolder = folder.addFolder("Center");
-    centerFolder.add(shapeWaveSettings.center, 'x', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+    const voxelGridSize = this.voxelDisplay.gridSize;
+    centerFolder.add(shapeWaveSettings.center, 'x', -voxelGridSize, 2*voxelGridSize, 0.5).onChange((value) => {
       onChangeWaveCenter(value, 'x');
     }).setValue(shapeWaveSettings.center.x);
-    centerFolder.add(shapeWaveSettings.center, 'y', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+    centerFolder.add(shapeWaveSettings.center, 'y', -voxelGridSize, 2*voxelGridSize, 0.5).onChange((value) => {
       onChangeWaveCenter(value, 'y');
     }).setValue(shapeWaveSettings.center.y);
-    centerFolder.add(shapeWaveSettings.center, 'z', -this.voxelDisplay.voxelGridSizeInUnits(), 2*this.voxelDisplay.voxelGridSizeInUnits(), 0.5).onChange((value) => {
+    centerFolder.add(shapeWaveSettings.center, 'z', -voxelGridSize, 2*voxelGridSize, 0.5).onChange((value) => {
       onChangeWaveCenter(value, 'z');
     }).setValue(shapeWaveSettings.center.z);
     centerFolder.open();

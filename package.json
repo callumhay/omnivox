@@ -13,14 +13,17 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "bufferutil": "^4.0.1",
     "express": "^4.17.1",
     "three": "^0.113.2",
-    "webpack": "^4.41.5",
-    "webpack-cli": "^3.3.10"
+    "utf-8-validate": "^5.0.2"
   },
   "devDependencies": {
     "dat.gui": "^0.7.6",
+    "dgram": "^1.0.1",
     "reload": "^3.0.4",
-    "watch": "^1.0.2"
+    "watch": "^1.0.2",
+    "webpack": "^4.41.6",
+    "webpack-cli": "^3.3.11"
   }
 }
