@@ -5,8 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "webpack",
-    "dev": "webpack --watch --mode=development",
-    "prod": "webpack --mode=production"
+    "dev": "webpack --watch --config webpack.development.config.js",
+    "prod": "webpack --config webpack.production.config.js"
   },
   "keywords": [],
   "author": "",
