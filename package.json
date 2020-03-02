@@ -1,9 +1,10 @@
 {
   "name": "editor",
   "version": "1.0.0",
-  "main": "editor.js",
+  "main": "webclientviewer.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node ./dist/server.js",
     "build": "webpack",
     "dev": "webpack --watch --config webpack.development.config.js",
     "prod": "webpack --config webpack.production.config.js"
@@ -22,9 +23,10 @@
     "dat.gui": "^0.7.6",
     "dgram": "^1.0.1",
     "reload": "^3.0.4",
+    "seedrandom": "^3.0.5",
     "watch": "^1.0.2",
     "webpack": "^4.41.6",
     "webpack-cli": "^3.3.11",
-    "seedrandom": "^3.0.5"
+    "webpack-node-externals": "^1.7.2"
   }
 }

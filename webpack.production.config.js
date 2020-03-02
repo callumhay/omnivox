@@ -1,10 +1,18 @@
 const path = require('path');
+const nodeExternals = require('webpack-node-externals');
 
 const distPath = path.resolve(__dirname, 'dist');
 
-const webClientConfig = {
-  target: 'web',
+const commonConfig = {
   mode: 'production',
+  optimization: {
+    minimize: true,
+  },
+};
+
+
+const webClientConfig = {...commonConfig,
+  target: 'web',
   entry: {
     main: './src/index.js',
   },
@@ -12,15 +20,11 @@ const webClientConfig = {
     filename: '[name].js',
     path: distPath,
   },
-  optimization: {
-    minimize: true,
-  }
 };
 
-
-const serverConfig = {
+const serverConfig = {...commonConfig,
   target: 'node',
-  mode: 'production',
+  externals: [nodeExternals()],
   entry: {
     server: './server.js',
   },
@@ -28,10 +32,6 @@ const serverConfig = {
     filename: '[name].js',
     path: distPath,
   },
-  optimization: {
-    minimize: true,
-  }
 };
-
 
 module.exports = [webClientConfig, serverConfig];

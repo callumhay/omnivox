@@ -12,9 +12,16 @@ const VoxelModel = require('./src/VoxelModel');
 const voxelModel = new VoxelModel(VOXEL_GRID_SIZE);
 */
 
+const DISTRIBUTION_DIRNAME = "dist";
+
 // Create the web server
 const app = express();
-const distPath = path.join(__dirname, 'dist');
+let distPath = path.resolve();
+if (distPath.substring(distPath.length-DISTRIBUTION_DIRNAME.length).toLowerCase() !== DISTRIBUTION_DIRNAME) {
+  distPath = path.resolve(distPath, DISTRIBUTION_DIRNAME);
+}
+console.log("The following directory must be the distribution directory: \"" + distPath + "\"");
+
 app.use(express.static(distPath));
 app.set('port', 4000);
 app.get("/", (req, res) => {
@@ -29,7 +36,7 @@ reload(app).then((reloadReturned) => {
   });
 
   // Watch this path for changes and reload the browser
-  watch.watchTree(path.resolve(__dirname, 'dist'), {interval: 1}, function (f, curr, prev) {
+  watch.watchTree(distPath, {interval: 1}, function (f, curr, prev) {
     console.log('Tree changed, reloading browser');
     reloadReturned.reload();
   });

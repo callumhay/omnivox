@@ -1,4 +1,5 @@
 const path = require('path');
+const nodeExternals = require('webpack-node-externals');
 
 const distPath = path.resolve(__dirname, 'dist');
 
@@ -11,22 +12,21 @@ const commonConfig = {
 
 const webClientConfig = {...commonConfig,
   target: 'web',
-  entry: {
-    main: './src/index.js',
-  },
+  entry: './src/WebClientViewer/webclientviewer.js',
   output: {
-    filename: '[name].js',
+    filename: 'webclientviewer.js',
     path: distPath,
   },
 };
 
 const serverConfig = {...commonConfig,
   target: 'node',
+  externals: [nodeExternals()],
   entry: {
-    server: './server.js',
+    server: './src/Server/server.js',
   },
   output: {
-    filename: '[name].js',
+    filename: 'server.js',
     path: distPath,
   },
 };
