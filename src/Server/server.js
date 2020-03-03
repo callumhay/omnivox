@@ -1,16 +1,18 @@
-const path = require('path');
-const express = require('express');
-const watch = require('watch');
-const http = require('http');
-const reload = require('reload');
+import path from 'path';
+import express from 'express';
+import watch from 'watch';
+import http from 'http';
+import reload from 'reload';
+
+import VoxelModel from './VoxelModel';
+import VoxelServer from './VoxelServer';
 
 // Create the voxel model - this maintains all of the voxel states and provides the data
 // that we send to various clients
-/*
+
 const VOXEL_GRID_SIZE = 8;
-const VoxelModel = require('./src/VoxelModel');
 const voxelModel = new VoxelModel(VOXEL_GRID_SIZE);
-*/
+
 
 const DISTRIBUTION_DIRNAME = "dist";
 
@@ -46,6 +48,5 @@ reload(app).then((reloadReturned) => {
 
 // Start up the voxel server - this will handle discovery and transmission of voxel data to both
 // hardware clients and to the localhost for virtual display of the voxels
-const VoxelServer = require('./VoxelServer');
 const voxelServer = new VoxelServer();
 voxelServer.start();

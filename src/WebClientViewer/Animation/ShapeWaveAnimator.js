@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 import VoxelAnimator from './VoxelAnimator';
 import {Randomizer} from './Randomizers';
-import {VOXEL_EPSILON, VOXEL_ERR_UNITS} from '../MathUtils';
+import {VOXEL_EPSILON, VOXEL_ERR_UNITS} from '../../MathUtils';
 
 const EIGHTIES_MAGENTA_HEX    = 0xF00078;
 const EIGHTIES_YELLOW_HEX     = 0xFFC70E;

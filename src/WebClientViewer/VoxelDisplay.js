@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {VOXEL_ERR_UNITS} from './MathUtils';
+import {VOXEL_ERR_UNITS} from '../MathUtils';
 
 const voxelUnitSize = 1.0; // THIS MUST ALWAYS BE 1!!!
 const halfVoxelUnitSize = voxelUnitSize / 2.0;

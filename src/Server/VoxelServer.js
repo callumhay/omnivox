@@ -1,5 +1,5 @@
-const udp = require('dgram');
-const net = require('net');
+import udp from 'dgram';
+import net from 'net';
 
 const DEFAULT_TCP_PORT = 20001;
 const DEFAULT_UDP_PORT = 20000;
@@ -21,7 +21,7 @@ const VOXEL_DATA_ALL_TYPE   = "ALL";
 const VOXEL_DATA_DIFF_TYPE  = "DIF";
 const VOXEL_DATA_CLEAR_TYPE = "CLR";
 
-module.exports = class VoxelServer {
+class VoxelServer {
 
   constructor() {
     this.voxelData = null; // Object holding all changed voxel data on it
@@ -210,3 +210,5 @@ module.exports = class VoxelServer {
     // TODO
   }
 }
+
+export default VoxelServer;

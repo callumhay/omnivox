@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import VoxelAnimator, {REPEAT_INFINITE_TIMES} from './VoxelAnimator';
 import VoxelColourAnimator, {INTERPOLATION_SMOOTHER} from './VoxelColourAnimator';
 
-import {VOXEL_EPSILON, VOXEL_ERR_UNITS} from '../MathUtils';
+import {VOXEL_EPSILON, VOXEL_ERR_UNITS} from '../../MathUtils';
 
 export const shootingStarAnimatorDefaultConfig = {
   colour: {r:1, g:1, b:1},

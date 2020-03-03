@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {VOXEL_ERR_UNITS} from './MathUtils';
+import {VOXEL_ERR_UNITS} from '../MathUtils';
 
 export const BLEND_MODE_OVERWRITE = 0;
 export const BLEND_MODE_ADDITIVE  = 1;

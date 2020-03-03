@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { VOXEL_EPSILON } from '../MathUtils';
+import { VOXEL_EPSILON } from '../../MathUtils';
 
 export class Randomizer {
   constructor() {
