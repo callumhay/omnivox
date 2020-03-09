@@ -34,6 +34,8 @@ class VoxelColourAnimator extends VoxelAnimator {
     this.reset();
   }
 
+  getType() { return VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR; }
+
   setConfig(c) {
     super.setConfig(c);
     const {voxelPositions, colourStart, colourEnd} = c;

@@ -3,6 +3,7 @@ import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
 
 import ControlPanel from './ControlPanel';
 import VoxelDisplay from './VoxelDisplay';
+import VoxelClient from './VoxelClient';
 
 // Setup the Editor...
 const scene = new THREE.Scene();
@@ -15,7 +16,7 @@ document.body.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 
 // Build the voxel grid
-const voxels = new VoxelDisplay(scene);
+const voxelDisplay = new VoxelDisplay(scene);
 
 scene.position.set(0,0,0);
 camera.position.z = 0;
@@ -44,37 +45,26 @@ function onWindowResize(event) {
   renderer.render(scene, camera);
 }
 
-const controlPanelGui = new ControlPanel(voxels);
 
-//let testDirRandomizer = new Vector3DirectionRandomizer(new THREE.Vector3(0,0,-1), Math.PI/4.0);
-//let count = 0;
+// Setup the client (recieves render messages from the server and sends control messages to the server)
+const voxelClient = new VoxelClient(voxelDisplay);
 
-let lastFrameTime = Date.now();
+// Control panel for user interaction / changing routines
+const controlPanel = new ControlPanel(voxelClient);
+
+//let lastFrameTime = Date.now();
 const animate = function () {
 
-  const currAnimator = controlPanelGui.currAnimator;
+  //let currFrameTime = Date.now();
+  //let dt = (currFrameTime - lastFrameTime) / 1000;
 
-  let currFrameTime = Date.now();
-  let dt = (currFrameTime - lastFrameTime) / 1000;
-
-  /*
-  count += dt;
-  if (count > 1.0) {
-    count = 0;
-    let randomDir = testDirRandomizer.generate();
-    scene.add(new THREE.ArrowHelper(randomDir, new THREE.Vector3(0, 0, 0), 10, 0xff0000));
-  }
-  */
-  if (currAnimator) {
-    currAnimator.animate(dt);
-  }
-  
   requestAnimationFrame(animate);
-
   controls.update();
   renderer.render(scene, camera);
 
-  lastFrameTime = currFrameTime;
+  //lastFrameTime = currFrameTime;
 };
 
 animate();
+
+voxelClient.start(controlPanel);

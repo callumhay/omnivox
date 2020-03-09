@@ -1,24 +1,11 @@
 import * as dat from 'dat.gui';
 import * as THREE from 'three';
 
-import VoxelColourAnimator, {COLOUR_INTERPOLATION_TYPES, INTERPOLATION_TYPES} from './Animation/VoxelColourAnimator';
-import ShootingStarAnimator from './Animation/ShootingStarAnimator';
-import ShootingStarShowerAnimator from './Animation/ShootingStarShowerAnimator';
-import ShapeWaveAnimator, {shapeWaveAnimatorDefaultConfig, WAVE_SHAPE_TYPES} from './Animation/ShapeWaveAnimator';
-import GameOfLifeAnimator, { gameOfLifeAnimatorDefaultConfig } from './Animation/GameOfLifeAnimator';
-
-const ROUTINE_TYPE_VOXEL_COLOUR  = "Colour Change"
-const ROUTINE_TYPE_SHOOTING_STAR = "Shooting Star";
-const ROUTINE_TYPE_STAR_SHOWER   = "Star Shower";
-const ROUTINE_SHAPE_WAVES        = "Shape Waves";
-const ROUTINE_GAME_OF_LIFE       = "Game of Life";
-const ROUTINE_TYPES = [
-  ROUTINE_TYPE_VOXEL_COLOUR,
-  ROUTINE_TYPE_SHOOTING_STAR,
-  ROUTINE_TYPE_STAR_SHOWER,
-  ROUTINE_SHAPE_WAVES,
-  ROUTINE_GAME_OF_LIFE,
-];
+import VoxelAnimator from '../Animation/VoxelAnimator';
+import {voxelColourAnimatorDefaultConfig, COLOUR_INTERPOLATION_TYPES, INTERPOLATION_TYPES} from '../Animation/VoxelColourAnimator';
+import {starShowerDefaultConfig} from '../Animation/StarShowerAnimator';
+import {shapeWaveAnimatorDefaultConfig, WAVE_SHAPE_TYPES} from '../Animation/ShapeWaveAnimator';
+import {gameOfLifeAnimatorDefaultConfig} from '../Animation/GameOfLifeAnimator';
 
 const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
 const VOXEL_COLOUR_SHAPE_TYPE_SPHERE = "Sphere";
@@ -32,93 +19,123 @@ const VOXEL_COLOUR_SHAPE_TYPES = [
 const THREEColorToGuiColor = (c) => {
   return [parseInt(c.r*255), parseInt(c.g*255), parseInt(c.b*255)];
 }
-const GuiColorToTHREEColor = (c) => {
-  return new THREE.Color(c[0]/255.0, c[1]/255.0, c[2]/255.0);
+const GuiColorToRGBObj = (c) => {
+  return {
+    r: c[0]/255.0, 
+    g: c[1]/255.0, 
+    b: c[2]/255.0
+  };
 }
 
 class ControlPanel {
-  constructor(voxelDisplay) {
-    this.gui = new dat.GUI({preset:'Default'});
-    this.voxelDisplay = voxelDisplay;
-
-    const halfVoxelDisplayUnits = (this.voxelDisplay.gridSize-1)/2;
+  constructor(voxelClient) {
     
-    this.colourAnimator = new VoxelColourAnimator(voxelDisplay);
-    this.shootingStarAnimator = new ShootingStarAnimator(voxelDisplay);
-    this.starShowerAnimator = new ShootingStarShowerAnimator(voxelDisplay);
-    this.shapeWaveAnimator = new ShapeWaveAnimator(voxelDisplay);
-    this.gameOfLifeAnimator = new GameOfLifeAnimator(voxelDisplay);
+    this.gui = new dat.GUI({preset:'Default'});
+    this.voxelClient = voxelClient;
 
-    const velocity = this.shootingStarAnimator.config.velocity;
-    const currVel = new THREE.Vector3(velocity.x, velocity.y, velocity.z);
-    const nCurrVel = currVel.clone().normalize();
-    const startPos = this.shootingStarAnimator.config.startPosition;
-    const starShowerConfig = this.starShowerAnimator.config;
+    this.colourAnimatorConfig = {...voxelColourAnimatorDefaultConfig};
+    this.starShowerAnimatorConfig = {...starShowerDefaultConfig};
+    this.shapeWaveAnimatorConfig = {...shapeWaveAnimatorDefaultConfig};
+    this.gameOfLifeAnimatorConfig = {...gameOfLifeAnimatorDefaultConfig};
 
-    this.settings = {
-      routine: ROUTINE_TYPE_VOXEL_COLOUR,
-      voxelColourSettings: {...this.colourAnimator.config,
-        shapeType: VOXEL_COLOUR_SHAPE_TYPE_ALL,
-        sphereProperties: {center: {x:halfVoxelDisplayUnits, y:halfVoxelDisplayUnits, z:halfVoxelDisplayUnits}, radius:halfVoxelDisplayUnits, fill:false},
-        boxProperties: {center: {x:halfVoxelDisplayUnits, y:halfVoxelDisplayUnits, z:halfVoxelDisplayUnits}, width:2*halfVoxelDisplayUnits-2, height:2*halfVoxelDisplayUnits-2, depth:2*halfVoxelDisplayUnits-2, fill:false},
-        colourStart: THREEColorToGuiColor(this.colourAnimator.config.colourStart),
-        colourEnd: THREEColorToGuiColor(this.colourAnimator.config.colourEnd),
-        reset: () => { this.colourAnimator.reset(); },
-      },
-
-      shootingStarSettings: {...this.shootingStarAnimator.config,
-        colour: THREEColorToGuiColor(this.shootingStarAnimator.config.colour),
-        startPosition: {x: startPos.x, y: startPos.y, z: startPos.z},
-        speed: currVel.length(),
-        direction: {x: nCurrVel.x, y: nCurrVel.y, z: nCurrVel.z},
-        fadeTime: this.shootingStarAnimator.config.fadeTimeSecs,
-        repeat: this.shootingStarAnimator.config.repeat,
-        reset: () => { 
-          this.shootingStarAnimator.reset();
-          this.voxelDisplay.clearRGB(0,0,0);
-        },
-      },
-
-      starShowerSettings: {
-        minSpawnPos: {x: starShowerConfig.positionRandomizer.min.x, y: starShowerConfig.positionRandomizer.min.y, z: starShowerConfig.positionRandomizer.min.z},
-        maxSpawnPos: {x: starShowerConfig.positionRandomizer.max.x, y: starShowerConfig.positionRandomizer.max.y, z: starShowerConfig.positionRandomizer.max.z},
-        direction: {x: starShowerConfig.directionRandomizer.baseDirection.x, y: starShowerConfig.directionRandomizer.baseDirection.y, z: starShowerConfig.directionRandomizer.baseDirection.z},
-        directionVariance: starShowerConfig.directionRandomizer.radAngle, // [0, PI]
-        speedMin: starShowerConfig.speedRandomizer.min,
-        speedMax: starShowerConfig.speedRandomizer.max,
-        spawnRate: starShowerConfig.spawnRate,
-        colourMin: THREEColorToGuiColor(starShowerConfig.colourRandomizer.min), 
-        colourMax: THREEColorToGuiColor(starShowerConfig.colourRandomizer.max), 
-        reset: () => { 
-          this.starShowerAnimator.reset();
-          this.voxelDisplay.clearRGB(0,0,0);
-        },
-      },
-
-      shapeWaveSettings: {
-        center: {x: shapeWaveAnimatorDefaultConfig.center.x, y: shapeWaveAnimatorDefaultConfig.center.y, z: shapeWaveAnimatorDefaultConfig.center.z },
-        shapeType: shapeWaveAnimatorDefaultConfig.waveShape,
-        waveSpeed: shapeWaveAnimatorDefaultConfig.waveSpeed,
-        waveGap: shapeWaveAnimatorDefaultConfig.waveGap,
-        colourPalette: shapeWaveAnimatorDefaultConfig.colourPalette,
-        reset: () => { 
-          this.shapeWaveAnimator.reset();
-          this.voxelDisplay.clearRGB(0,0,0);
-        },
-      },
-
-      gameOfLifeSettings: {
-        seed: gameOfLifeAnimatorDefaultConfig.seed,
-        reset: () => { 
-          this.voxelDisplay.clearRGB(0,0,0);
-          this.gameOfLifeAnimator.reset();
-        },
-      }
-    };
+    this.reloadSettings();
     
     this.currFolder = null;
     this.shapeSettingsFolder = null;
-    this.currAnimator = this.colourAnimator;
+
+    this.animatorTypeController = this.gui.add(this.settings, 'animatorType', [
+      VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR,
+      VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER,
+      VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES,
+      //VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE, // Meh... not very impressed by this, maybe when we have a much bigger grid
+    ]).onChange((value) => {
+
+      // Clear the display and remove any GUI elements from before
+      if (this.currFolder) {
+        this.gui.removeFolder(this.currFolder);
+        this.currFolder = null;
+        this.shapeSettingsFolder = null;
+      }
+
+      switch (value) {
+        case VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR:
+          this.currFolder = this.buildVoxelColourControls();
+          this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
+          break;
+
+        case VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER:
+          this.currFolder = this.buildStarShowerAnimatorControls();
+          this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER, this.starShowerAnimatorConfig);
+          break;
+
+        case VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES:
+          this.currFolder = this.buildShapeWavesAnimatorControls();
+          this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES, this.shapeWaveAnimatorConfig);
+          break;
+        
+        case VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE:
+          this.currFolder = this.buildGameOfLifeAnimatorControls();
+          this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE, this.gameOfLifeAnimatorConfig);
+          break;
+        
+        default:
+          console.error("Animator type Not implemented!");
+          break;
+      }
+
+      voxelClient.sendClearCommand(0,0,0);
+    }).setValue(this.settings.animatorType);
+
+    this.gui.open();
+  }
+
+  reloadSettings() {
+    const resetFunc = (() => {
+      this.voxelClient.sendRoutineResetCommand();
+      this.voxelClient.sendClearCommand(0,0,0);
+    }).bind(this);
+
+    const halfVoxelDisplayUnits = (this.voxelClient.voxelDisplay.gridSize - 1) / 2;
+
+    this.settings = {
+      animatorType: VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR,
+
+      voxelColourSettings: {...this.colourAnimatorConfig,
+        shapeType: VOXEL_COLOUR_SHAPE_TYPE_ALL,
+        sphereProperties: {center: {x:halfVoxelDisplayUnits, y:halfVoxelDisplayUnits, z:halfVoxelDisplayUnits}, radius:halfVoxelDisplayUnits, fill:false},
+        boxProperties: {center: {x:halfVoxelDisplayUnits, y:halfVoxelDisplayUnits, z:halfVoxelDisplayUnits}, width:2*halfVoxelDisplayUnits-2, height:2*halfVoxelDisplayUnits-2, depth:2*halfVoxelDisplayUnits-2, fill:false},
+        colourStart: THREEColorToGuiColor(this.colourAnimatorConfig.colourStart),
+        colourEnd: THREEColorToGuiColor(this.colourAnimatorConfig.colourEnd),
+        reset: resetFunc,
+      },
+
+      starShowerSettings: {
+        minSpawnPos: {x: this.starShowerAnimatorConfig.positionRandomizer.min.x, y: this.starShowerAnimatorConfig.positionRandomizer.min.y, z: this.starShowerAnimatorConfig.positionRandomizer.min.z},
+        maxSpawnPos: {x: this.starShowerAnimatorConfig.positionRandomizer.max.x, y: this.starShowerAnimatorConfig.positionRandomizer.max.y, z: this.starShowerAnimatorConfig.positionRandomizer.max.z},
+        direction: {x: this.starShowerAnimatorConfig.directionRandomizer.baseDirection.x, y: this.starShowerAnimatorConfig.directionRandomizer.baseDirection.y, z: this.starShowerAnimatorConfig.directionRandomizer.baseDirection.z},
+        directionVariance: this.starShowerAnimatorConfig.directionRandomizer.radAngle, // [0, PI]
+        speedMin: this.starShowerAnimatorConfig.speedRandomizer.min,
+        speedMax: this.starShowerAnimatorConfig.speedRandomizer.max,
+        spawnRate: this.starShowerAnimatorConfig.spawnRate,
+        colourMin: THREEColorToGuiColor(this.starShowerAnimatorConfig.colourRandomizer.min), 
+        colourMax: THREEColorToGuiColor(this.starShowerAnimatorConfig.colourRandomizer.max), 
+        reset: resetFunc,
+      },
+     
+      shapeWaveSettings: {
+        center: {x: this.shapeWaveAnimatorConfig.center.x, y: this.shapeWaveAnimatorConfig.center.y, z: this.shapeWaveAnimatorConfig.center.z},
+        shapeType: this.shapeWaveAnimatorConfig.waveShape,
+        waveSpeed: this.shapeWaveAnimatorConfig.waveSpeed,
+        waveGap: this.shapeWaveAnimatorConfig.waveGap,
+        colourPalette: this.shapeWaveAnimatorConfig.colourPalette,
+        reset: resetFunc,
+      },
+
+      gameOfLifeSettings: {
+        seed: this.gameOfLifeAnimatorConfig.seed,
+        reset: resetFunc,
+      },
+    };
 
     this.gui.remember(this.settings);
     
@@ -127,10 +144,6 @@ class ControlPanel {
     this.gui.remember(this.settings.voxelColourSettings.sphereProperties.center);
     this.gui.remember(this.settings.voxelColourSettings.boxProperties);
     this.gui.remember(this.settings.voxelColourSettings.boxProperties.center);
-
-    this.gui.remember(this.settings.shootingStarSettings);
-    this.gui.remember(this.settings.shootingStarSettings.startPosition);
-    this.gui.remember(this.settings.shootingStarSettings.direction);
 
     this.gui.remember(this.settings.starShowerSettings);
     this.gui.remember(this.settings.starShowerSettings.minSpawnPos);
@@ -141,45 +154,29 @@ class ControlPanel {
     this.gui.remember(this.settings.shapeWaveSettings.center);
 
     this.gui.remember(this.settings.gameOfLifeSettings);
+  }
 
-    this.gui.add(this.settings, 'routine', ROUTINE_TYPES).onChange((value) => {
+  updateAnimator(animatorType, config) {
+    switch (animatorType) {
+      case VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR:
+        this.colourAnimatorConfig = config;
+        break;
+      case VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER:
+        this.starShowerAnimatorConfig = config;
+        break;
+      case VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES:
+        this.shapeWaveAnimatorConfig = config;
+        break;
+      case VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE:
+        this.gameOfLifeAnimatorConfig = config;
+        break;
+      default:
+        console.error("Animator type Not implemented!");
+        break;
+    }
 
-      // Clear the display and remove any GUI elements from before
-      this.voxelDisplay.clearRGB(0,0,0);
-      if (this.currFolder) {
-        this.gui.removeFolder(this.currFolder);
-        this.currFolder = null;
-        this.shapeSettingsFolder = null;
-      }
-
-      switch (value) {
-        case ROUTINE_TYPE_VOXEL_COLOUR:
-          this.currFolder = this.buildVoxelColourControls();
-          this.currAnimator = this.colourAnimator;
-          break;
-        case ROUTINE_TYPE_SHOOTING_STAR:
-          this.currFolder = this.buildShootingStarAnimatorControls();
-          this.currAnimator = this.shootingStarAnimator;
-          break;
-        case ROUTINE_TYPE_STAR_SHOWER:
-          this.currFolder = this.buildStarShowerAnimatorControls();
-          this.currAnimator = this.starShowerAnimator;
-          break;
-        case ROUTINE_SHAPE_WAVES:
-          this.currFolder = this.buildShapeWavesAnimatorControls();
-          this.currAnimator = this.shapeWaveAnimator;
-          break;
-        case ROUTINE_GAME_OF_LIFE:
-          this.currFolder = this.buildGameOfLifeAnimatorControls();
-          this.currAnimator = this.gameOfLifeAnimator;
-          break;
-        default:
-          break;
-      }
-      this.currAnimator.reset();
-    }).setValue(this.settings.routine);
-
-    this.gui.open();
+    this.reloadSettings();
+    this.animatorTypeController.setValue(animatorType);
   }
 
   buildVoxelColourControls() {
@@ -188,83 +185,96 @@ class ControlPanel {
     const folder = this.gui.addFolder("Colour Change Controls");
    
     folder.add(voxelColourSettings, 'colourInterpolationType', COLOUR_INTERPOLATION_TYPES).onChange((value) => {
-      this.colourAnimator.setConfig({...this.colourAnimator.config, colourInterpolationType:value});
+      this.colourAnimatorConfig.colourInterpolationType = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
     }).setValue(voxelColourSettings.colourInterpolationType);
     
     folder.add(voxelColourSettings, 'interpolationType', INTERPOLATION_TYPES).onChange((value) => {
-      this.colourAnimator.setConfig({...this.colourAnimator.config, interpolationType:value});
+      this.colourAnimatorConfig.interpolationType = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
     }).setValue(voxelColourSettings.interpolationType);
 
     folder.addColor(voxelColourSettings, 'colourStart').onChange((value) => {
-      this.colourAnimator.setConfig({...this.colourAnimator.config, colourStart:GuiColorToTHREEColor(value)});
+      this.colourAnimatorConfig.colourStart = GuiColorToRGBObj(value);
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
     }).setValue(voxelColourSettings.colourStart);
     
     folder.addColor(voxelColourSettings, 'colourEnd').onChange((value) => {
-      this.colourAnimator.setConfig({...this.colourAnimator.config, colourEnd:GuiColorToTHREEColor(value)});
+      this.colourAnimatorConfig.colourEnd = GuiColorToRGBObj(value);
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
     }).setValue(voxelColourSettings.colourEnd);
     
     folder.add(voxelColourSettings, 'startTimeSecs', 0.0, 30.0, 0.1).onChange((value) => {
-      this.colourAnimator.setConfig({...this.colourAnimator.config, startTimeSecs:value});
+      this.colourAnimatorConfig.startTimeSecs = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
     }).setValue(voxelColourSettings.startTimeSecs);
     
     folder.add(voxelColourSettings, 'endTimeSecs', 0.0, 30.0, 0.1).onChange((value) => {
-      this.colourAnimator.setConfig({...this.colourAnimator.config, endTimeSecs:value});
+      this.colourAnimatorConfig.endTimeSecs = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
     }).setValue(voxelColourSettings.endTimeSecs);
     
     folder.add(voxelColourSettings, 'reset');
 
+    const {voxelDisplay} = this.voxelClient;
     folder.add(voxelColourSettings, 'shapeType', VOXEL_COLOUR_SHAPE_TYPES).onChange((value) => {
+
       if (this.shapeSettingsFolder) {
         folder.removeFolder(this.shapeSettingsFolder);
         this.shapeSettingsFolder = null;
       }
-      switch (value) {
 
+      switch (value) {
         case VOXEL_COLOUR_SHAPE_TYPE_ALL:
-          this.voxelDisplay.clearRGB(0,0,0);
-          this.colourAnimator.setConfig({...this.colourAnimator.config,
-            voxelPositions: this.voxelDisplay.voxelIndexList(),
-          });
+          this.colourAnimatorConfig.voxelPositions = voxelDisplay.voxelIndexList();
+          this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
+          this.voxelClient.sendClearCommand(0,0,0);
           break;
 
         case VOXEL_COLOUR_SHAPE_TYPE_SPHERE: {
           this.shapeSettingsFolder = folder.addFolder("Sphere Properties");
+
           this.shapeSettingsFolder.add(voxelColourSettings.sphereProperties, 'fill').onChange((value) => {
-            this.voxelDisplay.clearRGB(0,0,0);
-            this.colourAnimator.setConfig({...this.colourAnimator.config,
-              voxelPositions: this.voxelDisplay.voxelSphereList(
-                new THREE.Vector3(
-                  voxelColourSettings.sphereProperties.center.x,
-                  voxelColourSettings.sphereProperties.center.y,
-                  voxelColourSettings.sphereProperties.center.z
-                ), voxelColourSettings.sphereProperties.radius, value 
+            this.colourAnimatorConfig.voxelPositions = voxelDisplay.voxelSphereList(
+              new THREE.Vector3(
+                voxelColourSettings.sphereProperties.center.x,
+                voxelColourSettings.sphereProperties.center.y,
+                voxelColourSettings.sphereProperties.center.z
               ),
-            });
+              voxelColourSettings.sphereProperties.radius, value
+            );
+
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
+            this.voxelClient.sendClearCommand(0,0,0);
+
           }).setValue(voxelColourSettings.sphereProperties.fill);
-          this.shapeSettingsFolder.add(voxelColourSettings.sphereProperties, 'radius', 0.5, this.voxelDisplay.gridSize, 0.5).onChange((value) => {
-            this.voxelDisplay.clearRGB(0,0,0);
-            this.colourAnimator.setConfig({...this.colourAnimator.config,
-              voxelPositions: this.voxelDisplay.voxelSphereList(
-                new THREE.Vector3(
-                  voxelColourSettings.sphereProperties.center.x,
-                  voxelColourSettings.sphereProperties.center.y,
-                  voxelColourSettings.sphereProperties.center.z
-                ), value, voxelColourSettings.sphereProperties.fill
-              ),
-            });
+
+          this.shapeSettingsFolder.add(voxelColourSettings.sphereProperties, 'radius', 0.5, voxelDisplay.gridSize, 0.5).onChange((value) => {
+            
+            this.colourAnimatorConfig.voxelPositions = voxelDisplay.voxelSphereList(
+              new THREE.Vector3(
+                voxelColourSettings.sphereProperties.center.x,
+                voxelColourSettings.sphereProperties.center.y,
+                voxelColourSettings.sphereProperties.center.z
+              ), value, voxelColourSettings.sphereProperties.fill
+            );
+
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
+            this.voxelClient.sendClearCommand(0,0,0);
+
           }).setValue(voxelColourSettings.sphereProperties.radius);
 
           const onChangeSphereCenter = (value, component) => {
-            this.voxelDisplay.clearRGB(0,0,0);
             const newCenter = new THREE.Vector3(voxelColourSettings.sphereProperties.center.x,voxelColourSettings.sphereProperties.center.y,voxelColourSettings.sphereProperties.center.z);
             newCenter[component] = value;
-            this.colourAnimator.setConfig({...this.colourAnimator.config,
-              voxelPositions: this.voxelDisplay.voxelSphereList(newCenter, voxelColourSettings.sphereProperties.radius, voxelColourSettings.sphereProperties.fill),
-            });
+            this.colourAnimatorConfig.voxelPositions = voxelDisplay.voxelSphereList(newCenter, voxelColourSettings.sphereProperties.radius, voxelColourSettings.sphereProperties.fill);
+            
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
+            this.voxelClient.sendClearCommand(0,0,0);
           };
 
           const centerFolder = this.shapeSettingsFolder.addFolder("Center");
-          const voxelGridSize = this.voxelDisplay.gridSize;
+          const voxelGridSize = voxelDisplay.gridSize;
           centerFolder.add(voxelColourSettings.sphereProperties.center, 'x', -voxelGridSize, 2*voxelGridSize, 0.5).onChange((value) => {
             onChangeSphereCenter(value, 'x');
           }).setValue(voxelColourSettings.sphereProperties.center.x);
@@ -282,13 +292,12 @@ class ControlPanel {
         }
 
         case VOXEL_COLOUR_SHAPE_TYPE_BOX: {
-
           const buildBoxPts = (currBoxProperties) => {
             const halfWidth = currBoxProperties.width/2.0;
             const halfHeight = currBoxProperties.height/2.0;
             const halfDepth = currBoxProperties.depth/2.0;
 
-            return this.voxelDisplay.voxelBoxList(
+            return voxelDisplay.voxelBoxList(
               new THREE.Vector3(
                 currBoxProperties.center.x-halfWidth,
                 currBoxProperties.center.y-halfHeight,
@@ -303,16 +312,16 @@ class ControlPanel {
           };
 
           const onChangeBasicBoxProperty = (value, property) => {
-            this.voxelDisplay.clearRGB(0,0,0);
-            this.colourAnimator.setConfig({...this.colourAnimator.config, voxelPositions: buildBoxPts({...voxelColourSettings.boxProperties, [property]:value})});
+            this.colourAnimatorConfig.voxelPositions = buildBoxPts({...voxelColourSettings.boxProperties, [property]:value});
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
+            this.voxelClient.sendClearCommand(0,0,0);
           };
           const onChangeBoxCenter = (value, component) => {
-            this.voxelDisplay.clearRGB(0,0,0);
             const newCenter = new THREE.Vector3(voxelColourSettings.boxProperties.center.x,voxelColourSettings.boxProperties.center.y,voxelColourSettings.boxProperties.center.z);
             newCenter[component] = value;
-            this.colourAnimator.setConfig({...this.colourAnimator.config,
-              voxelPositions: buildBoxPts({...voxelColourSettings.boxProperties, center:newCenter}),
-            });
+            this.colourAnimatorConfig.voxelPositions = buildBoxPts({...voxelColourSettings.boxProperties, center:newCenter});
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
+            this.voxelClient.sendClearCommand(0,0,0);
           };
 
           this.shapeSettingsFolder = folder.addFolder("Box Properties");
@@ -321,7 +330,7 @@ class ControlPanel {
           }).setValue(voxelColourSettings.boxProperties.fill);
 
           const dimensionsFolder = this.shapeSettingsFolder.addFolder("Dimensions");
-          const voxelGridSize = this.voxelDisplay.gridSize;
+          const voxelGridSize = voxelDisplay.gridSize;
           dimensionsFolder.add(voxelColourSettings.boxProperties, 'width', 0.5, 2*voxelGridSize, 0.5).onChange((value) => {
             onChangeBasicBoxProperty(value, 'width');
           }).setValue(voxelColourSettings.boxProperties.width);
@@ -352,80 +361,8 @@ class ControlPanel {
           break;
       }
     }).setValue(voxelColourSettings.shapeType);
-
-    folder.open();
-    return folder;
-  }
-
-  buildShootingStarAnimatorControls() {
-    const {shootingStarSettings} = this.settings;
-
-    const folder = this.gui.addFolder("Shooting Star Controls");
-    folder.add(shootingStarSettings, 'repeat', -1, 10, 1).onChange((value) => {
-      this.shootingStarAnimator.setConfig({...this.shootingStarAnimator.config, repeat:value});
-    }).setValue(shootingStarSettings.repeat);
-
-    folder.addColor(shootingStarSettings, 'colour').onChange((value) => {
-      this.shootingStarAnimator.setConfig({...this.shootingStarAnimator.config, colour:GuiColorToTHREEColor(value)});
-    }).setValue(shootingStarSettings.colour);
-
-    folder.add(shootingStarSettings, 'fadeTime', 0.1, 10.0, 0.1).onChange((value) => {
-      this.shootingStarAnimator.setConfig({...this.shootingStarAnimator.config, fadeTimeSecs: value});
-    }).setValue(shootingStarSettings.fadeTime);
-
-    folder.add(shootingStarSettings, 'speed', -10.0, 10.0, 0.5).onChange((value) => {
-      const currDir = shootingStarSettings.direction;
-      const currVel = new THREE.Vector3(currDir.x, currDir.y, currDir.z).multiplyScalar(shootingStarSettings.speed);
-      this.shootingStarAnimator.setConfig({...this.shootingStarAnimator.config,
-        velocity: currVel,
-      });
-    }).setValue(shootingStarSettings.speed);
-    
-    const directionFolder = folder.addFolder("Direction");
-    const onDirectionChange = (value, component) => {
-      const currVelNorm = shootingStarSettings.direction;
-      const currSpd = shootingStarSettings.speed;
-      currVelNorm[component] = value;
-    
-      this.shootingStarAnimator.setConfig({...this.shootingStarAnimator.config, 
-        velocity: {x: currVelNorm.x*currSpd, y: currVelNorm.y*currSpd, z: currVelNorm.z*currSpd}
-      });
-    }
-
-    directionFolder.add(shootingStarSettings.direction, 'x', 0, 1, 0.1).onChange((value) => {
-      onDirectionChange(value, 'x');
-    }).setValue(shootingStarSettings.direction.x);
-    directionFolder.add(shootingStarSettings.direction, 'y', 0, 1, 0.1).onChange((value) => {
-      onDirectionChange(value, 'y');
-    }).setValue(shootingStarSettings.direction.y);
-    directionFolder.add(shootingStarSettings.direction, 'z', 0, 1, 0.1).onChange((value) => {
-      onDirectionChange(value, 'z');
-    }).setValue(shootingStarSettings.direction.z);
-    directionFolder.open();
-
-    const gridSize = this.voxelDisplay.gridSize;
-    const startPosFolder = folder.addFolder("Start Position");
-    const onStartPositionChange = (value, component) => {
-      const currPos = shootingStarSettings.startPosition;
-      currPos[component] = value;
-      this.shootingStarAnimator.setConfig({...this.shootingStarAnimator.config, 
-        startPosition: currPos
-      });
-    };
-    startPosFolder.add(shootingStarSettings.startPosition, 'x', 0, gridSize-1, 1).onChange((value) => {
-      onStartPositionChange(value, 'x');
-    }).setValue(shootingStarSettings.startPosition.x);
-    startPosFolder.add(shootingStarSettings.startPosition, 'y', 0, gridSize-1, 1).onChange((value) => {
-      onStartPositionChange(value, 'y');
-    }).setValue(shootingStarSettings.startPosition.y);
-    startPosFolder.add(shootingStarSettings.startPosition, 'z', 0, gridSize-1, 1).onChange((value) => {
-      onStartPositionChange(value, 'z');
-    }).setValue(shootingStarSettings.startPosition.z);
-    startPosFolder.open();
-
-    folder.add(shootingStarSettings, 'reset');
-    folder.open();
   
+    folder.open();
     return folder;
   }
 
@@ -434,27 +371,31 @@ class ControlPanel {
 
     const folder = this.gui.addFolder("Star Shower Controls");
     folder.add(starShowerSettings, 'spawnRate', 0.25, 50.0, 0.25).onChange((value) => {
-      this.starShowerAnimator.setConfig({...this.starShowerAnimator.config, 
-        spawnRate: value
-      });
+      this.starShowerAnimatorConfig.spawnRate = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER, this.starShowerAnimatorConfig);
+      //this.voxelClient.sendClearCommand(0,0,0);
     }).setValue(starShowerSettings.spawnRate);
 
+    
     folder.addColor(starShowerSettings, 'colourMin').onChange((value) => {
-      const currRandomizer = this.starShowerAnimator.config.colourRandomizer;
-      currRandomizer.min = GuiColorToTHREEColor(value);
-      this.starShowerAnimator.setConfig(this.starShowerAnimator.config);
+      const currRandomizer = this.starShowerAnimatorConfig.colourRandomizer;
+      currRandomizer.min = GuiColorToRGBObj(value);
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER, this.starShowerAnimatorConfig);
+      //this.voxelClient.sendClearCommand(0,0,0);
     }).setValue(starShowerSettings.colourMin);
 
     folder.addColor(starShowerSettings, 'colourMax').onChange((value) => {
-      const currRandomizer = this.starShowerAnimator.config.colourRandomizer;
-      currRandomizer.max = GuiColorToTHREEColor(value);
-      this.starShowerAnimator.setConfig(this.starShowerAnimator.config);
+      const currRandomizer = this.starShowerAnimatorConfig.colourRandomizer;
+      currRandomizer.max = GuiColorToRGBObj(value);
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER, this.starShowerAnimatorConfig);
+      //this.voxelClient.sendClearCommand(0,0,0);
     }).setValue(starShowerSettings.colourMax);
 
     const onChangeSpd = (value, component) => {
-      const currRandomizer = this.starShowerAnimator.config.speedRandomizer;
+      const currRandomizer = this.starShowerAnimatorConfig.speedRandomizer;
       currRandomizer[component] = value;
-      this.starShowerAnimator.setConfig(this.starShowerAnimator.config);
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER, this.starShowerAnimatorConfig);
+
     };
     folder.add(starShowerSettings, 'speedMin', 1, 25.0, 0.5).onChange((value) => {
       const actualVal = Math.min(value, starShowerSettings.speedMax);
@@ -468,19 +409,17 @@ class ControlPanel {
     }).setValue(starShowerSettings.speedMax);
 
     folder.add(starShowerSettings, 'directionVariance', 0, Math.PI, Math.PI/16).onChange((value) => {
-      const currRandomizer = this.starShowerAnimator.config.directionRandomizer;
+      const currRandomizer = this.starShowerAnimatorConfig.directionRandomizer;
       currRandomizer.radAngle = value;
-      this.starShowerAnimator.setConfig(this.starShowerAnimator.config);
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER, this.starShowerAnimatorConfig);
     }).setValue(starShowerSettings.directionVariance);
 
     const onChangeDir = (value, component) => {
-      const currRandomizer = this.starShowerAnimator.config.directionRandomizer;
-
+      const currRandomizer = this.starShowerAnimatorConfig.directionRandomizer;
       currRandomizer.baseDirection = new THREE.Vector3(starShowerSettings.direction.x, starShowerSettings.direction.y, starShowerSettings.direction.z);
       currRandomizer.baseDirection[component] = value;
       currRandomizer.baseDirection.normalize();
-
-      this.starShowerAnimator.setConfig(this.starShowerAnimator.config);
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER, this.starShowerAnimatorConfig);
     };
     const dirFolder = folder.addFolder("Direction");
     dirFolder.add(starShowerSettings.direction, 'x', -1, 1, 0.01).onChange((value) => {
@@ -494,107 +433,108 @@ class ControlPanel {
     }).setValue(starShowerSettings.direction.z);
     dirFolder.open();
     
+    
     const onChangePositionMin = (value, component) => {
       const actualVal = Math.min(value, starShowerSettings.maxSpawnPos[component]);
-      const currRandomizer = this.starShowerAnimator.config.positionRandomizer;
+      const currRandomizer = this.starShowerAnimatorConfig.positionRandomizer;
       currRandomizer.min[component] = actualVal;
-      this.starShowerAnimator.setConfig(this.starShowerAnimator.config);
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER, this.starShowerAnimatorConfig);
       starShowerSettings.minSpawnPos[component] = actualVal;
     };
     const onChangePositionMax = (value, component) => {
       const actualVal = Math.max(value, starShowerSettings.minSpawnPos[component]);
-      const currRandomizer = this.starShowerAnimator.config.positionRandomizer;
+      const currRandomizer = this.starShowerAnimatorConfig.positionRandomizer;
       currRandomizer.max[component] = actualVal;
-      this.starShowerAnimator.setConfig(this.starShowerAnimator.config);
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER, this.starShowerAnimatorConfig);
       starShowerSettings.maxSpawnPos[component] = actualVal;
     };
 
-    const positionMax = 2*this.voxelDisplay.gridSize;
+    const positionXMax = 2*this.voxelClient.voxelDisplay.xSize();
+    const positionYMax = 2*this.voxelClient.voxelDisplay.ySize();
+    const positionZMax = 2*this.voxelClient.voxelDisplay.zSize();
+
     const posFolder = folder.addFolder("Position Spawning");
     const minPosFolder = posFolder.addFolder("Min");
-    minPosFolder.add(starShowerSettings.minSpawnPos, 'x', -positionMax, positionMax, 1).onChange((value) => {
+    minPosFolder.add(starShowerSettings.minSpawnPos, 'x', -positionXMax, positionXMax, 1).onChange((value) => {
       onChangePositionMin(value, 'x');
     }).setValue(starShowerSettings.minSpawnPos.x);
-    minPosFolder.add(starShowerSettings.minSpawnPos, 'y', -positionMax, positionMax, 1).onChange((value) => {
+    minPosFolder.add(starShowerSettings.minSpawnPos, 'y', -positionYMax, positionYMax, 1).onChange((value) => {
       onChangePositionMin(value, 'y');
     }).setValue(starShowerSettings.minSpawnPos.y);
-    minPosFolder.add(starShowerSettings.minSpawnPos, 'z', -positionMax, positionMax, 1).onChange((value) => {
+    minPosFolder.add(starShowerSettings.minSpawnPos, 'z', -positionZMax, positionZMax, 1).onChange((value) => {
       onChangePositionMin(value, 'z');
     }).setValue(starShowerSettings.minSpawnPos.z);
     minPosFolder.open();
 
     const maxPosFolder = posFolder.addFolder("Max");
-    maxPosFolder.add(starShowerSettings.maxSpawnPos, 'x', -positionMax, positionMax, 1).onChange((value) => {
+    maxPosFolder.add(starShowerSettings.maxSpawnPos, 'x', -positionXMax, positionXMax, 1).onChange((value) => {
       onChangePositionMax(value, 'x');
     }).setValue(starShowerSettings.maxSpawnPos.x);
-    maxPosFolder.add(starShowerSettings.maxSpawnPos, 'y', -positionMax, positionMax, 1).onChange((value) => {
+    maxPosFolder.add(starShowerSettings.maxSpawnPos, 'y', -positionYMax, positionYMax, 1).onChange((value) => {
       onChangePositionMax(value, 'y');
     }).setValue(starShowerSettings.maxSpawnPos.y);
-    maxPosFolder.add(starShowerSettings.maxSpawnPos, 'z', -positionMax, positionMax, 1).onChange((value) => {
+    maxPosFolder.add(starShowerSettings.maxSpawnPos, 'z', -positionZMax, positionZMax, 1).onChange((value) => {
       onChangePositionMax(value, 'z');
     }).setValue(starShowerSettings.maxSpawnPos.z);
 
     maxPosFolder.open();
     posFolder.open();
-
+   
     folder.add(starShowerSettings, 'reset');
     folder.open();
 
     return folder;
   }
-
+  
   buildShapeWavesAnimatorControls() {
     const {shapeWaveSettings} = this.settings;
 
     const folder = this.gui.addFolder("Shape Wave Controls");
 
     folder.add(shapeWaveSettings, 'waveSpeed', 0.5, 25.0, 0.5).onChange((value) => {
-      const currConfig = this.shapeWaveAnimator.config;
-      currConfig.waveSpeed = value;
-      this.shapeWaveAnimator.setConfig(currConfig);
+      this.shapeWaveAnimatorConfig.waveSpeed = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES, this.shapeWaveAnimatorConfig);
     }).setValue(shapeWaveSettings.waveSpeed);
+
     folder.add(shapeWaveSettings, 'waveGap', 0.0, 25.0, 1).onChange((value) => {
-      const currConfig = this.shapeWaveAnimator.config;
-      currConfig.waveGap = value;
-      this.shapeWaveAnimator.setConfig(currConfig);
+      this.shapeWaveAnimatorConfig.waveGap = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES, this.shapeWaveAnimatorConfig);
     }).setValue(shapeWaveSettings.waveGap);
 
 
     folder.add(shapeWaveSettings, 'shapeType', WAVE_SHAPE_TYPES).onChange((value) => {
-      const currConfig = this.shapeWaveAnimator.config;
-      currConfig.waveShape = value;
-      this.shapeWaveAnimator.setConfig(currConfig);
+      this.shapeWaveAnimatorConfig.waveShape = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES, this.shapeWaveAnimatorConfig);
     }).setValue(shapeWaveSettings.shapeType);
 
     const onChangeWaveCenter = (value, component) => {
-      const currConfig = this.shapeWaveAnimator.config;
-      currConfig.center[component] = value;
-      this.shapeWaveAnimator.setConfig(currConfig);
+      this.shapeWaveAnimatorConfig.center[component] = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES, this.shapeWaveAnimatorConfig);
     };
 
     const centerFolder = folder.addFolder("Center");
-    const voxelGridSize = this.voxelDisplay.gridSize;
-    centerFolder.add(shapeWaveSettings.center, 'x', -voxelGridSize, 2*voxelGridSize, 0.5).onChange((value) => {
+
+    const voxelGridSizeX = this.voxelClient.voxelDisplay.xSize();
+    const voxelGridSizeY = this.voxelClient.voxelDisplay.ySize();
+    const voxelGridSizeZ = this.voxelClient.voxelDisplay.zSize();
+
+    centerFolder.add(shapeWaveSettings.center, 'x', -voxelGridSizeX, 2*voxelGridSizeX, 0.5).onChange((value) => {
       onChangeWaveCenter(value, 'x');
     }).setValue(shapeWaveSettings.center.x);
-    centerFolder.add(shapeWaveSettings.center, 'y', -voxelGridSize, 2*voxelGridSize, 0.5).onChange((value) => {
+    centerFolder.add(shapeWaveSettings.center, 'y', -voxelGridSizeY, 2*voxelGridSizeY, 0.5).onChange((value) => {
       onChangeWaveCenter(value, 'y');
     }).setValue(shapeWaveSettings.center.y);
-    centerFolder.add(shapeWaveSettings.center, 'z', -voxelGridSize, 2*voxelGridSize, 0.5).onChange((value) => {
+    centerFolder.add(shapeWaveSettings.center, 'z', -voxelGridSizeZ, 2*voxelGridSizeZ, 0.5).onChange((value) => {
       onChangeWaveCenter(value, 'z');
     }).setValue(shapeWaveSettings.center.z);
     centerFolder.open();
 
-    /*
-    const paletteFolder = folder.addFolder("Colour Palette");
-    shapeWaveSettings.colourPalette.forEach((colour, idx) => {
-      paletteFolder.addColor(shapeWaveSettings.colourPalette, idx).onChange((value) => {
-
-      }).setValue(value);
-    });
-    */
-
-
+ 
+    //const paletteFolder = folder.addFolder("Colour Palette");
+    //shapeWaveSettings.colourPalette.forEach((colour, idx) => {
+    //  paletteFolder.addColor(shapeWaveSettings.colourPalette, idx).onChange((value) => {
+    //  }).setValue(value);
+    //});
 
     folder.add(shapeWaveSettings, 'reset');
     folder.open();
@@ -608,11 +548,9 @@ class ControlPanel {
     const folder = this.gui.addFolder("Game of Life Controls");
 
     folder.add(gameOfLifeSettings, 'seed').onChange((value) => {
-      const currConfig = this.gameOfLifeAnimator.config;
-      currConfig['seed'] = value;
-      this.gameOfLifeAnimator.setConfig(currConfig);
+      this.gameOfLifeAnimatorConfig.seed = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE, this.gameOfLifeAnimatorConfig);
     });
-
 
     folder.add(gameOfLifeSettings, 'reset');
     folder.open();

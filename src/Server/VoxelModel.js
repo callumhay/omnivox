@@ -1,15 +1,31 @@
 import * as THREE from 'three';
 import {VOXEL_ERR_UNITS} from '../MathUtils';
 
+import VoxelAnimator from '../Animation/VoxelAnimator';
+import VoxelColourAnimator from '../Animation/VoxelColourAnimator';
+import StarShowerAnimator from '../Animation/StarShowerAnimator';
+import ShapeWaveAnimator from '../Animation/ShapeWaveAnimator';
+import GameOfLifeAnimator from '../Animation/GameOfLifeAnimator';
+
 export const BLEND_MODE_OVERWRITE = 0;
 export const BLEND_MODE_ADDITIVE  = 1;
+
+const DEFAULT_POLLING_FREQUENCY_HZ = 2*60 + 1;
+const DEFAULT_POLLING_INTERVAL_MS  = 1000 / DEFAULT_POLLING_FREQUENCY_HZ;
+
+
+//const COMMAND_CLEAR = "CLEAR";
+
 
 class VoxelModel {
 
   constructor(gridSize) {
+
+    //this.commandQueue = []; // TODO? Optimization: we might want to JUST render changes / diffs instead of sending all voxel data each frame
+
     this.gridSize = gridSize;
     this.blendMode = BLEND_MODE_OVERWRITE;
-
+    
     // Build the 3D array of voxels
     this.voxels = [];
     for (let x = 0; x < gridSize; x++) {
@@ -29,6 +45,45 @@ class VoxelModel {
         }
       }
     }
+
+    this._animators = {
+      [VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR]: new VoxelColourAnimator(this),
+      [VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER] : new StarShowerAnimator(this),
+      [VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES] : new ShapeWaveAnimator(this),
+      [VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE] : new GameOfLifeAnimator(this),
+    };
+    this.currentAnimator = this._animators[VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR];
+  }
+
+  setAnimator(type, config) {
+    if (!(type in this._animators)) {
+      return false;
+    }
+
+    this.currentAnimator = this._animators[type];
+    if (config) {
+      this.currentAnimator.setConfig(config);
+    }
+
+    return true;
+  }
+
+  run(voxelServer) {
+    let lastFrameTime = Date.now();
+    setInterval(function() {
+
+      let currFrameTime = Date.now();
+      let dt = (currFrameTime - lastFrameTime) / 1000;
+      
+      // Simulate the model based on the current animation...
+      if (this.currentAnimator) {
+        this.currentAnimator.animate(dt);
+      }
+      // Let the server know to eventually broadcast the new voxel data to all clients
+      voxelServer.setVoxelData(this.voxels);
+
+      lastFrameTime = currFrameTime;
+    }.bind(this), DEFAULT_POLLING_INTERVAL_MS);
   }
 
   /**
@@ -110,7 +165,6 @@ class VoxelModel {
       }
     }
   }
-
 
   /**
    * Draw a coloured point (the point will be sampled to the nearest voxel).

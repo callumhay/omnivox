@@ -4,7 +4,7 @@ import seedrandom from 'seedrandom';
 import VoxelAnimator from './VoxelAnimator';
 
 export const gameOfLifeAnimatorDefaultConfig = {
-  seed: 'abc',
+  seed: "abc",
   speed: 0.5,
   aliveColour: new THREE.Color(1,1,1),
   deadColour: new THREE.Color(0,0,0),
@@ -19,6 +19,8 @@ class GameOfLifeAnimator extends VoxelAnimator {
     super(voxels, config);
     this.reset();
   }
+
+  getType() { return VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE; }
 
   setConfig(c) {
     super.setConfig(c);
@@ -51,9 +53,9 @@ class GameOfLifeAnimator extends VoxelAnimator {
     const {seed, aliveColour, deadColour} = this.config;
     const rng = seedrandom(seed); // Seeded random number generator for values in [0,1)
     
-    const VOXEL_X_SIZE = this.voxels.xSize();
-    const VOXEL_Y_SIZE = this.voxels.ySize();
-    const VOXEL_Z_SIZE = this.voxels.zSize();
+    const VOXEL_X_SIZE = this.voxels.gridSize;
+    const VOXEL_Y_SIZE = this.voxels.gridSize;
+    const VOXEL_Z_SIZE = this.voxels.gridSize;
 
     for (let x = 0; x < VOXEL_X_SIZE; x++) {
       let currXArr = [];
@@ -117,9 +119,9 @@ class GameOfLifeAnimator extends VoxelAnimator {
     const Fl = 6;
     const Fu = 6;
 
-    const VOXEL_X_SIZE = this.voxels.xSize();
-    const VOXEL_Y_SIZE = this.voxels.ySize();
-    const VOXEL_Z_SIZE = this.voxels.zSize();
+    const VOXEL_X_SIZE = this.voxels.gridSize;
+    const VOXEL_Y_SIZE = this.voxels.gridSize;
+    const VOXEL_Z_SIZE = this.voxels.gridSize;
 
     // Go through each voxel and simulate a step in the 3D "Game of Life"
     const birthedVoxels = [];
@@ -194,9 +196,9 @@ class GameOfLifeAnimator extends VoxelAnimator {
   }
 
   neighbourIter(centerVoxel, iterFunc) {
-    const VOXEL_X_SIZE = this.voxels.xSize();
-    const VOXEL_Y_SIZE = this.voxels.ySize();
-    const VOXEL_Z_SIZE = this.voxels.zSize();
+    const VOXEL_X_SIZE = this.voxels.gridSize;
+    const VOXEL_Y_SIZE = this.voxels.gridSize;
+    const VOXEL_Z_SIZE = this.voxels.gridSize;
 
     const {x,y,z} = centerVoxel;
 

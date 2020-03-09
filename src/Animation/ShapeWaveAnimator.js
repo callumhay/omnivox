@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 import VoxelAnimator from './VoxelAnimator';
 import {Randomizer} from './Randomizers';
-import {VOXEL_EPSILON, VOXEL_ERR_UNITS} from '../../MathUtils';
+import {VOXEL_EPSILON, VOXEL_ERR_UNITS} from '../MathUtils';
 
 const EIGHTIES_MAGENTA_HEX    = 0xF00078;
 const EIGHTIES_YELLOW_HEX     = 0xFFC70E;
@@ -64,8 +64,8 @@ export const shapeWaveAnimatorDefaultConfig = {
 
 
 class WaveShape {
-  constructor(voxelDisplay, center, shape, colour) {
-    this.voxelDisplay = voxelDisplay;
+  constructor(voxelModel, center, shape, colour) {
+    this.voxelModel = voxelModel;
     this.center = new THREE.Vector3(center.x, center.y, center.z);
     this.shape  = shape;
     this.colour = colour;
@@ -79,10 +79,10 @@ class WaveShape {
       case WAVE_SHAPE_CUBE:
         const minPt = this.getMinPt(drawRadius);
         const maxPt = this.getMaxPt(drawRadius);
-        this.voxelDisplay.drawBox(minPt, maxPt, this.colour, false);
+        this.voxelModel.drawBox(minPt, maxPt, this.colour, false);
         break;
       case WAVE_SHAPE_SPHERE:
-        this.voxelDisplay.drawSphere(this.center, drawRadius, this.colour, false);
+        this.voxelModel.drawSphere(this.center, drawRadius, this.colour, false);
         break;
 
       default:
@@ -96,8 +96,8 @@ class WaveShape {
   getMaxPt(r) {
     return this.center.clone().addScalar(r);
   }
-  isInsideVoxelDisplay() {
-    const voxelGridSize = this.voxelDisplay.gridSize + VOXEL_EPSILON;
+  isInsideVoxels() {
+    const voxelGridSize = this.voxelModel.gridSize + VOXEL_EPSILON;
     const minBoundsPt = new THREE.Vector3(-VOXEL_EPSILON,-VOXEL_EPSILON,-VOXEL_EPSILON);
     const maxBoundsPt = new THREE.Vector3(voxelGridSize, voxelGridSize, voxelGridSize);
 
@@ -128,11 +128,11 @@ class WaveShape {
 
     this.radius += dt*waveSpeed;
 
-    if (!this.isInsideVoxelDisplay()) {
+    if (!this.isInsideVoxels()) {
       // Draw the last shapes before going outside of the display...
 
       // Find the largest radius from the center of this wave to the outside of the voxel grid
-      const voxelGridSize = this.voxelDisplay.gridSize + VOXEL_EPSILON;
+      const voxelGridSize = this.voxelModel.gridSize + VOXEL_EPSILON;
       const maxVoxelSpacePt = new THREE.Vector3(voxelGridSize,voxelGridSize,voxelGridSize);
       const distMinVec = new THREE.Vector3(Math.abs(this.center.x), Math.abs(this.center.y), Math.abs(this.center.z)); // Since the min point is (0,0,0) just use the absolute value of the center
       const distMaxVec = new THREE.Vector3().subVectors(maxVoxelSpacePt, this.center);
@@ -190,6 +190,8 @@ class ShapeWaveAnimator extends VoxelAnimator {
       return new WaveShape(voxels, center, waveShape, currColour);
     };
   }
+
+  getType() { return VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES; }
 
   setConfig(c) {
     super.setConfig(c);

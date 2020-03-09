@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 
-import VoxelAnimator, {REPEAT_INFINITE_TIMES} from './VoxelAnimator';
+import VoxelAnimator from './VoxelAnimator';
 import ShootingStarAnimator from './ShootingStarAnimator';
-import {Randomizer, UniformIntRandomizer, UniformVector3Randomizer, Vector3DirectionRandomizer, UniformFloatRandomizer, ColourRandomizer} from './Randomizers';
+import {UniformVector3Randomizer, Vector3DirectionRandomizer, UniformFloatRandomizer, ColourRandomizer} from './Randomizers';
 
-const shootingStarShowerDefaultConfig = {
+export const starShowerDefaultConfig = {
   positionRandomizer: new UniformVector3Randomizer(new THREE.Vector3(0,0,7), new THREE.Vector3(7,7,7)),
   directionRandomizer: new Vector3DirectionRandomizer(new THREE.Vector3(0,0,-1), 0),
   speedRandomizer: new UniformFloatRandomizer(3.0, 8.0), // Speed of a spawned stars in units / second
@@ -16,19 +16,36 @@ const shootingStarShowerDefaultConfig = {
  * This class can be thought of as a composition of many shooting stars with
  * lots of levers for randomness (where they appear, how fast they move, etc.).
  */
-class ShootingStarShowerAnimator extends VoxelAnimator {
-  constructor(voxels, config = shootingStarShowerDefaultConfig) {
+class StarShowerAnimator extends VoxelAnimator {
+  constructor(voxels, config = starShowerDefaultConfig) {
     super(voxels, config);
     this.reset();
   }
 
+  getType() { return VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER; }
+
   setConfig(c) {
     super.setConfig(c);
+
+    // Make sure the config is populated with the appropriate objects
+    const {positionRandomizer, directionRandomizer, speedRandomizer, colourRandomizer} = c;
+    this.config.positionRandomizer = new UniformVector3Randomizer(
+      new THREE.Vector3(positionRandomizer.min.x, positionRandomizer.min.y, positionRandomizer.min.z),
+      new THREE.Vector3(positionRandomizer.max.x, positionRandomizer.max.y, positionRandomizer.max.z)
+    );
+    this.config.directionRandomizer = new Vector3DirectionRandomizer(
+      new THREE.Vector3(directionRandomizer.baseDirection.x, directionRandomizer.baseDirection.y, directionRandomizer.baseDirection.z), directionRandomizer.radAngle
+    );
+    this.config.speedRandomizer = new UniformFloatRandomizer(speedRandomizer.min, speedRandomizer.max);
+    this.config.colourRandomizer = new ColourRandomizer(
+      new THREE.Color(colourRandomizer.min.r, colourRandomizer.min.g, colourRandomizer.min.b),
+      new THREE.Color(colourRandomizer.max.r, colourRandomizer.max.g, colourRandomizer.max.b),
+    );
+    
     this.currSpawnRate = Math.max(1.0, c.spawnRate);
   }
 
   animate(dt) {
-
     // Check whether it's time to spawn a new shooting star
     const spawnTime = (1.0 / this.currSpawnRate);
     while (this.currSpawnTimer >= spawnTime) {
@@ -66,9 +83,9 @@ class ShootingStarShowerAnimator extends VoxelAnimator {
       colourRandomizer,
     } = this.config;
 
-    const starPos = positionRandomizer.generate();
-    const starDir = directionRandomizer.generate();
-    const starSpd = speedRandomizer.generate();
+    const starPos    = positionRandomizer.generate();
+    const starDir    = directionRandomizer.generate();
+    const starSpd    = speedRandomizer.generate();
     const starColour = colourRandomizer.generate();
     
     const starConfig = {
@@ -78,9 +95,10 @@ class ShootingStarShowerAnimator extends VoxelAnimator {
       fadeTimeSecs: 1.5*Math.PI / starSpd,
       repeat: 0,
     };
+
     this.activeShootingStars.push(new ShootingStarAnimator(this.voxels, starConfig));
   }
 
 }
 
-export default ShootingStarShowerAnimator;
+export default StarShowerAnimator;

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { VOXEL_EPSILON } from '../../MathUtils';
+import { VOXEL_EPSILON } from '../MathUtils';
 
 export class Randomizer {
   constructor() {
@@ -143,9 +143,11 @@ export class ColourRandomizer extends Randomizer {
     this.setMax(max);
 
     this.setRandomizers = (min, max) => {
-      this.hRandomizer = new UniformIntRandomizer(Math.floor(255*min.h), Math.floor(255*max.h), false);
-      this.sRandomizer = new UniformIntRandomizer(Math.floor(255*min.s), Math.floor(255*max.s), false);
-      this.lRandomizer = new UniformIntRandomizer(Math.floor(255*min.l), Math.floor(255*max.l), false);
+      this._randomizers = [
+        new UniformIntRandomizer(Math.floor(255*min.r), Math.floor(255*max.r), false),
+        new UniformIntRandomizer(Math.floor(255*min.g), Math.floor(255*max.g), false),
+        new UniformIntRandomizer(Math.floor(255*min.b), Math.floor(255*max.b), false)
+      ];
     }
     this.setRandomizers(_min, _max);
   }
@@ -154,23 +156,35 @@ export class ColourRandomizer extends Randomizer {
   get max() { return this.getMax(); }
 
   set min(min) {
-    this.setMin(min);
+    this.setMin(new THREE.Color(min.r, min.g, min.b));
     this.setRandomizers(this.getMin(), this.getMax())
   }
   set max(max) {
-    this.setMax(max);
+    this.setMax(new THREE.Color(max.r, max.g, max.b));
     this.setRandomizers(this.getMin(), this.getMax());
   }
 
   generate() {
     const colour = new THREE.Color();
-    colour.setHSL(
-      this.hRandomizer.generate() / 255.0, 
-      this.sRandomizer.generate() / 255.0, 
-      this.lRandomizer.generate() / 255.0
+    colour.setRGB(
+      this._randomizers[0].generate() / 255.0, 
+      this._randomizers[1].generate() / 255.0, 
+      this._randomizers[2].generate() / 255.0
     );
 
     return colour;
   }
+
+  toJSON() {
+    return {
+      min: {r: this.min.r, g: this.min.g, b: this.min.b}, 
+      max: {r: this.max.r, g: this.max.g, b: this.max.b}
+    };
+  }
+
+  toString() {
+    return "min: (" + this.min.r + ", " + this.min.g + ", " + this.min.b + "), max: (" + this.max.r + ", " + this.max.g + ", " + this.max.b + ")";
+  }
+
 }
 
