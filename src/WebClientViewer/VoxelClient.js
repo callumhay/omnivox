@@ -25,7 +25,7 @@ class VoxelClient {
         return;
       }
 
-      console.log("Websocket message received.");
+      //console.log("Websocket message received.");
       //console.log("Websocket message received from server:\r\n" + messageData);
 
       const packetType = VoxelProtocol.readPacketType(messageData);
@@ -36,7 +36,8 @@ class VoxelClient {
           if (welcomeDataObj) {
             const {gridSize, currentAnimatorType, currentAnimatorConfig} = welcomeDataObj;
 
-            if (gridSize !== undefined) {
+            if (gridSize !== undefined && gridSize !== this.voxelDisplay.gridSize) {
+              console.log("Resizing the voxel grid.");
               this.voxelDisplay.rebuild(parseInt(gridSize));
             }
             if (currentAnimatorType && currentAnimatorConfig) {
@@ -44,11 +45,11 @@ class VoxelClient {
               controlPanel.updateAnimator(currentAnimatorType, currentAnimatorConfig);
             }
           }
-
           break;
 
         case VoxelProtocol.VOXEL_DATA_HEADER:
-          switch (VoxelProtocol.readVoxelDataType(messageData)) {
+          const voxelDataType = VoxelProtocol.readVoxelDataType(messageData);
+          switch (voxelDataType) {
             
             case VoxelProtocol.VOXEL_DATA_ALL_TYPE:
               if (VoxelProtocol.readAndPaintVoxelDataAll(messageData, this.voxelDisplay)) {
@@ -70,6 +71,7 @@ class VoxelClient {
 
             case VoxelProtocol.VOXEL_DATA_DIFF_TYPE:
             default:
+              console.log("Unimplemented protocol voxel data type: " + voxelDataType);
               break;
           }
           break;
@@ -81,7 +83,6 @@ class VoxelClient {
       
     }).bind(this));
   }
-
 
   sendAnimatorChangeCommand(animatorType, config) {
     if (this.socket.readyState === WebSocket.OPEN) {

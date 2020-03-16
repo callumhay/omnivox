@@ -6,7 +6,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node ./dist/server.js",
     "build": "webpack",
-    "dev": "webpack --watch --config webpack.development.config.js",
+    "dev": "webpack --config webpack.development.config.js",
     "prod": "webpack --config webpack.production.config.js"
   },
   "keywords": [],

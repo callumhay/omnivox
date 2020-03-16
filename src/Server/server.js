@@ -7,6 +7,7 @@ import reload from 'reload';
 import VoxelModel from './VoxelModel';
 import VoxelServer from './VoxelServer';
 
+const LOCALHOST_WEB_PORT = 4000;
 const DISTRIBUTION_DIRNAME = "dist";
 
 // Create the web server
@@ -18,7 +19,7 @@ if (distPath.substring(distPath.length-DISTRIBUTION_DIRNAME.length).toLowerCase(
 console.log("The following directory must be the distribution directory: \"" + distPath + "\"");
 
 app.use(express.static(distPath));
-app.set('port', 4000);
+app.set('port', LOCALHOST_WEB_PORT);
 app.get("/", (req, res) => {
   res.sendFile(path.join(distPath, index.html));
 });

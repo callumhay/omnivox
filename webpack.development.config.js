@@ -5,6 +5,10 @@ const distPath = path.resolve(__dirname, 'dist');
 
 const commonConfig = {
   mode: 'development',
+  watch: true,
+  watchOptions: {
+    ignored: ['node_modules/**'],
+  },
   optimization: {
     minimize: false,
   },

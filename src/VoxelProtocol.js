@@ -1,12 +1,5 @@
 import * as THREE from 'three';
 
-import VoxelAnimator from './Animation/VoxelAnimator';
-import VoxelColourAnimator from './Animation/VoxelColourAnimator';
-import ShootingStarAnimator from './Animation/ShootingStarAnimator';
-import StarShowerAnimator from './Animation/StarShowerAnimator';
-import ShapeWaveAnimator from './Animation/ShapeWaveAnimator';
-import GameOfLifeAnimator from './Animation/GameOfLifeAnimator';
-
 const DISCOVERY_REQ_PACKET_HEADER = "REQ";
 const DISCOVERY_ACK_PACKET_HEADER = "ACK";
 

@@ -9,14 +9,36 @@ const DEFAULT_VOXEL_GRID_SIZE = 8;
 
 class VoxelDisplay {
   constructor(scene) {
+    this.voxels = [];
     this._scene = scene;
     this.rebuild(DEFAULT_VOXEL_GRID_SIZE)
   }
 
-  rebuild(gridSize) {
-    this.gridSize = gridSize;
-    this.voxels = [];
+  removeVoxels() {
+    if (!this.voxels) {
+      return;
+    }
 
+    for (let x = 0; x < this.voxels.length; x++) {
+      for (let y = 0; y < this.voxels[x].length; y++) {
+        for (let z = 0; z < this.voxels[x][y].length; z++) {
+          const {ledMesh, outlineMesh} = this.voxels[x][y][z];
+          this._scene.remove(ledMesh);
+          this._scene.remove(outlineMesh);
+        }
+      }
+    }
+
+    this.voxels = [];
+  }
+
+  rebuild(gridSize) {
+
+    // Clean up any previous voxel grid
+    this.removeVoxels();
+
+    this.gridSize = gridSize;
+    
     const ledGeometry = new THREE.BoxGeometry(ledUnitSize, ledUnitSize, ledUnitSize);
     const outlineGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(voxelUnitSize, voxelUnitSize, voxelUnitSize));
 
@@ -107,24 +129,6 @@ class VoxelDisplay {
         roundedZ >= 0 && roundedZ < this.voxels[roundedX][roundedY].length) {
 
       this.voxels[roundedX][roundedY][roundedZ].setColourRGB(r, g, b);
-    } 
-  }
-
-  setVoxel(pt, colour) {
-    this.setVoxelXYZRGB(pt.x, pt.y, pt.z, colour.r, colour.g, colour.b);
-  }
-
-  addToVoxel(pt, colour) {
-    const roundedX = Math.round(pt.x);
-    const roundedY = Math.round(pt.y);
-    const roundedZ = Math.round(pt.z);
-
-    if (roundedX >= 0 && roundedX < this.voxels.length &&
-        roundedY >= 0 && roundedY < this.voxels[roundedX].length &&
-        roundedZ >= 0 && roundedZ < this.voxels[roundedX][roundedY].length) {
-
-      const voxel = this.voxels[roundedX][roundedY][roundedZ];
-      voxel.addColour(colour);
     } 
   }
 
