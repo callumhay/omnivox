@@ -5,3 +5,4 @@ dist/server.js
 # Webstorm artifacts
 .DS_Store
 .idea/
+src/embedded/master/argon_firmware_*.bin

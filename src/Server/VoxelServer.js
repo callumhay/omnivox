@@ -14,11 +14,12 @@ const DEFAULT_ENCODING = "utf8";
 class VoxelServer {
 
   constructor(voxelModel) {
+
     const logSocketDetails = function(socket) {
       console.log('Socket buffer size: ' + socket.bufferSize);
   
       console.log('---------server details -----------------');
-      var address = server.address();
+      var address = this.tcpServer.address();
       var port = address.port;
       var ipaddr = address.address;
       console.log('Server is listening at port: ' + port);
@@ -35,7 +36,7 @@ class VoxelServer {
       console.log('REMOTE Socket ip: ' + raddr);
   
       console.log('--------------------------------------------')
-    };
+    }.bind(this);
 
     // Create the TCP server and set it up
     this.tcpClientSockets = [];
@@ -60,8 +61,8 @@ class VoxelServer {
       }.bind(this));
 
     }.bind(this));
-    this.tcpServer = tcpServer;
 
+    this.tcpServer = tcpServer;
     this.tcpServer.on('close', function() {
       console.log("TCP server closed.");
     });
@@ -72,8 +73,7 @@ class VoxelServer {
       const address = tcpServer.address();
       console.log(`TCP server is listening on ${address.address}:${address.port}`);
     });
-
-    this.tcpServer.maxConnections = 1;
+    //this.tcpServer.maxConnections = 1;
 
     // Create the UDP socket and set it up
     const udpSocket = udp.createSocket({type: DEFAULT_UDP_SOCKET_TYPE, reuseAddr: true});
@@ -98,8 +98,11 @@ class VoxelServer {
         case VoxelProtocol.DISCOVERY_REQ_PACKET_HEADER:
           // The request has no data, it's simply a request for acknowledgement from the server for the purposes of discovery.
           // We send back an acknowledgement packet with information about this server.
+
           const tcpServerAddress = tcpServer.address();
-          const ackMessage = Buffer.from(`${VoxelProtocol.DISCOVERY_ACK_PACKET_HEADER} ${senderAddress.split('.').join(" ")} ${senderPort} ${tcpServerAddress.address} ${tcpServerAddress.port}`);
+          //${tcpServerAddress.address.split(".").join(" ")}
+
+          const ackMessage = Buffer.from(`${VoxelProtocol.DISCOVERY_ACK_PACKET_HEADER} ${senderAddress.split(".").join(" ")} ${senderPort} ${tcpServerAddress.port};`);
           udpSocket.send(ackMessage, 0, ackMessage.length, DEFAULT_UDP_PORT, DEFAULT_MULTICAST_ADDR, function() {
             console.info(`Sending ${VoxelProtocol.DISCOVERY_ACK_PACKET_HEADER} message: "${ackMessage}"`);
           });
@@ -146,7 +149,7 @@ class VoxelServer {
 
   start() {
     this.udpSocket.bind(DEFAULT_UDP_PORT);
-    this.tcpServer.listen(DEFAULT_TCP_PORT, 'localhost');
+    this.tcpServer.listen(DEFAULT_TCP_PORT, '0.0.0.0');
   }
 
   stop() {

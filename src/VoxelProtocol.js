@@ -4,20 +4,20 @@ const DISCOVERY_REQ_PACKET_HEADER = "REQ";
 const DISCOVERY_ACK_PACKET_HEADER = "ACK";
 
 // Packet Header/Identifier Constants - TCP ONLY
-const VOXEL_DATA_HEADER = "DAT";
+const VOXEL_DATA_HEADER = "D";
 // Data type constants
-const VOXEL_DATA_ALL_TYPE   = "ALL";
-const VOXEL_DATA_DIFF_TYPE  = "DIF";
-const VOXEL_DATA_CLEAR_TYPE = "CLR";
+const VOXEL_DATA_ALL_TYPE   = "A";
+const VOXEL_DATA_DIFF_TYPE  = "D";
+const VOXEL_DATA_CLEAR_TYPE = "C";
 
 // Server-to-Client Headers
-const SERVER_TO_CLIENT_WELCOME_HEADER = "OHI";
+const SERVER_TO_CLIENT_WELCOME_HEADER = "W";
 
 // Client Command / Request Headers
-const VOXEL_ROUTINE_CHANGE_HEADER = "CHG";
-const VOXEL_ROUTINE_CONFIG_UPDATE_HEADER = "CFG";
-const VOXEL_ROUTINE_RESET_HEADER = "RST";
-const VOXEL_CLEAR_COMMAND_HEADER = "CLR";
+const VOXEL_ROUTINE_CHANGE_HEADER = "C";
+const VOXEL_ROUTINE_CONFIG_UPDATE_HEADER = "U";
+const VOXEL_ROUTINE_RESET_HEADER = "R";
+const VOXEL_CLEAR_COMMAND_HEADER = "L";
 
 // Web Socket Communication Constants
 const WEBSOCKET_HOST = "localhost";
@@ -130,7 +130,7 @@ class VoxelProtocol {
       return "";
     }
 
-    let packetDataStr = `${VOXEL_DATA_HEADER}|${type}`;
+    let packetDataStr = `${VOXEL_DATA_HEADER}${type}`;
     switch (type) {
 
       case VOXEL_DATA_ALL_TYPE:
@@ -160,14 +160,14 @@ class VoxelProtocol {
         return "";
     }
 
-    return packetDataStr;
+    return packetDataStr + ";";
   }
 
   static readPacketType(packetDataStr) {
     return packetDataStr.substr(0, VOXEL_DATA_HEADER.length);
   }
   static readVoxelDataType(packetDataStr) {
-    return packetDataStr.substr(VOXEL_DATA_HEADER.length+1, VOXEL_DATA_ALL_TYPE.length); // Assumption: All data type descriptors are the same length!
+    return packetDataStr.substr(VOXEL_DATA_HEADER.length, VOXEL_DATA_ALL_TYPE.length); // Assumption: All data type descriptors are the same length!
   }
 
   static readAndPaintVoxelDataAll(packetDataStr, voxelDisplay) {
@@ -176,7 +176,7 @@ class VoxelProtocol {
     const displayYSize = voxelDisplay.ySize();
     const displayZSize = voxelDisplay.zSize();
 
-    let currIdx = VOXEL_DATA_HEADER.length + 1 + VOXEL_DATA_ALL_TYPE.length;
+    let currIdx = VOXEL_DATA_HEADER.length + VOXEL_DATA_ALL_TYPE.length;
 
     if (packetDataStr.length < currIdx + COLOUR_HEX_STR_LENGTH*displayXSize*displayYSize*displayZSize) {
       console.log("Voxel data was invalid (package was not long enough).");
@@ -197,7 +197,7 @@ class VoxelProtocol {
   }
 
   static readAndPaintVoxelDataClear(packetDataStr, voxelDisplay) {
-    const startIdx = VOXEL_DATA_HEADER.length + 1 + VOXEL_DATA_CLEAR_TYPE.length;
+    const startIdx = VOXEL_DATA_HEADER.length + VOXEL_DATA_CLEAR_TYPE.length;
     if (packetDataStr.length < startIdx + COLOUR_HEX_STR_LENGTH) {
       return false;
     }
