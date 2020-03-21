@@ -1,10 +1,12 @@
  
 #include "../lib/led3d/comm.h"
 #include "../lib/led3d/voxel.h"
+#include "../lib/led3d/VoxelModel.h"
 
 #include "MasterClient.h"
 
-MasterClient client;
+VoxelModel voxelModel;
+MasterClient client(voxelModel);
 
 led3d::LED3DPacketSerial myPacketSerial;
 //static uint8_t packetBuffer[PACKET_BUFFER_MAX_SIZE];

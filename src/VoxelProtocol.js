@@ -49,18 +49,23 @@ class VoxelProtocol {
 
   static buildClientWelcomePacketStr(voxelModel) {
     const welcomeDataObj = {
-      gridSize: voxelModel.gridSize,
       currentAnimatorType: voxelModel.currentAnimator ? voxelModel.currentAnimator.getType() : null,
       currentAnimatorConfig: voxelModel.currentAnimator ? voxelModel.currentAnimator.config : null,
     };
+    const gridSizeCharCode = String.fromCharCode(voxelModel.gridSize);
+    if (gridSizeCharCode.length !== 1) {
+      console.log("ERROR: Grid size is too large!");
+    } 
 
-    return SERVER_TO_CLIENT_WELCOME_HEADER + "|" + JSON.stringify(welcomeDataObj);
+    return SERVER_TO_CLIENT_WELCOME_HEADER + String.fromCharCode(voxelModel.gridSize).charAt(0) + JSON.stringify(welcomeDataObj) + ";";
   }
-  static getVoxelGridSizeFromWelcomePacketStr(packetStr) {
-    const welcomeDataObj = JSON.parse(packetStr.substring(SERVER_TO_CLIENT_WELCOME_HEADER.length+1));
+  static getDataObjFromWelcomePacketStr(packetStr) {
+    const gridSize = packetStr.charCodeAt(SERVER_TO_CLIENT_WELCOME_HEADER.length);
+    const welcomeDataObj = JSON.parse(packetStr.substring(SERVER_TO_CLIENT_WELCOME_HEADER.length+1, packetStr.length-1));
     if (!welcomeDataObj) {
       return null;
     }
+    welcomeDataObj['gridSize'] = gridSize;
     return welcomeDataObj;
   }
 

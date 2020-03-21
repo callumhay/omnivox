@@ -32,7 +32,7 @@ class VoxelClient {
       switch (packetType) {
 
         case VoxelProtocol.SERVER_TO_CLIENT_WELCOME_HEADER:
-          const welcomeDataObj = VoxelProtocol.getVoxelGridSizeFromWelcomePacketStr(messageData);
+          const welcomeDataObj = VoxelProtocol.getDataObjFromWelcomePacketStr(messageData);
           if (welcomeDataObj) {
             const {gridSize, currentAnimatorType, currentAnimatorConfig} = welcomeDataObj;
 

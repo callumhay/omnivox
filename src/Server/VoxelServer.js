@@ -60,6 +60,8 @@ class VoxelServer {
         this.tcpClientSockets.splice(this.tcpClientSockets.indexOf(socket), 1);
       }.bind(this));
 
+      socket.write(VoxelProtocol.buildClientWelcomePacketStr(voxelModel));
+
     }.bind(this));
 
     this.tcpServer = tcpServer;

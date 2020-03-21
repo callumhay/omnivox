@@ -1,5 +1,6 @@
 #pragma once
 
+// Slave-related Constants ---------------------------------------------------------------------------
 /*
  * The following is the layout of the LED base:
  *        ________________

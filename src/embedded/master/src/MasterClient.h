@@ -1,14 +1,17 @@
 #pragma once
 
+#include "PacketReader.h"
+
 class MasterClient {
-public:
+private:
   enum StateType { 
     DISCOVERING = 0, 
     CONNECTING, 
     CONNECTED 
   };
 
-  MasterClient();
+public:
+  MasterClient(VoxelModel& voxelModel);
   ~MasterClient();
 
   // This must be called at startup
@@ -21,6 +24,8 @@ public:
   void run(unsigned long dtMicroSecs);
 
 private:
+  PacketReader packetReader;
+  VoxelModel& voxelModel;
   StateType state;
   
   UDP udp;

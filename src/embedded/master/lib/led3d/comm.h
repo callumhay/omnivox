@@ -24,11 +24,13 @@
 #define DISCOVERY_ACK_PACKET_MAX_SIZE 25
 
 // Packet Header/Identifier Constants - TCP ONLY
+#define WELCOME_HEADER 'W'
 #define VOXEL_DATA_HEADER 'D'
 // Data type constants
 #define VOXEL_DATA_ALL_TYPE   'A'
-#define VOXEL_DATA_DIFF_TYPE  'D'
 #define VOXEL_DATA_CLEAR_TYPE 'C'
+
+#define PACKET_END_CHAR ';'
 
 namespace led3d {
   typedef PacketSerial_<COBS, 0, PACKET_BUFFER_MAX_SIZE> LED3DPacketSerial;

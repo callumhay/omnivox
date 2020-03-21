@@ -1,12 +1,15 @@
 
 #include "../lib/led3d/comm.h"
+#include "../lib/led3d/VoxelModel.h"
+
 #include <string>
 
 #include "MasterClient.h"
 
 #define TIME_BETWEEN_DISCOVERY_PACKETS_MICROSECS 1000000 
 
-MasterClient:: MasterClient() : 
+MasterClient:: MasterClient(VoxelModel& voxelModel) :
+  voxelModel(voxelModel), 
   discoveryIP(MULTICAST_ADDR0, MULTICAST_ADDR1, MULTICAST_ADDR2, MULTICAST_ADDR3), 
   udpPort(UDP_PORT), state(DISCOVERING), discoveryPacketTimerMicroSecs(TIME_BETWEEN_DISCOVERY_PACKETS_MICROSECS) {
 }
@@ -42,6 +45,9 @@ void MasterClient::setState(const StateType& nextState) {
     case MasterClient::DISCOVERING:
       Serial.println("CLIENT STATE: Entering DISCOVERING state.");
       this->discoveryPacketTimerMicroSecs = 0;
+      if (this->tcp.connected()) {
+        this->tcp.stop();
+      }
       break;
 
     case MasterClient::CONNECTING:
@@ -191,23 +197,41 @@ void MasterClient::receiveServerPacket() {
   if (this->state != MasterClient::CONNECTED) {
     return;
   }
+
   if (!this->tcp.connected()) {
     Serial.print("TCP Socket is disconnected, rediscovering server...");
     this->setState(MasterClient::DISCOVERING);
     return;
   }
 
-
-  // TODO: Create a "PacketReader" class and have it deal with the nitty gritty?
+  if (!packetReader.read(this->tcp, this->voxelModel)) {
+    Serial.print("Error while reading packet, rediscovering server...");
+    this->setState(MasterClient::DISCOVERING);
+    return;
+  }
 
   // Try to read any available header packet type - this will guide further actions
 
-  if (this->tcp.available() >= 1) {
+  if (this->tcp.available() >= 2) {
     char packetType = static_cast<char>(this->tcp.read());
     Serial.print("TCP Packet receieved: ");
     Serial.println(packetType);
 
     switch (packetType) {
+      case WELCOME_HEADER: {
+        Serial.println("Welcome packet found.");
+        uint8_t gridSize = this->tcp.read();
+        if (gridSize > 0) {
+          this->voxelModel.init(gridSize, gridSize, gridSize);
+          Serial.printlnf("Voxel model grid size set to %i x %i x %i", gridSize, gridSize, gridSize);
+        }
+        else {
+          Serial.println("Invalid grid size of zero was found. Rediscovering server...");
+          this->setState(MasterClient::DISCOVERING);
+        }
+        break;
+      }
+      
       case VOXEL_DATA_HEADER:
         Serial.println("Voxel data packet found.");
         // TODO
@@ -219,7 +243,8 @@ void MasterClient::receiveServerPacket() {
     }
     
 
-    while (this->tcp.read() != ';') {}
+    while (this->tcp.connected() && this->tcp.read() != ';') {
+    }
     Serial.println("Finished reading packet.");
   }
 
