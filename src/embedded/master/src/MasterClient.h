@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../lib/led3d/comm.h"
 #include "PacketReader.h"
 
 class MasterClient {
@@ -11,7 +12,7 @@ private:
   };
 
 public:
-  MasterClient(VoxelModel& voxelModel);
+  MasterClient(VoxelModel& voxelModel, led3d::LED3DPacketSerial& slaveSerial);
   ~MasterClient();
 
   // This must be called at startup
@@ -25,6 +26,8 @@ public:
 
 private:
   PacketReader packetReader;
+  SlavePacketWriter slavePacketWriter;
+
   VoxelModel& voxelModel;
   StateType state;
   

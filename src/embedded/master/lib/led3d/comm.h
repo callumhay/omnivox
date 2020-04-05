@@ -26,7 +26,7 @@
 // Packet Header/Identifier Constants - TCP ONLY
 #define WELCOME_HEADER 'W'
 #define VOXEL_DATA_HEADER 'D'
-// Data type constants
+// Data type constants (Subheader types)
 #define VOXEL_DATA_ALL_TYPE   'A'
 #define VOXEL_DATA_CLEAR_TYPE 'C'
 

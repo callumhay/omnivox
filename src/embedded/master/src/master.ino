@@ -1,20 +1,20 @@
  
 #include "../lib/led3d/comm.h"
 #include "../lib/led3d/voxel.h"
-#include "../lib/led3d/VoxelModel.h"
 
+#include "VoxelModel.h"
 #include "MasterClient.h"
 
-VoxelModel voxelModel;
-MasterClient client(voxelModel);
-
-led3d::LED3DPacketSerial myPacketSerial;
+led3d::LED3DPacketSerial slaveSerial;
 //static uint8_t packetBuffer[PACKET_BUFFER_MAX_SIZE];
 
+VoxelModel voxelModel;
+MasterClient client(voxelModel, slaveSerial);
 
 static unsigned long TIME_UNTIL_RESEND_INIT_PACKET_MICROSECS = (30*1000000);
 static unsigned long resendInitPacketCounterMicroSecs = TIME_UNTIL_RESEND_INIT_PACKET_MICROSECS;
 
+// Recieve incoming serial packets from slave(s)
 void onSerialPacketReceived(const uint8_t* buffer, size_t size) {
   Serial.println("Packet recieved on master.");
 }
@@ -23,8 +23,8 @@ void setup() {
   Serial.begin(9600); // USB Serial
 
   Serial1.begin(PACKET_SERIAL_BAUD);
-  myPacketSerial.setStream(&Serial1);
-  myPacketSerial.setPacketHandler(&onSerialPacketReceived);
+  slaveSerial.setStream(&Serial1);
+  slaveSerial.setPacketHandler(&onSerialPacketReceived);
 
   resendInitPacketCounterMicroSecs = TIME_UNTIL_RESEND_INIT_PACKET_MICROSECS;
 
@@ -56,7 +56,7 @@ void loop() {
     packetBuffer[1] = VOXEL_MODULE_X_SIZE;
     packetBuffer[2] = VOXEL_MODULE_Y_SIZE;
     packetBuffer[3] = VOXEL_MODULE_Z_SIZE;
-    myPacketSerial.send(packetBuffer, 4);
+    slaveSerial.send(packetBuffer, 4);
   }
 
   static const int NUM_VOXELS = VOXEL_MODULE_Y_SIZE*VOXEL_MODULE_Z_SIZE;
@@ -92,10 +92,10 @@ void loop() {
   }
 
   Serial.println("Sending voxel data.");
-  myPacketSerial.send(packetBuffer, NUM_VOXEL_COMPONENTS+1);
+  slaveSerial.send(packetBuffer, NUM_VOXEL_COMPONENTS+1);
 
-  myPacketSerial.update();
-  if (myPacketSerial.overflow()) {
+  slaveSerial.update();
+  if (slaveSerial.overflow()) {
     Serial.println("Packet serial overflow...");
   }
   */

@@ -1,7 +1,8 @@
 #pragma once
 
 #include "../lib/led3d/comm.h"
-#include "../lib/led3d/VoxelModel.h"
+#include "VoxelModel.h"
+#include "SlavePacketWriter.h"
 
 class PacketReader {
 private:
@@ -13,7 +14,7 @@ private:
   };
 
 public:
-  PacketReader() { this->reset(); };
+  PacketReader(const VoxelModel& voxelModel) { this->reset(voxelModel); };
   ~PacketReader() {};
 
   bool read(TCPClient& tcp, VoxelModel& voxelModel);
@@ -24,24 +25,26 @@ private:
   char currSubPacketTypeByte;
   uint32_t currExpectedBytes;
 
+  SlavePacketWriter slavePacketWriter;
+
   void setState(ReaderState nextState, const VoxelModel& voxelModel);
 
-  void reset() {this->setState(PacketReader::READING_HEADER);};
+  void reset(const VoxelModel& voxelModel) { this->setState(PacketReader::READING_HEADER, voxelModel); };
   bool readBody(TCPClient& tcp, VoxelModel& voxelModel);
   
 };
 
-inline void PacketReader::read(TCPClient& tcp, VoxelModel& voxelModel) {
+inline bool PacketReader::read(TCPClient& tcp, VoxelModel& voxelModel) {
   switch (this->state) {
 
     case PacketReader::READING_HEADER:
       if (tcp.available() >= 1) {
         this->currPacketTypeByte = static_cast<char>(tcp.read());
         if (this->currPacketTypeByte == VOXEL_DATA_HEADER) {
-          this->setState(PacketReader::READING_SUB_HEADER);
+          this->setState(PacketReader::READING_SUB_HEADER, voxelModel);
         }
         else {
-          this->setState(PacketReader::READING_BODY);
+          this->setState(PacketReader::READING_BODY, voxelModel);
         }
       }
       break;
@@ -49,7 +52,7 @@ inline void PacketReader::read(TCPClient& tcp, VoxelModel& voxelModel) {
     case PacketReader::READING_SUB_HEADER:
       if (tcp.available() >= 1) {
         this->currSubPacketTypeByte = static_cast<char>(tcp.read());
-        this->setState(PacketReader::READING_BODY);
+        this->setState(PacketReader::READING_BODY, voxelModel);
       }
       break;
 
@@ -60,7 +63,7 @@ inline void PacketReader::read(TCPClient& tcp, VoxelModel& voxelModel) {
       // TODO: Count the number of times we loop here and have a stop on it, just in case
       while (tcp.available() > 0) {
         if (static_cast<char>(tcp.read()) == PACKET_END_CHAR) {
-          this->reset();
+          this->reset(voxelModel);
           break;
         }
       }
@@ -85,6 +88,8 @@ inline void PacketReader::setState(PacketReader::ReaderState nextState, const Vo
       break;
 
     case PacketReader::READING_SUB_HEADER:
+      this->currSubPacketTypeByte = '0';
+      this->currExpectedBytes     = 0;
       break;
 
     case PacketReader::READING_BODY:
@@ -100,61 +105,82 @@ inline void PacketReader::setState(PacketReader::ReaderState nextState, const Vo
               this->currExpectedBytes = voxelModel.getGridSizeX() * voxelModel.getGridSizeY() * voxelModel.getGridSizeZ() * 6; // RGB hex for every voxel in the grid
               break;
             case VOXEL_DATA_CLEAR_TYPE:
-              this->currExpectedBytes = 6; // Just the clear colour RGB hex
+              this->currExpectedBytes = 3; // Just the clear colour RGB
               break;
             default:
               Serial.println("Voxel data header type not found!");
-              this->reset();
+              this->reset(voxelModel);
               break;
           }
           break;
 
         default:
           Serial.println("Packet type not found!");
-          this->reset();
+          this->reset(voxelModel);
           break;
       }
       break;
 
     case PacketReader::READING_END:
+      this->currExpectedBytes = 1;
       break;
 
     default:
       Serial.println("Attempting to set an invalid PacketReader state.");
-      this->reset();
+      this->reset(voxelModel);
       break;
   }
   this->state = nextState;
 }
 
-inline void PacketReader::readBody(TCPClient& tcp, VoxelModel& voxelModel) {
- switch (this->currPacketTypeByte) {
+inline bool PacketReader::readBody(TCPClient& tcp, VoxelModel& voxelModel) {
+  // No point branching or reading anything until we know we have the appropriate number of bytes available 
+  if (tcp.available() < this->currExpectedBytes) {
+    return true;
+  }
+
+  switch (this->currPacketTypeByte) {
     
     case WELCOME_HEADER: {
-      if (tcp.available() >= this->currExpectedBytes) {
-        Serial.println("Welcome packet found with grid size info.");
-        const uint8_t gridSize = this->tcp.read();
-        if (gridSize > 0) {
-          this->voxelModel.init(gridSize, gridSize, gridSize);
-          Serial.printlnf("Voxel model grid size set to %i x %i x %i", gridSize, gridSize, gridSize);
-          this->setState(PacketReader::READING_END)
-        }
-        else {
-          Serial.println("Invalid grid size of zero was found.");
-          return false;
-        }
+      // The welcome header contains data about the size of the voxel grid
+      Serial.println("Welcome packet found with grid size info.");
+      const uint8_t gridSize = tcp.read();
+      if (gridSize > 0) {
+        voxelModel.init(gridSize, gridSize, gridSize);
+        Serial.printlnf("Voxel model grid size set to %i x %i x %i", gridSize, gridSize, gridSize);
+        this->setState(PacketReader::READING_END, voxelModel);
       }
+      else {
+        Serial.println("Invalid grid size of zero was found.");
+        return false;
+      }
+
       break;
     }
 
     case VOXEL_DATA_HEADER:
-      Serial.println("Voxel data packet found.");
-      // TODO
+      Serial.println("Voxel data packet found."); // TODO: REMOVE ME
+
+      switch (this->currSubPacketTypeByte) {
+        case VOXEL_DATA_ALL_TYPE:
+          break;
+          
+        case VOXEL_DATA_CLEAR_TYPE:
+          // Just reading 3 bytes (3x8-bit values) for the clear colour RGB
+          if (!this->slavePacketWriter.writeClear(voxelModel, static_cast<uint8_t>(tcp.read()), static_cast<uint8_t>(tcp.read()), static_cast<uint8_t>(tcp.read()))) {
+            return false;
+          }
+          this->setState(PacketReader::READING_END, voxelModel);
+          break;
+
+        default:
+          break;
+      }
       break;
 
     default:
       Serial.println("Packet type not found!");
-      this->reset();
+      this->reset(voxelModel);
       break;
   }
 

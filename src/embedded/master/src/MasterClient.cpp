@@ -1,15 +1,14 @@
-
-#include "../lib/led3d/comm.h"
-#include "../lib/led3d/VoxelModel.h"
-
 #include <string>
 
 #include "MasterClient.h"
+#include "VoxelModel.h"
 
 #define TIME_BETWEEN_DISCOVERY_PACKETS_MICROSECS 1000000 
 
-MasterClient:: MasterClient(VoxelModel& voxelModel) :
-  voxelModel(voxelModel), 
+MasterClient:: MasterClient(VoxelModel& voxelModel, led3d::LED3DPacketSerial& slaveSerial) :
+  voxelModel(voxelModel),
+  packetReader(voxelModel),
+  slavePacketWriter(slaveSerial),
   discoveryIP(MULTICAST_ADDR0, MULTICAST_ADDR1, MULTICAST_ADDR2, MULTICAST_ADDR3), 
   udpPort(UDP_PORT), state(DISCOVERING), discoveryPacketTimerMicroSecs(TIME_BETWEEN_DISCOVERY_PACKETS_MICROSECS) {
 }
@@ -210,8 +209,8 @@ void MasterClient::receiveServerPacket() {
     return;
   }
 
+  /*
   // Try to read any available header packet type - this will guide further actions
-
   if (this->tcp.available() >= 2) {
     char packetType = static_cast<char>(this->tcp.read());
     Serial.print("TCP Packet receieved: ");
@@ -246,6 +245,7 @@ void MasterClient::receiveServerPacket() {
     while (this->tcp.connected() && this->tcp.read() != ';') {
     }
     Serial.println("Finished reading packet.");
+    */
   }
 
 }

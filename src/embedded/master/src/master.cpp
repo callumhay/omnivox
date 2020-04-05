@@ -7,14 +7,16 @@
  
 #include "../lib/led3d/comm.h"
 #include "../lib/led3d/voxel.h"
+#include "../lib/led3d/VoxelModel.h"
 
 #include "MasterClient.h"
 
 void onSerialPacketReceived(const uint8_t* buffer, size_t size);
 void setup();
 void loop();
-#line 7 "g:/projects/led3d/src/embedded/master/src/master.ino"
-MasterClient client;
+#line 8 "g:/projects/led3d/src/embedded/master/src/master.ino"
+VoxelModel voxelModel;
+MasterClient client(voxelModel);
 
 led3d::LED3DPacketSerial myPacketSerial;
 //static uint8_t packetBuffer[PACKET_BUFFER_MAX_SIZE];
@@ -53,7 +55,6 @@ void loop() {
 
   // Listen for incoming data, parse it, do the heavy lifting
   client.run(dtMicroSecs);
-
 
 /*
   // Every so often we resend the initialization data to our slaves in order to make sure

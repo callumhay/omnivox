@@ -23,3 +23,13 @@
 #define VOXEL_MODULE_Z_SIZE 8 // How deep the voxel grid is (in LED vertical-columns)
 
 static const int NUM_VOXELS_PER_MODULE = VOXEL_MODULE_X_SIZE * VOXEL_MODULE_Y_SIZE * VOXEL_MODULE_Z_SIZE;
+
+class Voxel {
+  public:
+    Voxel(): r(0),g(0),b(0) {};
+    ~Voxel() {};
+
+    void setRGB(const uint8_t& r, const uint8_t& g, const uint8_t& b) { this->r = r; this->g = g; this->b = b; };
+
+    uint8_t r,g,b;
+};
