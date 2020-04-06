@@ -34,16 +34,4 @@
 
 namespace led3d {
   typedef PacketSerial_<COBS, 0, PACKET_BUFFER_MAX_SIZE> LED3DPacketSerial;
-
-  static void readUntil(UDP& udp, std::vector<char>& buffer, char untilChar) {
-    buffer.clear();
-    while (udp.available()) {
-      buffer.push_back(udp.read());
-      if (buffer.back() == untilChar) {
-        buffer.pop_back();
-        break;
-      }
-    }
-  }
-
-}
+};

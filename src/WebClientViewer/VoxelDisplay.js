@@ -11,7 +11,7 @@ class VoxelDisplay {
   constructor(scene) {
     this.voxels = [];
     this._scene = scene;
-    this.rebuild(DEFAULT_VOXEL_GRID_SIZE)
+    this.rebuild(DEFAULT_VOXEL_GRID_SIZE);
   }
 
   removeVoxels() {

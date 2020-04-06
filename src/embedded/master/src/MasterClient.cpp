@@ -208,44 +208,4 @@ void MasterClient::receiveServerPacket() {
     this->setState(MasterClient::DISCOVERING);
     return;
   }
-
-  /*
-  // Try to read any available header packet type - this will guide further actions
-  if (this->tcp.available() >= 2) {
-    char packetType = static_cast<char>(this->tcp.read());
-    Serial.print("TCP Packet receieved: ");
-    Serial.println(packetType);
-
-    switch (packetType) {
-      case WELCOME_HEADER: {
-        Serial.println("Welcome packet found.");
-        uint8_t gridSize = this->tcp.read();
-        if (gridSize > 0) {
-          this->voxelModel.init(gridSize, gridSize, gridSize);
-          Serial.printlnf("Voxel model grid size set to %i x %i x %i", gridSize, gridSize, gridSize);
-        }
-        else {
-          Serial.println("Invalid grid size of zero was found. Rediscovering server...");
-          this->setState(MasterClient::DISCOVERING);
-        }
-        break;
-      }
-      
-      case VOXEL_DATA_HEADER:
-        Serial.println("Voxel data packet found.");
-        // TODO
-        break;
-
-      default:
-        Serial.println("Packet type not found!");
-        break;
-    }
-    
-
-    while (this->tcp.connected() && this->tcp.read() != ';') {
-    }
-    Serial.println("Finished reading packet.");
-    */
-  }
-
 }
