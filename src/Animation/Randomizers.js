@@ -135,9 +135,9 @@ export class ColourRandomizer extends Randomizer {
     let _max = max.clone();
     
     this.getMin = () => (_min);
-    this.setMin = (m) => { m.getHSL(_min); };
+    this.setMin = (m) => { _min.setRGB(m.r, m.g, m.b); };
     this.getMax = () => (_max);
-    this.setMax = (m) => { m.getHSL(_max); };
+    this.setMax = (m) => { _max.setRGB(m.r, m.g, m.b); };
 
     this.setMin(min);
     this.setMax(max);

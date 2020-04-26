@@ -93,6 +93,7 @@ class VoxelProtocol {
           console.log("Unspecified configuration or routine change type.");
           return false;
         }
+        //console.log(dataObj.config);
         if (!voxelModel.setAnimator(dataObj.voxelAnimType, dataObj.config)) {
           return false;
         }
