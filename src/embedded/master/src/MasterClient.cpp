@@ -7,10 +7,11 @@
 
 MasterClient:: MasterClient(VoxelModel& voxelModel, led3d::LED3DPacketSerial& slaveSerial) :
   voxelModel(voxelModel),
-  packetReader(voxelModel),
-  slavePacketWriter(slaveSerial),
+  packetReader(voxelModel, slaveSerial),
+  state(DISCOVERING),
+  udpPort(UDP_PORT),
   discoveryIP(MULTICAST_ADDR0, MULTICAST_ADDR1, MULTICAST_ADDR2, MULTICAST_ADDR3), 
-  udpPort(UDP_PORT), state(DISCOVERING), discoveryPacketTimerMicroSecs(TIME_BETWEEN_DISCOVERY_PACKETS_MICROSECS) {
+  discoveryPacketTimerMicroSecs(TIME_BETWEEN_DISCOVERY_PACKETS_MICROSECS) {
 }
 
 MasterClient::~MasterClient() {
@@ -30,7 +31,7 @@ void MasterClient::run(unsigned long dtMicroSecs) {
       break;
 
     case MasterClient::CONNECTED:
-      this->receiveServerPacket();
+      this->receiveServerPacket(dtMicroSecs);
       break;
 
     default:
@@ -105,7 +106,7 @@ void MasterClient::receiveDiscoveryAck() {
 
         // Read the address
         for (int i = 0; i < 4; i++) {
-          led3d::readUntil(this->udp, tempBuffer, ' ');
+          MasterClient::readUntil(this->udp, tempBuffer, ' ');
           if (!tempBuffer.empty()) {
             tempStr = std::string(tempBuffer.begin(), tempBuffer.end());
             addressParts[i] = static_cast<uint8_t>(std::atoi(tempStr.c_str()));
@@ -117,7 +118,7 @@ void MasterClient::receiveDiscoveryAck() {
         }
 
         // Now read the port
-        led3d::readUntil(this->udp, tempBuffer, ' ');
+        MasterClient::readUntil(this->udp, tempBuffer, ' ');
         if (!tempBuffer.empty()) {
           tempStr = std::string(tempBuffer.begin(), tempBuffer.end());
           readPort = static_cast<uint16_t>(std::atoi(tempStr.c_str()));
@@ -131,7 +132,7 @@ void MasterClient::receiveDiscoveryAck() {
         IPAddress readAddress(addressParts);
         if ((readAddress == WiFi.localIP() || readAddress == Ethernet.localIP()) && readPort == this->udpPort) {
 
-          led3d::readUntil(this->udp, tempBuffer, ';');
+          MasterClient::readUntil(this->udp, tempBuffer, ';');
           if (!tempBuffer.empty()) {
             tempStr = std::string(tempBuffer.begin(), tempBuffer.end());
             readPort = static_cast<uint16_t>(std::atoi(tempStr.c_str()));
@@ -192,7 +193,7 @@ void MasterClient::initiateConnectionWithServer() {
   }
 }
 
-void MasterClient::receiveServerPacket() {
+void MasterClient::receiveServerPacket(unsigned long dtMicroSecs) {
   if (this->state != MasterClient::CONNECTED) {
     return;
   }
@@ -203,9 +204,15 @@ void MasterClient::receiveServerPacket() {
     return;
   }
 
-  if (!packetReader.read(this->tcp, this->voxelModel)) {
+  if (!packetReader.read(this->tcp, this->voxelModel, dtMicroSecs)) {
     Serial.print("Error while reading packet, rediscovering server...");
     this->setState(MasterClient::DISCOVERING);
     return;
+  }
+
+  // Check for TCP write errors: Sanity check and good for finding problems
+  if (this->tcp.getWriteError() != 0) {
+    Serial.printlnf("TCP write error occurred: %d", this->tcp.getWriteError());
+    this->tcp.clearWriteError();
   }
 }

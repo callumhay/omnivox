@@ -19,6 +19,8 @@ const VOXEL_ROUTINE_CONFIG_UPDATE_HEADER = "U";
 const VOXEL_ROUTINE_RESET_HEADER = "R";
 const VOXEL_CLEAR_COMMAND_HEADER = "L";
 
+const PACKET_END = ";";
+
 // Web Socket Communication Constants
 const WEBSOCKET_HOST = "localhost";
 const WEBSOCKET_PORT = 4001;
@@ -135,26 +137,36 @@ class VoxelProtocol {
       return "";
     }
 
-    let packetDataStr = `${VOXEL_DATA_HEADER}${type}`;
+    let packetDataStr = null;
     switch (type) {
 
       case VOXEL_DATA_ALL_TYPE:
+        packetDataStr = new Uint8Array(3 + data.length*data[0].length*data[0][0].length*3);
+        let byteCount = 2;
         const xLen = data.length;
         for (let x = 0; x < xLen; x++) {
           const yLen = data[x].length;
           for (let y = 0; y < yLen; y++) {
             const zLen = data[x][y].length;
             for (let z = 0; z < zLen; z++) {
+
               const voxel = data[x][y][z];
               const voxelColour = voxel.colour;
-              packetDataStr += voxelColour.getHexString();
+
+              packetDataStr[byteCount]   = parseInt(voxelColour.r*255);
+              packetDataStr[byteCount+1] = parseInt(voxelColour.g*255);
+              packetDataStr[byteCount+2] = parseInt(voxelColour.b*255);
+              byteCount += 3;
             }
           }
         }
         break;
 
       case VOXEL_DATA_CLEAR_TYPE:
-        packetDataStr += data.getHexString();
+        packetDataStr = new Uint8Array(6);
+        packetDataStr[2] = parseInt(data.r*255);
+        packetDataStr[3] = parseInt(data.g*255);
+        packetDataStr[4] = parseInt(data.b*255);
         break;
 
       case VOXEL_DATA_DIFF_TYPE:
@@ -164,15 +176,24 @@ class VoxelProtocol {
       default:
         return "";
     }
+    packetDataStr[0] = VOXEL_DATA_HEADER.charCodeAt(0);
+    packetDataStr[1] = type.charCodeAt(0);
+    packetDataStr[packetDataStr.length-1] = PACKET_END.charCodeAt(0);
 
-    return packetDataStr + ";";
+    return Buffer.from(packetDataStr);
   }
 
-  static readPacketType(packetDataStr) {
-    return packetDataStr.substr(0, VOXEL_DATA_HEADER.length);
+  static readPacketType(packetData) {
+    if (typeof packetData === 'string') {
+      return packetData.substr(0,1);
+    }
+    return String.fromCharCode(packetData[0]);
   }
-  static readVoxelDataType(packetDataStr) {
-    return packetDataStr.substr(VOXEL_DATA_HEADER.length, VOXEL_DATA_ALL_TYPE.length); // Assumption: All data type descriptors are the same length!
+  static readVoxelDataType(packetData) {
+    if (typeof packetData === 'string') {
+      return packetData.substr(1,1);
+    }
+    return String.fromCharCode(packetData[1]);
   }
 
   static readAndPaintVoxelDataAll(packetDataStr, voxelDisplay) {
@@ -183,7 +204,7 @@ class VoxelProtocol {
 
     let currIdx = VOXEL_DATA_HEADER.length + VOXEL_DATA_ALL_TYPE.length;
 
-    if (packetDataStr.length < currIdx + COLOUR_HEX_STR_LENGTH*displayXSize*displayYSize*displayZSize) {
+    if (packetDataStr.length < currIdx + 3*displayXSize*displayYSize*displayZSize) {
       console.log("Voxel data was invalid (package was not long enough).");
       return false;
     }
@@ -191,9 +212,11 @@ class VoxelProtocol {
     for (let x = 0; x < displayXSize; x++) {
       for (let y = 0; y < displayYSize; y++) {
         for (let z = 0; z < displayZSize; z++) {
-          const rgb = new THREE.Color('#' + packetDataStr.substr(currIdx, COLOUR_HEX_STR_LENGTH));
-          voxelDisplay.setVoxelXYZRGB(x, y, z, rgb.r, rgb.g, rgb.b);
-          currIdx += COLOUR_HEX_STR_LENGTH;
+          const r = packetDataStr[currIdx]/255;
+          const g = packetDataStr[currIdx+1]/255;
+          const b = packetDataStr[currIdx+2]/255;
+          voxelDisplay.setVoxelXYZRGB(x, y, z, r, g, b);
+          currIdx += 3;
         }
       }
     }
@@ -203,11 +226,14 @@ class VoxelProtocol {
 
   static readAndPaintVoxelDataClear(packetDataStr, voxelDisplay) {
     const startIdx = VOXEL_DATA_HEADER.length + VOXEL_DATA_CLEAR_TYPE.length;
-    if (packetDataStr.length < startIdx + COLOUR_HEX_STR_LENGTH) {
+    if (packetDataStr.length < startIdx + 3) {
       return false;
     }
+    const r = packetDataStr[startIdx]/255;
+    const g = packetDataStr[startIdx+1]/255;
+    const b = packetDataStr[startIdx+2]/255;
 
-    voxelDisplay.clear(new THREE.Color('#' + packetDataStr.substr(startIdx, COLOUR_HEX_STR_LENGTH)));
+    voxelDisplay.clearRGB(r,g,b);
     return true;
   }
 

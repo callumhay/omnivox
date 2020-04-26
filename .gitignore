@@ -6,3 +6,4 @@ dist/server.js
 .DS_Store
 .idea/
 src/embedded/master/argon_firmware_*.bin
+src/embedded/master/target/

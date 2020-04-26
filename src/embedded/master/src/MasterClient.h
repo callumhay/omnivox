@@ -25,18 +25,16 @@ public:
   void run(unsigned long dtMicroSecs);
 
 private:
-  PacketReader packetReader;
-  SlavePacketWriter slavePacketWriter;
-
   VoxelModel& voxelModel;
+  
+  PacketReader packetReader;
   StateType state;
   
   UDP udp;
   TCPClient tcp;
 
-  IPAddress discoveryIP;
   uint16_t udpPort;
-
+  IPAddress discoveryIP;
   IPAddress serverAddr;
   uint16_t serverPort;
 
@@ -47,7 +45,7 @@ private:
   void sendDiscoveryPacket(unsigned long dtMicroSecs);
   void receiveDiscoveryAck();
   void initiateConnectionWithServer();
-  void receiveServerPacket();
+  void receiveServerPacket(unsigned long dtMicroSecs);
 
   static void readUntil(UDP& udp, std::vector<char>& buffer, char untilChar) {
     buffer.clear();

@@ -18,70 +18,71 @@ class VoxelClient {
     });
 
     // Receiving messages from the Voxel Server
-    this.lastMessageData = null;
     this.socket.addEventListener('message', ((event) => {
-      const messageData = event.data;
-      if (messageData === this.lastMessageData) {
-        return;
+
+      if (typeof event.data === 'string') {
+        this.readPacket(controlPanel, event.data);
+      }
+      else {
+        const reader = new FileReader();
+        reader.addEventListener('loadend', () => {
+          const messageData = new Uint8Array(reader.result);
+          this.readPacket(controlPanel, messageData);
+        });
+
+        reader.readAsArrayBuffer(event.data);
       }
 
-      //console.log("Websocket message received.");
-      //console.log("Websocket message received from server:\r\n" + messageData);
-
-      const packetType = VoxelProtocol.readPacketType(messageData);
-      switch (packetType) {
-
-        case VoxelProtocol.SERVER_TO_CLIENT_WELCOME_HEADER:
-          const welcomeDataObj = VoxelProtocol.getDataObjFromWelcomePacketStr(messageData);
-          if (welcomeDataObj) {
-            const {gridSize, currentAnimatorType, currentAnimatorConfig} = welcomeDataObj;
-
-            if (gridSize !== undefined && gridSize !== this.voxelDisplay.gridSize) {
-              console.log("Resizing the voxel grid.");
-              this.voxelDisplay.rebuild(parseInt(gridSize));
-            }
-            if (currentAnimatorType && currentAnimatorConfig) {
-              // TODO: Tell the GUI to update itself
-              controlPanel.updateAnimator(currentAnimatorType, currentAnimatorConfig);
-            }
-          }
-          break;
-
-        case VoxelProtocol.VOXEL_DATA_HEADER:
-          const voxelDataType = VoxelProtocol.readVoxelDataType(messageData);
-          switch (voxelDataType) {
-            
-            case VoxelProtocol.VOXEL_DATA_ALL_TYPE:
-              if (VoxelProtocol.readAndPaintVoxelDataAll(messageData, this.voxelDisplay)) {
-                this.lastMessageData = messageData;
-              }
-              else {
-                console.log("Invalid voxel (all) data.");
-              }
-              break;
-            
-            case VoxelProtocol.VOXEL_DATA_CLEAR_TYPE:
-              if (VoxelProtocol.readAndPaintVoxelDataClear(messageData, this.voxelDisplay)) {
-                this.lastMessageData = messageData;
-              }
-              else {
-                console.log("Invalid clear colour.");
-              }
-              break;
-
-            case VoxelProtocol.VOXEL_DATA_DIFF_TYPE:
-            default:
-              console.log("Unimplemented protocol voxel data type: " + voxelDataType);
-              break;
-          }
-          break;
-
-        default:
-          console.log("Invalid packet type: " + packetType);
-          break;
-      }
-      
     }).bind(this));
+  }
+
+  readPacket(controlPanel, messageData) {
+    const packetType = VoxelProtocol.readPacketType(messageData);
+    switch (packetType) {
+
+      case VoxelProtocol.SERVER_TO_CLIENT_WELCOME_HEADER:
+        const welcomeDataObj = VoxelProtocol.getDataObjFromWelcomePacketStr(messageData);
+        if (welcomeDataObj) {
+          const {gridSize, currentAnimatorType, currentAnimatorConfig} = welcomeDataObj;
+
+          if (gridSize !== undefined && gridSize !== this.voxelDisplay.gridSize) {
+            console.log("Resizing the voxel grid.");
+            this.voxelDisplay.rebuild(parseInt(gridSize));
+          }
+          if (currentAnimatorType && currentAnimatorConfig) {
+            // TODO: Tell the GUI to update itself
+            controlPanel.updateAnimator(currentAnimatorType, currentAnimatorConfig);
+          }
+        }
+        break;
+
+      case VoxelProtocol.VOXEL_DATA_HEADER:
+        const voxelDataType = VoxelProtocol.readVoxelDataType(messageData);
+        switch (voxelDataType) {
+          
+          case VoxelProtocol.VOXEL_DATA_ALL_TYPE:
+            if (!VoxelProtocol.readAndPaintVoxelDataAll(messageData, this.voxelDisplay)) {
+              console.log("Invalid voxel (all) data.");
+            }
+            break;
+          
+          case VoxelProtocol.VOXEL_DATA_CLEAR_TYPE:
+            if (!VoxelProtocol.readAndPaintVoxelDataClear(messageData, this.voxelDisplay)) {
+              console.log("Invalid clear colour.");
+            }
+            break;
+
+          case VoxelProtocol.VOXEL_DATA_DIFF_TYPE:
+          default:
+            console.log("Unimplemented protocol voxel data type: " + voxelDataType);
+            break;
+        }
+        break;
+
+      default:
+        console.log("Invalid packet type: " + packetType);
+        break;
+    }
   }
 
   sendAnimatorChangeCommand(animatorType, config) {

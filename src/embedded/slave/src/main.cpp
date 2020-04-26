@@ -3,7 +3,7 @@
 #include "../../master/lib/led3d/voxel.h"
 #include "../../master/lib/led3d/comm.h"
 
-// Gamma correction for Neopixel LED strips - maps each of R, G, and B from uint8 value 
+// Gamma correction for Neopixel LED strips - maps each of R, G, and B from uint8 value
 // to a gamma corrected uint8 value ****************************************************
 const uint8_t PROGMEM gamma8[] = {
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -21,12 +21,12 @@ const uint8_t PROGMEM gamma8[] = {
   115,117,119,120,122,124,126,127,129,131,133,135,137,138,140,142,
   144,146,148,150,152,154,156,158,160,162,164,167,169,171,173,175,
   177,180,182,184,186,189,191,193,196,198,200,203,205,208,210,213,
-  215,218,220,223,225,228,231,233,236,239,241,244,247,249,252,255 
+  215,218,220,223,225,228,231,233,236,239,241,244,247,249,252,255
 };
 
 int gammaMapColour(int colour) {
-  return (static_cast<int>(pgm_read_byte(&gamma8[colour >> 16 & 0x0000FF])) << 16) | 
-         (static_cast<int>(pgm_read_byte(&gamma8[colour >>  8 & 0x0000FF])) << 8)  | 
+  return (static_cast<int>(pgm_read_byte(&gamma8[colour >> 16 & 0x0000FF])) << 16) |
+         (static_cast<int>(pgm_read_byte(&gamma8[colour >>  8 & 0x0000FF])) << 8)  |
           static_cast<int>(pgm_read_byte(&gamma8[colour & 0x0000FF]));
 }
 
@@ -37,17 +37,26 @@ int voxelModuleYSize = 0;
 int ledsPerStrip = voxelModuleYSize * VOXEL_MODULE_Z_SIZE;
 int ledsPerModule = VOXEL_MODULE_X_SIZE * voxelModuleYSize * VOXEL_MODULE_Z_SIZE;
 
-DMAMEM int* displayMemory = NULL;
+int* displayMemory = NULL;
 int* drawingMemory = NULL;
 OctoWS2811* leds = NULL;
 // **************************************************************************************
 
 const int MY_SLAVE_ID = 0;
-volatile bool ledsUpdated = false;
 led3d::LED3DPacketSerial myPacketSerial;
 
+int colourFromBuffer(const uint8_t* buffer, int startIdx) {
+  return gammaMapColour(((buffer[startIdx] & 0x0000FF) << 16)  + ((buffer[startIdx+1] & 0x0000FF) << 8) + (buffer[startIdx+2] & 0x0000FF));
+}
+
+/**
+ * Reinitializes all of the LED-related variables / memory based on a new sizing for the module.
+ * This is a costly operation, do not perform this regularly!
+ */
 void reinit(uint8_t ySize) {
-  if (ySize != voxelModuleYSize) {
+  if (ySize != voxelModuleYSize && ySize <= MAX_VOXEL_Y_SIZE) {
+    Serial.print("Reinitializing LED array sizes, new ySize: ");
+    Serial.println(ySize);
 
     voxelModuleYSize = ySize;
     ledsPerStrip = voxelModuleYSize * VOXEL_MODULE_Z_SIZE;
@@ -58,7 +67,7 @@ void reinit(uint8_t ySize) {
       displayMemory = NULL;
     }
     displayMemory = new int[ledsPerStrip*6];
-    
+
     if (drawingMemory != NULL) {
       delete[] drawingMemory;
       drawingMemory = NULL;
@@ -78,14 +87,20 @@ void readWelcomeHeader(const uint8_t* buffer, size_t size, size_t startIdx) {
   Serial.println("Welcome Header / Init data recieved on slave.");
   if (size >= 1) {
     // There's only one byte and it defines the y module size
-    reinit(buffer[startIdx]);
+    uint8_t newYSize = buffer[startIdx];
+    if (newYSize > 0) {
+      reinit(newYSize);
+    }
+    else {
+      Serial.println("ERROR: Received module y-size that was zero, ignoring.");
+    }
   }
 }
 
 void readFullVoxelData(const uint8_t* buffer, size_t size, size_t startIdx) {
 
   // The buffer contains data as a continuous array of voxels with 3 bytes in RGB order
-  // The ordering of the coordinates system is x,y,z; each indexed from zero, where 
+  // The ordering of the coordinates system is x,y,z; each indexed from zero, where
   // x defines the strip
   // y defines the height off the ground
   // z defines the column depth
@@ -96,20 +111,26 @@ void readFullVoxelData(const uint8_t* buffer, size_t size, size_t startIdx) {
     for (int x = 0; x < VOXEL_MODULE_X_SIZE; x++) {
       for (int y = 0; y < voxelModuleYSize; y++) {
         for (int z = 0; z < VOXEL_MODULE_Z_SIZE; z++) {
+
+
           // Each colour is encoded as 3 bytes in the buffer (RGB)
-          int currColour = (buffer[static_cast<int>(startIdx) + bufferIdx]   << 16) + 
-                           (buffer[static_cast<int>(startIdx) + bufferIdx+1] << 8) + 
-                           (buffer[static_cast<int>(startIdx) + bufferIdx+2]);
+          int currColour = colourFromBuffer(buffer, static_cast<int>(startIdx) + bufferIdx);
+          /*
+          if (x == 0 && y == 0 && z == 0) {
+            int temp = static_cast<int>(startIdx) + bufferIdx;
+            Serial.print(buffer[temp]); Serial.print(", "); Serial.print(buffer[temp+1]);  Serial.print(", "); Serial.println(buffer[temp+2]);
+            //Serial.println(currColour, HEX);
+          }
+          */
           bufferIdx += 3;
 
           // Every x we move moves us to a new wire on the octo (goes through ySize*zSize LEDs)
           // Every y we move goes up the current wire on the octo by a single LED
           // Every z we move jumps through the same wire on the octo by ySize LEDs
-          leds->setPixel(x*voxelModuleYSize*VOXEL_MODULE_Z_SIZE + z*voxelModuleYSize + y, gammaMapColour(currColour));
+          leds->setPixel(x*voxelModuleYSize*VOXEL_MODULE_Z_SIZE + z*voxelModuleYSize + y, currColour);
         }
       }
     }
-    ledsUpdated = true;
   }
 }
 
@@ -120,31 +141,36 @@ void readWipeVoxelData(const uint8_t* buffer, size_t size, size_t startIdx) {
     int bufferIdx = 0;
     for (int i = 0; i < ledsPerModule; i++) {
       // Each colour is encoded as 3 bytes in the buffer (RGB)
-      int currColour = (buffer[static_cast<int>(startIdx) + bufferIdx]   << 16) + 
-                        (buffer[static_cast<int>(startIdx) + bufferIdx+1] << 8) + 
-                        (buffer[static_cast<int>(startIdx) + bufferIdx+2]);
+      int currColour = colourFromBuffer(buffer, static_cast<int>(startIdx) + bufferIdx);
       bufferIdx += 3;
 
-      leds->setPixel(i, gammaMapColour(currColour));
+      leds->setPixel(i, currColour);
     }
-    ledsUpdated = true;
   }
 }
 
 void onSerialPacketReceived(const void* sender, const uint8_t* buffer, size_t size) {
 
   if (sender == &myPacketSerial && size > 2) {
-
+    
     // The first byte of the buffer has the ID of the slave that it's relevant to
-    int slaveId = static_cast<int>(buffer[0]);
+    uint8_t slaveId = buffer[0];
+
+    //Serial.print("Received serial packet with slave ID: ");
+    //Serial.println(slaveId);
+
     if (slaveId != MY_SLAVE_ID) {
       // Ignore
       return;
     }
 
+    //Serial.print("Serial packet received for this slave, type: '");
+    //Serial.print(static_cast<char>(buffer[1]));
+    //Serial.println("'");
+
     // The second byte of the buffer describes the type of data, the rest will be the data itself
-    switch (static_cast<int>(buffer[1])) {
-      
+    switch (static_cast<char>(buffer[1])) {
+
       case WELCOME_HEADER:
         readWelcomeHeader(buffer, static_cast<size_t>(size-2), 2);
         break;
@@ -156,7 +182,7 @@ void onSerialPacketReceived(const void* sender, const uint8_t* buffer, size_t si
       case VOXEL_DATA_CLEAR_TYPE:
         readWipeVoxelData(buffer, static_cast<size_t>(size-2), 2);
         break;
-        
+
       default:
         Serial.println("Unspecified packet recieved on slave.");
         break;
@@ -165,12 +191,10 @@ void onSerialPacketReceived(const void* sender, const uint8_t* buffer, size_t si
 }
 
 static const int REFRESH_RATE_HZ = 60;
-static const unsigned long numMicroSecsPerRefresh = 1000000/REFRESH_RATE_HZ;
+static const unsigned long numMicroSecsPerRefresh = 1000000 / REFRESH_RATE_HZ;
 static unsigned long timeCounterMicroSecs = 0;
 
 void setup() {
-  reinit(VOXEL_MODULE_X_SIZE);
-
   // USB (Debugging) Serial
   Serial.begin(9600);
 
@@ -180,25 +204,23 @@ void setup() {
   myPacketSerial.setPacketHandler(&onSerialPacketReceived);
 
   timeCounterMicroSecs = 0;
-  ledsUpdated = false;
+
+  reinit(VOXEL_MODULE_X_SIZE);
 }
 
 void loop() {
   static unsigned long lastTimeInMicroSecs = micros();
-  
+
   unsigned long currTimeMicroSecs = micros();
   unsigned long dtMicroSecs = currTimeMicroSecs - lastTimeInMicroSecs;
   lastTimeInMicroSecs = currTimeMicroSecs;
-  
+
   myPacketSerial.update();
 
   // Synchronize updates to the specified REFRESH_RATE_HZ
   timeCounterMicroSecs += dtMicroSecs;
   if (timeCounterMicroSecs >= numMicroSecsPerRefresh) {
-    if (ledsUpdated) {
-      leds->show();
-      ledsUpdated = false;
-    }
+    leds->show();
     timeCounterMicroSecs = 0;
   }
 }

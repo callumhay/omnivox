@@ -14,36 +14,40 @@ const DEFAULT_ENCODING = "utf8";
 class VoxelServer {
 
   constructor(voxelModel) {
-
+    let self = this;
+    
     const logSocketDetails = function(socket) {
       console.log('Socket buffer size: ' + socket.bufferSize);
   
       console.log('---------server details -----------------');
-      var address = this.tcpServer.address();
-      var port = address.port;
-      var ipaddr = address.address;
+      const address = self.tcpServer.address();
+      const port = address.port;
+      const ipaddr = address.address;
       console.log('Server is listening at port: ' + port);
       console.log('Server ip: ' + ipaddr);
-      var lport = socket.localPort;
-      var laddr = socket.localAddress;
+      const lport = socket.localPort;
+      const laddr = socket.localAddress;
       console.log('Server is listening at LOCAL port: ' + lport);
       console.log('Server LOCAL ip: ' + laddr);
   
       console.log('------------remote client info --------------');
-      var rport = socket.remotePort;
-      var raddr = socket.remoteAddress;
+      const rport = socket.remotePort;
+      const raddr = socket.remoteAddress;
       console.log('REMOTE Socket is listening at port: ' + rport);
       console.log('REMOTE Socket ip: ' + raddr);
   
       console.log('--------------------------------------------')
-    }.bind(this);
+    };
 
     // Create the TCP server and set it up
     this.tcpClientSockets = [];
-    const tcpServer = net.createServer(function(socket) {
+    this.tcpServer = net.createServer();
+
+    this.tcpServer.on('connection', function(socket) {
       logSocketDetails(socket);
       socket.setEncoding(DEFAULT_ENCODING);
-      this.tcpClientSockets.push(socket);
+      socket.setTimeout(10*60*1000); // 10 minutes.
+      self.tcpClientSockets.push(socket);
 
       socket.on('data', function(data) {
         console.log("Received data from client: " + data.toString());
@@ -54,17 +58,15 @@ class VoxelServer {
       });
       socket.on('error', function(err) {
         console.log(`Socket error: ${err}`);
+        self.tcpClientSockets.splice(self.tcpClientSockets.indexOf(socket), 1);
       });
       socket.on('end', function() {
         console.log("Client disconnected.");
-        this.tcpClientSockets.splice(this.tcpClientSockets.indexOf(socket), 1);
-      }.bind(this));
+        self.tcpClientSockets.splice(self.tcpClientSockets.indexOf(socket), 1);
+      });
 
       socket.write(VoxelProtocol.buildClientWelcomePacketStr(voxelModel));
-
-    }.bind(this));
-
-    this.tcpServer = tcpServer;
+    });
     this.tcpServer.on('close', function() {
       console.log("TCP server closed.");
     });
@@ -72,19 +74,17 @@ class VoxelServer {
       console.log("TCP server error: " + error);
     });
     this.tcpServer.on('listening', function() {
-      const address = tcpServer.address();
+      const address = self.tcpServer.address();
       console.log(`TCP server is listening on ${address.address}:${address.port}`);
     });
-    //this.tcpServer.maxConnections = 1;
 
     // Create the UDP socket and set it up
-    const udpSocket = udp.createSocket({type: DEFAULT_UDP_SOCKET_TYPE, reuseAddr: true});
-    this.udpSocket = udpSocket;
+    this.udpSocket = udp.createSocket({type: DEFAULT_UDP_SOCKET_TYPE, reuseAddr: true});
     
     this.udpSocket.on("listening", function() {
-      udpSocket.addMembership(DEFAULT_MULTICAST_ADDR);
-      udpSocket.setMulticastLoopback(false);
-      const address = udpSocket.address();
+      self.udpSocket.addMembership(DEFAULT_MULTICAST_ADDR);
+      self.udpSocket.setMulticastLoopback(false);
+      const address = self.udpSocket.address();
       console.log(`UDP socket listening on ${address.address}:${address.port}`);
     });
 
@@ -101,11 +101,11 @@ class VoxelServer {
           // The request has no data, it's simply a request for acknowledgement from the server for the purposes of discovery.
           // We send back an acknowledgement packet with information about this server.
 
-          const tcpServerAddress = tcpServer.address();
+          const tcpServerAddress = self.tcpServer.address();
           //${tcpServerAddress.address.split(".").join(" ")}
 
           const ackMessage = Buffer.from(`${VoxelProtocol.DISCOVERY_ACK_PACKET_HEADER} ${senderAddress.split(".").join(" ")} ${senderPort} ${tcpServerAddress.port};`);
-          udpSocket.send(ackMessage, 0, ackMessage.length, DEFAULT_UDP_PORT, DEFAULT_MULTICAST_ADDR, function() {
+          self.udpSocket.send(ackMessage, 0, ackMessage.length, DEFAULT_UDP_PORT, DEFAULT_MULTICAST_ADDR, function() {
             console.info(`Sending ${VoxelProtocol.DISCOVERY_ACK_PACKET_HEADER} message: "${ackMessage}"`);
           });
           break;
@@ -128,21 +128,21 @@ class VoxelServer {
     this.webSocketServer.on('connection', function(socket, request, client) {
       console.log("Websocket opened.");
 
-      this.webClientSockets.push(socket);
+      self.webClientSockets.push(socket);
 
       socket.on('message', function(data) {
-        console.log("Websocket message received: " + data);
+        console.log("Websocket message received.");
         VoxelProtocol.readClientPacketStr(data, voxelModel);
       });
 
       socket.on('close', function() {
         console.log("Websocket closed.");
-        this.webClientSockets.splice(this.webClientSockets.indexOf(socket), 1);
-      }.bind(this));
+        self.webClientSockets.splice(self.webClientSockets.indexOf(socket), 1);
+      });
 
       socket.send(VoxelProtocol.buildClientWelcomePacketStr(voxelModel));
 
-    }.bind(this));
+    });
 
     this.webSocketServer.on('close', function() {
       console.log("Websocket server closed.");
@@ -155,26 +155,23 @@ class VoxelServer {
   }
 
   stop() {
-    if (this.tcpWriteIntervalId) {
-      clearInterval(this.tcpWriteIntervalId);
-    }
-
     this.udpSocket.close();
     this.tcpServer.close();
   }
 
-
   sendClientSocketVoxelData(voxelData) {
     // Go through all of the connected socket (Basic TCP/IP and WebSocket) clients - send voxel data to each
-    this.tcpClientSockets.forEach(function(socket) {
-      const packetDataStr = VoxelProtocol.buildVoxelDataPacketStr(voxelData);
-      socket.write(packetDataStr);
-    }.bind(this));
+    for (let i = 0; i < this.tcpClientSockets.length; i++) {
+      const socket = this.tcpClientSockets[i];
+      //console.log("Socket buffer size: " + socket.bufferSize);
+      if (socket.writable && socket.bufferSize === 0) {
+        socket.write(VoxelProtocol.buildVoxelDataPacketStr(voxelData));
+      }
+    }
 
     this.webClientSockets.forEach(function(socket) {
-      const packetDataStr = VoxelProtocol.buildVoxelDataPacketStr(voxelData);
-      socket.send(packetDataStr);
-    }.bind(this));
+      socket.send(VoxelProtocol.buildVoxelDataPacketStr(voxelData));
+    });
   }
 
   /**

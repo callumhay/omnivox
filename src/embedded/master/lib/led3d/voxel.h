@@ -22,6 +22,8 @@
 // NOTE: We don't use a Y size because this is variable and the master board will let us know how high the voxel structure is
 #define VOXEL_MODULE_Z_SIZE 8 // How deep the voxel grid is (in LED vertical-columns)
 
+#define MAX_VOXEL_Y_SIZE 32
+
 class Voxel {
   public:
     Voxel(): r(0),g(0),b(0) {};
