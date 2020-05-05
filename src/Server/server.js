@@ -52,3 +52,18 @@ const voxelServer = new VoxelServer(voxelModel);
 
 voxelModel.run(voxelServer);
 voxelServer.start();
+
+// When this app is killed (Ctrl+C) we need to do some clean-up
+const onKill = () => {
+  voxelServer.stop();
+  console.log("Voxel server stopped.");
+  webServer.close(() => {
+    console.log("Webserver closed.");
+  });
+}
+process.on('SIGTERM', () => {
+  onKill();
+});
+process.on('SIGKILL', () => {
+  onKill();
+});

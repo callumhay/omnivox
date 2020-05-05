@@ -20,10 +20,13 @@
     "utf-8-validate": "^5.0.2"
   },
   "devDependencies": {
+    "@serialport/bindings": "^8.0.7",
+    "cobs": "^0.2.1",
     "dat.gui": "^0.7.6",
     "dgram": "^1.0.1",
     "reload": "^3.0.4",
     "seedrandom": "^3.0.5",
+    "serialport": "^8.0.7",
     "watch": "^1.0.2",
     "webpack": "^4.41.6",
     "webpack-cli": "^3.3.11",

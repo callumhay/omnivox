@@ -10,12 +10,8 @@ import GameOfLifeAnimator from '../Animation/GameOfLifeAnimator';
 export const BLEND_MODE_OVERWRITE = 0;
 export const BLEND_MODE_ADDITIVE  = 1;
 
-const DEFAULT_POLLING_FREQUENCY_HZ = 2*60 + 1;
+const DEFAULT_POLLING_FREQUENCY_HZ = 60; // 60 FPS - if this is too high then we overwhelm our embedded hardware...
 const DEFAULT_POLLING_INTERVAL_MS  = 1000 / DEFAULT_POLLING_FREQUENCY_HZ;
-
-
-//const COMMAND_CLEAR = "CLEAR";
-
 
 class VoxelModel {
 
@@ -53,6 +49,13 @@ class VoxelModel {
       [VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE] : new GameOfLifeAnimator(this),
     };
     this.currentAnimator = this._animators[VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR];
+
+    this.currFrameTime = Date.now();
+    this.frameCounter = 0;
+  }
+
+  ySize() {
+    return this.voxels[0].length;
   }
 
   setAnimator(type, config) {
@@ -69,21 +72,26 @@ class VoxelModel {
   }
 
   run(voxelServer) {
+    let self = this;
     let lastFrameTime = Date.now();
+
     setInterval(function() {
 
-      let currFrameTime = Date.now();
-      let dt = (currFrameTime - lastFrameTime) / 1000;
+      self.currFrameTime = Date.now();
+      let dt = (self.currFrameTime - lastFrameTime) / 1000;
       
       // Simulate the model based on the current animation...
-      if (this.currentAnimator) {
-        this.currentAnimator.animate(dt);
+      if (self.currentAnimator) {
+        self.currentAnimator.animate(dt);
       }
-      // Let the server know to eventually broadcast the new voxel data to all clients
-      voxelServer.setVoxelData(this.voxels);
+      // Let the server know to broadcast the new voxel data to all clients
+      voxelServer.setVoxelData(self.voxels, self.frameCounter);
 
-      lastFrameTime = currFrameTime;
-    }.bind(this), DEFAULT_POLLING_INTERVAL_MS);
+      lastFrameTime = self.currFrameTime;
+      self.frameCounter++;
+      //console.log(self.frameCounter % 0xFFFF);
+
+    }, DEFAULT_POLLING_INTERVAL_MS);
   }
 
   /**

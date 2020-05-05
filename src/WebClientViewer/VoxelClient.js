@@ -1,9 +1,13 @@
 import VoxelProtocol from "../VoxelProtocol";
 
+const FRAMES_OUT_OF_SEQUENCE_BEFORE_RESET = 30;
+
 class VoxelClient {
   constructor(voxelDisplay) {
     this.voxelDisplay = voxelDisplay;
     this.socket = new WebSocket('ws://' + VoxelProtocol.WEBSOCKET_HOST + ':' + VoxelProtocol.WEBSOCKET_PORT);
+    this.lastFrameId = 0;
+    this.consecutiveFramesOutofSequence = 0;
   }
 
   start(controlPanel) {
@@ -53,11 +57,24 @@ class VoxelClient {
             // TODO: Tell the GUI to update itself
             controlPanel.updateAnimator(currentAnimatorType, currentAnimatorConfig);
           }
+
+          this.lastFrameId = 0; // Reset the frame Id
         }
         break;
 
       case VoxelProtocol.VOXEL_DATA_HEADER:
         const voxelDataType = VoxelProtocol.readVoxelDataType(messageData);
+        const packetFrameId = VoxelProtocol.readFrameId(messageData);
+
+        if (packetFrameId > 256 && this.lastFrameId >= packetFrameId) {
+          console.log("Frame Ids out of sequence, not updating.");
+          this.consecutiveFramesOutofSequence++;
+          if (this.consecutiveFramesOutofSequence < FRAMES_OUT_OF_SEQUENCE_BEFORE_RESET) {
+            return;
+          }
+        }
+        this.consecutiveFramesOutofSequence = 0;
+
         switch (voxelDataType) {
           
           case VoxelProtocol.VOXEL_DATA_ALL_TYPE:
@@ -77,6 +94,8 @@ class VoxelClient {
             console.log("Unimplemented protocol voxel data type: " + voxelDataType);
             break;
         }
+
+        this.lastFrameId = packetFrameId;
         break;
 
       default:

@@ -1,3 +1,4 @@
+
 const path = require('path');
 const nodeExternals = require('webpack-node-externals');
 
@@ -25,7 +26,7 @@ const webClientConfig = {...commonConfig,
 
 const serverConfig = {...commonConfig,
   target: 'node',
-  externals: [nodeExternals()],
+  externals: [nodeExternals(), 'serialport'],
   entry: {
     server: './src/Server/server.js',
   },

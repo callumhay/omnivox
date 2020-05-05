@@ -1,21 +1,32 @@
-import udp from 'dgram';
-import net from 'net';
+//import udp from 'dgram';
+//import net from 'net';
 import ws from 'ws';
+import SerialPort from 'serialport';
+import Readline from '@serialport/parser-readline';
+import cobs from 'cobs';
 
 import VoxelProtocol from '../VoxelProtocol';
 
+/*
 const DEFAULT_TCP_PORT = 20001;
-const DEFAULT_UDP_PORT = 20000;
-const DEFAULT_MULTICAST_ADDR = "233.255.255.255";
+const DISCOVERY_UDP_PORT = 20000;
+const DISCOVERY_MULTICAST_ADDR = "233.255.255.255";
+const DATA_UDP_PORT = 20002;
+const DATA_MULTICAST_ADDR = "234.255.255.255";
 
 const DEFAULT_UDP_SOCKET_TYPE = "udp4";
 const DEFAULT_ENCODING = "utf8";
+*/
+
+const DEFAULT_TEENSY_SERIAL_BAUD = 4608000;
 
 class VoxelServer {
 
   constructor(voxelModel) {
     let self = this;
-    
+    this.voxelModel = voxelModel;
+
+    /*
     const logSocketDetails = function(socket) {
       console.log('Socket buffer size: ' + socket.bufferSize);
   
@@ -38,7 +49,7 @@ class VoxelServer {
   
       console.log('--------------------------------------------')
     };
-
+    
     // Create the TCP server and set it up
     this.tcpClientSockets = [];
     this.tcpServer = net.createServer();
@@ -46,7 +57,8 @@ class VoxelServer {
     this.tcpServer.on('connection', function(socket) {
       logSocketDetails(socket);
       socket.setEncoding(DEFAULT_ENCODING);
-      socket.setTimeout(10*60*1000); // 10 minutes.
+      socket.setNoDelay(true);
+      //socket.setTimeout(24*60*60*1000); // 24 hours.
       self.tcpClientSockets.push(socket);
 
       socket.on('data', function(data) {
@@ -58,6 +70,7 @@ class VoxelServer {
       });
       socket.on('error', function(err) {
         console.log(`Socket error: ${err}`);
+        //socket.end("Error.");
         self.tcpClientSockets.splice(self.tcpClientSockets.indexOf(socket), 1);
       });
       socket.on('end', function() {
@@ -78,20 +91,20 @@ class VoxelServer {
       console.log(`TCP server is listening on ${address.address}:${address.port}`);
     });
 
-    // Create the UDP socket and set it up
+    // Create the UDP discovery socket and set it up
     this.udpSocket = udp.createSocket({type: DEFAULT_UDP_SOCKET_TYPE, reuseAddr: true});
     
     this.udpSocket.on("listening", function() {
-      self.udpSocket.addMembership(DEFAULT_MULTICAST_ADDR);
+      self.udpSocket.addMembership(DISCOVERY_MULTICAST_ADDR);
       self.udpSocket.setMulticastLoopback(false);
       const address = self.udpSocket.address();
-      console.log(`UDP socket listening on ${address.address}:${address.port}`);
+      console.log(`UDP socket (discovery) listening on ${address.address}:${address.port}`);
     });
 
     this.udpSocket.on("message", function(message, rinfo) {
       const senderAddress = rinfo.address;
       const senderPort = rinfo.port;
-      console.info(`Received Message from: ${rinfo.address}:${rinfo.port} - ${message}`);
+      console.info(`Received Message from: ${senderAddress}:${senderPort} - ${message}`);
 
       // If the packet is a request for discovery then we send back an acknowledgement
       const messageHeader = message.toString(DEFAULT_ENCODING, 0, 3);
@@ -105,7 +118,7 @@ class VoxelServer {
           //${tcpServerAddress.address.split(".").join(" ")}
 
           const ackMessage = Buffer.from(`${VoxelProtocol.DISCOVERY_ACK_PACKET_HEADER} ${senderAddress.split(".").join(" ")} ${senderPort} ${tcpServerAddress.port};`);
-          self.udpSocket.send(ackMessage, 0, ackMessage.length, DEFAULT_UDP_PORT, DEFAULT_MULTICAST_ADDR, function() {
+          self.udpSocket.send(ackMessage, 0, ackMessage.length, DISCOVERY_UDP_PORT, DISCOVERY_MULTICAST_ADDR, function() {
             console.info(`Sending ${VoxelProtocol.DISCOVERY_ACK_PACKET_HEADER} message: "${ackMessage}"`);
           });
           break;
@@ -114,7 +127,9 @@ class VoxelServer {
           break;
       }
     });
-
+    */
+    
+    // Setup websockets
     this.webClientSockets = [];
     this.webSocketServer = new ws.Server({
       port: VoxelProtocol.WEBSOCKET_PORT,
@@ -131,7 +146,7 @@ class VoxelServer {
       self.webClientSockets.push(socket);
 
       socket.on('message', function(data) {
-        console.log("Websocket message received.");
+        //console.log("Websocket message received.");
         VoxelProtocol.readClientPacketStr(data, voxelModel);
       });
 
@@ -147,30 +162,152 @@ class VoxelServer {
     this.webSocketServer.on('close', function() {
       console.log("Websocket server closed.");
     });
+
+    this.availableSerialPorts = [];
+    this.connectedSerialPorts = [];
+    this.slaveDataMap = {};
   }
 
   start() {
-    this.udpSocket.bind(DEFAULT_UDP_PORT);
-    this.tcpServer.listen(DEFAULT_TCP_PORT, '0.0.0.0');
+    //this.udpSocket.bind(DISCOVERY_UDP_PORT);
+    //this.tcpServer.listen(DEFAULT_TCP_PORT, '0.0.0.0');
+    
+    let self = this;
+    const parser = new Readline();
+
+    SerialPort.list().then(
+      ports => {
+        self.availableSerialPorts = ports;
+
+        console.log("Available serial ports:");
+        self.availableSerialPorts.forEach((availablePort) => {
+          console.log(availablePort);
+        });
+        
+        // Attempt to connect to each of the serial ports that might be teensies...
+        self.availableSerialPorts.forEach((availablePort) => {
+          if (availablePort.manufacturer.match(/PJRC/i)) {
+            console.log("Attempting connection with port '" + availablePort.path + "'...");
+            const newSerialPort = new SerialPort(availablePort.path, {
+              autoOpen: false,
+              baudRate: DEFAULT_TEENSY_SERIAL_BAUD
+            });
+
+            newSerialPort.on('error', (spErr) => {
+              console.error("Serial port error: " + spErr);
+            });
+
+            newSerialPort.on('close', () => {
+              console.log("Serial port closed: " + availablePort.path);
+              delete self.slaveDataMap[availablePort.path];
+              self.connectedSerialPorts.splice(self.connectedSerialPorts.indexOf(newSerialPort), 1);
+            });
+
+            newSerialPort.on('open', () => {
+              newSerialPort.pipe(parser);
+              parser.on('data', (data) => {
+                const slaveInfoMatch = data.match(/SLAVE_ID (\d)/);
+                if (slaveInfoMatch) {
+      
+                  if (!(availablePort.path in self.slaveDataMap)) {
+                    const slaveDataObj = {
+                      id: parseInt(slaveInfoMatch[1])
+                    };
+                    self.slaveDataMap[availablePort.path] = slaveDataObj;
+      
+                    // First time getting information from the current serial port, send a welcome packet
+                    console.log("Slave ID at " + availablePort.path + " = " + self.slaveDataMap[availablePort.path].id);
+                    console.log("Sending welcome packet to " + availablePort.path + "...");
+      
+                    const welcomePacketBuf = VoxelProtocol.buildWelcomePacketForSlaves(self.voxelModel);
+                    welcomePacketBuf[0] = slaveDataObj.id;
+                    newSerialPort.write(cobs.encode(welcomePacketBuf, true));
+                  }
+                  else {
+                    self.slaveDataMap[availablePort.path].id = parseInt(slaveInfoMatch[1]);
+                  }
+                }
+                else {
+                  console.log(data);
+                }
+              });
+              self.connectedSerialPorts.push(newSerialPort);
+            });
+
+            // Open the serial port
+            newSerialPort.open((err) => {
+              if (err) {
+                console.error("Failed to open serial port '" + availablePort.path + "': " + err);
+              }
+              else {
+                console.log("Now connected to port '" + newSerialPort.path + "' @" + newSerialPort.baudRate + " baud");
+              }
+            });
+          }
+        });
+      },
+      err => console.error(err)
+    );
+    
   }
 
   stop() {
-    this.udpSocket.close();
-    this.tcpServer.close();
+    //this.udpSocket.close();
+    //this.tcpServer.close();
+    this.connectedSerialPorts.forEach((currSerialPort) => {
+      currSerialPort.close();
+    });
   }
 
   sendClientSocketVoxelData(voxelData) {
-    // Go through all of the connected socket (Basic TCP/IP and WebSocket) clients - send voxel data to each
-    for (let i = 0; i < this.tcpClientSockets.length; i++) {
-      const socket = this.tcpClientSockets[i];
-      //console.log("Socket buffer size: " + socket.bufferSize);
-      if (socket.writable && socket.bufferSize === 0) {
-        socket.write(VoxelProtocol.buildVoxelDataPacketStr(voxelData));
-      }
+    
+    if (this.connectedSerialPorts.length > 0) {
+      const voxelDataSlavePacketBuf = VoxelProtocol.buildVoxelDataPacketForSlaves(voxelData);
+      
+      // Send data frames out through all connected serial ports
+      this.connectedSerialPorts.forEach((currSerialPort) => {
+        if (!currSerialPort.isOpen) {
+          // Try to reconnect...
+          console.log("Serial port (" + currSerialPort.port + ") no longer open, attempting to reconnect...");
+          currSerialPort.open();
+        }
+        else {
+          const slaveData = this.slaveDataMap[currSerialPort.path];
+
+          if (slaveData) {
+            voxelDataSlavePacketBuf[0] = slaveData.id;
+            const encodedPacketBuf = cobs.encode(voxelDataSlavePacketBuf, true);
+
+            slaveData.writingToSerial = true;
+            currSerialPort.write(encodedPacketBuf);
+            currSerialPort.drain((err) => {
+              if (err) { 
+                console.error(err);
+              }
+            });
+          }
+        }
+      });
     }
 
+    /*
+    // Send data frames out through UDP multicast
+    this.udpSocket.send(voxelDataPacketBuf, 0, voxelDataPacketBuf.length, DATA_UDP_PORT, DATA_MULTICAST_ADDR, function() {
+      console.info(`Sending voxel data`);
+    });
+    // Send voxel data to regular TCP clients
+    for (let i = 0; i < this.tcpClientSockets.length; i++) {
+      const socket = this.tcpClientSockets[i];
+      if (socket.writable && socket.bufferSize === 0) {
+        socket.write(voxelDataPacketBuf);
+      }
+    }
+    */
+
+    // Send voxel data to websocket clients
+    const voxelDataPacketBuf = VoxelProtocol.buildVoxelDataPacket(voxelData);
     this.webClientSockets.forEach(function(socket) {
-      socket.send(VoxelProtocol.buildVoxelDataPacketStr(voxelData));
+      socket.send(voxelDataPacketBuf);
     });
   }
 
@@ -179,20 +316,22 @@ class VoxelServer {
    * This will result in a full refresh of the display.
    * @param {[][][]} data - A 3D array of the voxel data for display, where each voxel has an RGB colour (getColour() accessor function).
    */
-  setVoxelData(data) {
+  setVoxelData(data, frameCounter) {
     this.sendClientSocketVoxelData({
       type: VoxelProtocol.VOXEL_DATA_ALL_TYPE,
-      data: data
+      data: data,
+      frameId: frameCounter,
     });
   }
   /**
    * Tells the display to clear to the given colour.
    * @param {THREE.Color} clearColour - The colour that will be set for each voxel in the display. 
    */
-  setClearVoxelData(clearColour) {
+  setClearVoxelData(clearColour, frameCounter) {
     this.sendClientSocketVoxelData({
       type: VoxelProtocol.VOXEL_DATA_CLEAR_TYPE,
-      data: clearColour
+      data: clearColour,
+      frameId: frameCounter
     });
   }
   setDiffVoxelData(diffVoxelData) {

@@ -2,6 +2,7 @@
 
 #include "../lib/led3d/comm.h"
 #include "PacketReader.h"
+#include "SlavePacketWriter.h"
 
 class MasterClient {
 private:
@@ -15,26 +16,23 @@ public:
   MasterClient(VoxelModel& voxelModel, led3d::LED3DPacketSerial& slaveSerial);
   ~MasterClient();
 
-  // This must be called at startup
-  void begin() {
-    this->state = DISCOVERING;
-    this->udp.begin(this->udpPort);
-    this->udp.joinMulticast(this->discoveryIP);
-  }
-
+  void begin();  // This must be called at startup
   void run(unsigned long dtMicroSecs);
 
 private:
   VoxelModel& voxelModel;
   
+  SlavePacketWriter slavePacketWriter;
   PacketReader packetReader;
+  
   StateType state;
   
   UDP udp;
   TCPClient tcp;
 
-  uint16_t udpPort;
   IPAddress discoveryIP;
+  IPAddress dataIP;
+
   IPAddress serverAddr;
   uint16_t serverPort;
 
@@ -46,6 +44,7 @@ private:
   void receiveDiscoveryAck();
   void initiateConnectionWithServer();
   void receiveServerPacket(unsigned long dtMicroSecs);
+  void sendSlavePackets(unsigned long dtMicroSecs);
 
   static void readUntil(UDP& udp, std::vector<char>& buffer, char untilChar) {
     buffer.clear();

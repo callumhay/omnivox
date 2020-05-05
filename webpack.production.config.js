@@ -24,7 +24,7 @@ const webClientConfig = {...commonConfig,
 
 const serverConfig = {...commonConfig,
   target: 'node',
-  externals: [nodeExternals()],
+  externals: [nodeExternals(), 'serialport'],
   entry: {
     server: './server.js',
   },

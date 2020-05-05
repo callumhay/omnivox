@@ -16,13 +16,8 @@ void setup();
 void loop();
 #line 8 "g:/projects/led3d/src/embedded/master/src/master.ino"
 led3d::LED3DPacketSerial slaveSerial;
-//static uint8_t packetBuffer[PACKET_BUFFER_MAX_SIZE];
-
 VoxelModel voxelModel;
 MasterClient client(voxelModel, slaveSerial);
-
-static unsigned long TIME_UNTIL_RESEND_INIT_PACKET_MICROSECS = (30*1000000);
-static unsigned long resendInitPacketCounterMicroSecs = TIME_UNTIL_RESEND_INIT_PACKET_MICROSECS;
 
 // Recieve incoming serial packets from slave(s)
 void onSerialPacketReceived(const uint8_t* buffer, size_t size) {
@@ -35,13 +30,14 @@ void setup() {
   BLE.off();
   #endif
 
+  //Particle.disconnect();
+  Particle.connect();
+
   Serial.begin(9600); // USB Serial
 
   Serial1.begin(PACKET_SERIAL_BAUD);
   slaveSerial.setStream(&Serial1);
   slaveSerial.setPacketHandler(&onSerialPacketReceived);
-
-  resendInitPacketCounterMicroSecs = TIME_UNTIL_RESEND_INIT_PACKET_MICROSECS;
 
   // Setup the client - whenever it connects to the network it tries to discover the server, it has a state
   // machine that will listen for the appropriate data and take actions based on that
@@ -49,6 +45,11 @@ void setup() {
 }
 
 void loop() {
+  /*
+  if (!Particle.disconnected()) {
+    Particle.disconnect();
+  }
+  */
 
   // Keep track of frame time
   static unsigned long lastTimeInMicroSecs = micros();
@@ -58,4 +59,7 @@ void loop() {
 
   // Listen for incoming data, parse it, do the heavy lifting
   client.run(dtMicroSecs);
+
+  // For recieving / decoding incoming packets from the slave (if any)
+  slaveSerial.update();
 }

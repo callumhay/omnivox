@@ -5,6 +5,7 @@
 #include "SlavePacketWriter.h"
 
 #define TIMEOUT_READ_TIME_MICROSECS 1e6
+#define FRAMES_OUT_OF_SEQ_BEFORE_REST 30
 
 class PacketReader {
 private:
@@ -16,14 +17,19 @@ private:
   };
 
 public:
-  PacketReader(const VoxelModel& voxelModel, led3d::LED3DPacketSerial& slaveSerial) : 
-    slavePacketWriter(slaveSerial) { this->reset(voxelModel); };
-
+  PacketReader(const VoxelModel& voxelModel, SlavePacketWriter& slavePacketWriter) : 
+    slavePacketWriter(slavePacketWriter) { this->resetState(voxelModel); };
   ~PacketReader() {};
 
+  bool readUDP(UDP& udp, VoxelModel& voxelModel, unsigned long dtMicroSecs);
+
   bool read(TCPClient& tcp, VoxelModel& voxelModel, unsigned long dtMicroSecs);
+  void reset(const VoxelModel& voxelModel) { this->resetState(voxelModel); this->currFrameId = 0; this->consecutiveFramesOutOfSeq = 0; }
+  void resetState(const VoxelModel& voxelModel) { this->setState(PacketReader::READING_HEADER, voxelModel); };
 
 private:
+
+  SlavePacketWriter& slavePacketWriter;
   ReaderState state;
   char currPacketTypeByte;
   char currSubPacketTypeByte;
@@ -31,20 +37,36 @@ private:
   int currExpectedBytes;
   int currByteCount;
 
+  uint16_t currFrameId;
+  int consecutiveFramesOutOfSeq;
+
   unsigned long readTimeMs;
 
   uint8_t buffer[12288];
 
-  SlavePacketWriter slavePacketWriter;
-
-  void setState(ReaderState nextState, const VoxelModel& voxelModel);
-
-  void reset(const VoxelModel& voxelModel) { this->setState(PacketReader::READING_HEADER, voxelModel); };
-  bool readBody(TCPClient& tcp, VoxelModel& voxelModel, unsigned long dtMicroSecs);
   
+  void setState(ReaderState nextState, const VoxelModel& voxelModel);
+  bool readBody(TCPClient& tcp, VoxelModel& voxelModel, unsigned long dtMicroSecs);
+
+  int numBytesInDataAllBody(const VoxelModel& voxelModel) const {
+    return voxelModel.getGridSizeX() * voxelModel.getGridSizeY() * voxelModel.getGridSizeZ() * 3;
+  };
+  int numBytesInDataAllPacket(const VoxelModel& voxelModel) const { 
+    return 5 + this->numBytesInDataAllBody(voxelModel); 
+  };
 };
 
+inline bool PacketReader::readUDP(UDP& udp, VoxelModel& voxelModel, unsigned long dtMicroSecs) {
+  int packetSize = udp.parsePacket();
+  if (packetSize > 0) {
+    Serial.printlnf("UDP Packet Size: %i", packetSize);
+    udp.read(this->buffer, packetSize);
+  }
+  return true;
+}
+
 inline bool PacketReader::read(TCPClient& tcp, VoxelModel& voxelModel, unsigned long dtMicroSecs) {
+
   switch (this->state) {
 
     case PacketReader::READING_HEADER: {
@@ -54,12 +76,20 @@ inline bool PacketReader::read(TCPClient& tcp, VoxelModel& voxelModel, unsigned 
 
         //Serial.print("Reading Header: ");
         //Serial.println(this->currPacketTypeByte);
-
+        
         if (this->currPacketTypeByte == VOXEL_DATA_HEADER) {
           this->setState(PacketReader::READING_SUB_HEADER, voxelModel);
         }
         else {
           this->setState(PacketReader::READING_BODY, voxelModel);
+        }
+      }
+      else {
+        this->readTimeMs += dtMicroSecs;
+        if (this->readTimeMs >= TIMEOUT_READ_TIME_MICROSECS) {
+          Serial.println("Read timeout occurred while waiting for header.");
+          this->resetState(voxelModel);
+          return false;
         }
       }
       break;
@@ -74,6 +104,14 @@ inline bool PacketReader::read(TCPClient& tcp, VoxelModel& voxelModel, unsigned 
 
         this->setState(PacketReader::READING_BODY, voxelModel);
       }
+      else {
+        this->readTimeMs += dtMicroSecs;
+        if (this->readTimeMs >= TIMEOUT_READ_TIME_MICROSECS) {
+          Serial.println("Read timeout occurred while waiting for subheader.");
+          this->resetState(voxelModel);
+          return false;
+        }
+      }
       break;
     }
 
@@ -81,29 +119,41 @@ inline bool PacketReader::read(TCPClient& tcp, VoxelModel& voxelModel, unsigned 
       //Serial.println("Reading body...");
       if (!this->readBody(tcp, voxelModel, dtMicroSecs)) {
         Serial.println("Error or timeout while reading body, resetting reader.");
-        this->reset(voxelModel);
-      }
-      break;
-    }
-
-    case PacketReader::READING_END: {
-      bool endFound = false;
-      while (!endFound && tcp.available() > 0) {
-        char currChar = static_cast<char>(tcp.read());
-        if (currChar == PACKET_END_CHAR) {
-          //Serial.println("Packet end found, resetting reader.");
-          this->reset(voxelModel); // Resetting will put us back into an "idle" state (i.e., wait to read the next packet header)
-          endFound = true;
+        if (this->readTimeMs >= TIMEOUT_READ_TIME_MICROSECS) {
+          Serial.println("Read timeout occurred while waiting for body.");
+          this->resetState(voxelModel);
+          return false;
         }
       }
       break;
     }
 
+    case PacketReader::READING_END: {
+      while (tcp.available() > 0) {
+        char currChar = static_cast<char>(tcp.read());
+        if (currChar == PACKET_END_CHAR) {
+          //Serial.println("Packet end found, resetting reader.");
+          this->resetState(voxelModel); // Resetting will put us back into an "idle" state (i.e., wait to read the next packet header)
+          return true;
+        }
+      }
+
+      this->readTimeMs += dtMicroSecs;
+      if (this->readTimeMs >= TIMEOUT_READ_TIME_MICROSECS) {
+        Serial.println("Read timeout occurred while waiting for packet end.");
+        this->resetState(voxelModel);
+        return false;
+      }
+
+      break;
+    }
+
     default:
       Serial.println("Invalid PacketReader state.");
-      this->reset(voxelModel);
+      this->resetState(voxelModel);
       return false;
   }
+
 
   return true;
 };
@@ -114,14 +164,14 @@ inline void PacketReader::setState(PacketReader::ReaderState nextState, const Vo
     case PacketReader::READING_HEADER:
       this->currPacketTypeByte    = '0';
       this->currSubPacketTypeByte = '0';
-      this->currExpectedBytes     = 0;
+      this->currExpectedBytes     = 1;
       this->currByteCount         = 0;
       this->readTimeMs            = 0;
       break;
 
     case PacketReader::READING_SUB_HEADER:
       this->currSubPacketTypeByte = '0';
-      this->currExpectedBytes     = 0;
+      this->currExpectedBytes     = 1;
       this->currByteCount         = 0;
       this->readTimeMs            = 0;
       break;
@@ -136,19 +186,20 @@ inline void PacketReader::setState(PacketReader::ReaderState nextState, const Vo
           break;
 
         case VOXEL_DATA_HEADER: {
+          this->currExpectedBytes = 2; // 2 bytes for the frame ID of the data
           switch (this->currSubPacketTypeByte) {
 
             case VOXEL_DATA_ALL_TYPE:
-              this->currExpectedBytes = (voxelModel.getGridSizeX() * voxelModel.getGridSizeY() * voxelModel.getGridSizeZ() * 3); // RGB bytes for every voxel in the grid
+              this->currExpectedBytes += this->numBytesInDataAllBody(voxelModel); // RGB bytes for every voxel in the grid
               break;
 
             case VOXEL_DATA_CLEAR_TYPE:
-              this->currExpectedBytes = 3; // Just the clear colour RGB
+              this->currExpectedBytes += 3; // 3 bytes for the clear colour RGB
               break;
 
             default:
               Serial.println("Voxel data header type not found!");
-              this->reset(voxelModel);
+              this->resetState(voxelModel);
               return;
           }
           break;
@@ -156,7 +207,7 @@ inline void PacketReader::setState(PacketReader::ReaderState nextState, const Vo
 
         default:
           Serial.print("Packet type not found: "); Serial.println(this->currPacketTypeByte);
-          this->reset(voxelModel);
+          this->resetState(voxelModel);
           return;
       }
       break;
@@ -170,7 +221,7 @@ inline void PacketReader::setState(PacketReader::ReaderState nextState, const Vo
 
     default:
       Serial.println("Attempting to set an invalid PacketReader state.");
-      this->reset(voxelModel);
+      this->resetState(voxelModel);
       return;
   }
 
@@ -184,19 +235,11 @@ inline bool PacketReader::readBody(TCPClient& tcp, VoxelModel& voxelModel, unsig
     this->currByteCount += std::max<int>(0, tcp.read(&(this->buffer[this->currByteCount]), this->currExpectedBytes - this->currByteCount));
     //Serial.printlnf("Reading body (%d / %d)", this->currByteCount, this->currExpectedBytes);
     if (this->currByteCount < this->currExpectedBytes) {
-
       // If we've been waiting too long then we need to return false and get out of this state
       this->readTimeMs += dtMicroSecs;
       return this->readTimeMs <= TIMEOUT_READ_TIME_MICROSECS;
     }
   }
-
-  /*
-  for (int i = 0; i < this->currByteCount; i++) {
-    Serial.print(static_cast<char>(this->buffer[i]));
-  }
-  Serial.println();
-  */
 
   bool noError = true;
   switch (this->currPacketTypeByte) {
@@ -208,7 +251,7 @@ inline bool PacketReader::readBody(TCPClient& tcp, VoxelModel& voxelModel, unsig
       if (gridSize > 0) {
         voxelModel.init(gridSize, gridSize, gridSize);
         Serial.printlnf("Voxel model grid size set to %i x %i x %i", gridSize, gridSize, gridSize);
-        noError = this->slavePacketWriter.writeInit(voxelModel);
+        this->slavePacketWriter.setInit(voxelModel);
         this->setState(PacketReader::READING_END, voxelModel);
       }
       else {
@@ -219,9 +262,27 @@ inline bool PacketReader::readBody(TCPClient& tcp, VoxelModel& voxelModel, unsig
     }
 
     case VOXEL_DATA_HEADER: {
+
+      // Compare the frame ID first to see if it's the most recent
+      uint16_t frameId = static_cast<uint16_t>((buffer[0] << 8) + (buffer[1]));
+      if (frameId > 256 && this->currFrameId >= frameId) {
+        // Our frame ID is more current... ignore this frame
+        Serial.printlnf("Frame ID is out of sequence, ignoring. Number of consecutive out of sequence frames: %i", this->consecutiveFramesOutOfSeq);
+        this->consecutiveFramesOutOfSeq++;
+        if (this->consecutiveFramesOutOfSeq < FRAMES_OUT_OF_SEQ_BEFORE_REST) {
+          return true;
+        }
+        else {
+          Serial.println("Exceeded the number of consecutive frames out of sequence, overwriting frame.");
+        }
+      }
+      this->consecutiveFramesOutOfSeq = 0;
+
+      int bufferIdxCount = 2; // Start reading the remaining buffer after the frame ID
+
       switch (this->currSubPacketTypeByte) {
         case VOXEL_DATA_ALL_TYPE: {
-          //Serial.println("Reading full voxel data packet body.");
+          //Serial.printlnf("Reading full voxel data packet body, remaining TCP bytes: %i", tcp.available());
 
           // We need to read the data and parse it up into proper modules (and the proper ordering within those modules) for sending out to slaves
           int xSize = voxelModel.getGridSizeX();
@@ -235,7 +296,6 @@ inline bool PacketReader::readBody(TCPClient& tcp, VoxelModel& voxelModel, unsig
           }
 
           int currSlaveId;
-          int bufferIdxCount = 0;
           static const int READ_BUFFER_SIZE = VOXEL_MODULE_Z_SIZE*3;
 
           for (int x = 0; x < xSize; x++) {
@@ -259,28 +319,34 @@ inline bool PacketReader::readBody(TCPClient& tcp, VoxelModel& voxelModel, unsig
           }
 
           // Send the parsed voxel data out to the slaves
-          noError = this->slavePacketWriter.writeVoxelsAll(voxelModel);
+          this->slavePacketWriter.setVoxelsAll(voxelModel);
+
           this->setState(PacketReader::READING_END, voxelModel);
           break;
         }
 
         case VOXEL_DATA_CLEAR_TYPE:
           Serial.println("Reading clear voxel data packet body.");
+
           // Just reading 3 bytes (3x8-bit values) for the clear colour RGB
-          
-          noError = this->slavePacketWriter.writeVoxelsClear(voxelModel, this->buffer[0], this->buffer[1], this->buffer[2]);
+          this->slavePacketWriter.setVoxelsClear(
+            voxelModel, this->buffer[bufferIdxCount], this->buffer[bufferIdxCount+1], this->buffer[bufferIdxCount+2]
+          );
+
           this->setState(PacketReader::READING_END, voxelModel);
           break;
 
         default:
           break;
       }
+
+      this->currFrameId = frameId;
       break;
     }
 
     default:
       Serial.println("Packet type not found!");
-      this->reset(voxelModel);
+      this->resetState(voxelModel);
       break;
   }
 

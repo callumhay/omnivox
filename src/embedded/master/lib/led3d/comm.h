@@ -6,32 +6,40 @@
 #include <PacketSerial.h>
 
 // Serial Protocol Constants and Variables ***********************************************
-#define PACKET_BUFFER_MAX_SIZE 2048
-#define PACKET_SERIAL_BAUD 1000000 // N.B., At about 1000000 baud we can get about 60 Hz refresh for a buffer of 2048 bytes
+#define PACKET_BUFFER_MAX_SIZE 8192
+#define PACKET_SERIAL_BAUD 4608000 // highest possible baud rate for the teensy
+
+// Packet Header/Identifier Constants
+#define WELCOME_HEADER 'W'
+#define VOXEL_DATA_ALL_TYPE   'A'
+#define VOXEL_DATA_CLEAR_TYPE 'C'
+
+namespace led3d {
+  typedef PacketSerial_<COBS, 0, PACKET_BUFFER_MAX_SIZE> LED3DPacketSerial;
+};
+
+// DEPRECATED ============================================================================
+#define VOXEL_DATA_HEADER 'D'
+#define PACKET_END_CHAR ';'
 
 // Discovery (UDP Multicast) Constants and Variables *************************************
-#define UDP_PORT 20000
+#define UDP_DISCOVERY_PORT 20000
 
 // The multicast address is "233.255.255.255"
-#define MULTICAST_ADDR0 233
-#define MULTICAST_ADDR1 255
-#define MULTICAST_ADDR2 255
-#define MULTICAST_ADDR3 255
+#define MULTICAST_DISCOVERY_ADDR0 233
+#define MULTICAST_DISCOVERY_ADDR1 255
+#define MULTICAST_DISCOVERY_ADDR2 255
+#define MULTICAST_DISCOVERY_ADDR3 255
 
 #define DISCOVERY_REQ "REQ"
 #define DISCOVERY_ACK "ACK"
 #define DISCOVERY_ACK_PACKET_MIN_SIZE 13
 #define DISCOVERY_ACK_PACKET_MAX_SIZE 25
 
-// Packet Header/Identifier Constants - TCP ONLY
-#define WELCOME_HEADER 'W'
-#define VOXEL_DATA_HEADER 'D'
-// Data type constants (Subheader types)
-#define VOXEL_DATA_ALL_TYPE   'A'
-#define VOXEL_DATA_CLEAR_TYPE 'C'
+#define UDP_DATA_PORT 20002
 
-#define PACKET_END_CHAR ';'
-
-namespace led3d {
-  typedef PacketSerial_<COBS, 0, PACKET_BUFFER_MAX_SIZE> LED3DPacketSerial;
-};
+#define MULTICAST_DATA_ADDR0 234
+#define MULTICAST_DATA_ADDR1 255
+#define MULTICAST_DATA_ADDR2 255
+#define MULTICAST_DATA_ADDR3 255
+// END DEPRECATED =========================================================================

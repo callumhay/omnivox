@@ -21,7 +21,7 @@ export const voxelColourAnimatorDefaultConfig = {
   voxelPositions: [{x:0, y:0, z:0}],
   colourStart: {r:0, g:0, b:0},
   colourEnd: {r:1, g:1, b:1},
-  colourInterpolationType: COLOUR_INTERPOLATION_HSL,
+  colourInterpolationType: COLOUR_INTERPOLATION_RGB,
   interpolationType: INTERPOLATION_LERP,
   startTimeSecs: 0.0,
   endTimeSecs: 10.0,
