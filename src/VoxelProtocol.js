@@ -7,8 +7,6 @@ const DISCOVERY_ACK_PACKET_HEADER = "ACK";
 const VOXEL_DATA_HEADER = "D";
 // Data type constants
 const VOXEL_DATA_ALL_TYPE   = "A";
-const VOXEL_DATA_DIFF_TYPE  = "D";
-const VOXEL_DATA_CLEAR_TYPE = "C";
 
 // Server-to-Client Headers
 const SERVER_TO_CLIENT_WELCOME_HEADER = "W";
@@ -25,8 +23,9 @@ const PACKET_END = ";";
 const WEBSOCKET_HOST = "localhost";
 const WEBSOCKET_PORT = 4001;
 
-// Read/Write constants
-const COLOUR_HEX_STR_LENGTH = 6;
+const VOXEL_MODULE_X_SIZE = 8;
+const VOXEL_MODULE_Z_SIZE = 8;
+
 
 class VoxelProtocol {
 
@@ -36,8 +35,6 @@ class VoxelProtocol {
 
   static get VOXEL_DATA_HEADER() {return VOXEL_DATA_HEADER;}
   static get VOXEL_DATA_ALL_TYPE() {return VOXEL_DATA_ALL_TYPE;}
-  static get VOXEL_DATA_DIFF_TYPE() {return VOXEL_DATA_DIFF_TYPE;}
-  static get VOXEL_DATA_CLEAR_TYPE() {return VOXEL_DATA_CLEAR_TYPE;}
 
   static get WEBSOCKET_HOST() {return WEBSOCKET_HOST;}
   static get WEBSOCKET_PORT() {return WEBSOCKET_PORT;}
@@ -52,7 +49,7 @@ class VoxelProtocol {
   static buildWelcomePacketForSlaves(voxelModel) {
     const packetDataBuf = new Uint8Array(3); // slaveid (1 byte), type (1 byte), y-size (1 byte)
     packetDataBuf[0] = 0;
-    packetDataBuf[1] = SERVER_TO_CLIENT_WELCOME_HEADER.charCodeAt(0);;
+    packetDataBuf[1] = SERVER_TO_CLIENT_WELCOME_HEADER.charCodeAt(0);
     packetDataBuf[2] = voxelModel.ySize();
     return Buffer.from(packetDataBuf);
   }
@@ -135,22 +132,50 @@ class VoxelProtocol {
     return true;
   }
 
-  static stuffVoxelDataAll(startIdx, packetBuf, data) {
+  static stuffVoxelDataAll(startIdx, packetBuf, data, slaveId = null) {
     let byteCount = startIdx;
-    const xLen = data.length;
-    for (let x = 0; x < xLen; x++) {
-      const yLen = data[x].length;
-      for (let y = 0; y < yLen; y++) {
-        const zLen = data[x][y].length;
-        for (let z = 0; z < zLen; z++) {
 
-          const voxel = data[x][y][z];
-          const voxelColour = voxel.colour;
+    if (slaveId) {
+      // We split voxels up among the slave boards based on their ID
+      const xLen = data.length;
+      const startX = slaveId * VOXEL_MODULE_X_SIZE;
+      const endX = min(xLen, startX + VOXEL_MODULE_X_SIZE);
 
-          packetBuf[byteCount]   = parseInt(voxelColour.r*255);
-          packetBuf[byteCount+1] = parseInt(voxelColour.g*255);
-          packetBuf[byteCount+2] = parseInt(voxelColour.b*255);
-          byteCount += 3;
+      for (let x = startX; x < endX; x++) {
+        const yLen = data[x].length;
+
+        for (let y = 0; y < yLen; y++) {
+          const zLen = data[x][y].length;
+          const startZ = (slaveId % zLen) * VOXEL_MODULE_Z_SIZE;
+          const endZ   = min(zLen, startZ + VOXEL_MODULE_Z_SIZE); 
+
+          for (let z = startZ; z < endZ; z++) {
+            const voxel = data[x][y][z];
+            const voxelColour = voxel.colour;
+
+            packetBuf[byteCount]   = parseInt(voxelColour.r*255);
+            packetBuf[byteCount+1] = parseInt(voxelColour.g*255);
+            packetBuf[byteCount+2] = parseInt(voxelColour.b*255);
+            byteCount += 3;
+          }
+        }
+      }
+    }
+    else {
+      const xLen = data.length;
+      for (let x = 0; x < xLen; x++) {
+        const yLen = data[x].length;
+        for (let y = 0; y < yLen; y++) {
+          const zLen = data[x][y].length;
+          for (let z = 0; z < zLen; z++) {
+            const voxel = data[x][y][z];
+            const voxelColour = voxel.colour;
+
+            packetBuf[byteCount]   = parseInt(voxelColour.r*255);
+            packetBuf[byteCount+1] = parseInt(voxelColour.g*255);
+            packetBuf[byteCount+2] = parseInt(voxelColour.b*255);
+            byteCount += 3;
+          }
         }
       }
     }
@@ -174,13 +199,6 @@ class VoxelProtocol {
         this.stuffVoxelDataAll(4, packetDataBuf, data);
         break;
 
-      case VOXEL_DATA_CLEAR_TYPE:
-        packetDataBuf = new Uint8Array(8);
-        packetDataBuf[4] = parseInt(data.r*255);
-        packetDataBuf[5] = parseInt(data.g*255);
-        packetDataBuf[6] = parseInt(data.b*255);
-        break;
-
       default:
         console.error("Invalid packet data type, could not construct.");
         return null;
@@ -200,7 +218,7 @@ class VoxelProtocol {
     return Buffer.from(packetDataBuf);
   }
 
-  static buildVoxelDataPacketForSlaves(voxelData) {
+  static buildVoxelDataPacketForSlaves(voxelData, slaveId = 0) {
     if (voxelData === null) {
       return null;
     }
@@ -215,14 +233,7 @@ class VoxelProtocol {
     switch (type) {
       case VOXEL_DATA_ALL_TYPE:
         packetDataBuf = new Uint8Array(4 + data.length*data[0].length*data[0][0].length*3); // slaveid (1 byte), type (1 byte), frame id (2 bytes), and data (3*O(n^3) bytes)
-        this.stuffVoxelDataAll(4, packetDataBuf, data);
-        break;
-
-      case VOXEL_DATA_CLEAR_TYPE:
-        packetDataBuf = new Uint8Array(6);
-        packetDataBuf[4] = parseInt(data.r*255);
-        packetDataBuf[5] = parseInt(data.g*255);
-        packetDataBuf[6] = parseInt(data.b*255);
+        this.stuffVoxelDataAll(4, packetDataBuf, data, slaveId);
         break;
 
       default:
@@ -233,7 +244,7 @@ class VoxelProtocol {
     let frameId0 = (voxelData.frameId % 65536) >> 8;
     let frameId1 = (voxelData.frameId % 256);
 
-    packetDataBuf[0] = 0;
+    packetDataBuf[0] = slaveId;
     packetDataBuf[1] = type.charCodeAt(0);
     packetDataBuf[2] = frameId0;
     packetDataBuf[3] = frameId1;
@@ -287,21 +298,6 @@ class VoxelProtocol {
 
     return true;
   }
-
-  static readAndPaintVoxelDataClear(packetDataBuf, voxelDisplay) {
-    const startIdx = VOXEL_DATA_HEADER.length + VOXEL_DATA_CLEAR_TYPE.length + 2; // skip over the: type (1 byte), subtype (1 byte), frame Id (2 bytes)
-
-    if (packetDataBuf.length < startIdx + 3) {
-      return false;
-    }
-    const r = packetDataBuf[startIdx]/255;
-    const g = packetDataBuf[startIdx+1]/255;
-    const b = packetDataBuf[startIdx+2]/255;
-
-    voxelDisplay.clearRGB(r,g,b);
-    return true;
-  }
-
 };
 
 export default VoxelProtocol;

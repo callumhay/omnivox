@@ -20,6 +20,14 @@ export class Randomizer {
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min + 1)) + min; // The maximum is inclusive and the minimum is inclusive 
   }
+
+  static getRandomFloats(size) {
+    let result = new Array(size);
+    for (let i = 0; i < size; i++) {
+      result[i] = Randomizer.getRandomInt(0,1000)/1000;
+    }
+    return result;
+  }
 }
 
 /**

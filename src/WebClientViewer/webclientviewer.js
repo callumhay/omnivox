@@ -19,7 +19,7 @@ const voxelDisplay = new VoxelDisplay(scene);
 // Setup the client (recieves render messages from the server and sends control messages to the server)
 const voxelClient = new VoxelClient(voxelDisplay);
 // Control panel for user interaction / changing routines
-const controlPanel = new ControlPanel(voxelClient);
+const controlPanel = new ControlPanel(voxelClient, voxelDisplay);
 
 // Make sure the camera is positioned somewhere where we can see everything we need to at initial render
 scene.position.set(0,0,0);

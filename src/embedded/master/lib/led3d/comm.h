@@ -12,7 +12,6 @@
 // Packet Header/Identifier Constants
 #define WELCOME_HEADER 'W'
 #define VOXEL_DATA_ALL_TYPE   'A'
-#define VOXEL_DATA_CLEAR_TYPE 'C'
 
 namespace led3d {
   typedef PacketSerial_<COBS, 0, PACKET_BUFFER_MAX_SIZE> LED3DPacketSerial;

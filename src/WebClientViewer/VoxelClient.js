@@ -83,13 +83,6 @@ class VoxelClient {
             }
             break;
           
-          case VoxelProtocol.VOXEL_DATA_CLEAR_TYPE:
-            if (!VoxelProtocol.readAndPaintVoxelDataClear(messageData, this.voxelDisplay)) {
-              console.log("Invalid clear colour.");
-            }
-            break;
-
-          case VoxelProtocol.VOXEL_DATA_DIFF_TYPE:
           default:
             console.log("Unimplemented protocol voxel data type: " + voxelDataType);
             break;

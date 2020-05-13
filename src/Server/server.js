@@ -19,10 +19,12 @@ if (distPath.substring(distPath.length-DISTRIBUTION_DIRNAME.length).toLowerCase(
 console.log("The following directory must be the distribution directory: \"" + distPath + "\"");
 
 app.use(express.static(distPath));
+app.use(express.static('textures'));
 app.set('port', LOCALHOST_WEB_PORT);
 app.get("/", (req, res) => {
-  res.sendFile(path.join(distPath, index.html));
+  res.sendFile(path.join(distPath, 'index.html'));
 });
+
 
 const webServer = http.createServer(app);
 reload(app).then((reloadReturned) => {

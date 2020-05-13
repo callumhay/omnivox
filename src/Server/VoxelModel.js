@@ -6,11 +6,12 @@ import VoxelColourAnimator from '../Animation/VoxelColourAnimator';
 import StarShowerAnimator from '../Animation/StarShowerAnimator';
 import ShapeWaveAnimator from '../Animation/ShapeWaveAnimator';
 import GameOfLifeAnimator from '../Animation/GameOfLifeAnimator';
+import FireAnimator from '../Animation/FireAnimator';
 
 export const BLEND_MODE_OVERWRITE = 0;
 export const BLEND_MODE_ADDITIVE  = 1;
 
-const DEFAULT_POLLING_FREQUENCY_HZ = 60; // 60 FPS - if this is too high then we overwhelm our embedded hardware...
+const DEFAULT_POLLING_FREQUENCY_HZ = 120; // 60 FPS - if this is too high then we overwhelm our embedded hardware...
 const DEFAULT_POLLING_INTERVAL_MS  = 1000 / DEFAULT_POLLING_FREQUENCY_HZ;
 
 class VoxelModel {
@@ -47,6 +48,7 @@ class VoxelModel {
       [VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER] : new StarShowerAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES] : new ShapeWaveAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE] : new GameOfLifeAnimator(this),
+      [VoxelAnimator.VOXEL_ANIM_FIRE] : new FireAnimator(this),
     };
     this.currentAnimator = this._animators[VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR];
 
@@ -54,8 +56,14 @@ class VoxelModel {
     this.frameCounter = 0;
   }
 
+  xSize() {
+    return this.voxels.length;
+  }
   ySize() {
     return this.voxels[0].length;
+  }
+  zSize() {
+    return this.voxels[0][0].length;
   }
 
   setAnimator(type, config) {

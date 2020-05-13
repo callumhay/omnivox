@@ -6,6 +6,8 @@ import {voxelColourAnimatorDefaultConfig, COLOUR_INTERPOLATION_TYPES, INTERPOLAT
 import {starShowerDefaultConfig} from '../Animation/StarShowerAnimator';
 import {shapeWaveAnimatorDefaultConfig, WAVE_SHAPE_TYPES} from '../Animation/ShapeWaveAnimator';
 import {gameOfLifeAnimatorDefaultConfig} from '../Animation/GameOfLifeAnimator';
+import {fireAnimatorDefaultConfig} from '../Animation/FireAnimator';
+import {ColourSystems} from '../Spectrum';
 
 const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
 const VOXEL_COLOUR_SHAPE_TYPE_SPHERE = "Sphere";
@@ -28,15 +30,17 @@ const GuiColorToRGBObj = (c) => {
 }
 
 class ControlPanel {
-  constructor(voxelClient) {
+  constructor(voxelClient, voxelDisplay) {
     
     this.gui = new dat.GUI({preset:'Default'});
-    this.voxelClient = voxelClient;
+    this.voxelClient  = voxelClient;
+    this.voxelDisplay = voxelDisplay;
 
     this.colourAnimatorConfig = {...voxelColourAnimatorDefaultConfig};
     this.starShowerAnimatorConfig = {...starShowerDefaultConfig};
     this.shapeWaveAnimatorConfig = {...shapeWaveAnimatorDefaultConfig};
     this.gameOfLifeAnimatorConfig = {...gameOfLifeAnimatorDefaultConfig};
+    this.fireAnimatorConfig = {...fireAnimatorDefaultConfig};
 
     this.reloadSettings();
     
@@ -47,6 +51,7 @@ class ControlPanel {
       VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR,
       VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER,
       VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES,
+      VoxelAnimator.VOXEL_ANIM_FIRE,
       //VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE, // Meh... not very impressed by this, maybe when we have a much bigger grid
     ]).onChange((value) => {
 
@@ -77,14 +82,23 @@ class ControlPanel {
           this.currFolder = this.buildGameOfLifeAnimatorControls();
           this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE, this.gameOfLifeAnimatorConfig);
           break;
+
+        case VoxelAnimator.VOXEL_ANIM_FIRE:
+          this.currFolder = this.buildFireAnimatorControls();
+          this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+          break;
         
         default:
           console.error("Animator type Not implemented!");
           break;
       }
-
       voxelClient.sendClearCommand(0,0,0);
     }).setValue(this.settings.animatorType);
+
+    this.gui.add(this.settings, 'showWireFrame').onChange((value) => {
+      this.voxelDisplay.setOutlinesEnabled(value);
+    });
+    
 
     this.gui.open();
   }
@@ -99,6 +113,7 @@ class ControlPanel {
 
     this.settings = {
       animatorType: VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR,
+      showWireFrame: this.voxelDisplay.outlinesEnabled,
 
       voxelColourSettings: {...this.colourAnimatorConfig,
         shapeType: VOXEL_COLOUR_SHAPE_TYPE_ALL,
@@ -135,6 +150,10 @@ class ControlPanel {
         seed: this.gameOfLifeAnimatorConfig.seed,
         reset: resetFunc,
       },
+
+      fireSettings: {...this.fireAnimatorConfig,
+        reset: resetFunc,
+      },
     };
 
     this.gui.remember(this.settings);
@@ -154,6 +173,8 @@ class ControlPanel {
     this.gui.remember(this.settings.shapeWaveSettings.center);
 
     this.gui.remember(this.settings.gameOfLifeSettings);
+
+    this.gui.remember(this.settings.fireSettings);
   }
 
   updateAnimator(animatorType, config) {
@@ -170,6 +191,10 @@ class ControlPanel {
       case VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE:
         this.gameOfLifeAnimatorConfig = config;
         break;
+      case VoxelAnimator.VOXEL_ANIM_FIRE:
+        this.fireAnimatorConfig = config;
+        break;
+
       default:
         console.error("Animator type Not implemented!");
         break;
@@ -553,6 +578,61 @@ class ControlPanel {
     });
 
     folder.add(gameOfLifeSettings, 'reset');
+    folder.open();
+
+    return folder;
+  }
+
+  buildFireAnimatorControls() {
+    const {fireSettings} = this.settings;
+    const folder = this.gui.addFolder("Fire Controls");
+
+    folder.add(fireSettings, 'speed', 0.1, 5.0, 0.1).onChange((value) => {
+      this.fireAnimatorConfig.speed = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+    }).setValue(fireSettings.speed);
+
+    folder.add(fireSettings, 'diffusion', 0.00001, 1.0, 0.0001).onChange((value) => {
+      this.fireAnimatorConfig.diffusion = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+    }).setValue(fireSettings.diffusion);
+
+    folder.add(fireSettings, 'viscosity', 0.0, 0.001, 0.00001).onChange((value) => {
+      this.fireAnimatorConfig.viscosity = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+    }).setValue(fireSettings.viscosity);
+
+    folder.add(fireSettings, 'buoyancy', 0.1, 10, 0.1).onChange((value) => {
+      this.fireAnimatorConfig.buoyancy = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+    }).setValue(fireSettings.buoyancy);
+
+    folder.add(fireSettings, 'cooling', 0.1, 1.5, 0.01).onChange((value) => {
+      this.fireAnimatorConfig.cooling = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+    }).setValue(fireSettings.cooling);
+
+    folder.add(fireSettings, 'vorticityConfinement', 1, 20, 1).onChange((value) => {
+      this.fireAnimatorConfig.vorticityConfinement = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+    }).setValue(fireSettings.vorticityConfinement);
+
+    folder.add(fireSettings, 'spectrumTempMin', 0, 5000, 100).onChange((value) => {
+      this.fireAnimatorConfig.spectrumTempMin = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+    }).setValue(fireSettings.spectrumTempMin);
+
+    folder.add(fireSettings, 'spectrumTempMax', 0, 5000, 100).onChange((value) => {
+      this.fireAnimatorConfig.spectrumTempMax = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+    }).setValue(fireSettings.spectrumTempMax);
+
+    folder.add(fireSettings, 'colourSystem', Object.keys(ColourSystems)).onChange((value) => {
+      this.fireAnimatorConfig.colourSystem = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+    }).setValue(fireSettings.colourSystem);
+
+    folder.add(fireSettings, 'reset');
     folder.open();
 
     return folder;

@@ -4,10 +4,102 @@
 #include "../../master/lib/led3d/comm.h"
 
 #define DATA_SERIAL Serial
-
 #define SLAVE_PING_MICROSECS 10e6 // Broadcast our information every 10 seconds or so
+#define MY_SLAVE_ID 0
 
-static const int REFRESH_RATE_HZ = 30;
+
+/*
+ Analog pins 23 (A9), 22 (A8), 19 (A5), and 18 (A4) are used to communicate between neighbour boards in order to transmit
+ and identify where each teensy is in the LED base matrix.
+
+ The following are how the slave indices are determined based on the position within the base matrix:
+
+        ----------------------------
+        |  |  |  |  |  |  |  |  |  | 
+        ----------------------------
+        |  |  |  |  |  |  |  |  |  | 
+x       ----------------------------
+^       |9 |10|11|12|13|  |  |  |  | 
+|       ----------------------------
+|       |0 |1 |2 |3 |4 |5 |6 |7 |8 | 
+|       ----------------------------
+-------- > z
+
+Pin 23 (A9) is used on the +x axis.
+Pin 22 (A8) is used on the -x axis.
+Pin 19 (A5) is used on the +z axis.
+Pin 18 (A4) is used on the -z axis.
+
+Data travels in the positive axis directions (along both x and z), the data propogates from board to board
+accumulating as it does so and thereby identifying each board.
+*/
+
+#define POS_X_PIN A9
+#define NEG_X_PIN A8
+#define POS_Z_PIN A5
+#define NEG_Z_PIN A4
+
+int myXIndex = -1;
+int myZIndex = -1;
+
+// Assume a maximum of 16 possible IDs, a 10-bit analog value is in [0,1023], if we split this
+// up into 16 possible slots we can be more robust in our transimission of data.
+#define MAX_NUMBER_OF_SLAVE_IDS 16
+
+void idDeamonSetup() {
+  pinMode(POS_X_PIN, OUTPUT);
+  pinMode(NEG_X_PIN, INPUT);
+  pinMode(POS_Z_PIN, OUTPUT);
+  pinMode(NEG_Z_PIN, INPUT);
+}
+
+void runIdDeamon() {
+  // We reserve two slots:
+  // [0, ANALOG_VALUES_PER_SLAVE_ID) : no board (i.e., ground)
+  // [ANALOG_VALUES_PER_SLAVE_ID, 2*ANALOG_VALUES_PER_SLAVE_ID) : uninitialized
+  // [2*ANALOG_VALUES_PER_SLAVE_ID, 3*ANALOG_VALUES_PER_SLAVE_ID) : Slave ID 0
+  // ...
+  static const int ANALOG_VALUES_PER_SLAVE_ID = 1024 / (MAX_NUMBER_OF_SLAVE_IDS+2);
+
+  int negXValue = analogRead(NEG_X_PIN);
+  int negZValue = analogRead(NEG_Z_PIN);
+
+  // There's only one board that's immediately sure of its ID (the board at the origin of the xz plane)
+  if (negXValue < ANALOG_VALUES_PER_SLAVE_ID && negZValue < ANALOG_VALUES_PER_SLAVE_ID) {
+    // We are the origin board, tell our neighbours about it asap
+    myXIndex = 0;
+    myZIndex = 0;
+    analogWrite(POS_X_PIN, 2.5*ANALOG_VALUES_PER_SLAVE_ID);
+    analogWrite(POS_Z_PIN, 2.5*ANALOG_VALUES_PER_SLAVE_ID);
+    return;
+  }
+  
+  if (negXValue >= ANALOG_VALUES_PER_SLAVE_ID && negXValue < 2*ANALOG_VALUES_PER_SLAVE_ID) {
+    // -x direction neighbour board isn't initialized yet (therefore we aren't either)
+    analogWrite(POS_X_PIN, 1.5*ANALOG_VALUES_PER_SLAVE_ID);
+  }
+  else {
+    // Our -x direction neighbour has been initialized!
+    myXIndex = (negXValue - ANALOG_VALUES_PER_SLAVE_ID) / ANALOG_VALUES_PER_SLAVE_ID;
+    analogWrite(POS_X_PIN, negXValue+ANALOG_VALUES_PER_SLAVE_ID);
+  }
+
+  if (negZValue >= ANALOG_VALUES_PER_SLAVE_ID && negZValue < 2*ANALOG_VALUES_PER_SLAVE_ID) {
+    // -Z direction neighbour board isn't initialized yet (therefore we aren't either)
+    analogWrite(POS_Z_PIN, 1.5*ANALOG_VALUES_PER_SLAVE_ID);
+  }
+  else {
+    // Our -z direction neighbour has been initialized!
+    myZIndex = (negZValue - ANALOG_VALUES_PER_SLAVE_ID) / ANALOG_VALUES_PER_SLAVE_ID;
+    analogWrite(POS_Z_PIN, negZValue+ANALOG_VALUES_PER_SLAVE_ID);
+  }
+}
+
+
+
+led3d::LED3DPacketSerial myPacketSerial;
+
+static const int REFRESH_RATE_HZ = 60;
 static const unsigned long numMicroSecsPerRefresh = 1e6 / REFRESH_RATE_HZ;
 static unsigned long ledDrawTimeCounterMicroSecs = 0;
 static unsigned long slaveInfoPingTimeCounterMicroSecs = 0;
@@ -73,8 +165,7 @@ void updateQueue() {
 OctoWS2811 leds(ledsPerStrip, displayMemory, drawingMemory, octoConfig);
 // **************************************************************************************
 
-const int MY_SLAVE_ID = 0;
-led3d::LED3DPacketSerial myPacketSerial;
+
 
 int colourFromBuffer(const uint8_t* buffer, int startIdx) {
   return gammaMapColour(((buffer[startIdx] & 0x0000FF) << 16)  + ((buffer[startIdx+1] & 0x0000FF) << 8) + (buffer[startIdx+2] & 0x0000FF));
@@ -141,25 +232,6 @@ void readFullVoxelData(const uint8_t* buffer, size_t size, size_t startIdx, int 
   }
 }
 
-void readWipeVoxelData(const uint8_t* buffer, size_t size, size_t startIdx, int frameId) {
-  if (size > 2 && ((frameId > 0 && frameId < 256) || frameId > lastKnownFrameId)) {
-
-    // Do a super fast wipe on the next frame of the queue/ring buffer
-    uint8_t* currFrameBuffer = tempLedBufferQueue[(queueStartIdx + queueCount) % LED_BUFFER_QUEUE_SIZE]; 
-    for (int i = 0; i < ledsPerModule; i += 3) {
-      currFrameBuffer[i] = buffer[startIdx];
-      currFrameBuffer[i+1] = buffer[startIdx+1];
-      currFrameBuffer[i+2] = buffer[startIdx+2];
-    }
-    updateQueue();
-
-    lastKnownFrameId = frameId;
-  }
-  else {
-    Serial.println("Throwing out frame.");
-  }
-}
-
 void onSerialPacketReceived(const void* sender, const uint8_t* buffer, size_t size) {
   if (sender == &myPacketSerial && size > 2) {
     
@@ -193,11 +265,6 @@ void onSerialPacketReceived(const void* sender, const uint8_t* buffer, size_t si
       case VOXEL_DATA_ALL_TYPE:
         bufferIdx += 2; // Frame ID
         readFullVoxelData(buffer, static_cast<size_t>(size-bufferIdx), bufferIdx, getFrameId(buffer, size));
-        break;
-
-      case VOXEL_DATA_CLEAR_TYPE:
-        bufferIdx += 2; // Frame ID
-        readWipeVoxelData(buffer, static_cast<size_t>(size-bufferIdx), bufferIdx, getFrameId(buffer, size));
         break;
 
       default:
@@ -287,5 +354,7 @@ void loop() {
   if (slaveInfoPingTimeCounterMicroSecs > SLAVE_PING_MICROSECS) {
     Serial.print("SLAVE_ID "); Serial.println(MY_SLAVE_ID);
     slaveInfoPingTimeCounterMicroSecs = 0;
+
+    runIdDeamon();
   }
 }

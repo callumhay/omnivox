@@ -5,6 +5,7 @@ const VOXEL_ANIM_TYPE_SHOOTING_STAR = "Shooting Star";
 const VOXEL_ANIM_TYPE_STAR_SHOWER   = "Star Shower";
 const VOXEL_ANIM_TYPE_SHAPE_WAVES   = "Shape Waves";
 const VOXEL_ANIM_TYPE_GAME_OF_LIFE  = "Game of Life";
+const VOXEL_ANIM_FIRE               = "Fire";
 
 const VOXEL_ANIM_TYPES = [
   VOXEL_ANIM_TYPE_COLOUR,
@@ -12,6 +13,7 @@ const VOXEL_ANIM_TYPES = [
   VOXEL_ANIM_TYPE_STAR_SHOWER,
   VOXEL_ANIM_TYPE_SHAPE_WAVES,
   VOXEL_ANIM_TYPE_GAME_OF_LIFE,
+  VOXEL_ANIM_FIRE,
 ];
 
 class VoxelAnimator {
@@ -29,10 +31,11 @@ class VoxelAnimator {
 
   // Constants for various types of animators
   static get VOXEL_ANIM_TYPE_COLOUR() {return VOXEL_ANIM_TYPE_COLOUR;}
-  static get VOXEL_ANIM_TYPE_SHOOTING_STAR() {return VOXEL_ANIM_TYPE_SHOOTING_STAR};
+  static get VOXEL_ANIM_TYPE_SHOOTING_STAR() {return VOXEL_ANIM_TYPE_SHOOTING_STAR;}
   static get VOXEL_ANIM_TYPE_STAR_SHOWER() {return VOXEL_ANIM_TYPE_STAR_SHOWER;}
   static get VOXEL_ANIM_TYPE_SHAPE_WAVES() {return VOXEL_ANIM_TYPE_SHAPE_WAVES;}
   static get VOXEL_ANIM_TYPE_GAME_OF_LIFE() {return VOXEL_ANIM_TYPE_GAME_OF_LIFE;}
+  static get VOXEL_ANIM_FIRE() { return VOXEL_ANIM_FIRE;}
 
   static get VOXEL_ANIM_TYPES() {return VOXEL_ANIM_TYPES;}
 

@@ -173,13 +173,16 @@ const fontBasic8x8Chars = [
   [ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]    // U+007F 
 ];
 
-class FontBasic8x8 extends Font {
-  constructor() {
-    super();
+class TextBitmapRenderer extends Font {
+  constructor(voxelModel, fontBitmapArray = fontBasic8x8Chars) {
+    super(voxelModel);
+    this.fontBitmapArray = fontBitmapArray;
   }
 
-  
+  render(topLeftPt, upVec, rightVec, textStr) {
+    
+  }
 
 }
 
-export default FontBasic8x8;
+export default TextBitmapRenderer;

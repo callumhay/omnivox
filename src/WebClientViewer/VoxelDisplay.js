@@ -3,32 +3,53 @@ import {VOXEL_ERR_UNITS} from '../MathUtils';
 
 const voxelUnitSize = 1.0; // THIS MUST ALWAYS BE 1!!!
 const halfVoxelUnitSize = voxelUnitSize / 2.0;
-const ledUnitSize = voxelUnitSize / 4.0;
 
 const DEFAULT_VOXEL_GRID_SIZE = 8;
+const DEFAULT_LED_POINT_SIZE = voxelUnitSize*1.5;
+
+const POINTS_VERTEX_SHADER = `
+  attribute float size;
+  attribute vec3 customColour;
+
+  varying vec3 vColor;
+
+  void main() {
+    vColor = customColour;
+    vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+    gl_PointSize = size * (300.0 / -mvPosition.z);
+    gl_Position = projectionMatrix * mvPosition;
+  }
+`;
+
+const POINTS_FRAGMENT_SHADER = `
+  uniform vec3 color;
+  uniform sampler2D pointTexture;
+
+  varying vec3 vColor;
+
+  void main() {
+    gl_FragColor = vec4( color * vColor, 1);
+    gl_FragColor = gl_FragColor * texture2D( pointTexture, gl_PointCoord );
+    if ( gl_FragColor.a < 0.5 ) { discard; }
+  }
+`;
 
 class VoxelDisplay {
   constructor(scene) {
     this.voxels = [];
     this._scene = scene;
+    this.outlinesEnabled = false;
+
     this.rebuild(DEFAULT_VOXEL_GRID_SIZE);
   }
 
   removeVoxels() {
-    if (!this.voxels) {
-      return;
-    }
-
-    for (let x = 0; x < this.voxels.length; x++) {
-      for (let y = 0; y < this.voxels[x].length; y++) {
-        for (let z = 0; z < this.voxels[x][y].length; z++) {
-          const {ledMesh, outlineMesh} = this.voxels[x][y][z];
-          this._scene.remove(ledMesh);
-          this._scene.remove(outlineMesh);
-        }
-      }
-    }
-
+    if (!this.leds) { return; }
+    this._scene.remove(this.leds);
+    this._scene.remove(this.outlines);
+    this.leds = null;
+    this.outlines = null;
+    this.colourBuffer = null;
     this.voxels = [];
   }
 
@@ -37,52 +58,21 @@ class VoxelDisplay {
     // Clean up any previous voxel grid
     this.removeVoxels();
 
-    this.gridSize = gridSize;
-    
-    const ledGeometry = new THREE.BoxGeometry(ledUnitSize, ledUnitSize, ledUnitSize);
-    const outlineGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(voxelUnitSize, voxelUnitSize, voxelUnitSize));
-
-    const outlineMaterial = new THREE.LineBasicMaterial({color: 0xffffff});
-    outlineMaterial.transparent = true;
-    outlineMaterial.opacity = 0.1;
-
     const halfTranslationUnits = (gridSize*voxelUnitSize)/2.0;
     const worldTranslation = new THREE.Vector3(-halfTranslationUnits, -halfTranslationUnits, -halfTranslationUnits);
 
+    this.gridSize = gridSize;
+    const numLEDs = this.gridSize*this.gridSize*this.gridSize;
+
+    let ledPositions = new Float32Array(numLEDs*3);
+    let ledColours   = new Float32Array(numLEDs*3).fill(1);
+    let ledSizes     = new Float32Array(numLEDs).fill(DEFAULT_LED_POINT_SIZE * 0.5);
+
+    let positionIdx = 0;
     for (let x = 0; x < gridSize; x++) {
-      let currXArr = [];
-      this.voxels.push(currXArr);
       for (let y = 0; y < gridSize; y++) {
-        let currYArr = [];
-        currXArr.push(currYArr);
         for (let z = 0; z < gridSize; z++) {
 
-          const ledMatrial = new THREE.MeshBasicMaterial({color: 0x000000});
-          ledMatrial.transparent = true;
-          ledMatrial.opacity = 0.85;
-
-          const ledMesh = new THREE.Mesh(ledGeometry, ledMatrial);
-          const outlineMesh = new THREE.LineSegments(outlineGeometry, outlineMaterial);
-              
-          const currZObj = {
-            ledMesh: ledMesh,
-            outlineMesh: outlineMesh,
-
-            getColour: function() {
-              return this.ledMesh.material.color;
-            },
-            setColourRGB: function(r, g, b) {
-              this.ledMesh.material.color.setRGB(r, g, b);
-            },
-            setColour: function(colour) { 
-              this.ledMesh.material.color.set(colour);
-            },
-            addColour: function(colour) { return this.ledMesh.material.color.add(colour); },
-          };
-            
-          this._scene.add(ledMesh);
-          this._scene.add(outlineMesh);
-          
           const currTranslation = new THREE.Vector3(
             x*voxelUnitSize + halfVoxelUnitSize,
             y*voxelUnitSize + halfVoxelUnitSize,
@@ -90,11 +80,113 @@ class VoxelDisplay {
           );
           currTranslation.add(worldTranslation);
           
-          ledMesh.position.set(currTranslation.x, currTranslation.y, currTranslation.z);
-          outlineMesh.position.set(currTranslation.x, currTranslation.y, currTranslation.z);
-          
-          currYArr.push(currZObj);
+          ledPositions[positionIdx]   = currTranslation.x;
+          ledPositions[positionIdx+1] = currTranslation.y;
+          ledPositions[positionIdx+2] = currTranslation.z;
+
+          positionIdx += 3;
         }
+      }
+    }
+
+    this.colourBuffer = new THREE.BufferAttribute(ledColours, 3);
+
+    // Add the LEDs to the scene
+    let geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(ledPositions, 3));
+    geometry.setAttribute('customColour', this.colourBuffer);
+    geometry.setAttribute('size', new THREE.BufferAttribute(ledSizes, 1));
+
+    let material = new THREE.ShaderMaterial({
+      uniforms: {
+        color: { value: new THREE.Color(0xffffff) },
+        pointTexture: { value: new THREE.TextureLoader().load("../textures/disc.png") }
+      },
+      vertexShader: POINTS_VERTEX_SHADER,
+      fragmentShader: POINTS_FRAGMENT_SHADER,
+      alphaTest: 0.5,
+      //opacity: 0.75,
+      //transparent: true,
+    });
+
+    const self = this;
+    this.leds = new THREE.Points(geometry, material);
+    this._scene.add(this.leds);
+
+    // Add wireframe outlines for all the cube boundaries of each LED within the array
+    let wfVertices = new Float32Array(Math.pow((this.gridSize + 1),3)*3*3*2);
+    let lineTranslation = halfTranslationUnits;
+    let idx = 0;
+    for (let x = 0; x <= this.gridSize; x++) {
+      for (let y = 0; y <= this.gridSize; y++) {
+        for (let z = 0; z <= this.gridSize; z++) {
+          // Draw a line along the...
+          // x-axis
+          wfVertices[idx++] = -lineTranslation; wfVertices[idx++] = -lineTranslation + y*voxelUnitSize; wfVertices[idx++] = -lineTranslation + z*voxelUnitSize;
+          wfVertices[idx++] = lineTranslation; wfVertices[idx++] = -lineTranslation + y*voxelUnitSize; wfVertices[idx++] = -lineTranslation + z*voxelUnitSize;
+          // y-axis
+          wfVertices[idx++] = -lineTranslation + x*voxelUnitSize; wfVertices[idx++] = -lineTranslation; wfVertices[idx++] = -lineTranslation + z*voxelUnitSize;
+          wfVertices[idx++] = -lineTranslation + x*voxelUnitSize; wfVertices[idx++] = lineTranslation; wfVertices[idx++] = -lineTranslation + z*voxelUnitSize;
+          // z-axis
+          wfVertices[idx++] = -lineTranslation + x*voxelUnitSize; wfVertices[idx++] = -lineTranslation + y*voxelUnitSize; wfVertices[idx++] = -lineTranslation;
+          wfVertices[idx++] = -lineTranslation + x*voxelUnitSize; wfVertices[idx++] = -lineTranslation + y*voxelUnitSize; wfVertices[idx++] = lineTranslation;
+        }
+      }
+    }
+
+    let wireframeGeometry = new THREE.BufferGeometry();
+    wireframeGeometry.setAttribute('position', new THREE.BufferAttribute(wfVertices, 3));
+
+    const outlineMaterial = new THREE.LineBasicMaterial({color: 0xffffff});
+    outlineMaterial.transparent = true;
+    outlineMaterial.opacity = 0.02;
+
+    this.outlines = new THREE.LineSegments(wireframeGeometry, outlineMaterial);
+    this.outlines.name = "outlines";
+    this.setOutlinesEnabled(this.outlinesEnabled);
+
+    for (let x = 0; x < this.gridSize; x++) {
+      let currXArr = [];
+      this.voxels.push(currXArr);
+      for (let y = 0; y < this.gridSize; y++) {
+        let currYArr = [];
+        currXArr.push(currYArr);
+        for (let z = 0; z < this.gridSize; z++) {
+
+          const currVoxelObj = {
+            getColourIndex: function() {
+              return (x*self.gridSize*self.gridSize + y*self.gridSize + z)*3;
+            },
+            getColour: function() {
+              const startIdx = this.getColourIndex();
+              const colourArray = self.colourBuffer.array;
+              return THREE.Color(colourArray[startIdx], colourArray[startIdx+1], colourArray[startIdx+2]);
+            },
+            setColourRGB: function(r, g, b) {
+              const startIdx = this.getColourIndex();
+              self.colourBuffer.set([r, g, b], startIdx);
+              self.colourBuffer.needsUpdate = true;
+            },
+            setColour: function(colour) { 
+              const startIdx = this.getColourIndex();
+              self.colourBuffer.set([colour.r, colour.g, colour.b], startIdx);
+              self.colourBuffer.needsUpdate = true;
+            },
+          };
+
+          currYArr.push(currVoxelObj);
+        }
+      }
+    }
+  }
+
+  setOutlinesEnabled(enable) {
+    if (this.outlines) {
+      if (enable) {
+        this._scene.add(this.outlines);
+      }
+      else {
+        this._scene.remove(this.outlines);
       }
     }
   }
