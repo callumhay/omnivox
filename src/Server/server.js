@@ -55,6 +55,9 @@ const voxelServer = new VoxelServer(voxelModel);
 voxelModel.run(voxelServer);
 voxelServer.start();
 
+
+/*
+// THIS CODE DOESN'T WORK ON NON-WINDOWS SYSTEMS!
 // When this app is killed (Ctrl+C) we need to do some clean-up
 const onKill = () => {
   voxelServer.stop();
@@ -69,3 +72,4 @@ process.on('SIGTERM', () => {
 process.on('SIGKILL', () => {
   onKill();
 });
+*/

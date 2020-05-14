@@ -29,8 +29,8 @@ const POINTS_FRAGMENT_SHADER = `
 
   void main() {
     gl_FragColor = vec4( color * vColor, 1);
-    gl_FragColor = gl_FragColor * texture2D( pointTexture, gl_PointCoord );
-    if ( gl_FragColor.a < 0.5 ) { discard; }
+    gl_FragColor = gl_FragColor * texture2D(pointTexture, gl_PointCoord);
+    if (gl_FragColor.a < 0.5) { discard; }
   }
 `;
 
