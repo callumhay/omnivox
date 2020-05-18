@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {VOXEL_ERR_UNITS} from '../MathUtils';
+import {VOXEL_ERR_UNITS, clamp} from '../MathUtils';
 
 import VoxelAnimator from '../Animation/VoxelAnimator';
 import VoxelColourAnimator from '../Animation/VoxelColourAnimator';
@@ -7,6 +7,8 @@ import StarShowerAnimator from '../Animation/StarShowerAnimator';
 import ShapeWaveAnimator from '../Animation/ShapeWaveAnimator';
 import GameOfLifeAnimator from '../Animation/GameOfLifeAnimator';
 import FireAnimator from '../Animation/FireAnimator';
+import SceneAnimator from '../Animation/SceneAnimator';
+import SoundVisualizerAnimator from '../Animation/SoundVisualizerAnimator';
 
 export const BLEND_MODE_OVERWRITE = 0;
 export const BLEND_MODE_ADDITIVE  = 1;
@@ -17,8 +19,6 @@ const DEFAULT_POLLING_INTERVAL_MS  = 1000 / DEFAULT_POLLING_FREQUENCY_HZ;
 class VoxelModel {
 
   constructor(gridSize) {
-
-    //this.commandQueue = []; // TODO? Optimization: we might want to JUST render changes / diffs instead of sending all voxel data each frame
 
     this.gridSize = gridSize;
     this.blendMode = BLEND_MODE_OVERWRITE;
@@ -33,10 +33,14 @@ class VoxelModel {
         currXArr.push(currYArr);
         for (let z = 0; z < gridSize; z++) {
           const voxelObj = {
+            position: new THREE.Vector3(x,y,z),
             colour: new THREE.Color(0,0,0),
             setColourRGB: function(r, g, b) { this.colour.setRGB(r,g,b); },
-            setColour: function(colour) { this.colour.set(colour); },
-            addColour: function(colour) { return this.colour.add(colour); },
+            setColour: function(colour) { this.colour.setRGB(colour.r, colour.g, colour.b); },
+            addColour: function(colour) { 
+              this.colour.add(colour); 
+              this.colour.setRGB(clamp(this.colour.r, 0, 1), clamp(this.colour.g, 0, 1), clamp(this.colour.b, 0, 1));
+            },
           };
           currYArr.push(voxelObj);
         }
@@ -49,6 +53,8 @@ class VoxelModel {
       [VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES] : new ShapeWaveAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE] : new GameOfLifeAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_FIRE] : new FireAnimator(this),
+      [VoxelAnimator.VOXEL_ANIM_SCENE] : new SceneAnimator(this),
+      [VoxelAnimator.VOXEL_ANIM_SOUND_VIZ] : new SoundVisualizerAnimator(this),
     };
     this.currentAnimator = this._animators[VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR];
 
@@ -71,7 +77,12 @@ class VoxelModel {
       return false;
     }
 
-    this.currentAnimator = this._animators[type];
+    const nextAnimator = this._animators[type];
+    if (this.currentAnimator !== nextAnimator) {
+      this.currentAnimator.stop();
+    }
+
+    this.currentAnimator = nextAnimator;
     if (config) {
       this.currentAnimator.setConfig(config);
     }
@@ -90,7 +101,7 @@ class VoxelModel {
       
       // Simulate the model based on the current animation...
       if (self.currentAnimator) {
-        self.currentAnimator.animate(dt);
+        self.currentAnimator.render(dt);
       }
       // Let the server know to broadcast the new voxel data to all clients
       voxelServer.setVoxelData(self.voxels, self.frameCounter);
@@ -144,6 +155,19 @@ class VoxelModel {
       roundedZ >= 0 && roundedZ < this.voxels[roundedX][roundedY].length;
   }
 
+  getBoundingBox() {
+    return new THREE.Box3(new THREE.Vector3(0,0,0), new THREE.Vector3(this.xSize(), this.ySize(), this.zSize()));
+  }
+  getVoxelBoundingBox(voxelPt) {
+    const roundedX = Math.round(voxelPt.x);
+    const roundedY = Math.round(voxelPt.y);
+    const roundedZ = Math.round(voxelPt.z);
+
+    return new THREE.Box3(
+      new THREE.Vector3(roundedX-0.5, roundedY-0.5, roundedZ-0.5), 
+      new THREE.Vector3(roundedX+0.5, roundedY+0.5, roundedZ+0.5)
+    );
+  }
   
   setVoxel(pt, colour) {
     const roundedX = Math.round(pt.x);
@@ -156,6 +180,16 @@ class VoxelModel {
 
       this.voxels[roundedX][roundedY][roundedZ].setColour(colour);
     } 
+  }
+  getVoxel(pt) {
+    const roundedX = Math.round(pt.x);
+    const roundedY = Math.round(pt.y);
+    const roundedZ = Math.round(pt.z);
+
+    return (roundedX >= 0 && roundedX < this.voxels.length &&
+        roundedY >= 0 && roundedY < this.voxels[roundedX].length &&
+        roundedZ >= 0 && roundedZ < this.voxels[roundedX][roundedY].length) ?
+        this.voxels[roundedX][roundedY][roundedZ] : null;
   }
 
   addToVoxel(pt, colour) {
@@ -180,6 +214,14 @@ class VoxelModel {
         }
       }
     }
+  }
+
+  voxelColour(pt) {
+    return this.getVoxel(pt).colour;
+  }
+
+  closestVoxel(pt) {
+    return new THREE.Vector3(Math.round(pt.x), Math.round(pt.y), Math.round(pt.z));
   }
 
   /**
@@ -387,7 +429,6 @@ class VoxelModel {
       this.drawPoint(pt, colour);
     });
   }
-
 }
 
 export default VoxelModel;

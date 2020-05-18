@@ -6,6 +6,8 @@ const VOXEL_ANIM_TYPE_STAR_SHOWER   = "Star Shower";
 const VOXEL_ANIM_TYPE_SHAPE_WAVES   = "Shape Waves";
 const VOXEL_ANIM_TYPE_GAME_OF_LIFE  = "Game of Life";
 const VOXEL_ANIM_FIRE               = "Fire";
+const VOXEL_ANIM_SCENE              = "Scene";
+const VOXEL_ANIM_SOUND_VIZ          = "Visualizer";
 
 const VOXEL_ANIM_TYPES = [
   VOXEL_ANIM_TYPE_COLOUR,
@@ -14,10 +16,12 @@ const VOXEL_ANIM_TYPES = [
   VOXEL_ANIM_TYPE_SHAPE_WAVES,
   VOXEL_ANIM_TYPE_GAME_OF_LIFE,
   VOXEL_ANIM_FIRE,
+  VOXEL_ANIM_SCENE,
+  VOXEL_ANIM_SOUND_VIZ,
 ];
 
 class VoxelAnimator {
-  constructor(voxels, config) {
+  constructor(voxels, config=null) {
     this.voxels = voxels;
     this.repeat = 0;
     
@@ -35,25 +39,28 @@ class VoxelAnimator {
   static get VOXEL_ANIM_TYPE_STAR_SHOWER() {return VOXEL_ANIM_TYPE_STAR_SHOWER;}
   static get VOXEL_ANIM_TYPE_SHAPE_WAVES() {return VOXEL_ANIM_TYPE_SHAPE_WAVES;}
   static get VOXEL_ANIM_TYPE_GAME_OF_LIFE() {return VOXEL_ANIM_TYPE_GAME_OF_LIFE;}
-  static get VOXEL_ANIM_FIRE() { return VOXEL_ANIM_FIRE;}
+  static get VOXEL_ANIM_FIRE() {return VOXEL_ANIM_FIRE;}
+  static get VOXEL_ANIM_SCENE() {return VOXEL_ANIM_SCENE;}
+  static get VOXEL_ANIM_SOUND_VIZ() {return VOXEL_ANIM_SOUND_VIZ;}
 
   static get VOXEL_ANIM_TYPES() {return VOXEL_ANIM_TYPES;}
 
   getType() { return null; }
 
   setConfig(c) {
-    this.config = c;
-    const {repeat} = c;
+    this.config = c ? c : {};
+    const {repeat} = this.config;
     if (repeat) {
       this.repeat = repeat;
     }
   }
 
-  animate(dt) {}
+  render(dt) {}
 
   reset() {
     this.setPlayCounter(0);
   }
+  stop() {}
 }
 
 export default VoxelAnimator;

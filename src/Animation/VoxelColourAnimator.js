@@ -51,8 +51,8 @@ class VoxelColourAnimator extends VoxelAnimator {
     }
   }
 
-  animate(dt) {
-    super.animate(dt);
+  render(dt) {
+    super.render(dt);
 
     const {startTimeSecs, endTimeSecs, colourInterpolationType, interpolationType} = this.config;
 

@@ -45,7 +45,7 @@ class StarShowerAnimator extends VoxelAnimator {
     this.currSpawnRate = Math.max(1.0, c.spawnRate);
   }
 
-  animate(dt) {
+  render(dt) {
     // Check whether it's time to spawn a new shooting star
     const spawnTime = (1.0 / this.currSpawnRate);
     while (this.currSpawnTimer >= spawnTime) {
@@ -59,7 +59,7 @@ class StarShowerAnimator extends VoxelAnimator {
 
     // Animate/tick the active shooting star animation objects
     this.activeShootingStars.forEach((animator) => {
-      animator.animate(dt);
+      animator.render(dt);
     });
 
     // Clean up all finished animations (only keep the ones that haven't finished)

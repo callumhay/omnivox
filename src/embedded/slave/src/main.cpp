@@ -1,12 +1,13 @@
 #include <OctoWS2811.h>
 
-#include "../../master/lib/led3d/voxel.h"
-#include "../../master/lib/led3d/comm.h"
+#include "../lib/led3d/voxel.h"
+#include "../lib/led3d/comm.h"
+
+#define BOOL_TO_STRING(b) (b ? "true" : "false")
 
 #define DATA_SERIAL Serial
 #define SLAVE_PING_MICROSECS 10e6 // Broadcast our information every 10 seconds or so
 #define MY_SLAVE_ID 0
-
 
 /*
  Analog pins 23 (A9), 22 (A8), 19 (A5), and 18 (A4) are used to communicate between neighbour boards in order to transmit
@@ -95,8 +96,6 @@ void runIdDeamon() {
   }
 }
 
-
-
 led3d::LED3DPacketSerial myPacketSerial;
 
 static const int REFRESH_RATE_HZ = 60;
@@ -104,11 +103,13 @@ static const unsigned long numMicroSecsPerRefresh = 1e6 / REFRESH_RATE_HZ;
 static unsigned long ledDrawTimeCounterMicroSecs = 0;
 static unsigned long slaveInfoPingTimeCounterMicroSecs = 0;
 
-static int lastKnownFrameId = 0;
+static int lastKnownFrameId = -1;
 
 // Gamma correction for Neopixel LED strips - maps each of R, G, and B from uint8 value
 // to a gamma corrected uint8 value ****************************************************
-const uint8_t PROGMEM gamma8[] = {
+#define GAMMA_RGB123
+#ifdef GAMMA_ADAFRUIT
+const uint8_t PROGMEM gammaMapping[] = {
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,
     1,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  2,  2,  2,
@@ -126,11 +127,31 @@ const uint8_t PROGMEM gamma8[] = {
   177,180,182,184,186,189,191,193,196,198,200,203,205,208,210,213,
   215,218,220,223,225,228,231,233,236,239,241,244,247,249,252,255
 };
+#elif defined(GAMMA_RGB123)
+const uint8_t PROGMEM gammaMapping[] = {
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
+  2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5,
+  6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9, 9, 10, 10, 11, 11,
+  11, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18,
+  19, 19, 20, 21, 21, 22, 22, 23, 23, 24, 25, 25, 26, 27, 27, 28,
+  29, 29, 30, 31, 31, 32, 33, 34, 34, 35, 36, 37, 37, 38, 39, 40,
+  40, 41, 42, 43, 44, 45, 46, 46, 47, 48, 49, 50, 51, 52, 53, 54,
+  55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
+  71, 72, 73, 74, 76, 77, 78, 79, 80, 81, 83, 84, 85, 86, 88, 89,
+  90, 91, 93, 94, 95, 96, 98, 99,100,102,103,104,106,107,109,110,
+  111,113,114,116,117,119,120,121,123,124,126,128,129,131,132,134,
+  135,137,138,140,142,143,145,146,148,150,151,153,155,157,158,160,
+  162,163,165,167,169,170,172,174,176,178,179,181,183,185,187,189,
+  191,193,194,196,198,200,202,204,206,208,210,212,214,216,218,220,
+  222,224,227,229,231,233,235,237,239,241,244,246,248,250,252,255
+};
+#endif
 
 int gammaMapColour(int colour) {
-  return (static_cast<int>(pgm_read_byte(&gamma8[colour >> 16 & 0x0000FF])) << 16) |
-         (static_cast<int>(pgm_read_byte(&gamma8[colour >>  8 & 0x0000FF])) << 8)  |
-          static_cast<int>(pgm_read_byte(&gamma8[colour & 0x0000FF]));
+  return (static_cast<int>(pgm_read_byte(&gammaMapping[colour >> 16 & 0x0000FF])) << 16) |
+         (static_cast<int>(pgm_read_byte(&gammaMapping[colour >>  8 & 0x0000FF])) << 8)  |
+          static_cast<int>(pgm_read_byte(&gammaMapping[colour & 0x0000FF]));
 }
 
 // OCTOWS2811 Constants/Variables *******************************************************
@@ -164,8 +185,6 @@ void updateQueue() {
 
 OctoWS2811 leds(ledsPerStrip, displayMemory, drawingMemory, octoConfig);
 // **************************************************************************************
-
-
 
 int colourFromBuffer(const uint8_t* buffer, int startIdx) {
   return gammaMapColour(((buffer[startIdx] & 0x0000FF) << 16)  + ((buffer[startIdx+1] & 0x0000FF) << 8) + (buffer[startIdx+2] & 0x0000FF));
@@ -213,7 +232,9 @@ int getFrameId(const uint8_t* buffer, size_t size) {
 }
 
 void readFullVoxelData(const uint8_t* buffer, size_t size, size_t startIdx, int frameId) {
-  if (static_cast<int>(size) >= 3*ledsPerModule && ((frameId > 0 && frameId < 256) || frameId > lastKnownFrameId)) {
+  bool validSize = static_cast<int>(size) >= 3*ledsPerModule;
+  bool validFrameOrdering = frameId > lastKnownFrameId || (frameId >= 0 && lastKnownFrameId >= 0xFFF0);
+  if (validSize && validFrameOrdering) {
 
     // The buffer contains data as a continuous array of voxels with 3 bytes in RGB order
     // The ordering of the coordinates system is x,y,z; each indexed from zero, where
@@ -228,7 +249,12 @@ void readFullVoxelData(const uint8_t* buffer, size_t size, size_t startIdx, int 
     lastKnownFrameId = frameId;
   }
   else {
-    Serial.println("Throwing out frame.");
+    Serial.printf("Throwing out frame [valid size: %s, valid frame ordering: %s]", BOOL_TO_STRING(validSize), BOOL_TO_STRING(validFrameOrdering));
+    Serial.println();
+    if (!validFrameOrdering) {
+      Serial.printf("Previous Tracked Frame ID: %i, Current Frame ID: %i", lastKnownFrameId, frameId);
+      Serial.println();
+    }
   }
 }
 

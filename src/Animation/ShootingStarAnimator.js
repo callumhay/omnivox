@@ -68,12 +68,12 @@ class ShootingStarAnimator extends VoxelAnimator {
     return true;
   }
 
-  animate(dt) {
+  render(dt) {
     if (this.animationFinished) {
       return;
     }
 
-    super.animate(dt);
+    super.render(dt);
 
     const roundedCurrPos = this.currPosition.clone().round();
     const currPosInBounds = this.voxels.isInBounds(this.currPosition);
@@ -83,7 +83,7 @@ class ShootingStarAnimator extends VoxelAnimator {
 
     // Animate/tick the active animator objects
     this.currAnimatorMap.forEach((animatorObj) => {
-      animatorObj.animator.animate(dt);
+      animatorObj.animator.render(dt);
     });
 
     // Clean up all finished animations (only keep the ones that haven't finished and are still in bounds)

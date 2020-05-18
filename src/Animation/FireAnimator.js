@@ -44,8 +44,8 @@ class FireAnimator extends VoxelAnimator {
     this.genFireColourLookup();
   }
 
-  animate(dt) {
-    super.animate(dt);
+  render(dt) {
+    super.render(dt);
 
     const startX = 1;
     const endX = this.voxels.xSize()-startX;

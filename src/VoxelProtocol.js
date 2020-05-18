@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import SceneAnimator from './Animation/SceneAnimator';
 
 const DISCOVERY_REQ_PACKET_HEADER = "REQ";
 const DISCOVERY_ACK_PACKET_HEADER = "ACK";
@@ -10,12 +11,14 @@ const VOXEL_DATA_ALL_TYPE   = "A";
 
 // Server-to-Client Headers
 const SERVER_TO_CLIENT_WELCOME_HEADER = "W";
+const SERVER_TO_CLIENT_SCENE_FRAMEBUFFER_HEADER = "F";
 
 // Client Command / Request Headers
 const VOXEL_ROUTINE_CHANGE_HEADER = "C";
 const VOXEL_ROUTINE_CONFIG_UPDATE_HEADER = "U";
 const VOXEL_ROUTINE_RESET_HEADER = "R";
 const VOXEL_CLEAR_COMMAND_HEADER = "L";
+const SCENE_REQUEST_HEADER = "S";
 
 const PACKET_END = ";";
 
@@ -40,11 +43,13 @@ class VoxelProtocol {
   static get WEBSOCKET_PORT() {return WEBSOCKET_PORT;}
 
   static get SERVER_TO_CLIENT_WELCOME_HEADER() {return SERVER_TO_CLIENT_WELCOME_HEADER;}
+  static get SERVER_TO_CLIENT_SCENE_FRAMEBUFFER_HEADER() { return SERVER_TO_CLIENT_SCENE_FRAMEBUFFER_HEADER;}
 
   static get VOXEL_ROUTINE_CHANGE_HEADER() {return VOXEL_ROUTINE_CHANGE_HEADER;}
   static get VOXEL_ROUTINE_CONFIG_UPDATE_HEADER() {return VOXEL_ROUTINE_CONFIG_UPDATE_HEADER;}
   static get VOXEL_ROUTINE_RESET_HEADER() {return VOXEL_ROUTINE_RESET_HEADER;}
   static get VOXEL_CLEAR_COMMAND_HEADER() {return VOXEL_CLEAR_COMMAND_HEADER;}
+  static get SCENE_REQUEST_HEADER() {return SCENE_REQUEST_HEADER;}
 
   static buildWelcomePacketForSlaves(voxelModel) {
     const packetDataBuf = new Uint8Array(3); // slaveid (1 byte), type (1 byte), y-size (1 byte)
@@ -84,7 +89,7 @@ class VoxelProtocol {
       config: config,
     });
   }
-  static readClientPacketStr(packetStr, voxelModel) {
+  static readClientPacketStr(packetStr, voxelModel, socket) {
     const dataObj = JSON.parse(packetStr);
     if (!dataObj || !dataObj.packetType) {
       console.log("Unspecified client packet.");
@@ -124,13 +129,23 @@ class VoxelProtocol {
         }
         voxelModel.clear(new THREE.Color(config.r, config.g, config.b));
         break;
-
+/*
+      case SCENE_REQUEST_HEADER:
+        if (voxelModel.currentAnimator && voxelModel.currentAnimator instanceof SceneAnimator) {
+          socket.send(SERVER_TO_CLIENT_SCENE_FRAMEBUFFER_HEADER + JSON.stringify(voxelModel.currentAnimator.getSceneFramebufferTexture().image) + ";");
+        }
+        break;
+*/
       default:
         return false;
     }
 
     return true;
   }
+
+  //static getFramebufferFromPacketStr(packetStr) {
+  //  return JSON.parse(packetStr.substring(SERVER_TO_CLIENT_SCENE_FRAMEBUFFER_HEADER.length+1, packetStr.length-1));
+  //}
 
   static stuffVoxelDataAll(startIdx, packetBuf, data, slaveId = null) {
     let byteCount = startIdx;

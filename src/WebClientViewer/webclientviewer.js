@@ -4,6 +4,7 @@ import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
 import ControlPanel from './ControlPanel';
 import VoxelDisplay from './VoxelDisplay';
 import VoxelClient from './VoxelClient';
+import SoundController from './SoundController';
 
 // Setup THREE library boilerplate for getting a scene + camera + basic controls up and running
 const renderer = new THREE.WebGLRenderer();
@@ -18,8 +19,10 @@ const controls = new OrbitControls(camera, renderer.domElement);
 const voxelDisplay = new VoxelDisplay(scene);
 // Setup the client (recieves render messages from the server and sends control messages to the server)
 const voxelClient = new VoxelClient(voxelDisplay);
+// Setup the sound controller for playing music and capturing audio from the mic
+const soundController = new SoundController();
 // Control panel for user interaction / changing routines
-const controlPanel = new ControlPanel(voxelClient, voxelDisplay);
+const controlPanel = new ControlPanel(voxelClient, voxelDisplay, soundController);
 
 // Make sure the camera is positioned somewhere where we can see everything we need to at initial render
 scene.position.set(0,0,0);
@@ -48,11 +51,13 @@ function onWindowResize(event) {
 }
 // ------------------------------------------------------------------------------
 
-const animate = function () {
-  requestAnimationFrame(animate);
+let frameCount = 0;
+const render = function () {
+  requestAnimationFrame(render);
   controls.update();
   renderer.render(scene, camera);
+  frameCount++;
 };
-animate();
+render();
 
 voxelClient.start(controlPanel);

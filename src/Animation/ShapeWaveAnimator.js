@@ -111,7 +111,7 @@ class WaveShape {
     }
   }
 
-  animate(dt, waveSpeed) {
+  render(dt, waveSpeed) {
     if (this.animationFinished) {
       return;
     }
@@ -158,7 +158,9 @@ class ShapeWaveAnimator extends VoxelAnimator {
     // the configured colour palette and then we pick off the colours that make sense based on the selection mode
     let colourQueue = [];
     this.getNextColour = () => {
-      const {colourPalette, colourSelectionMode} = this.config;
+      const {colourSelectionMode} = this.config;
+      const colourPalette = EIGHTIES_COLOUR_PALETTE; // TODO: Make this dynamically driven from the GUI somehow
+
       let nextColour = null;
 
       if (colourQueue.length === 0) {
@@ -195,7 +197,7 @@ class ShapeWaveAnimator extends VoxelAnimator {
     super.setConfig(c);
   }
 
-  animate(dt) {
+  render(dt) {
     const {waveSpeed, waveGap} = this.config;
 
     const voxelSampleSize = 1 + waveGap;
@@ -206,7 +208,7 @@ class ShapeWaveAnimator extends VoxelAnimator {
     
     // Tick/draw each of the animators
     this.activeShapes.forEach((waveShape) => {
-      waveShape.animate(dt, waveSpeed);
+      waveShape.render(dt, waveSpeed);
     });
 
     // Clean up animators that are no longer visible

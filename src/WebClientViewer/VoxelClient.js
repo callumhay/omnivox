@@ -61,6 +61,13 @@ class VoxelClient {
           this.lastFrameId = 0; // Reset the frame Id
         }
         break;
+        
+      /*
+      case VoxelProtocol.SERVER_TO_CLIENT_SCENE_FRAMEBUFFER_HEADER:
+        const frameBufferData = VoxelProtocol.getFramebufferFromPacketStr(messageData);
+        console.log(frameBufferData);
+        break;
+      */
 
       case VoxelProtocol.VOXEL_DATA_HEADER:
         const voxelDataType = VoxelProtocol.readVoxelDataType(messageData);
@@ -117,6 +124,13 @@ class VoxelClient {
       this.socket.send(VoxelProtocol.buildClientPacketStr(VoxelProtocol.VOXEL_CLEAR_COMMAND_HEADER, null, {r: r, g: g, b: b}));
     }
   }
+  /*
+  sendRequestForDebugFramebuffer() {
+    if (this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(VoxelProtocol.buildClientPacketStr(VoxelProtocol.SCENE_REQUEST_HEADER, null, {}));
+    }
+  }
+  */
 
 }
 

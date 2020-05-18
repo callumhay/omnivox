@@ -1,4 +1,5 @@
 {
     "editor.tabSize": 2,
-    "editor.tabCompletion": "on"
+    "editor.tabCompletion": "on",
+    "debug.node.autoAttach": "on"
 }

@@ -9,6 +9,7 @@ import {gameOfLifeAnimatorDefaultConfig} from '../Animation/GameOfLifeAnimator';
 import {fireAnimatorDefaultConfig} from '../Animation/FireAnimator';
 import {ColourSystems} from '../Spectrum';
 
+
 const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
 const VOXEL_COLOUR_SHAPE_TYPE_SPHERE = "Sphere";
 const VOXEL_COLOUR_SHAPE_TYPE_BOX    = "Box";
@@ -30,17 +31,21 @@ const GuiColorToRGBObj = (c) => {
 }
 
 class ControlPanel {
-  constructor(voxelClient, voxelDisplay) {
+  constructor(voxelClient, voxelDisplay, soundController) {
     
     this.gui = new dat.GUI({preset:'Default'});
     this.voxelClient  = voxelClient;
     this.voxelDisplay = voxelDisplay;
+
+    this.soundController = soundController;
 
     this.colourAnimatorConfig = {...voxelColourAnimatorDefaultConfig};
     this.starShowerAnimatorConfig = {...starShowerDefaultConfig};
     this.shapeWaveAnimatorConfig = {...shapeWaveAnimatorDefaultConfig};
     this.gameOfLifeAnimatorConfig = {...gameOfLifeAnimatorDefaultConfig};
     this.fireAnimatorConfig = {...fireAnimatorDefaultConfig};
+    this.sceneAnimatorConfig = {};
+    this.soundVizAnimatorConfig = {};
 
     this.reloadSettings();
     
@@ -52,6 +57,8 @@ class ControlPanel {
       VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER,
       VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES,
       VoxelAnimator.VOXEL_ANIM_FIRE,
+      VoxelAnimator.VOXEL_ANIM_SCENE,
+      VoxelAnimator.VOXEL_ANIM_SOUND_VIZ,
       //VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE, // Meh... not very impressed by this, maybe when we have a much bigger grid
     ]).onChange((value) => {
 
@@ -88,11 +95,27 @@ class ControlPanel {
           this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
           break;
         
+        case VoxelAnimator.VOXEL_ANIM_SCENE:
+          this.currFolder = this.buildSceneAnimatorControls();
+          this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          break;
+        
+        case VoxelAnimator.VOXEL_ANIM_SOUND_VIZ:
+          this.currFolder = this.buildSoundVizAnimatorControls();
+          this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+          this.soundController.play();
+          break;
+
         default:
           console.error("Animator type Not implemented!");
           break;
       }
+
       voxelClient.sendClearCommand(0,0,0);
+      if (value !== VoxelAnimator.VOXEL_ANIM_SOUND_VIZ) {
+        this.soundController.pause();
+      }
+
     }).setValue(this.settings.animatorType);
 
     this.gui.add(this.settings, 'showWireFrame').onChange((value) => {
@@ -154,6 +177,12 @@ class ControlPanel {
       fireSettings: {...this.fireAnimatorConfig,
         reset: resetFunc,
       },
+
+      sceneSettings: {
+      },
+
+      soundVizSettings: {
+      },
     };
 
     this.gui.remember(this.settings);
@@ -175,10 +204,15 @@ class ControlPanel {
     this.gui.remember(this.settings.gameOfLifeSettings);
 
     this.gui.remember(this.settings.fireSettings);
+
+    this.gui.remember(this.settings.sceneSettings);
+
+    this.gui.remember(this.settings.soundVizSettings);
   }
 
   updateAnimator(animatorType, config) {
     switch (animatorType) {
+
       case VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR:
         this.colourAnimatorConfig = config;
         break;
@@ -193,6 +227,12 @@ class ControlPanel {
         break;
       case VoxelAnimator.VOXEL_ANIM_FIRE:
         this.fireAnimatorConfig = config;
+        break;
+      case VoxelAnimator.VOXEL_ANIM_SCENE:
+        this.sceneAnimatorConfig = config;
+        break;
+      case VoxelAnimator.VOXEL_ANIM_SOUND_VIZ:
+        this.soundVizAnimatorConfig = config;
         break;
 
       default:
@@ -633,6 +673,24 @@ class ControlPanel {
     }).setValue(fireSettings.colourSystem);
 
     folder.add(fireSettings, 'reset');
+    folder.open();
+
+    return folder;
+  }
+
+  buildSceneAnimatorControls() {
+    const {sceneSettings} = this.settings;
+    const folder = this.gui.addFolder("Scene Controls");
+
+    folder.open();
+
+    return folder;
+  }
+
+  buildSoundVizAnimatorControls() {
+    const {soundVizSettings} = this.settings;
+    const folder = this.gui.addFolder("Sound Viz Controls");
+
     folder.open();
 
     return folder;

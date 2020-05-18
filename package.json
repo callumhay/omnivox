@@ -5,6 +5,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node ./dist/server.js",
+    "start_debug": "node --inspect ./dist/server.js",
     "build": "webpack",
     "dev": "webpack --config webpack.development.config.js",
     "prod": "webpack --config webpack.production.config.js"
@@ -20,17 +21,18 @@
     "utf-8-validate": "^5.0.2"
   },
   "devDependencies": {
-    "@serialport/bindings": "^8.0.7",
+    "@serialport/bindings": "^8.0.8",
     "cobs": "^0.2.1",
-    "dat.gui": "^0.7.6",
+    "dat.gui": "^0.7.7",
     "dgram": "^1.0.1",
     "reload": "^3.0.4",
     "seedrandom": "^3.0.5",
-    "serialport": "^8.0.7",
+    "serialport": "^8.0.8",
+    "three-mesh-bvh": "^0.2.0",
     "watch": "^1.0.2",
-    "webpack": "^4.41.6",
+    "webpack": "^4.43.0",
     "webpack-cli": "^3.3.11",
     "webpack-node-externals": "^1.7.2",
-    "ws": "^7.2.1"
+    "ws": "^7.3.0"
   }
 }

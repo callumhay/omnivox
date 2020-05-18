@@ -27,8 +27,8 @@ class GameOfLifeAnimator extends VoxelAnimator {
     this.reset();
   }
 
-  animate(dt) {
-    super.animate(dt);
+  render(dt) {
+    super.render(dt);
 
     const {speed} = this.config;
 

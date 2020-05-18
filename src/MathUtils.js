@@ -10,3 +10,7 @@ export const hsvToHslColor = (hsv) => {
   const hsl = new THREE.Color();
   hsl.setHSL(hsv.h, l === 0 || l === 1 ? 0 : ((hsv.v-l)/Math.min(l,1-l)), l);
 }
+
+export const clamp = (value, min, max) => {
+  return Math.max(min, Math.min(max, value));
+}

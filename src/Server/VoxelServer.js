@@ -32,7 +32,7 @@ class VoxelServer {
 
       socket.on('message', function(data) {
         //console.log("Websocket message received.");
-        VoxelProtocol.readClientPacketStr(data, voxelModel);
+        VoxelProtocol.readClientPacketStr(data, voxelModel, socket);
       });
 
       socket.on('close', function() {
