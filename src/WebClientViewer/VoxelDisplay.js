@@ -212,9 +212,9 @@ class VoxelDisplay {
   }
 
   setVoxelXYZRGB(x,y,z,r,g,b) {
-    const roundedX = Math.round(x);
-    const roundedY = Math.round(y);
-    const roundedZ = Math.round(z);
+    const roundedX = Math.floor(x);
+    const roundedY = Math.floor(y);
+    const roundedZ = Math.floor(z);
 
     if (roundedX >= 0 && roundedX < this.voxels.length &&
         roundedY >= 0 && roundedY < this.voxels[roundedX].length &&

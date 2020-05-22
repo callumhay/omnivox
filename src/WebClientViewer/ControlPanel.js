@@ -7,6 +7,7 @@ import {starShowerDefaultConfig} from '../Animation/StarShowerAnimator';
 import {shapeWaveAnimatorDefaultConfig, WAVE_SHAPE_TYPES} from '../Animation/ShapeWaveAnimator';
 import {gameOfLifeAnimatorDefaultConfig} from '../Animation/GameOfLifeAnimator';
 import {fireAnimatorDefaultConfig} from '../Animation/FireAnimator';
+import {sceneAnimatorDefaultConfig, SCENE_TYPES} from '../Animation/SceneAnimator';
 import {ColourSystems} from '../Spectrum';
 
 
@@ -44,7 +45,7 @@ class ControlPanel {
     this.shapeWaveAnimatorConfig = {...shapeWaveAnimatorDefaultConfig};
     this.gameOfLifeAnimatorConfig = {...gameOfLifeAnimatorDefaultConfig};
     this.fireAnimatorConfig = {...fireAnimatorDefaultConfig};
-    this.sceneAnimatorConfig = {};
+    this.sceneAnimatorConfig = {...sceneAnimatorDefaultConfig};
     this.soundVizAnimatorConfig = {};
 
     this.reloadSettings();
@@ -179,6 +180,7 @@ class ControlPanel {
       },
 
       sceneSettings: {
+        sceneType: this.sceneAnimatorConfig.sceneType,
       },
 
       soundVizSettings: {
@@ -681,6 +683,12 @@ class ControlPanel {
   buildSceneAnimatorControls() {
     const {sceneSettings} = this.settings;
     const folder = this.gui.addFolder("Scene Controls");
+
+    folder.add(sceneSettings, 'sceneType', SCENE_TYPES).onChange((value) => {
+      this.sceneAnimatorConfig.sceneType = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+    });
+
 
     folder.open();
 

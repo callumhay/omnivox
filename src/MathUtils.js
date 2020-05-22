@@ -1,6 +1,9 @@
 export const VOXEL_EPSILON = 0.00001;
 export const VOXEL_ERR_UNITS = 1.0 / (2.0 + VOXEL_EPSILON);
 
+export const SQRT3   = 1.73205080757;
+export const SQRT2PI = 4.44288293816;
+
 export const hslToHsvColor = (hsl) => {
   const v = hsl.l + hsl.s*Math.min(hsl.l,1-hsl.l);
   return {h:hsl.h, s: v == 0 ? 0 : 2-2*hsl.l/v, v:v};

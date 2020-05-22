@@ -54,7 +54,7 @@ class ShootingStarAnimator extends VoxelAnimator {
     // No animator exists for the given position / voxel, create one.
     const animatorObj = {
       voxelPosition: pos,
-      animator: new VoxelColourAnimator(this.voxels, {
+      animator: new VoxelColourAnimator(this.voxelModel, {
         voxelPositions: [pos],
         colourStart: colour,
         colourEnd: {r:0, g:0, b:0},
@@ -76,7 +76,7 @@ class ShootingStarAnimator extends VoxelAnimator {
     super.render(dt);
 
     const roundedCurrPos = this.currPosition.clone().round();
-    const currPosInBounds = this.voxels.isInBounds(this.currPosition);
+    const currPosInBounds = this.voxelModel.isInBounds(this.currPosition);
     if (currPosInBounds) {
       this.addPositionToAnimatorMap(roundedCurrPos);
     }
@@ -88,7 +88,7 @@ class ShootingStarAnimator extends VoxelAnimator {
 
     // Clean up all finished animations (only keep the ones that haven't finished and are still in bounds)
     this.currAnimatorMap = this.currAnimatorMap.filter((animatorObj) => {
-      return !animatorObj.animator.animationFinished && this.voxels.isInBounds(animatorObj.voxelPosition);
+      return !animatorObj.animator.animationFinished && this.voxelModel.isInBounds(animatorObj.voxelPosition);
     });
 
     // Check to see whether this shooting star is finished: 
@@ -97,7 +97,7 @@ class ShootingStarAnimator extends VoxelAnimator {
 
       const nVelocity = this.velocity.clone().normalize();
       const velocityRay = new THREE.Ray(this.currPosition, nVelocity);
-      const voxelsBox = this.voxels.voxelDisplayBox();
+      const voxelsBox = this.voxelModel.getBoundingBox();
 
       const target = new THREE.Vector3();
       if (velocityRay.intersectBox(voxelsBox, target) === null) {

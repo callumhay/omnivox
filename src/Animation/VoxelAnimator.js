@@ -22,7 +22,7 @@ const VOXEL_ANIM_TYPES = [
 
 class VoxelAnimator {
   constructor(voxels, config=null) {
-    this.voxels = voxels;
+    this.voxelModel = voxels;
     this.repeat = 0;
     
     let _playCounter = 0;

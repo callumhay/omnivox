@@ -53,9 +53,9 @@ class GameOfLifeAnimator extends VoxelAnimator {
     const {seed, aliveColour, deadColour} = this.config;
     const rng = seedrandom(seed); // Seeded random number generator for values in [0,1)
     
-    const VOXEL_X_SIZE = this.voxels.gridSize;
-    const VOXEL_Y_SIZE = this.voxels.gridSize;
-    const VOXEL_Z_SIZE = this.voxels.gridSize;
+    const VOXEL_X_SIZE = this.voxelModel.gridSize;
+    const VOXEL_Y_SIZE = this.voxelModel.gridSize;
+    const VOXEL_Z_SIZE = this.voxelModel.gridSize;
 
     for (let x = 0; x < VOXEL_X_SIZE; x++) {
       let currXArr = [];
@@ -82,10 +82,10 @@ class GameOfLifeAnimator extends VoxelAnimator {
           const currVoxelState = this.currState[x][y][z];
           if (currVoxelState.isAlive) {
             this.addVoxelToAliveVoxels(currVoxelState);
-            this.voxels.drawPoint(new THREE.Vector3(x,y,z), aliveColour);
+            this.voxelModel.drawPoint(new THREE.Vector3(x,y,z), aliveColour);
           }
           else {
-            this.voxels.drawPoint(new THREE.Vector3(x,y,z), deadColour);
+            this.voxelModel.drawPoint(new THREE.Vector3(x,y,z), deadColour);
           }
 
           // Count the neighbours that are alive
@@ -119,9 +119,9 @@ class GameOfLifeAnimator extends VoxelAnimator {
     const Fl = 6;
     const Fu = 6;
 
-    const VOXEL_X_SIZE = this.voxels.gridSize;
-    const VOXEL_Y_SIZE = this.voxels.gridSize;
-    const VOXEL_Z_SIZE = this.voxels.gridSize;
+    const VOXEL_X_SIZE = this.voxelModel.gridSize;
+    const VOXEL_Y_SIZE = this.voxelModel.gridSize;
+    const VOXEL_Z_SIZE = this.voxelModel.gridSize;
 
     // Go through each voxel and simulate a step in the 3D "Game of Life"
     const birthedVoxels = [];
@@ -162,7 +162,7 @@ class GameOfLifeAnimator extends VoxelAnimator {
     const {x,y,z} = birthedVoxel;
 
     this.addVoxelToAliveVoxels(birthedVoxel);
-    this.voxels.drawPoint(new THREE.Vector3(x,y,z), aliveColour);
+    this.voxelModel.drawPoint(new THREE.Vector3(x,y,z), aliveColour);
     this.neighbourIter(birthedVoxel, (centerVoxel, neighbourVoxel) => neighbourVoxel.numLivingNeighbours++);
     birthedVoxel.isAlive = true;
   }
@@ -173,7 +173,7 @@ class GameOfLifeAnimator extends VoxelAnimator {
     if (x in this.aliveVoxels && y in this.aliveVoxels[x] && z in this.aliveVoxels[x][y]) {
       delete this.aliveVoxels[x][y][z];
     }
-    this.voxels.drawPoint(new THREE.Vector3(x,y,z), deadColour);
+    this.voxelModel.drawPoint(new THREE.Vector3(x,y,z), deadColour);
     this.neighbourIter(killedVoxel, (centerVoxel, neighbourVoxel) => neighbourVoxel.numLivingNeighbours--);
     killedVoxel.isAlive = false;
   }
@@ -196,9 +196,9 @@ class GameOfLifeAnimator extends VoxelAnimator {
   }
 
   neighbourIter(centerVoxel, iterFunc) {
-    const VOXEL_X_SIZE = this.voxels.gridSize;
-    const VOXEL_Y_SIZE = this.voxels.gridSize;
-    const VOXEL_Z_SIZE = this.voxels.gridSize;
+    const VOXEL_X_SIZE = this.voxelModel.gridSize;
+    const VOXEL_Y_SIZE = this.voxelModel.gridSize;
+    const VOXEL_Z_SIZE = this.voxelModel.gridSize;
 
     const {x,y,z} = centerVoxel;
 

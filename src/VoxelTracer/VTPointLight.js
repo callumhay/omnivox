@@ -14,6 +14,8 @@ class VTPointLight {
     this.attenuation = attenuation;
   }
 
+  dispose() {}
+
   emission(distance) {
     const emissionColour = this.colour.clone().multiplyScalar(this.calculateAttenuation(distance));
     emissionColour.setRGB(clamp(emissionColour.r, 0, 1), clamp(emissionColour.g, 0, 1), clamp(emissionColour.b, 0, 1));
@@ -46,7 +48,7 @@ class VTPointLight {
 
   getCollidingVoxels(voxelModel) {
     // Just return the nearest voxel to this light (since it's a point light it will only be a single voxel)
-    return [voxelModel.closestVoxel(this.position)];
+    return [voxelModel.closestVoxelIdxPt(this.position)];
   }
 }
 

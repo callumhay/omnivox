@@ -96,7 +96,7 @@ class StarShowerAnimator extends VoxelAnimator {
       repeat: 0,
     };
 
-    this.activeShootingStars.push(new ShootingStarAnimator(this.voxels, starConfig));
+    this.activeShootingStars.push(new ShootingStarAnimator(this.voxelModel, starConfig));
   }
 
 }

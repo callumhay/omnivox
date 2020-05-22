@@ -86,7 +86,7 @@ class VoxelColourAnimator extends VoxelAnimator {
       }
 
       this.voxelPositions.forEach(voxelPos => {
-        this.voxels.setVoxel(voxelPos, currColour);
+        this.voxelModel.setVoxel(voxelPos, currColour);
       });
 
       const isFinishedCurrentLoop = (this.currTime >= endTimeSecs);

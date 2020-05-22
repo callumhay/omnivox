@@ -114,18 +114,6 @@ class VoxelModel {
   }
 
   /**
-   * Get the local space Axis-Aligned Bounding Box for all voxels.
-   */
-  voxelDisplayBox() {
-    const minBound = 0;
-    const maxBound = this.gridSize-1;
-    return new THREE.Box3(
-      new THREE.Vector3(minBound,minBound,minBound), 
-      new THREE.Vector3(maxBound,maxBound,maxBound)
-    );
-  }
-
-  /**
    * Build a flat list of all of the possible voxel indices (x,y,z) in this display
    * as a list of THREE.Vector3 objects.
    */
@@ -146,33 +134,37 @@ class VoxelModel {
    * @param {THREE.Vector3} pt 
    */
   isInBounds(pt) {
-    const roundedX = Math.round(pt.x);
-    const roundedY = Math.round(pt.y);
-    const roundedZ = Math.round(pt.z);
+    const roundedX = Math.floor(pt.x);
+    const roundedY = Math.floor(pt.y);
+    const roundedZ = Math.floor(pt.z);
 
     return roundedX >= 0 && roundedX < this.voxels.length &&
       roundedY >= 0 && roundedY < this.voxels[roundedX].length &&
       roundedZ >= 0 && roundedZ < this.voxels[roundedX][roundedY].length;
   }
 
+  /**
+   * Get the local space Axis-Aligned Bounding Box for all voxels.
+   */
   getBoundingBox() {
     return new THREE.Box3(new THREE.Vector3(0,0,0), new THREE.Vector3(this.xSize(), this.ySize(), this.zSize()));
   }
+  
   getVoxelBoundingBox(voxelPt) {
-    const roundedX = Math.round(voxelPt.x);
-    const roundedY = Math.round(voxelPt.y);
-    const roundedZ = Math.round(voxelPt.z);
+    const roundedX = Math.floor(voxelPt.x);
+    const roundedY = Math.floor(voxelPt.y);
+    const roundedZ = Math.floor(voxelPt.z);
 
     return new THREE.Box3(
-      new THREE.Vector3(roundedX-0.5, roundedY-0.5, roundedZ-0.5), 
-      new THREE.Vector3(roundedX+0.5, roundedY+0.5, roundedZ+0.5)
+      new THREE.Vector3(roundedX, roundedY, roundedZ), 
+      new THREE.Vector3(roundedX+1, roundedY+1, roundedZ+1)
     );
   }
   
   setVoxel(pt, colour) {
-    const roundedX = Math.round(pt.x);
-    const roundedY = Math.round(pt.y);
-    const roundedZ = Math.round(pt.z);
+    const roundedX = Math.floor(pt.x);
+    const roundedY = Math.floor(pt.y);
+    const roundedZ = Math.floor(pt.z);
 
     if (roundedX >= 0 && roundedX < this.voxels.length &&
         roundedY >= 0 && roundedY < this.voxels[roundedX].length &&
@@ -182,9 +174,9 @@ class VoxelModel {
     } 
   }
   getVoxel(pt) {
-    const roundedX = Math.round(pt.x);
-    const roundedY = Math.round(pt.y);
-    const roundedZ = Math.round(pt.z);
+    const roundedX = Math.floor(pt.x);
+    const roundedY = Math.floor(pt.y);
+    const roundedZ = Math.floor(pt.z);
 
     return (roundedX >= 0 && roundedX < this.voxels.length &&
         roundedY >= 0 && roundedY < this.voxels[roundedX].length &&
@@ -193,9 +185,9 @@ class VoxelModel {
   }
 
   addToVoxel(pt, colour) {
-    const roundedX = Math.round(pt.x);
-    const roundedY = Math.round(pt.y);
-    const roundedZ = Math.round(pt.z);
+    const roundedX = Math.floor(pt.x);
+    const roundedY = Math.floor(pt.y);
+    const roundedZ = Math.floor(pt.z);
 
     if (roundedX >= 0 && roundedX < this.voxels.length &&
         roundedY >= 0 && roundedY < this.voxels[roundedX].length &&
@@ -220,8 +212,17 @@ class VoxelModel {
     return this.getVoxel(pt).colour;
   }
 
-  closestVoxel(pt) {
-    return new THREE.Vector3(Math.round(pt.x), Math.round(pt.y), Math.round(pt.z));
+  closestVoxelIdxPt(pt) {
+    return new THREE.Vector3(Math.floor(pt.x), Math.floor(pt.y), Math.floor(pt.z));
+  }
+
+  getVoxelWorldSpaceCentroid(idxSpacePt) {
+    const HALF_VOXEL_SIZE = 0.5;
+    return new THREE.Vector3(
+      Math.floor(idxSpacePt.x) + HALF_VOXEL_SIZE, 
+      Math.floor(idxSpacePt.y) + HALF_VOXEL_SIZE,
+      Math.floor(idxSpacePt.z) + HALF_VOXEL_SIZE
+    );
   }
 
   /**
@@ -327,14 +328,15 @@ class VoxelModel {
   }
 
   voxelBoxList(minPt=new THREE.Vector3(0,0,0), maxPt=new THREE.Vector3(1,1,1), fill=false) {
+    
     const voxelPts = [];
-    const floorMinPt = minPt.clone().floor();
-    const ceilMaxPt  = maxPt.clone().ceil();
+    const mappedMinPt = minPt.clone().floor();
+    const mappedMaxPt  = maxPt.clone().ceil();
 
     if (fill) {
-      for (let x = floorMinPt.x; x <= ceilMaxPt.x; x++) {
-        for (let y = floorMinPt.y; y <= ceilMaxPt.y; y++) {
-          for (let z = floorMinPt.z; z <= ceilMaxPt.z; z++) {
+      for (let x = mappedMinPt.x; x < mappedMaxPt.x; x++) {
+        for (let y = mappedMinPt.y; y < mappedMaxPt.y; y++) {
+          for (let z = mappedMinPt.z; z < mappedMaxPt.z; z++) {
             voxelPts.push(new THREE.Vector3(x,y,z));
           }
         }
@@ -342,40 +344,40 @@ class VoxelModel {
     }
     else {
       // Not filling the box... just go around the outside of it
-      let incX = Math.floor(ceilMaxPt.x-floorMinPt.x);
+      let incX = Math.floor(mappedMaxPt.x-mappedMinPt.x);
       if (incX <= 0) {
-        incX = ceilMaxPt.x-floorMinPt.x;
+        incX = mappedMaxPt.x-mappedMinPt.x;
       }
 
-      for (let x = floorMinPt.x; x <= ceilMaxPt.x; x += incX) {
-        for (let y = floorMinPt.y; y <= ceilMaxPt.y; y++) {
-          for (let z = floorMinPt.z; z <= ceilMaxPt.z; z++) {
+      for (let x = mappedMinPt.x; x <= mappedMaxPt.x; x += incX) {
+        for (let y = mappedMinPt.y; y <= mappedMaxPt.y; y++) {
+          for (let z = mappedMinPt.z; z <= mappedMaxPt.z; z++) {
             voxelPts.push(new THREE.Vector3(x,y,z));
           }
         }
       }
 
-      let incY = Math.floor(ceilMaxPt.y-floorMinPt.y);
+      let incY = Math.floor(mappedMaxPt.y-mappedMinPt.y);
       if (incY <= 0) {
-        incY = ceilMaxPt.y-floorMinPt.y;
+        incY = mappedMaxPt.y-mappedMinPt.y;
       }
 
-      for (let y = floorMinPt.y; y <= ceilMaxPt.y; y += incY) {
-        for (let x = floorMinPt.x+1; x < ceilMaxPt.x; x++) {
-          for (let z = floorMinPt.z; z <= ceilMaxPt.z; z++) {
+      for (let y = mappedMinPt.y; y <= mappedMaxPt.y; y += incY) {
+        for (let x = mappedMinPt.x+1; x < mappedMaxPt.x; x++) {
+          for (let z = mappedMinPt.z; z <= mappedMaxPt.z; z++) {
             voxelPts.push(new THREE.Vector3(x,y,z));
           }
         }
       }
 
-      let incZ = Math.floor(ceilMaxPt.z-floorMinPt.z);
+      let incZ = Math.floor(mappedMaxPt.z-mappedMinPt.z);
       if (incZ <= 0) {
-        incZ = ceilMaxPt.z-floorMinPt.z;
+        incZ = mappedMaxPt.z-mappedMinPt.z;
       }
 
-      for (let z = floorMinPt.z; z <= ceilMaxPt.z; z += incZ) {
-        for (let x = floorMinPt.x+1; x < ceilMaxPt.x; x++) {
-          for (let y = floorMinPt.y+1; y < ceilMaxPt.y; y++) {
+      for (let z = mappedMinPt.z; z <= mappedMaxPt.z; z += incZ) {
+        for (let x = mappedMinPt.x+1; x < mappedMaxPt.x; x++) {
+          for (let y = mappedMinPt.y+1; y < mappedMaxPt.y; y++) {
             voxelPts.push(new THREE.Vector3(x,y,z));
           }
         }

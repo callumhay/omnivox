@@ -33,7 +33,7 @@ class FireAnimator extends VoxelAnimator {
     const {diffusion, viscosity, buoyancy, cooling, vorticityConfinement} = c;
 
     if (!this.fluidModel) {
-      this.fluidModel = new Fluid(this.voxels);
+      this.fluidModel = new Fluid(this.voxelModel);
     }
     this.fluidModel.diffusion = diffusion;
     this.fluidModel.viscosity = viscosity;
@@ -48,10 +48,10 @@ class FireAnimator extends VoxelAnimator {
     super.render(dt);
 
     const startX = 1;
-    const endX = this.voxels.xSize()-startX;
+    const endX = this.voxelModel.xSize()-startX;
     const startZ = 1;
-    const endZ = this.voxels.zSize()-startZ;
-    const endY = this.voxels.ySize();
+    const endZ = this.voxelModel.zSize()-startZ;
+    const endY = this.voxelModel.ySize();
 
 
     for (let x = startX; x < endX; x++) {
@@ -66,7 +66,7 @@ class FireAnimator extends VoxelAnimator {
     this.t += speedDt;
 
     // Update the voxels...
-    const voxelArray = this.voxels.voxels;
+    const voxelArray = this.voxelModel.voxels;
     for (let x = 0; x < voxelArray.length; x++) {
       for (let y = 0; y < voxelArray[x].length; y++) {
         for (let z = 0; z < voxelArray[x][y].length; z++) {
@@ -82,7 +82,7 @@ class FireAnimator extends VoxelAnimator {
           const intensityIdx = Math.round(lighting*15);
 
           const voxelColour = this.fireTexture[intensityIdx][densityIdx][temperatureIdx];
-          this.voxels.drawPoint(new THREE.Vector3(x,y,z), new THREE.Color(voxelColour.a*voxelColour.r, voxelColour.a*voxelColour.g, voxelColour.a*voxelColour.b));
+          this.voxelModel.drawPoint(new THREE.Vector3(x,y,z), new THREE.Color(voxelColour.a*voxelColour.r, voxelColour.a*voxelColour.g, voxelColour.a*voxelColour.b));
         }
       }
     }
