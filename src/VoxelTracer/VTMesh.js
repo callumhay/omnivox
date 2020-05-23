@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {computeBoundsTree, disposeBoundsTree, acceleratedRaycast, MeshBVH, SAH} from 'three-mesh-bvh';
 import {VOXEL_EPSILON, SQRT2PI, SQRT3} from '../MathUtils';
+import { Box3 } from 'three';
 
 // Add the extension functions for calculating bounding volumes for THREE.Mesh/THREE.Geometry
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -117,10 +118,10 @@ class VTMesh {
   // NOTE: All geometry MUST be buffer geometry!
   constructor(geometry, material) {
     this.geometry = geometry;
+    this.geometry.computeBoundingBox();
     this.geometry.boundsTree = new MeshBVH(this.geometry, {strategy: SAH});
     this.material = material;
-    this.threeMesh = new THREE.Mesh(this.geometry);
-    //this.threeMesh.geometry.computeBoundsTree();
+    this._threeMesh = new THREE.Mesh(this.geometry);
 
     // Temporary variables
     this._closestPt     = new THREE.Vector3(0,0,0);
@@ -141,6 +142,9 @@ class VTMesh {
     this.material.dispose();
   }
 
+  get position() { return this._threeMesh.position; }
+  updateMatrixWorld() { this._threeMesh.updateMatrixWorld(); }
+
   calculateVoxelColour(voxelIdxPt, scene) {
     const voxelBoundingBox = scene.voxelModel.getVoxelBoundingBox(voxelIdxPt);
     voxelBoundingBox.getCenter(this._voxelCenterPt);
@@ -149,18 +153,29 @@ class VTMesh {
 
     // Start by finding all triangles in this mesh that may intersect with the given voxel
     const voxelTriangles = [];
-    this.geometry.boundsTree.shapecast(
-      this.threeMesh,
-      box => voxelBoundingBox.intersectsBox(box),
+    this._threeMesh.geometry.boundsTree.shapecast(
+      this._threeMesh,
+      box => {
+        const worldSpaceBox = box.clone();
+        worldSpaceBox.applyMatrix4(this._threeMesh.matrixWorld);
+        return voxelBoundingBox.intersectsBox(worldSpaceBox);
+      },
       (tri, a, b, c) => {
-        tri.closestPointToPoint(this._voxelCenterPt, this._closestPt);
+
+        const {matrixWorld} = this._threeMesh;
+        const worldSpaceTri = tri.clone();
+        worldSpaceTri.a.applyMatrix4(matrixWorld);
+        worldSpaceTri.b.applyMatrix4(matrixWorld);
+        worldSpaceTri.c.applyMatrix4(matrixWorld);
+
+        worldSpaceTri.closestPointToPoint(this._voxelCenterPt, this._closestPt);
 
         // Is the closest point even inside the voxel?
         if (voxelBoundingBox.containsPoint(this._closestPt)) {
           this._tempVec3.copy(this._closestPt);
           const sqrDist = this._tempVec3.sub(this._voxelCenterPt).lengthSq();
           voxelTriangles.push({
-            triangle: tri,
+            triangle: worldSpaceTri,
             indices: [a, b, c],
             sqrDist: sqrDist,
             closestPt: this._closestPt.clone(),
@@ -187,6 +202,7 @@ class VTMesh {
         this._n2.multiplyScalar(baryCoord.z);
         this._n0.add(this._n1.add(this._n2));
         this._n0.normalize();
+        this._n0.transformDirection(this._threeMesh.matrixWorld);
         target.copy(this._n0);
       };
       const calculateUVBarycentric = (target, i0, i1, i2, baryCoord) => {
@@ -201,7 +217,7 @@ class VTMesh {
       };
 
       let samples = [];
-      const sigma = furthestPossibleDistFromCenter/10.0;
+      const sigma = furthestPossibleDistFromCenter/3;
       const valueAtZero = (1.0 / SQRT2PI*sigma);
 
       for (let i = 0; i < voxelTriangles.length; i++) {
@@ -211,7 +227,7 @@ class VTMesh {
           point: closestPt,
           normal: new THREE.Vector3(),
           uv: new THREE.Vector2(),
-          falloff: 0,
+          falloff: 1,
         };
 
         triangle.getBarycoord(closestPt, this._baryCoord);
@@ -228,80 +244,31 @@ class VTMesh {
         const toTriangleDotNorm = this._tempVec3.dot(sample.normal);
 
         // If the dot product was positive then the voxel sample point is "inside" the mesh, 
-        // otherwise it's outside - in this case we use a gaussian falloff to dim the voxel. 
+        // otherwise it's outside - in this case we use a gaussian falloff to dim the voxel.
         sample.falloff = (toTriangleDotNorm >= 0.0) ? 1.0 : ((1.0 / SQRT2PI*sigma) * Math.exp(-0.5 * (sqrDist / (2*sigma*sigma))) / valueAtZero);
+  
         samples.push(sample);
       }
 
       finalColour.add(scene.calculateLightingSamples(samples, this.material));
-    
-      /*
-      let closestTriObj = voxelTriangles[0];
-      for (let i = 1; i < voxelTriangles.length; i++) {
-        const triangleObj = voxelTriangles[i];
-
-        if (closestTriObj.sqrDist > triangleObj.sqrDist) {
-          closestTriObj = triangleObj;
-        }
-      }
-
-      const {triangle, closestPt, sqrDist, indices} = closestTriObj;
-
-      // Calculate the normal and uv of the triangle at the closest point
-      triangle.getBarycoord(closestPt, this._baryCoord);
-
-      const i0 = indexAttr.getX(indices[0]);
-      const i1 = indexAttr.getX(indices[1]);
-      const i2 = indexAttr.getX(indices[2]);
-
-      // Calculate the normal
-      this._n0.set(normalAttr.getX(i0), normalAttr.getY(i0), normalAttr.getZ(i0));
-      this._n1.set(normalAttr.getX(i1), normalAttr.getY(i1), normalAttr.getZ(i1));
-      this._n2.set(normalAttr.getX(i2), normalAttr.getY(i2), normalAttr.getZ(i2));
-      this._n0.multiplyScalar(this._baryCoord.x);
-      this._n1.multiplyScalar(this._baryCoord.y);
-      this._n2.multiplyScalar(this._baryCoord.z);
-      this._n0.add(this._n1.add(this._n2));
-      this._n0.normalize();
-
-      // Calculate the Texture Coordinates
-      this._uv0.set(uvAttr.getX(i0), uvAttr.getY(i0));
-      this._uv1.set(uvAttr.getX(i1), uvAttr.getY(i1));
-      this._uv2.set(uvAttr.getX(i2), uvAttr.getY(i2));
-      this._uv0.multiplyScalar(this._baryCoord.x);
-      this._uv1.multiplyScalar(this._baryCoord.y);
-      this._uv2.multiplyScalar(this._baryCoord.z);
-      this._uv0.add(this._uv1.add(this._uv2));
-
-      // Is the voxel sample point (i.e., the center) inside or outside the triangle?
-      this._tempVec3.copy(closestPt);
-      this._tempVec3.sub(this._voxelCenterPt).normalize();
-      const toTriangleDotNorm = this._tempVec3.dot(this._n0);
-      
-      // If the dot product was positive then the voxel sample point is "inside" the mesh, otherwise it's outside
-      const sigma = furthestPossibleDistFromCenter/10.0;
-      const valueAtZero = (1.0 / SQRT2PI*sigma);
-      let falloff = (toTriangleDotNorm >= 0.0) ? 1.0 : ((1.0 / SQRT2PI*sigma) * Math.exp(-0.5 * (sqrDist / (2*sigma*sigma))) / valueAtZero);
-
-      finalColour.add(scene.calculateLighting(closestPt, this._n0, this._uv0, this.material).multiplyScalar(falloff));
-      */
     }
   
     return finalColour;
   }
 
   intersectsBox(voxelBoundingBox) {
-    return this.geometry.boundsTree.intersectsBox(this.threeMesh, voxelBoundingBox, new THREE.Matrix4());
+    return this.geometry.boundsTree.intersectsBox(this._threeMesh, voxelBoundingBox, new THREE.Matrix4());
   }
 
   intersectsRay(raycaster) {
-    return this.geometry.boundsTree.raycastFirst(this.threeMesh, raycaster, raycaster.ray) !== null;
+    raycaster.firstHitOnly = true;
+    return raycaster.intersectObjects([this._threeMesh]).length > 0;
   }
 
   getCollidingVoxels(voxelModel) {
-    this.geometry.computeBoundingBox();
-    const {boundingBox} = this.geometry;
-    return voxelModel.voxelBoxList(boundingBox.min, boundingBox.max, true);
+
+    const worldSpaceBB = this.geometry.boundingBox.clone().applyMatrix4(this._threeMesh.matrixWorld);
+    return voxelModel.voxelBoxList(worldSpaceBB.min, worldSpaceBB.max, true);
   }
 }
 

@@ -46,41 +46,6 @@ class VTScene {
     this.shadowCasters.push(o);
   }
 
-  calculateLighting(point, normal, uv, material) {
-    const resultColour = new THREE.Color(0,0,0);
-
-    // Go through each light in the scene and raytrace to them...
-    const nObjToLightVec = new THREE.Vector3(0,0,0);
-    const raycaster = new THREE.Raycaster(point);
-
-    this.lights.forEach(light => {
-
-      nObjToLightVec.set(light.position.x, light.position.y, light.position.z);
-      nObjToLightVec.sub(point);
-      const distanceToLight = Math.max(VOXEL_EPSILON, nObjToLightVec.length());
-      nObjToLightVec.divideScalar(distanceToLight);
-
-      // Check to see if the surface is in shadow
-      // NOTE: We currently only use point lights so there's only umbra shadow (no soft shadows/sampling)
-      raycaster.ray.direction = nObjToLightVec;
-      raycaster.near = VOXEL_EPSILON;
-      raycaster.far  = distanceToLight;
-      const intersectedObjects = this.intersectsShadowcasters(raycaster);
-      if (intersectedObjects.length === 0) {
-        // Not in shadow, do the lighting
-        const lightEmission = light.emission(distanceToLight);
-        const materialLightingColour = material.brdf(nObjToLightVec, normal, uv, lightEmission);
-        resultColour.add(materialLightingColour);
-      }
-    });
-
-    if (this.ambientLight) {
-      resultColour.add(material.brdfAmbient(uv, this.ambientLight.emission()));
-    }
-
-    return resultColour;
-  }
-  
   calculateLightingSamples(samples, material) {
     const finalColour = new THREE.Color(0,0,0);
     const sampleLightContrib = new THREE.Color(0,0,0);
@@ -128,11 +93,14 @@ class VTScene {
       finalColour.add(sampleLightContrib);
     }
 
+
     if (this.ambientLight) {
+      sampleLightContrib.set(0,0,0);
       for (let i = 0; i < samples.length; i++) {
-        const {uv} = samples[i];
-        finalColour.add(material.brdfAmbient(uv, this.ambientLight.emission()).multiplyScalar(factorPerSample));
+        const {uv, falloff} = samples[i];
+        sampleLightContrib.add(material.brdfAmbient(uv, this.ambientLight.emission()).multiplyScalar(falloff*factorPerSample));
       }
+      finalColour.add(sampleLightContrib);
     }
 
     return finalColour;
@@ -156,11 +124,12 @@ class VTScene {
     // Find all renderable entities that exist within the bounds of the voxels (i.e., visible entities)
     const voxelBoundingBox = this.voxelModel.getBoundingBox();
     const visibleRenderables = [];
-    this.renderables.forEach(renderable => {
+    for (let i = 0; i < this.renderables.length; i++) {
+      const renderable = this.renderables[i];
       if (renderable.intersectsBox(voxelBoundingBox)) {
         visibleRenderables.push(renderable);
       }
-    });
+    }
 
     /*
     // Show what voxels are being selected for rendering...
@@ -170,12 +139,13 @@ class VTScene {
       voxelIndexPoints.forEach(pt => this.voxelModel.drawPoint(pt, new THREE.Color(1,1,1)));
     });
     */
+    for (let i = 0; i < visibleRenderables.length; i++) {
+      const renderable = visibleRenderables[i];
 
-    visibleRenderables.forEach(renderable => {
       // Get all of the voxels that collide with the renderable object
       const voxelIndexPoints = renderable.getCollidingVoxels(this.voxelModel);
-      voxelIndexPoints.forEach(voxelIdxPt => {
-        
+      for (let j = 0; j < voxelIndexPoints.length; j++) {
+        const voxelIdxPt = voxelIndexPoints[j];
         const voxelObj = this.voxelModel.getVoxel(voxelIdxPt);
         if (voxelObj) {
           // Map the index point into the centroid of the voxel in worldspace
@@ -183,10 +153,10 @@ class VTScene {
           const calcColour = renderable.calculateVoxelColour(voxelIdxPt, this);
           voxelObj.addColour(calcColour);
         }
-      });
-    });
-
+      }
+    }
   }
+
   
 }
 

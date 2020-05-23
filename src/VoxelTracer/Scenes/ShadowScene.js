@@ -17,38 +17,36 @@ class ShadowScene extends SceneRenderer {
   clear() {
     super.clear();
     this._objectsBuilt = false;
+    this.timeCounter = 0;
   }
 
   build() {
     if (!this._objectsBuilt) {
+      this.timeCounter = 0;
+
       const size = this.voxelModel.xSize();
       const halfXSize = this.voxelModel.xSize()/2;
-      const halfYSize = this.voxelModel.ySize()/2;
+      
       const halfZSize = this.voxelModel.zSize()/2;
 
-      //this.sphereGeometry = new THREE.SphereBufferGeometry(1, 10, 10);
-      //this.sphereGeometry.translate(halfXSize, size-1, halfZSize);
-      //this.sphereMesh = new VTMesh(this.sphereGeometry, new VTLambertMaterial(new THREE.Color(1,1,1)));
+      this.movingBoxGeometry = new THREE.BoxBufferGeometry(1.5, 2, 1.5, 1, 1, 1);
+      this.movingBoxMesh = new VTMesh(this.movingBoxGeometry, new VTLambertMaterial(new THREE.Color(1,1,1)));
 
-      this.boxGeometry = new THREE.BoxBufferGeometry(3,3,3);
-      this.boxGeometry.translate(halfXSize, halfYSize, halfZSize);
+      this.boxGeometry = new THREE.BoxBufferGeometry(size,2,size);
+      this.boxGeometry.translate(halfXSize, size-1, halfZSize);
       this.boxMesh = new VTMesh(this.boxGeometry, new VTLambertMaterial(new THREE.Color(1,1,1)));
 
-      this.ptLight1 = new VTPointLight(new THREE.Vector3(0, halfYSize, halfZSize), new THREE.Color(1,1,1), {quadratic:size, linear:0.5, constant:0.1});
-      this.ptLight2 = new VTPointLight(new THREE.Vector3(halfXSize, halfYSize, 0), new THREE.Color(1,1,1), {quadratic:size, linear:0.5, constant:0.1});
-      this.ptLight3 = new VTPointLight(new THREE.Vector3(halfXSize, 0, halfZSize), new THREE.Color(1,1,1), {quadratic:size, linear:0.5, constant:0.1});
+      this.ptLight = new VTPointLight(new THREE.Vector3(halfXSize, 0, halfZSize), new THREE.Color(1,1,1), {quadratic:size*size, linear:1, constant:0});
 
       this.ambientLight = new VTAmbientLight(new THREE.Color(0.1,0.1,0.1));
 
       this._objectsBuilt = true;
     }
 
-    this.scene.addLight(this.ptLight1);
-    this.scene.addLight(this.ptLight2);
-    this.scene.addLight(this.ptLight3);
-    this.scene.addLight(this.ambientLight);
-    //this.scene.addObject(this.sphereMesh);
+    this.scene.addLight(this.ptLight);
+    this.scene.addObject(this.movingBoxMesh);
     this.scene.addObject(this.boxMesh);
+    this.scene.addLight(this.ambientLight);
   }
 
   render(dt) {
@@ -61,13 +59,12 @@ class ShadowScene extends SceneRenderer {
     const halfZSize = this.voxelModel.zSize()/2;
 
     // Move lights around in circles...
-    const RADIUS = halfXSize/2 - 1;
-    const ANGULAR_VEL = Math.PI;
-    const t = dt*ANGULAR_VEL;
+    const RADIUS = halfXSize-1.5;
+    const ANGULAR_VEL = Math.PI/1.5;
+    const t = this.timeCounter*ANGULAR_VEL;
 
-
-    //this.sphereGeometry.translate((RADIUS)*Math.cos(t)+RADIUS, 0, (RADIUS)*Math.sin(t)+RADIUS)
-    //this.sphereGeometry.computeBoundsTree();
+    this.movingBoxMesh.position.set(Math.floor((RADIUS)*Math.cos(t) + halfXSize) , halfYSize-1, Math.floor((RADIUS)*Math.sin(t) + halfZSize));
+    this.movingBoxMesh.updateMatrixWorld();
 
     this.scene.render(dt);
 
