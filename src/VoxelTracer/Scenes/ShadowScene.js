@@ -8,11 +8,22 @@ import VTLambertMaterial from '../VTLambertMaterial';
 import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';
 
+export const shadowSceneDefaultOptions = {
+  movingBoxSize: {x: 1.5, y:2, z:1.5},
+  movingBoxSpeed: 1.5*Math.PI,
+  ambientLightColour: {r:0.1, g:0.1, b:0.1},
+  pointLightColour: {r:1, g:1, b:1},
+  pointLightPosition: {x:4, y:0, z:4},
+  pointLightAtten: {quadratic:0, linear:0},
+};
+
 class ShadowScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
     this._objectsBuilt = false;
   }
+
+  static defaultOptions() { return shadowSceneDefaultOptions; }
 
   clear() {
     super.clear();
@@ -20,25 +31,30 @@ class ShadowScene extends SceneRenderer {
     this.timeCounter = 0;
   }
 
-  build() {
+  build(options) {
     if (!this._objectsBuilt) {
+      const {movingBoxSize, ambientLightColour, pointLightColour, pointLightPosition, pointLightAtten} = options;
+
       this.timeCounter = 0;
 
       const size = this.voxelModel.xSize();
       const halfXSize = this.voxelModel.xSize()/2;
-      
       const halfZSize = this.voxelModel.zSize()/2;
 
-      this.movingBoxGeometry = new THREE.BoxBufferGeometry(1.5, 2, 1.5, 1, 1, 1);
+      this.movingBoxGeometry = new THREE.BoxBufferGeometry(movingBoxSize.x, movingBoxSize.y, movingBoxSize.z, 1, 1, 1);
       this.movingBoxMesh = new VTMesh(this.movingBoxGeometry, new VTLambertMaterial(new THREE.Color(1,1,1)));
 
       this.boxGeometry = new THREE.BoxBufferGeometry(size,2,size);
       this.boxGeometry.translate(halfXSize, size-1, halfZSize);
       this.boxMesh = new VTMesh(this.boxGeometry, new VTLambertMaterial(new THREE.Color(1,1,1)));
 
-      this.ptLight = new VTPointLight(new THREE.Vector3(halfXSize, 0, halfZSize), new THREE.Color(1,1,1), {quadratic:size*size, linear:1, constant:0});
+      this.ptLight = new VTPointLight(
+        new THREE.Vector3(pointLightPosition.x, pointLightPosition.y, pointLightPosition.z), 
+        new THREE.Color(pointLightColour.r, pointLightColour.g, pointLightColour.b), 
+        {...pointLightAtten}
+      );
 
-      this.ambientLight = new VTAmbientLight(new THREE.Color(0.1,0.1,0.1));
+      this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
 
       this._objectsBuilt = true;
     }
@@ -54,16 +70,17 @@ class ShadowScene extends SceneRenderer {
       return;
     }
 
+    const {movingBoxSpeed} = this._options;
+
     const halfXSize = this.voxelModel.xSize()/2;
     const halfYSize = this.voxelModel.ySize()/2;
     const halfZSize = this.voxelModel.zSize()/2;
 
     // Move lights around in circles...
     const RADIUS = halfXSize-1.5;
-    const ANGULAR_VEL = Math.PI/1.5;
-    const t = this.timeCounter*ANGULAR_VEL;
+    const t = this.timeCounter*movingBoxSpeed;
 
-    this.movingBoxMesh.position.set(Math.floor((RADIUS)*Math.cos(t) + halfXSize) , halfYSize-1, Math.floor((RADIUS)*Math.sin(t) + halfZSize));
+    this.movingBoxMesh.position.set(Math.floor((RADIUS)*Math.cos(t)) + halfXSize, halfYSize-1, Math.floor((RADIUS)*Math.sin(t)) + halfZSize);
     this.movingBoxMesh.updateMatrixWorld();
 
     this.scene.render(dt);

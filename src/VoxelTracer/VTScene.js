@@ -1,10 +1,6 @@
 import * as THREE from 'three';
 
-import {VOXEL_EPSILON} from '../MathUtils';
-
-import VTMesh from './VTMesh';
-import VTLambertMaterial from './VTLambertMaterial';
-import VTPointLight from './VTPointLight';
+import {VOXEL_EPSILON, clamp} from '../MathUtils';
 import VTAmbientLight from './VTAmbientLight';
 
 const CLEAR_COLOUR = new THREE.Color(0,0,0);
@@ -53,12 +49,13 @@ class VTScene {
     // Go through each light in the scene and raytrace to them...
     const nObjToLightVec = new THREE.Vector3(0,0,0);
     const raycaster = new THREE.Raycaster();
-    const factorPerSample = 1.0 / samples.length;
 
     for (let i = 0; i < samples.length; i++) {
       const {point, normal, uv, falloff} = samples[i];
 
       sampleLightContrib.set(0,0,0);
+
+      // We want the maximum light contribution from all the samples...
 
       for (let j = 0; j < this.lights.length; j++) {
         const light = this.lights[j];
@@ -83,18 +80,18 @@ class VTScene {
         if (intersectedObjects.length === 0) {
 
           // Not in shadow, do the lighting
+          //console.log(distanceToLight);
           const lightEmission = light.emission(distanceToLight);
           const materialLightingColour = material.brdf(nObjToLightVec, normal, uv, lightEmission);
           sampleLightContrib.add(materialLightingColour.multiplyScalar(falloff));
         }
       }
-
-      sampleLightContrib.multiplyScalar(factorPerSample);
+      sampleLightContrib.setRGB(clamp(sampleLightContrib.r, 0, 1), clamp(sampleLightContrib.g, 0, 1), clamp(sampleLightContrib.b, 0, 1));
       finalColour.add(sampleLightContrib);
     }
 
-
     if (this.ambientLight) {
+      const factorPerSample = 1.0 / samples.length;
       sampleLightContrib.set(0,0,0);
       for (let i = 0; i < samples.length; i++) {
         const {uv, falloff} = samples[i];

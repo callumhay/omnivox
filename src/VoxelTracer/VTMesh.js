@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import {computeBoundsTree, disposeBoundsTree, acceleratedRaycast, MeshBVH, SAH} from 'three-mesh-bvh';
-import {VOXEL_EPSILON, SQRT2PI, SQRT3} from '../MathUtils';
-import { Box3 } from 'three';
+import {SQRT2PI, SQRT3} from '../MathUtils';
 
 // Add the extension functions for calculating bounding volumes for THREE.Mesh/THREE.Geometry
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -163,6 +162,9 @@ class VTMesh {
       (tri, a, b, c) => {
 
         const {matrixWorld} = this._threeMesh;
+        //const invMatrixWorld = new THREE.Matrix4();
+        //invMatrixWorld.getInverse(matrixWorld);
+
         const worldSpaceTri = tri.clone();
         worldSpaceTri.a.applyMatrix4(matrixWorld);
         worldSpaceTri.b.applyMatrix4(matrixWorld);
@@ -174,11 +176,13 @@ class VTMesh {
         if (voxelBoundingBox.containsPoint(this._closestPt)) {
           this._tempVec3.copy(this._closestPt);
           const sqrDist = this._tempVec3.sub(this._voxelCenterPt).lengthSq();
+
           voxelTriangles.push({
             triangle: worldSpaceTri,
             indices: [a, b, c],
             sqrDist: sqrDist,
-            closestPt: this._closestPt.clone(),
+            worldSpaceClosestPt: this._closestPt.clone(),
+            //localSpaceClosestPt: this._closestPt.clone().applyMatrix4(invMatrixWorld),
           });
         }
 
@@ -203,6 +207,7 @@ class VTMesh {
         this._n0.add(this._n1.add(this._n2));
         this._n0.normalize();
         this._n0.transformDirection(this._threeMesh.matrixWorld);
+
         target.copy(this._n0);
       };
       const calculateUVBarycentric = (target, i0, i1, i2, baryCoord) => {
@@ -213,24 +218,25 @@ class VTMesh {
         this._uv1.multiplyScalar(baryCoord.y);
         this._uv2.multiplyScalar(baryCoord.z);
         this._uv0.add(this._uv1.add(this._uv2));
+
         target.copy(this._uv0);
       };
 
       let samples = [];
-      const sigma = furthestPossibleDistFromCenter/3;
+      const sigma = furthestPossibleDistFromCenter / 10.0;
       const valueAtZero = (1.0 / SQRT2PI*sigma);
 
       for (let i = 0; i < voxelTriangles.length; i++) {
-        const {triangle, closestPt, sqrDist, indices} = voxelTriangles[i];
+        const {triangle, worldSpaceClosestPt, sqrDist, indices} = voxelTriangles[i];
 
         const sample = {
-          point: closestPt,
+          point: worldSpaceClosestPt,
           normal: new THREE.Vector3(),
           uv: new THREE.Vector2(),
           falloff: 1,
         };
 
-        triangle.getBarycoord(closestPt, this._baryCoord);
+        triangle.getBarycoord(worldSpaceClosestPt, this._baryCoord);
         const i0 = indexAttr.getX(indices[0]);
         const i1 = indexAttr.getX(indices[1]);
         const i2 = indexAttr.getX(indices[2]);

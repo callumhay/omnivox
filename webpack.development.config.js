@@ -13,6 +13,9 @@ const commonConfig = {
   optimization: {
     minimize: false,
   },
+  node: {
+    fs: 'empty',
+  },
 };
 
 const webClientConfig = {...commonConfig,

@@ -7,9 +7,12 @@ import {starShowerDefaultConfig} from '../Animation/StarShowerAnimator';
 import {shapeWaveAnimatorDefaultConfig, WAVE_SHAPE_TYPES} from '../Animation/ShapeWaveAnimator';
 import {gameOfLifeAnimatorDefaultConfig} from '../Animation/GameOfLifeAnimator';
 import {fireAnimatorDefaultConfig} from '../Animation/FireAnimator';
-import {sceneAnimatorDefaultConfig, SCENE_TYPES} from '../Animation/SceneAnimator';
+import {sceneAnimatorDefaultConfig, SCENE_TYPES, SCENE_TYPE_SIMPLE, SCENE_TYPE_TEXTURE, SCENE_TYPE_SHADOW} from '../Animation/SceneAnimator';
 import {ColourSystems} from '../Spectrum';
 
+import SimpleScene from '../VoxelTracer/Scenes/SimpleScene';
+import TextureScene from '../VoxelTracer/Scenes/TextureScene';
+import ShadowScene from '../VoxelTracer/Scenes/ShadowScene';
 
 const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
 const VOXEL_COLOUR_SHAPE_TYPE_SPHERE = "Sphere";
@@ -21,13 +24,26 @@ const VOXEL_COLOUR_SHAPE_TYPES = [
 ];
 
 const THREEColorToGuiColor = (c) => {
-  return [parseInt(c.r*255), parseInt(c.g*255), parseInt(c.b*255)];
+  const {r,g,b} = c;
+  if (r && g && b) {
+    return [parseInt(parseFloat(c.r)*255), parseInt(parseFloat(c.g)*255), parseInt(parseFloat(c.b)*255)];
+  }
+  return [parseInt(parseFloat(c[0])*255), parseInt(parseFloat(c[1])*255), parseInt(parseFloat(c[2])*255)];
 }
 const GuiColorToRGBObj = (c) => {
+  const {r,g,b} = c;
+  if (r && g && b) {
+    return {
+      r: parseFloat(c.r)/255.0, 
+      g: parseFloat(c.g)/255.0, 
+      b: parseFloat(c.b)/255.0
+    };
+  }
+
   return {
-    r: c[0]/255.0, 
-    g: c[1]/255.0, 
-    b: c[2]/255.0
+    r: parseFloat(c[0])/255.0, 
+    g: parseFloat(c[1])/255.0, 
+    b: parseFloat(c[2])/255.0
   };
 }
 
@@ -52,6 +68,7 @@ class ControlPanel {
     
     this.currFolder = null;
     this.shapeSettingsFolder = null;
+    this.sceneSettingsFolder = null;
 
     this.animatorTypeController = this.gui.add(this.settings, 'animatorType', [
       VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR,
@@ -68,6 +85,7 @@ class ControlPanel {
         this.gui.removeFolder(this.currFolder);
         this.currFolder = null;
         this.shapeSettingsFolder = null;
+        this.sceneSettingsFolder = null;
       }
 
       switch (value) {
@@ -181,6 +199,16 @@ class ControlPanel {
 
       sceneSettings: {
         sceneType: this.sceneAnimatorConfig.sceneType,
+        simpleSceneOptions: {...SimpleScene.defaultOptions(),
+          ambientLightColour: THREEColorToGuiColor(this.sceneAnimatorConfig.sceneOptions.ambientLightColour)
+        },
+        textureSceneOptions: {...TextureScene.defaultOptions(),
+          ambientLightColour: THREEColorToGuiColor(this.sceneAnimatorConfig.sceneOptions.ambientLightColour)
+        },
+        shadowSceneOptions: {...ShadowScene.defaultOptions(),
+          ambientLightColour: THREEColorToGuiColor(this.sceneAnimatorConfig.sceneOptions.ambientLightColour),
+          pointLightColour: THREEColorToGuiColor(this.sceneAnimatorConfig.sceneOptions.pointLightColour),
+        },
       },
 
       soundVizSettings: {
@@ -208,6 +236,8 @@ class ControlPanel {
     this.gui.remember(this.settings.fireSettings);
 
     this.gui.remember(this.settings.sceneSettings);
+    this.gui.remember(this.settings.sceneSettings.sceneType);
+    this.gui.remember(this.settings.sceneSettings.sceneOptions);
 
     this.gui.remember(this.settings.soundVizSettings);
   }
@@ -681,18 +711,112 @@ class ControlPanel {
   }
 
   buildSceneAnimatorControls() {
+    
     const {sceneSettings} = this.settings;
+    
     const folder = this.gui.addFolder("Scene Controls");
 
     folder.add(sceneSettings, 'sceneType', SCENE_TYPES).onChange((value) => {
       this.sceneAnimatorConfig.sceneType = value;
-      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-    });
 
+      if (this.sceneSettingsFolder) {
+        folder.removeFolder(this.sceneSettingsFolder);
+        this.sceneSettingsFolder = null;
+      }
+
+      this.sceneSettingsFolder = folder.addFolder("Scene Settings");
+      let sceneTypeOptions = null;
+      
+      switch (value) {
+        case SCENE_TYPE_SIMPLE:
+          this.sceneAnimatorConfig.sceneOptions = {...sceneSettings.simpleSceneOptions};
+          sceneTypeOptions = sceneSettings.simpleSceneOptions;
+
+          break;
+
+        case SCENE_TYPE_TEXTURE:
+          this.sceneAnimatorConfig.sceneOptions = {...sceneSettings.textureSceneOptions};
+          sceneTypeOptions = sceneSettings.textureSceneOptions;
+
+          break;
+
+        case SCENE_TYPE_SHADOW:
+          this.sceneAnimatorConfig.sceneOptions = {...sceneSettings.shadowSceneOptions};
+          sceneTypeOptions = sceneSettings.shadowSceneOptions;
+
+          const boxSizeFolder = this.sceneSettingsFolder.addFolder("Moving Box Size");
+          boxSizeFolder.add(sceneTypeOptions.movingBoxSize, 'x', 0.5, 5, 0.25).onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.movingBoxSize.x = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.movingBoxSize.x);
+          boxSizeFolder.add(sceneTypeOptions.movingBoxSize, 'y', 0.5, 5, 0.25).onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.movingBoxSize.y = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.movingBoxSize.y);
+          boxSizeFolder.add(sceneTypeOptions.movingBoxSize, 'z', 0.5, 5, 0.25).onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.movingBoxSize.z = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.movingBoxSize.z);
+          boxSizeFolder.open();
+
+          this.sceneSettingsFolder.add(sceneTypeOptions, 'movingBoxSpeed', 0, 4*Math.PI, 0.1).onChange(value => {
+            this.sceneAnimatorConfig.sceneOptions.movingBoxSpeed = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.movingBoxSpeed);
+
+          const pointLightPosFolder = this.sceneSettingsFolder.addFolder("Point Light Position");
+          pointLightPosFolder.add(sceneTypeOptions.pointLightPosition, 'x', 0, this.voxelDisplay.xSize(), 1).onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.pointLightPosition.x = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.pointLightPosition.x);
+          pointLightPosFolder.add(sceneTypeOptions.pointLightPosition, 'y', 0, this.voxelDisplay.ySize(), 1).onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.pointLightPosition.y = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.pointLightPosition.y);
+          pointLightPosFolder.add(sceneTypeOptions.pointLightPosition, 'z', 0, this.voxelDisplay.zSize(), 1).onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.pointLightPosition.z = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.pointLightPosition.z);
+          pointLightPosFolder.open();
+
+
+          const pointLightAttenFolder = this.sceneSettingsFolder.addFolder("Point Light Attenuation");
+          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'quadratic', 0, 1, 0.01).onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.pointLightAtten.quadratic = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.pointLightAtten.quadratic);
+          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'linear', 0, 1, 0.01).onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.pointLightAtten.linear = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.pointLightAtten.linear);
+          pointLightAttenFolder.open();
+
+          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'pointLightColour').onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.pointLightColour = GuiColorToRGBObj(value);
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.pointLightColour);
+
+          break;
+
+        default:
+          break;
+      }
+
+      if (sceneTypeOptions) {
+        this.sceneSettingsFolder.addColor(sceneTypeOptions, 'ambientLightColour').onChange((value) => {
+          this.sceneAnimatorConfig.sceneOptions.ambientLightColour = GuiColorToRGBObj(value);
+          this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+        }).setValue(sceneTypeOptions.ambientLightColour);
+      }
+
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+      this.sceneSettingsFolder.open();
+    }).setValue(sceneSettings.sceneType);
 
     folder.open();
 
     return folder;
+    
   }
 
   buildSoundVizAnimatorControls() {

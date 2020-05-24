@@ -1,10 +1,8 @@
 import * as THREE from 'three';
-import {VOXEL_EPSILON, clamp} from '../MathUtils';
 
 export const defaultAttenuation = {
   quadratic:0, 
   linear:1, 
-  constant:0
 };
 
 class VTPointLight {
@@ -17,17 +15,17 @@ class VTPointLight {
   dispose() {}
 
   emission(distance) {
+    // TODO: This can blow out a colour... maybe map it to a spectrum or something when we want to get fancy?
     const emissionColour = this.colour.clone().multiplyScalar(this.calculateAttenuation(distance));
-    emissionColour.setRGB(clamp(emissionColour.r, 0, 1), clamp(emissionColour.g, 0, 1), clamp(emissionColour.b, 0, 1));
+    emissionColour.setRGB(emissionColour.r, emissionColour.g, emissionColour.b);
     return emissionColour;
   }
 
   calculateAttenuation(distance) {
-    const d = Math.max(VOXEL_EPSILON, distance);
-    return this.attenuation.quadratic/(d*d) + this.attenuation.linear/d + this.attenuation.constant;
+    return 1.0 / (this.attenuation.quadratic*distance*distance + this.attenuation.linear*distance + 1.0); // Always in [0,1]
   }
 
-  calculateVoxelColour(voxelPt, scene) {
+  calculateVoxelColour(voxelPt, scene=null) {
     const d = this.position.distanceTo(voxelPt);
     return this.emission(d);
   }

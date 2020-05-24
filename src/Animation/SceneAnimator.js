@@ -18,6 +18,7 @@ export const SCENE_TYPES = [
 
 export const sceneAnimatorDefaultConfig = {
   sceneType: SCENE_TYPE_SHADOW,
+  sceneOptions: ShadowScene.defaultOptions(),
 };
 
 class SceneAnimator extends VoxelAnimator {
@@ -34,16 +35,16 @@ class SceneAnimator extends VoxelAnimator {
     if (!this.scene) {
       this.scene = new VTScene(this.voxelModel);
       this.sceneMap = {
-        [SCENE_TYPE_SIMPLE]: new SimpleScene(this.scene, this.voxelModel),
+        [SCENE_TYPE_SIMPLE]:  new SimpleScene(this.scene, this.voxelModel),
         [SCENE_TYPE_TEXTURE]: new TextureScene(this.scene, this.voxelModel),
-        [SCENE_TYPE_SHADOW]: new ShadowScene(this.scene, this.voxelModel),
+        [SCENE_TYPE_SHADOW]:  new ShadowScene(this.scene, this.voxelModel),
       };
     }
 
-    const {sceneType} = c;
+    const {sceneType, sceneOptions} = c;
     const currScene = this.sceneMap[sceneType];
     if (currScene) {
-      currScene.rebuild();
+      currScene.rebuild(sceneOptions);
     }
     else {
       console.error("Invalid scene type: " + sceneType);

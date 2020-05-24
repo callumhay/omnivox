@@ -18,6 +18,7 @@
     "bufferutil": "^4.0.1",
     "canvas": "^2.6.1",
     "express": "^4.17.1",
+    "fs": "0.0.1-security",
     "get-pixels": "^3.3.2",
     "three": "^0.113.2",
     "utf-8-validate": "^5.0.2"

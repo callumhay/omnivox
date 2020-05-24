@@ -8,6 +8,9 @@ const commonConfig = {
   optimization: {
     minimize: true,
   },
+  node: {
+    fs: 'empty',
+  },
 };
 
 

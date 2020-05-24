@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import fs from 'fs';
 
 import SceneRenderer from './SceneRenderer';
 
@@ -8,27 +9,49 @@ import VTLambertMaterial from '../VTLambertMaterial';
 import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';
 
+export const textureSceneDefaultOptions = {
+  sphereRadius: 2,
+  pointLightMovementRadius: 4,
+  pointLightsSpd: Math.PI/3,
+  ambientLightColour: {r:0.1, g:0.1, b:0.1},
+  pointLightColour: {r:1, g:1, b:1},
+  pointLightAtten: {quadratic:0, linear:0},
+  textureFilename: "uv_test_grid.jpg",
+};
+
 class TextureScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
     this._objectsBuilt = false;
   }
 
+  static defaultOptions() { return textureSceneDefaultOptions; }
+
   clear() {
     super.clear();
     this._objectsBuilt = false;
   }
 
-  build() {
+  build(options) {
     if (!this._objectsBuilt) {
-      this.sphereGeometry = new THREE.SphereBufferGeometry(2, 10, 10);
+      const {sphereRadius, ambientLightColour, pointLightColour, pointLightAtten, textureFilepath} = options;
+
+      this.sphereGeometry = new THREE.SphereBufferGeometry(sphereRadius, 10, 10);
       this.sphereGeometry.translate(this.voxelModel.xSize()/2, this.voxelModel.ySize()/2, this.voxelModel.zSize()/2);
 
-      this.sphereTexture = new VTTexture("dist/textures/uv_test_grid.jpg");
+      let textureFileToUse = "dist/textures/uv_test_grid.jpg";
+      if (fs.existsSync("dist/textures/" + textureFilepath)) {
+        textureFileToUse = textureFilepath;
+      }
+      this.sphereTexture = new VTTexture(textureFileToUse);
 
       this.sphereMesh = new VTMesh(this.sphereGeometry, new VTLambertMaterial(new THREE.Color(1,1,1), this.sphereTexture));
-      this.ptLight = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(1,1,1), {quadratic: 0, linear:2, constant:0});
-      this.ambientLight = new VTAmbientLight(new THREE.Color(0.1,0.1,0.1));
+      this.ptLight = new VTPointLight(
+        new THREE.Vector3(0,0,0), 
+        new THREE.Color(pointLightColour.r, pointLightColour.g, pointLightColour.b), 
+        {...pointLightAtten}
+      );
+      this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
 
       this._objectsBuilt = true;
     }
@@ -43,12 +66,15 @@ class TextureScene extends SceneRenderer {
       return;
     }
 
-    // Move lights around in circles...
-    const RADIUS = this.voxelModel.xSize()/2;
-    const ANGULAR_VEL = Math.PI/3;
+    const {pointLightMovementRadius, pointLightsSpd} = this._options;
 
-    const t = this.timeCounter*ANGULAR_VEL;
-    this.ptLight.position.set((RADIUS-1)*Math.cos(t)+RADIUS, RADIUS, (RADIUS-1)*Math.sin(t)+RADIUS);
+    // Move lights around in circles...
+    const centerX = this.voxelModel.xSize()/2;
+    const centerY = this.voxelModel.ySize()/2;
+    const centerZ = this.voxelModel.zSize()/2;
+
+    const t = this.timeCounter*pointLightsSpd;
+    this.ptLight.position.set(pointLightMovementRadius*Math.cos(t) + centerX, centerY, pointLightMovementRadius*Math.sin(t) + centerZ);
 
     this.scene.render(dt);
 

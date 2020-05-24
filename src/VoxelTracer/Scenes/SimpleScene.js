@@ -8,26 +8,41 @@ import VTLambertMaterial from '../VTLambertMaterial';
 import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';
 
+export const simpleSceneDefaultOptions = {
+  sphereRadius: 2,
+  pointLightsSpd: Math.PI/1.5,
+  ambientLightColour: {r:0.1, g:0.1, b:0.1},
+  pointLight1Colour: {r:1, g:0, b:0},
+  pointLight2Colour: {r:0, g:1, b:0},
+  pointLight3Colour: {r:0, g:0, b:1},
+  pointLightAtten: {quadratic:0, linear:0},
+};
+
 class SimpleScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
     this._objectsBuilt = false;
   }
 
+  static defaultOptions() { return simpleSceneDefaultOptions; }
+
   clear() {
     super.clear();
     this._objectsBuilt = false;
   }
 
-  build() {
+  build(options) {
     if (!this._objectsBuilt) {
-      this.sphereGeometry = new THREE.SphereBufferGeometry(2, 20, 20);
+
+      const {sphereRadius, ambientLightColour, pointLight1Colour, pointLight2Colour, pointLight3Colour, pointLightAtten} = options;
+
+      this.sphereGeometry = new THREE.SphereBufferGeometry(sphereRadius, 20, 20);
       this.sphereGeometry.translate(this.voxelModel.xSize()/2, this.voxelModel.ySize()/2, this.voxelModel.zSize()/2);
       this.sphereMesh = new VTMesh(this.sphereGeometry, new VTLambertMaterial(new THREE.Color(1,1,1), null));
-      this.ptLight1 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(1,0,0), {quadratic: 0, linear:3, constant:0});
-      this.ptLight2 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(0,1,0), {quadratic: 0, linear:3, constant:0});
-      this.ptLight3 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(0,0,1), {quadratic: 0, linear:3, constant:0});
-      this.ambientLight = new VTAmbientLight(new THREE.Color(0.2,0.2,0.2));
+      this.ptLight1 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight1Colour.r, pointLight1Colour.g, pointLight1Colour.b), {...pointLightAtten});
+      this.ptLight2 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight2Colour.r, pointLight2Colour.g, pointLight2Colour.b), {...pointLightAtten});
+      this.ptLight3 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight3Colour.r, pointLight3Colour.g, pointLight3Colour.b), {...pointLightAtten});
+      this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
 
       this._objectsBuilt = true;
     }
@@ -44,11 +59,12 @@ class SimpleScene extends SceneRenderer {
       return;
     }
 
+    const {pointLightsSpd} = this._options;
+
     // Move lights around in circles...
     const RADIUS = this.voxelModel.xSize()/2;
-    const ANGULAR_VEL = Math.PI;
 
-    const t = this.timeCounter*ANGULAR_VEL;
+    const t = this.timeCounter*pointLightsSpd;
     this.ptLight1.position.set((RADIUS-1)*Math.cos(t)+RADIUS, RADIUS, (RADIUS-1)*Math.sin(t)+RADIUS);
     this.ptLight2.position.set(RADIUS, (RADIUS-1)*Math.cos(t)+RADIUS, (RADIUS-1)*Math.sin(t)+RADIUS);
     this.ptLight3.position.set((RADIUS-1)*Math.sin(t)+RADIUS, (RADIUS-1)*Math.cos(t)+RADIUS, RADIUS);

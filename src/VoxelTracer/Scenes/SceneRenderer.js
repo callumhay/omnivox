@@ -6,13 +6,15 @@ class SceneRenderer {
   }
   clear() {
     this.scene.clear();
+    this._options = null;
   }
   
   build() {}
 
-  rebuild() {
+  rebuild(options) {
     this.clear();
-    this.build();
+    this.build(options);
+    this._options = options;
   }
 }
 
