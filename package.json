@@ -15,27 +15,27 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@serialport/bindings": "^8.0.8",
     "bufferutil": "^4.0.1",
     "canvas": "^2.6.1",
+    "cobs": "^0.2.1",
+    "dat.gui": "^0.7.7",
     "express": "^4.17.1",
     "fs": "0.0.1-security",
     "get-pixels": "^3.3.2",
-    "three": "^0.113.2",
-    "utf-8-validate": "^5.0.2"
-  },
-  "devDependencies": {
-    "@serialport/bindings": "^8.0.8",
-    "cobs": "^0.2.1",
-    "dat.gui": "^0.7.7",
-    "dgram": "^1.0.1",
-    "reload": "^3.0.4",
+    "minimist": ">=1.2.3",
     "seedrandom": "^3.0.5",
     "serialport": "^8.0.8",
+    "three": "^0.113.2",
     "three-mesh-bvh": "^0.2.0",
+    "utf-8-validate": "^5.0.2",
+    "ws": "^7.3.0"
+  },
+  "devDependencies": {
     "watch": "^1.0.2",
     "webpack": "^4.43.0",
     "webpack-cli": "^3.3.11",
     "webpack-node-externals": "^1.7.2",
-    "ws": "^7.3.0"
+    "reload": "^3.0.4"
   }
 }
