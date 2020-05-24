@@ -8,8 +8,8 @@ class SceneRenderer {
     this.scene.clear();
     this._options = null;
   }
-  
-  build() {}
+
+  build(options) {}
 
   rebuild(options) {
     this.clear();

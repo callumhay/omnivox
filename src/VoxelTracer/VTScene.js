@@ -41,6 +41,9 @@ class VTScene {
     this.renderables.push(o);
     this.shadowCasters.push(o);
   }
+  addFog(f) {
+    this.addObject(f);
+  }
 
   calculateLightingSamples(samples, material) {
     const finalColour = new THREE.Color(0,0,0);
@@ -52,17 +55,14 @@ class VTScene {
 
     for (let i = 0; i < samples.length; i++) {
       const {point, normal, uv, falloff} = samples[i];
-
       sampleLightContrib.set(0,0,0);
-
-      // We want the maximum light contribution from all the samples...
 
       for (let j = 0; j < this.lights.length; j++) {
         const light = this.lights[j];
 
         nObjToLightVec.set(light.position.x, light.position.y, light.position.z);
         nObjToLightVec.sub(point);
-        const distanceToLight = Math.max(VOXEL_EPSILON, nObjToLightVec.length() - VOXEL_EPSILON);
+        const distanceToLight = Math.max(VOXEL_EPSILON, nObjToLightVec.length());
         nObjToLightVec.divideScalar(distanceToLight);
 
         // Early out - is the light vector in the same hemisphere as the normal?
@@ -76,12 +76,20 @@ class VTScene {
         raycaster.near = VOXEL_EPSILON;
         raycaster.far  = distanceToLight;
 
-        const intersectedObjects = this.intersectsShadowcasters(raycaster);
-        if (intersectedObjects.length === 0) {
+        let lightMultiplier = 1.0;
+        
+        for (let k = 0; k < this.shadowCasters.length; k++) {
+          const shadowCaster = this.shadowCasters[k];
+          const shadowCasterResult = shadowCaster.calculateShadow(raycaster);
+          if (shadowCasterResult.inShadow) {
+            lightMultiplier -= shadowCasterResult.lightReduction;
+          }
+        }
+        
 
-          // Not in shadow, do the lighting
-          //console.log(distanceToLight);
-          const lightEmission = light.emission(distanceToLight);
+        if (lightMultiplier > 0) {
+          // The voxel is not in total shadow, do the lighting
+          const lightEmission = light.emission(distanceToLight).multiplyScalar(lightMultiplier*falloff);
           const materialLightingColour = material.brdf(nObjToLightVec, normal, uv, lightEmission);
           sampleLightContrib.add(materialLightingColour.multiplyScalar(falloff));
         }
@@ -101,17 +109,6 @@ class VTScene {
     }
 
     return finalColour;
-  }
-
-  intersectsShadowcasters(raycaster) {
-    // TODO: Acceleration structure (BVH/Octree) !!!
-    const result = [];
-    this.shadowCasters.forEach(shadowCaster => {
-      if (shadowCaster.intersectsRay(raycaster)) {
-        result.push(shadowCaster);
-      }
-    });
-    return result;
   }
 
   render(dt) {
@@ -136,6 +133,7 @@ class VTScene {
       voxelIndexPoints.forEach(pt => this.voxelModel.drawPoint(pt, new THREE.Color(1,1,1)));
     });
     */
+
     for (let i = 0; i < visibleRenderables.length; i++) {
       const renderable = visibleRenderables[i];
 

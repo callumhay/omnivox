@@ -144,6 +144,13 @@ class VTMesh {
   get position() { return this._threeMesh.position; }
   updateMatrixWorld() { this._threeMesh.updateMatrixWorld(); }
 
+  calculateShadow(raycaster) {
+    return {
+      inShadow: this.intersectsRay(raycaster),
+      lightReduction: 1.0, // [0,1]: 1 => Completely black out the light if a voxel is in shadow from this object
+    };
+  }
+
   calculateVoxelColour(voxelIdxPt, scene) {
     const voxelBoundingBox = scene.voxelModel.getVoxelBoundingBox(voxelIdxPt);
     voxelBoundingBox.getCenter(this._voxelCenterPt);
@@ -262,17 +269,17 @@ class VTMesh {
     return finalColour;
   }
 
-  intersectsBox(voxelBoundingBox) {
-    return this.geometry.boundsTree.intersectsBox(this._threeMesh, voxelBoundingBox, new THREE.Matrix4());
+  intersectsBox(box) {
+    return this.geometry.boundsTree.intersectsBox(this._threeMesh, box, new THREE.Matrix4());
   }
 
   intersectsRay(raycaster) {
+    //return this.geometry.boundsTree.raycastFirst(this._threeMesh, raycaster, raycaster.ray) !== null;
     raycaster.firstHitOnly = true;
     return raycaster.intersectObjects([this._threeMesh]).length > 0;
   }
 
   getCollidingVoxels(voxelModel) {
-
     const worldSpaceBB = this.geometry.boundingBox.clone().applyMatrix4(this._threeMesh.matrixWorld);
     return voxelModel.voxelBoxList(worldSpaceBB.min, worldSpaceBB.max, true);
   }

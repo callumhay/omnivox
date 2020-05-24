@@ -10,9 +10,8 @@ import {fireAnimatorDefaultConfig} from '../Animation/FireAnimator';
 import {sceneAnimatorDefaultConfig, SCENE_TYPES, SCENE_TYPE_SIMPLE, SCENE_TYPE_TEXTURE, SCENE_TYPE_SHADOW} from '../Animation/SceneAnimator';
 import {ColourSystems} from '../Spectrum';
 
-import SimpleScene from '../VoxelTracer/Scenes/SimpleScene';
-import TextureScene from '../VoxelTracer/Scenes/TextureScene';
-import ShadowScene from '../VoxelTracer/Scenes/ShadowScene';
+import SimpleScene, {simpleSceneDefaultOptions} from '../VoxelTracer/Scenes/SimpleScene';
+import ShadowScene, { shadowSceneDefaultOptions } from '../VoxelTracer/Scenes/ShadowScene';
 
 const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
 const VOXEL_COLOUR_SHAPE_TYPE_SPHERE = "Sphere";
@@ -24,22 +23,9 @@ const VOXEL_COLOUR_SHAPE_TYPES = [
 ];
 
 const THREEColorToGuiColor = (c) => {
-  const {r,g,b} = c;
-  if (r && g && b) {
-    return [parseInt(parseFloat(c.r)*255), parseInt(parseFloat(c.g)*255), parseInt(parseFloat(c.b)*255)];
-  }
-  return [parseInt(parseFloat(c[0])*255), parseInt(parseFloat(c[1])*255), parseInt(parseFloat(c[2])*255)];
+  return [parseInt(c.r*255),parseInt(c.g*255),parseInt(c.b*255)];
 }
 const GuiColorToRGBObj = (c) => {
-  const {r,g,b} = c;
-  if (r && g && b) {
-    return {
-      r: parseFloat(c.r)/255.0, 
-      g: parseFloat(c.g)/255.0, 
-      b: parseFloat(c.b)/255.0
-    };
-  }
-
   return {
     r: parseFloat(c[0])/255.0, 
     g: parseFloat(c[1])/255.0, 
@@ -62,6 +48,7 @@ class ControlPanel {
     this.gameOfLifeAnimatorConfig = {...gameOfLifeAnimatorDefaultConfig};
     this.fireAnimatorConfig = {...fireAnimatorDefaultConfig};
     this.sceneAnimatorConfig = {...sceneAnimatorDefaultConfig};
+    this.sceneAnimatorConfig.sceneOptions = {...sceneAnimatorDefaultConfig.sceneOptions};
     this.soundVizAnimatorConfig = {};
 
     this.reloadSettings();
@@ -199,21 +186,24 @@ class ControlPanel {
 
       sceneSettings: {
         sceneType: this.sceneAnimatorConfig.sceneType,
-        simpleSceneOptions: {...SimpleScene.defaultOptions(),
-          ambientLightColour: THREEColorToGuiColor(this.sceneAnimatorConfig.sceneOptions.ambientLightColour)
+        simpleSceneOptions: {...simpleSceneDefaultOptions,
+          ambientLightColour: THREEColorToGuiColor(simpleSceneDefaultOptions.ambientLightColour),
+          pointLight1Colour:  THREEColorToGuiColor(simpleSceneDefaultOptions.pointLight1Colour),
+          pointLight2Colour:  THREEColorToGuiColor(simpleSceneDefaultOptions.pointLight2Colour),
+          pointLight3Colour:  THREEColorToGuiColor(simpleSceneDefaultOptions.pointLight3Colour),
+          sphereColour:       THREEColorToGuiColor(simpleSceneDefaultOptions.sphereColour),
+          wallColour:         THREEColorToGuiColor(simpleSceneDefaultOptions.wallColour),
         },
-        textureSceneOptions: {...TextureScene.defaultOptions(),
-          ambientLightColour: THREEColorToGuiColor(this.sceneAnimatorConfig.sceneOptions.ambientLightColour)
-        },
-        shadowSceneOptions: {...ShadowScene.defaultOptions(),
-          ambientLightColour: THREEColorToGuiColor(this.sceneAnimatorConfig.sceneOptions.ambientLightColour),
-          pointLightColour: THREEColorToGuiColor(this.sceneAnimatorConfig.sceneOptions.pointLightColour),
-        },
+        shadowSceneOptions: {...shadowSceneDefaultOptions,
+          ambientLightColour: THREEColorToGuiColor(shadowSceneDefaultOptions.ambientLightColour),
+          pointLightColour: THREEColorToGuiColor(shadowSceneDefaultOptions.pointLightColour),
+        }
       },
 
       soundVizSettings: {
       },
     };
+
 
     this.gui.remember(this.settings);
     
@@ -237,7 +227,8 @@ class ControlPanel {
 
     this.gui.remember(this.settings.sceneSettings);
     this.gui.remember(this.settings.sceneSettings.sceneType);
-    this.gui.remember(this.settings.sceneSettings.sceneOptions);
+    this.gui.remember(this.settings.sceneSettings.simpleSceneOptions);
+    this.gui.remember(this.settings.sceneSettings.shadowSceneOptions);
 
     this.gui.remember(this.settings.soundVizSettings);
   }
@@ -717,8 +708,7 @@ class ControlPanel {
     const folder = this.gui.addFolder("Scene Controls");
 
     folder.add(sceneSettings, 'sceneType', SCENE_TYPES).onChange((value) => {
-      this.sceneAnimatorConfig.sceneType = value;
-
+      
       if (this.sceneSettingsFolder) {
         folder.removeFolder(this.sceneSettingsFolder);
         this.sceneSettingsFolder = null;
@@ -727,23 +717,78 @@ class ControlPanel {
       this.sceneSettingsFolder = folder.addFolder("Scene Settings");
       let sceneTypeOptions = null;
       
+      this.sceneAnimatorConfig.sceneType = value;
       switch (value) {
         case SCENE_TYPE_SIMPLE:
-          this.sceneAnimatorConfig.sceneOptions = {...sceneSettings.simpleSceneOptions};
           sceneTypeOptions = sceneSettings.simpleSceneOptions;
+          this.sceneAnimatorConfig.sceneOptions = {...sceneTypeOptions};
+          
+          this.sceneSettingsFolder.add(sceneTypeOptions, 'sphereRadius', 0.5, 5, 0.25).onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.sphereRadius = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.sphereRadius);
+          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'sphereColour').onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.sphereColour = GuiColorToRGBObj(value);
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.sphereColour);
+          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'wallColour').onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.wallColour = GuiColorToRGBObj(value);
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.wallColour);
+
+          this.sceneSettingsFolder.add(sceneTypeOptions, 'wallX').onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.wallX = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.wallX);
+          this.sceneSettingsFolder.add(sceneTypeOptions, 'wallY').onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.wallY = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.wallY);
+          this.sceneSettingsFolder.add(sceneTypeOptions, 'wallZ').onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.wallZ = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.wallZ);
+
+          this.sceneSettingsFolder.add(sceneTypeOptions, 'textureFilename').onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.textureFilename = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.textureFilename);
+
+          this.sceneSettingsFolder.add(sceneTypeOptions, 'pointLightsSpd', 0, Math.PI*6, Math.PI/6).onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.pointLightsSpd = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.pointLightsSpd);
+          
+          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'pointLight1Colour').onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.pointLight1Colour = GuiColorToRGBObj(value);
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.pointLight1Colour);
+          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'pointLight2Colour').onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.pointLight2Colour = GuiColorToRGBObj(value);
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.pointLight2Colour);
+          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'pointLight3Colour').onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.pointLight3Colour = GuiColorToRGBObj(value);
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.pointLight3Colour);
+
+          const pointLightAttenFolder = this.sceneSettingsFolder.addFolder("Point Light Attenuation");
+          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'quadratic', 0, 10, 0.01).onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.pointLightAtten.quadratic = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.pointLightAtten.quadratic);
+          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'linear', 0, 10, 0.01).onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.pointLightAtten.linear = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.pointLightAtten.linear);
+          pointLightAttenFolder.open();
 
           break;
 
-        case SCENE_TYPE_TEXTURE:
-          this.sceneAnimatorConfig.sceneOptions = {...sceneSettings.textureSceneOptions};
-          sceneTypeOptions = sceneSettings.textureSceneOptions;
-
-          break;
-
-        case SCENE_TYPE_SHADOW:
-          this.sceneAnimatorConfig.sceneOptions = {...sceneSettings.shadowSceneOptions};
+        case SCENE_TYPE_SHADOW: {
           sceneTypeOptions = sceneSettings.shadowSceneOptions;
-
+          this.sceneAnimatorConfig.sceneOptions = {...sceneTypeOptions};
+          
           const boxSizeFolder = this.sceneSettingsFolder.addFolder("Moving Box Size");
           boxSizeFolder.add(sceneTypeOptions.movingBoxSize, 'x', 0.5, 5, 0.25).onChange((value) => {
             this.sceneAnimatorConfig.sceneOptions.movingBoxSize.x = value;
@@ -779,9 +824,8 @@ class ControlPanel {
           }).setValue(sceneTypeOptions.pointLightPosition.z);
           pointLightPosFolder.open();
 
-
           const pointLightAttenFolder = this.sceneSettingsFolder.addFolder("Point Light Attenuation");
-          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'quadratic', 0, 1, 0.01).onChange((value) => {
+          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'quadratic', 0, 1, 0.001).onChange((value) => {
             this.sceneAnimatorConfig.sceneOptions.pointLightAtten.quadratic = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
           }).setValue(sceneTypeOptions.pointLightAtten.quadratic);
@@ -797,26 +841,28 @@ class ControlPanel {
           }).setValue(sceneTypeOptions.pointLightColour);
 
           break;
+        }
 
         default:
           break;
       }
 
-      if (sceneTypeOptions) {
+      if (sceneTypeOptions && sceneTypeOptions.ambientLightColour) {
         this.sceneSettingsFolder.addColor(sceneTypeOptions, 'ambientLightColour').onChange((value) => {
           this.sceneAnimatorConfig.sceneOptions.ambientLightColour = GuiColorToRGBObj(value);
           this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
         }).setValue(sceneTypeOptions.ambientLightColour);
       }
 
+      
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+      
       this.sceneSettingsFolder.open();
     }).setValue(sceneSettings.sceneType);
 
     folder.open();
 
     return folder;
-    
   }
 
   buildSoundVizAnimatorControls() {
