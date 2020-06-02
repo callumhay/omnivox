@@ -124,14 +124,11 @@ class VoxelClient {
       this.socket.send(VoxelProtocol.buildClientPacketStr(VoxelProtocol.VOXEL_CLEAR_COMMAND_HEADER, null, {r: r, g: g, b: b}));
     }
   }
-  /*
-  sendRequestForDebugFramebuffer() {
+  sendAudioInfo(audioInfo) {
     if (this.socket.readyState === WebSocket.OPEN) {
-      this.socket.send(VoxelProtocol.buildClientPacketStr(VoxelProtocol.SCENE_REQUEST_HEADER, null, {}));
+      this.socket.send(VoxelProtocol.buildClientPacketStrAudio(audioInfo));
     }
   }
-  */
-
 }
 
 export default VoxelClient;

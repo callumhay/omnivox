@@ -2,15 +2,20 @@ import * as THREE from 'three';
 import {clamp} from '../MathUtils';
 
 class VTLambertMaterial {
-  constructor(colour, texture=null) {
+  constructor(colour, alpha=1, texture=null) {
     this.colour = colour ? colour : new THREE.Color(1,1,1);
+    this.alpha = alpha;
     this.texture = texture;
   }
 
   dispose() {}
 
+  isVisible() {
+    return Math.round(this.alpha*255) >= 1;
+  }
+
   albedo(uv) {
-    const albedoColour = this.colour.clone();
+    const albedoColour = this.colour.clone().multiplyScalar(this.alpha);
     if (uv && this.texture && this.texture.isLoaded()) {
       albedoColour.multiply(this.texture.sample(uv));
     }

@@ -1,4 +1,3 @@
-
 import * as THREE from 'three';
 
 import SceneRenderer from './SceneRenderer';
@@ -7,7 +6,6 @@ import VTMesh from '../VTMesh';
 import VTLambertMaterial from '../VTLambertMaterial';
 import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';
-import { simpleSceneDefaultOptions } from './SimpleScene';
 
 export const shadowSceneDefaultOptions = {
   movingBoxSize: {x: 1.5, y:2, z:1.5},
@@ -33,11 +31,11 @@ class ShadowScene extends SceneRenderer {
   build(options) {
     if (!this._objectsBuilt) {
 
-      const movingBoxSize = options.movingBoxSize ? options.movingBoxSize : simpleSceneDefaultOptions.movingBoxSize;
-      const ambientLightColour = options.ambientLightColour ? options.ambientLightColour : simpleSceneDefaultOptions.ambientLightColour;
-      const pointLightColour = options.pointLightColour ? options.pointLightColour : simpleSceneDefaultOptions.pointLightColour;
-      const pointLightPosition = options.pointLightPosition ? options.pointLightPosition : simpleSceneDefaultOptions.pointLightPosition;
-      const pointLightAtten = options.pointLightAtten ? options.pointLightAtten : simpleSceneDefaultOptions.pointLightAtten;
+      const movingBoxSize = options.movingBoxSize ? options.movingBoxSize : shadowSceneDefaultOptions.movingBoxSize;
+      const ambientLightColour = options.ambientLightColour ? options.ambientLightColour : shadowSceneDefaultOptions.ambientLightColour;
+      const pointLightColour = options.pointLightColour ? options.pointLightColour : shadowSceneDefaultOptions.pointLightColour;
+      const pointLightPosition = options.pointLightPosition ? options.pointLightPosition : shadowSceneDefaultOptions.pointLightPosition;
+      const pointLightAtten = options.pointLightAtten ? options.pointLightAtten : shadowSceneDefaultOptions.pointLightAtten;
 
       this.timeCounter = 0;
 
@@ -74,20 +72,17 @@ class ShadowScene extends SceneRenderer {
       return;
     }
 
-    const movingBoxSpeed = this._options.movingBoxSpeed ? this._options.movingBoxSpeed : simpleSceneDefaultOptions.movingBoxSpeed;
+    const movingBoxSpeed = this._options.movingBoxSpeed ? this._options.movingBoxSpeed : shadowSceneDefaultOptions.movingBoxSpeed;
 
     const halfXSize = this.voxelModel.xSize()/2;
     const halfYSize = this.voxelModel.ySize()/2;
     const halfZSize = this.voxelModel.zSize()/2;
-
-    // Move lights around in circles...
     const RADIUS = halfXSize-1.5;
     const t = this.timeCounter*movingBoxSpeed;
-
     this.movingBoxMesh.position.set((RADIUS)*Math.cos(t) + halfXSize, halfYSize-1, (RADIUS)*Math.sin(t) + halfZSize);
     this.movingBoxMesh.updateMatrixWorld();
 
-    this.scene.render(dt);
+    this.scene.render();
 
     this.timeCounter += dt;
   }

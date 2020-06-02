@@ -8,6 +8,7 @@ import SoundController from './SoundController';
 
 // Setup THREE library boilerplate for getting a scene + camera + basic controls up and running
 const renderer = new THREE.WebGLRenderer();
+renderer.autoClear = false;
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
@@ -39,11 +40,14 @@ const originalWindowHeight = window.innerHeight;
 // -----------------------------------------------------------------------------
 window.addEventListener('resize', onWindowResize, false);
 function onWindowResize(event) {
+
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.fov = (360 / Math.PI) * Math.atan(originalTanFOV * (window.innerHeight / originalWindowHeight));
-
   camera.updateProjectionMatrix();
   camera.lookAt(scene.position);
+
+  soundController.windowResize(originalTanFOV, originalWindowHeight);
+
   controls.update();
 
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -54,8 +58,16 @@ function onWindowResize(event) {
 let frameCount = 0;
 const render = function () {
   requestAnimationFrame(render);
+
+  // Updates for controls/sound/etc.
   controls.update();
+  soundController.sample(voxelClient);
+  
+  // Rendering
+  renderer.clear();
   renderer.render(scene, camera);
+  soundController.render(renderer);
+  
   frameCount++;
 };
 render();

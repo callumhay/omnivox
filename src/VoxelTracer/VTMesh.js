@@ -152,7 +152,15 @@ class VTMesh {
   }
 
   calculateVoxelColour(voxelIdxPt, scene) {
-    const voxelBoundingBox = scene.voxelModel.getVoxelBoundingBox(voxelIdxPt);
+
+    let finalColour = new THREE.Color(0,0,0);
+
+    // Fast-out if we can't even see this mesh
+    if (!this.material.isVisible()) {
+      return finalColour;
+    }
+
+    const voxelBoundingBox = scene.voxelModel.calcVoxelBoundingBox(voxelIdxPt);
     voxelBoundingBox.getCenter(this._voxelCenterPt);
 
     const furthestPossibleDistFromCenter = SQRT3*Math.SQRT1_2;
@@ -197,7 +205,7 @@ class VTMesh {
       }
     );
 
-    let finalColour = new THREE.Color(0,0,0);
+    
     if (voxelTriangles.length > 0) {
 
       const indexAttr  = this.geometry.index;
@@ -279,9 +287,9 @@ class VTMesh {
     return raycaster.intersectObjects([this._threeMesh]).length > 0;
   }
 
-  getCollidingVoxels(voxelModel) {
+  getCollidingVoxels() {
     const worldSpaceBB = this.geometry.boundingBox.clone().applyMatrix4(this._threeMesh.matrixWorld);
-    return voxelModel.voxelBoxList(worldSpaceBB.min, worldSpaceBB.max, true);
+    return VoxelModel.voxelBoxList(worldSpaceBB.min, worldSpaceBB.max, true);
   }
 }
 

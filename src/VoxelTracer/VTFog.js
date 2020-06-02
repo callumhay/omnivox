@@ -3,18 +3,21 @@ import * as THREE from 'three';
 import {VOXEL_EPSILON, clamp} from '../MathUtils';
 
 export const fogDefaultOptions = {
-  scattering: 0.1, // The amount of light reduction per voxel travelled through of the fog
+  scattering: 0.1, // The amount of light reduction per voxel travelled through of the fog this must be in [0,1]
   fogColour: new THREE.Color(1,1,1),
 };
 
 class VTFog {
-  constructor(minPt=new THREE.Vector3(2,2,2), maxPt=new THREE.Vector3(5,5,5), options=fogDefaultOptions) {
+  constructor(minPt=new THREE.Vector3(2,2,2), maxPt=new THREE.Vector3(5,5,5), options={...fogDefaultOptions}) {
     this.boundingBox = new THREE.Box3(minPt, maxPt);
-    this._options = options;
+    this.options = options;
 
     // Temporary objects
     this._temp1Vec3 = new THREE.Vector3();
     this._temp2Vec3 = new THREE.Vector3();
+  }
+
+  dispose() {
   }
 
   position(target) { 
@@ -32,30 +35,49 @@ class VTFog {
       lightReduction: 0,
     };
 
-    // Calculate the distance the ray travels through this fog (if at all)
-    const intersect1Result = raycaster.ray.intersectBox(this.boundingBox, this._temp1Vec3);
-    if (intersect1Result !== null) {
-      // Find the next intersection point on the fog box using a ray whose origin is just offset 
-      // from the inside of the box near the first collision point 
-      const insideBoxRay = raycaster.ray.clone();
-      insideBoxRay.origin.set(this._temp1Vec3.x, this._temp1Vec3.y, this._temp1Vec3.z);
-      insideBoxRay.origin.add(insideBoxRay.direction.clone().multiplyScalar(VOXEL_EPSILON));
+    const {ray} = raycaster;
 
-      insideBoxRay.intersectBox(this.boundingBox, this._temp2Vec3);
+    // First check to see if the ray originates inside this fog
+    if (this.boundingBox.containsPoint(ray.origin)) {
+      // The first point is the origin of the ray
+      this._temp1Vec3.copy(ray.origin);
+      // The second point is where the ray intersects the bounding box of the fog
+      result.inShadow = (ray.intersectBox(this.boundingBox, this._temp2Vec3) !== null);
+    }
+    else {
+      // Calculate the distance the ray travels through this fog (if at all)
+      const intersect1Result = ray.intersectBox(this.boundingBox, this._temp1Vec3);
+      if (intersect1Result !== null) {
+        // Find the next intersection point on the fog box using a ray whose origin is just offset 
+        // from the inside of the box near the first collision point 
+        const insideBoxRay = ray.clone();
+        insideBoxRay.origin.set(this._temp1Vec3.x, this._temp1Vec3.y, this._temp1Vec3.z);
+        insideBoxRay.origin.add(insideBoxRay.direction.clone().multiplyScalar(VOXEL_EPSILON));
+        result.inShadow = (insideBoxRay.intersectBox(this.boundingBox, this._temp2Vec3) !== null);
+      }
+    }
 
-      // Calculate the distance between the two intersections, use it to modulate the transimission through the fog
+    if (result.inShadow) {
+      // Calculate the distance the light has travelled, use it to modulate the transimission through the fog
       result.lightReduction = this._options.scattering * this._temp1Vec3.sub(this._temp2Vec3).length();
-      result.inShadow = true;
     }
 
     return result;
   }
 
-  calculateVoxelColour(voxelIdxPt, scene=null) {
+  calculateVoxelColour(voxelIdxPt, scene) {
     const finalColour = new THREE.Color(0,0,0);
     if (this.boundingBox.containsPoint(voxelIdxPt)) {
-      const {scattering, fogColour} = this._options;
-      finalColour.setRGB(clamp(scattering*fogColour.r,0,1), clamp(scattering*fogColour.g,0,1), clamp(scattering*fogColour.b,0,1));
+      const {scattering, fogColour} = this.options;
+
+      // Fog captures light in the scene...
+      const fogLighting = scene.calculateFogLighting(voxelIdxPt);
+      finalColour.setRGB(
+        clamp(scattering*(fogLighting.r * fogColour.r), 0, 1), 
+        clamp(scattering*(fogLighting.g * fogColour.g), 0, 1), 
+        clamp(scattering*(fogLighting.b * fogColour.b), 0, 1)
+      );
+      
     }
 
     return finalColour;
@@ -65,8 +87,8 @@ class VTFog {
     return this.boundingBox.intersectsBox(box);
   }
 
-  getCollidingVoxels(voxelModel) {
-    return voxelModel.voxelBoxList(this.boundingBox.min, this.boundingBox.max, true);
+  getCollidingVoxels() {
+    return VoxelModel.voxelBoxList(this.boundingBox.min, this.boundingBox.max, true);
   }
 }
 

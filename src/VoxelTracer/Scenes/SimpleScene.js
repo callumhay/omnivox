@@ -71,7 +71,7 @@ class SimpleScene extends SceneRenderer {
         this.sphereTexture = null;
       }
 
-      this.sphereMesh = new VTMesh(this.sphereGeometry, new VTLambertMaterial(new THREE.Color(sphereColour.r, sphereColour.g, sphereColour.b), this.sphereTexture || null));
+      this.sphereMesh = new VTMesh(this.sphereGeometry, new VTLambertMaterial(new THREE.Color(sphereColour.r, sphereColour.g, sphereColour.b), 1, this.sphereTexture || null));
       this.ptLight1 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight1Colour.r, pointLight1Colour.g, pointLight1Colour.b), {...pointLightAtten});
       this.ptLight2 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight2Colour.r, pointLight2Colour.g, pointLight2Colour.b), {...pointLightAtten});
       this.ptLight3 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight3Colour.r, pointLight3Colour.g, pointLight3Colour.b), {...pointLightAtten});
@@ -140,7 +140,7 @@ class SimpleScene extends SceneRenderer {
     this.ptLight2.position.set(halfXSize, lightMovementRadius*Math.cos(t) + halfYSize, lightMovementRadius*Math.sin(t) + halfZSize);
     this.ptLight3.position.set(lightMovementRadius*Math.sin(t) + halfXSize, lightMovementRadius*Math.cos(t) + halfYSize, halfZSize);
 
-    this.scene.render(dt);
+    this.scene.render();
 
     this.timeCounter += dt;
   }

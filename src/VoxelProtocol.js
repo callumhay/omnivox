@@ -18,7 +18,7 @@ const VOXEL_ROUTINE_CHANGE_HEADER = "C";
 const VOXEL_ROUTINE_CONFIG_UPDATE_HEADER = "U";
 const VOXEL_ROUTINE_RESET_HEADER = "R";
 const VOXEL_CLEAR_COMMAND_HEADER = "L";
-const SCENE_REQUEST_HEADER = "S";
+const AUDIO_INFO_HEADER = "A";
 
 const PACKET_END = ";";
 
@@ -49,7 +49,7 @@ class VoxelProtocol {
   static get VOXEL_ROUTINE_CONFIG_UPDATE_HEADER() {return VOXEL_ROUTINE_CONFIG_UPDATE_HEADER;}
   static get VOXEL_ROUTINE_RESET_HEADER() {return VOXEL_ROUTINE_RESET_HEADER;}
   static get VOXEL_CLEAR_COMMAND_HEADER() {return VOXEL_CLEAR_COMMAND_HEADER;}
-  static get SCENE_REQUEST_HEADER() {return SCENE_REQUEST_HEADER;}
+  static get AUDIO_INFO_HEADER() {return AUDIO_INFO_HEADER;}
 
   static buildWelcomePacketForSlaves(voxelModel) {
     const packetDataBuf = new Uint8Array(3); // slaveid (1 byte), type (1 byte), y-size (1 byte)
@@ -87,6 +87,14 @@ class VoxelProtocol {
       packetType: packetType,
       voxelAnimType: voxelAnimType,
       config: config,
+    });
+  }
+  static buildClientPacketStrAudio(audioInfo) {
+    return JSON.stringify({
+      packetType: AUDIO_INFO_HEADER,
+      audioInfo: {...audioInfo,
+        fft: Array.apply([], audioInfo.fft)
+      },
     });
   }
   static readClientPacketStr(packetStr, voxelModel, socket) {
@@ -129,13 +137,13 @@ class VoxelProtocol {
         }
         voxelModel.clear(new THREE.Color(config.r, config.g, config.b));
         break;
-/*
-      case SCENE_REQUEST_HEADER:
-        if (voxelModel.currentAnimator && voxelModel.currentAnimator instanceof SceneAnimator) {
-          socket.send(SERVER_TO_CLIENT_SCENE_FRAMEBUFFER_HEADER + JSON.stringify(voxelModel.currentAnimator.getSceneFramebufferTexture().image) + ";");
+
+      case AUDIO_INFO_HEADER:
+        if (voxelModel.currentAnimator && voxelModel.currentAnimator.setAudioInfo) {
+          voxelModel.currentAnimator.setAudioInfo(dataObj.audioInfo);
         }
         break;
-*/
+
       default:
         return false;
     }

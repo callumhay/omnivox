@@ -3,8 +3,6 @@ import * as THREE from 'three';
 import {VOXEL_EPSILON, clamp} from '../MathUtils';
 import VTAmbientLight from './VTAmbientLight';
 
-const CLEAR_COLOUR = new THREE.Color(0,0,0);
-
 class VTScene {
   constructor(voxelModel) {
     this.voxelModel = voxelModel;
@@ -17,7 +15,7 @@ class VTScene {
     this.ambientLight = null;
   }
 
-  clear() {
+  dispose() {
     this.renderables.forEach(renderable => {
       renderable.dispose();
     });
@@ -43,6 +41,88 @@ class VTScene {
   }
   addFog(f) {
     this.addObject(f);
+  }
+
+  removeObject(o) {
+    let index = this.renderables.indexOf(o);
+    if (index > -1) {
+      this.renderables.splice(index, 1);
+    }
+    index = this.shadowCasters.indexOf(o);
+    if (index > -1) {
+      this.shadowCasters.splice(index, 1);
+    }
+  }
+
+  calculateVoxelLighting(point, material) {
+    // We treat voxels as perfect inifintesmial spheres centered at a given voxel position
+    // they can be shadowed and have materials like meshes
+    const finalColour = new THREE.Color(0,0,0);
+    
+    if (this.lights.length > 0) {
+      const nVoxelToLightVec = new THREE.Vector3();
+
+      for (let j = 0; j < this.lights.length; j++) {
+        const light = this.lights[j];
+
+        nVoxelToLightVec.set(light.position.x, light.position.y, light.position.z);
+        nVoxelToLightVec.sub(point);
+        const distanceToLight = Math.max(VOXEL_EPSILON, nVoxelToLightVec.length());
+        nVoxelToLightVec.divideScalar(distanceToLight);
+
+        // Check to see if the voxel is in shadow
+        // NOTE: We currently only use point lights so there's only umbra shadow (no soft shadows/sampling)
+        raycaster.set(point, nVoxelToLightVec); 
+        raycaster.near = VOXEL_EPSILON;
+        raycaster.far  = distanceToLight;
+
+        let lightMultiplier = 1.0;
+
+        for (let k = 0; k < this.shadowCasters.length; k++) {
+          const shadowCaster = this.shadowCasters[k];
+          const shadowCasterResult = shadowCaster.calculateShadow(raycaster);
+          if (shadowCasterResult.inShadow) {
+            lightMultiplier -= shadowCasterResult.lightReduction;
+          }
+        }
+
+        if (lightMultiplier > 0) {
+          // The voxel is not in total shadow, do the lighting - since it's a "infitesimal sphere" the normal is always
+          // in the direction of the light, so it's always ambiently lit (unless it's in shadow)
+          const lightEmission = light.emission(distanceToLight).multiplyScalar(lightMultiplier);
+          const materialLightingColour = material.brdfAmbient(null, lightEmission);
+          finalColour.add(materialLightingColour);
+        }
+      }
+
+      finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
+    }
+
+    if (this.ambientLight) {
+      finalColour.add(material.brdfAmbient(null, this.ambientLight.emission()));
+    }
+
+    return finalColour;
+  }
+
+  calculateFogLighting(point) {
+    const finalColour = new THREE.Color(0,0,0);
+    const nFogToLightVec = new THREE.Vector3(0,0,0);
+
+    if (this.lights.length > 0) {
+      for (let j = 0; j < this.lights.length; j++) {
+        const light = this.lights[j];
+
+        nFogToLightVec.set(light.position.x, light.position.y, light.position.z);
+        nFogToLightVec.sub(point);
+        const distanceToLight = Math.max(VOXEL_EPSILON, nFogToLightVec.length());
+        const lightEmission = light.emission(distanceToLight);
+        finalColour.add(lightEmission);
+      }
+      finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
+    }
+
+    return finalColour;
   }
 
   calculateLightingSamples(samples, material) {
@@ -85,7 +165,6 @@ class VTScene {
             lightMultiplier -= shadowCasterResult.lightReduction;
           }
         }
-        
 
         if (lightMultiplier > 0) {
           // The voxel is not in total shadow, do the lighting
@@ -111,10 +190,7 @@ class VTScene {
     return finalColour;
   }
 
-  render(dt) {
-    // Clear all voxels to black/off
-    this.voxelModel.clear(CLEAR_COLOUR);
-
+  render() {
     // Find all renderable entities that exist within the bounds of the voxels (i.e., visible entities)
     const voxelBoundingBox = this.voxelModel.getBoundingBox();
     const visibleRenderables = [];
@@ -129,7 +205,7 @@ class VTScene {
     // Show what voxels are being selected for rendering...
     visibleRenderables.forEach(renderable => {
       // Get all of the voxels that collide with the renderable object
-      const voxelIndexPoints = renderable.getCollidingVoxels(this.voxelModel);
+      const voxelIndexPoints = renderable.getCollidingVoxels();
       voxelIndexPoints.forEach(pt => this.voxelModel.drawPoint(pt, new THREE.Color(1,1,1)));
     });
     */
@@ -138,13 +214,13 @@ class VTScene {
       const renderable = visibleRenderables[i];
 
       // Get all of the voxels that collide with the renderable object
-      const voxelIndexPoints = renderable.getCollidingVoxels(this.voxelModel);
+      const voxelIndexPoints = renderable.getCollidingVoxels();
       for (let j = 0; j < voxelIndexPoints.length; j++) {
         const voxelIdxPt = voxelIndexPoints[j];
         const voxelObj = this.voxelModel.getVoxel(voxelIdxPt);
         if (voxelObj) {
           // Map the index point into the centroid of the voxel in worldspace
-          //const wsVoxelCentroid = this.voxelModel.getVoxelWorldSpaceCentroid(voxelIdxPt);
+          //const wsVoxelCentroid = this.voxelModel.calcVoxelWorldSpaceCentroid(voxelIdxPt);
           const calcColour = renderable.calculateVoxelColour(voxelIdxPt, this);
           voxelObj.addColour(calcColour);
         }

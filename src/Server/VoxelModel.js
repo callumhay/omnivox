@@ -10,6 +10,8 @@ import FireAnimator from '../Animation/FireAnimator';
 import SceneAnimator from '../Animation/SceneAnimator';
 import SoundVisualizerAnimator from '../Animation/SoundVisualizerAnimator';
 
+export const HALF_VOXEL_SIZE = 0.5;
+
 export const BLEND_MODE_OVERWRITE = 0;
 export const BLEND_MODE_ADDITIVE  = 1;
 
@@ -150,16 +152,7 @@ class VoxelModel {
     return new THREE.Box3(new THREE.Vector3(0,0,0), new THREE.Vector3(this.xSize(), this.ySize(), this.zSize()));
   }
   
-  getVoxelBoundingBox(voxelPt) {
-    const roundedX = Math.floor(voxelPt.x);
-    const roundedY = Math.floor(voxelPt.y);
-    const roundedZ = Math.floor(voxelPt.z);
 
-    return new THREE.Box3(
-      new THREE.Vector3(roundedX, roundedY, roundedZ), 
-      new THREE.Vector3(roundedX+1, roundedY+1, roundedZ+1)
-    );
-  }
   
   setVoxel(pt, colour) {
     const roundedX = Math.floor(pt.x);
@@ -212,12 +205,22 @@ class VoxelModel {
     return this.getVoxel(pt).colour;
   }
 
-  closestVoxelIdxPt(pt) {
+  static calcVoxelBoundingBox(voxelPt) {
+    const roundedX = Math.floor(voxelPt.x);
+    const roundedY = Math.floor(voxelPt.y);
+    const roundedZ = Math.floor(voxelPt.z);
+
+    return new THREE.Box3(
+      new THREE.Vector3(roundedX, roundedY, roundedZ), 
+      new THREE.Vector3(roundedX+1, roundedY+1, roundedZ+1)
+    );
+  }
+
+  static closestVoxelIdxPt(pt) {
     return new THREE.Vector3(Math.floor(pt.x), Math.floor(pt.y), Math.floor(pt.z));
   }
 
-  getVoxelWorldSpaceCentroid(idxSpacePt) {
-    const HALF_VOXEL_SIZE = 0.5;
+  static calcVoxelWorldSpaceCentroid(idxSpacePt) {
     return new THREE.Vector3(
       Math.floor(idxSpacePt.x) + HALF_VOXEL_SIZE, 
       Math.floor(idxSpacePt.y) + HALF_VOXEL_SIZE,
@@ -327,7 +330,7 @@ class VoxelModel {
 		this.drawPoint(currentPoint, colour);
   }
 
-  voxelBoxList(minPt=new THREE.Vector3(0,0,0), maxPt=new THREE.Vector3(1,1,1), fill=false) {
+  static voxelBoxList(minPt=new THREE.Vector3(0,0,0), maxPt=new THREE.Vector3(1,1,1), fill=false) {
     
     const voxelPts = [];
     const mappedMinPt = minPt.clone().floor();
