@@ -1,6 +1,7 @@
 
 import * as THREE from 'three';
 import {VOXEL_EPSILON, clamp} from '../MathUtils';
+import VoxelModel from '../Server/VoxelModel';
 
 export const fogDefaultOptions = {
   scattering: 0.1, // The amount of light reduction per voxel travelled through of the fog this must be in [0,1]

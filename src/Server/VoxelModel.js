@@ -8,7 +8,7 @@ import ShapeWaveAnimator from '../Animation/ShapeWaveAnimator';
 import GameOfLifeAnimator from '../Animation/GameOfLifeAnimator';
 import FireAnimator from '../Animation/FireAnimator';
 import SceneAnimator from '../Animation/SceneAnimator';
-import SoundVisualizerAnimator from '../Animation/SoundVisualizerAnimator';
+import AudioVisualizerAnimator from '../Animation/AudioVisualizerAnimator';
 
 export const HALF_VOXEL_SIZE = 0.5;
 
@@ -56,7 +56,7 @@ class VoxelModel {
       [VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE] : new GameOfLifeAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_FIRE] : new FireAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_SCENE] : new SceneAnimator(this),
-      [VoxelAnimator.VOXEL_ANIM_SOUND_VIZ] : new SoundVisualizerAnimator(this),
+      [VoxelAnimator.VOXEL_ANIM_SOUND_VIZ] : new AudioVisualizerAnimator(this),
     };
     this.currentAnimator = this._animators[VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR];
 

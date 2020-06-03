@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {computeBoundsTree, disposeBoundsTree, acceleratedRaycast, MeshBVH, SAH} from 'three-mesh-bvh';
 import {SQRT2PI, SQRT3} from '../MathUtils';
+import VoxelModel from '../Server/VoxelModel';
 
 // Add the extension functions for calculating bounding volumes for THREE.Mesh/THREE.Geometry
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -160,7 +161,7 @@ class VTMesh {
       return finalColour;
     }
 
-    const voxelBoundingBox = scene.voxelModel.calcVoxelBoundingBox(voxelIdxPt);
+    const voxelBoundingBox = VoxelModel.calcVoxelBoundingBox(voxelIdxPt);
     voxelBoundingBox.getCenter(this._voxelCenterPt);
 
     const furthestPossibleDistFromCenter = SQRT3*Math.SQRT1_2;

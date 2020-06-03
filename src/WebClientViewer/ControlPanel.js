@@ -8,7 +8,7 @@ import {shapeWaveAnimatorDefaultConfig, WAVE_SHAPE_TYPES} from '../Animation/Sha
 import {gameOfLifeAnimatorDefaultConfig} from '../Animation/GameOfLifeAnimator';
 import {fireAnimatorDefaultConfig} from '../Animation/FireAnimator';
 import {sceneAnimatorDefaultConfig, SCENE_TYPES, SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG} from '../Animation/SceneAnimator';
-import {soundVisDefaultConfig, SOUND_VIZ_FULL_BAR_LEVEL_SCENE_TYPE, SOUND_VIZ_HAH_BAR_LEVEL_SCENE_TYPE, SOUND_VIZ_TYPES} from '../Animation/SoundVisualizerAnimator';
+import {soundVisDefaultConfig, SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE, SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE, SOUND_VIZ_TYPES} from '../Animation/AudioVisualizerAnimator';
 
 import {ColourSystems} from '../Spectrum';
 
@@ -16,7 +16,8 @@ import {simpleSceneDefaultOptions} from '../VoxelTracer/Scenes/SimpleScene';
 import {shadowSceneDefaultOptions} from '../VoxelTracer/Scenes/ShadowScene';
 import {fogSceneDefaultOptions} from '../VoxelTracer/Scenes/FogScene';
 
-import {audioVizFullBarDefaultConfig} from "../VoxelTracer/Scenes/AudioVisualizerScene";
+import {basicBarsAudioVisDefaultConfig} from "../VoxelTracer/Scenes/Audio/BasicBarsAudioVisScene";
+import {historyBarsAudioVisDefaultConfig, DIRECTION_TYPES} from "../VoxelTracer/Scenes/Audio/HistoryBarsAudioVisScene";
 
 
 const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
@@ -213,12 +214,16 @@ class ControlPanel {
         },
       },
 
-      soundVizSettings: {...this.soundVizAnimatorConfig,
+      audioVisSettings: {...this.soundVizAnimatorConfig,
         showDebug: this.soundController.showDebug,
-        fullBarSettings: {...audioVizFullBarDefaultConfig,
-          lowColour:  THREEColorToGuiColor(audioVizFullBarDefaultConfig.lowColour),
-          highColour: THREEColorToGuiColor(audioVizFullBarDefaultConfig.highColour),
+        basicBarsAudioVisSettings: {...basicBarsAudioVisDefaultConfig,
+          lowColour:  THREEColorToGuiColor(basicBarsAudioVisDefaultConfig.lowColour),
+          highColour: THREEColorToGuiColor(basicBarsAudioVisDefaultConfig.highColour),
         },
+        historyBarsAudioVisSettings: {...historyBarsAudioVisDefaultConfig,
+          lowColour:  THREEColorToGuiColor(historyBarsAudioVisDefaultConfig.lowColour),
+          highColour: THREEColorToGuiColor(historyBarsAudioVisDefaultConfig.highColour),
+        }
       },
     };
 
@@ -248,8 +253,9 @@ class ControlPanel {
     this.gui.remember(this.settings.sceneSettings.shadowSceneOptions);
     this.gui.remember(this.settings.sceneSettings.fogSceneOptions);
 
-    this.gui.remember(this.settings.soundVizSettings);
-    this.gui.remember(this.settings.soundVizSettings.fullBarSettings);
+    this.gui.remember(this.settings.audioVisSettings);
+    this.gui.remember(this.settings.audioVisSettings.basicBarsAudioVisSettings);
+    this.gui.remember(this.settings.audioVisSettings.historyBarsAudioVisSettings);
   }
 
   updateAnimator(animatorType, config) {
@@ -919,7 +925,7 @@ class ControlPanel {
   }
 
   buildSoundVizAnimatorControls() {
-    const {soundVizSettings} = this.settings;
+    const {audioVisSettings: soundVizSettings} = this.settings;
     const folder = this.gui.addFolder("Sound Viz Controls");
     /*
     folder.add(soundVizSettings, 'numFFTSamples', 1, 32, 1).onChange((value) => {
@@ -958,8 +964,8 @@ class ControlPanel {
       this.soundVizAnimatorConfig.sceneType = value;
 
       switch (value) {
-        case SOUND_VIZ_FULL_BAR_LEVEL_SCENE_TYPE:
-          vizTypeOptions = soundVizSettings.fullBarSettings;
+        case SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE:
+          vizTypeOptions = soundVizSettings.basicBarsAudioVisSettings;
           this.soundVizAnimatorConfig.sceneConfig = {...vizTypeOptions};
 
           this.audioVizSettingsFolder.addColor(vizTypeOptions, 'lowColour').onChange((value) => {
@@ -971,14 +977,44 @@ class ControlPanel {
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
           }).setValue(vizTypeOptions.highColour);
 
+          this.audioVizSettingsFolder.add(vizTypeOptions, 'splitLevels').onChange((value) => {
+            this.soundVizAnimatorConfig.sceneConfig.splitLevels = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+          }).setValue(vizTypeOptions.splitLevels);
+
           this.audioVizSettingsFolder.add(vizTypeOptions, 'centerSorted').onChange((value) => {
             this.soundVizAnimatorConfig.sceneConfig.centerSorted = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
           }).setValue(vizTypeOptions.centerSorted);
 
           break;
-        case SOUND_VIZ_HAH_BAR_LEVEL_SCENE_TYPE:
+
+        case SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE:
+          vizTypeOptions = soundVizSettings.historyBarsAudioVisSettings;
+          this.soundVizAnimatorConfig.sceneConfig = {...vizTypeOptions};
+
+          this.audioVizSettingsFolder.addColor(vizTypeOptions, 'lowColour').onChange((value) => {
+            this.soundVizAnimatorConfig.sceneConfig.lowColour = GuiColorToRGBObj(value);
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+          }).setValue(vizTypeOptions.lowColour);
+          this.audioVizSettingsFolder.addColor(vizTypeOptions, 'highColour').onChange((value) => {
+            this.soundVizAnimatorConfig.sceneConfig.highColour = GuiColorToRGBObj(value);
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+          }).setValue(vizTypeOptions.highColour);
+
+          this.audioVizSettingsFolder.add(vizTypeOptions, 'speed', 1, 100, 1).onChange((value) => {
+            this.soundVizAnimatorConfig.sceneConfig.speed = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+          }).setValue(vizTypeOptions.speed);
+
+          this.audioVizSettingsFolder.add(vizTypeOptions, 'direction', DIRECTION_TYPES).onChange((value) => {
+            this.soundVizAnimatorConfig.sceneConfig.direction = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+          }).setValue(vizTypeOptions.direction);
+
+
           break;
+
         default:
           break;
       }

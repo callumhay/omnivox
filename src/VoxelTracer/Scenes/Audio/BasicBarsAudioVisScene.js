@@ -1,28 +1,31 @@
 
 import * as THREE from 'three';
 
-import SceneRenderer from './SceneRenderer';
+import AudioVisUtils from './AudioVisUtils';
 
-import VTVoxel from '../VTVoxel';
-import VTLambertMaterial from '../VTLambertMaterial';
-import VTAmbientLight from '../VTAmbientLight';
-import {clamp} from '../../MathUtils';
+import SceneRenderer from '../SceneRenderer';
 
-export const DEFAULT_LEVEL_MAX = 2.00;
+import VTVoxel from '../../VTVoxel';
+import VTLambertMaterial from '../../VTLambertMaterial';
+import VTAmbientLight from '../../VTAmbientLight';
+import {clamp} from '../../../MathUtils';
+
+export const DEFAULT_LEVEL_MAX = 1.75;
 export const DEFAULT_GAMMA = 1.6;
 export const DEFAULT_FADE_FACTOR = 0.02;
 export const DEFAULT_LOW_COLOUR  = new THREE.Color("#99FC20");
 export const DEFAULT_HIGH_COLOUR = new THREE.Color("#FD1999"); 
 const DEFAULT_CENTER_SORTED = false;
+const DEFAULT_SPLIT_LEVELS  = false;
 
-
-export const audioVizFullBarDefaultConfig = {
-  lowColour:  DEFAULT_LOW_COLOUR,
-  highColour: DEFAULT_HIGH_COLOUR,
+export const basicBarsAudioVisDefaultConfig = {
+  lowColour:    DEFAULT_LOW_COLOUR,
+  highColour:   DEFAULT_HIGH_COLOUR,
   centerSorted: DEFAULT_CENTER_SORTED,
+  splitLevels:  DEFAULT_SPLIT_LEVELS,
 };
 
-class AudioVisualizerScene extends SceneRenderer {
+class BasicBarsAudioVisScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
     this._objectsBuilt = false;
@@ -38,26 +41,28 @@ class AudioVisualizerScene extends SceneRenderer {
 
     this.meshes = [];
     this.spiralMeshIndices = [];
+    this.binIndexLookup = null;
   }
 
   build(options) {
-    if (!this._objectsBuilt) {
+    const {sceneConfig} = options;
+    const splitLevels = sceneConfig.splitLevels ? sceneConfig.splitLevels : DEFAULT_SPLIT_LEVELS;
 
-      const lowColour  = options.sceneConfig.lowColour  ? options.sceneConfig.lowColour  : DEFAULT_LOW_COLOUR;
-      const highColour = options.sceneConfig.highColour ? options.sceneConfig.highColour : DEFAULT_HIGH_COLOUR;
-
+    if (!this._objectsBuilt || this._options.sceneConfig.splitLevels !== splitLevels) {
+      const lowColour   = sceneConfig.lowColour   ? sceneConfig.lowColour  : DEFAULT_LOW_COLOUR;
+      const highColour  = sceneConfig.highColour  ? sceneConfig.highColour : DEFAULT_HIGH_COLOUR;
+      
       const ambientLightColour = new THREE.Color(1,1,1);
-
       this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
 
       // Create a grid of cubes that we use to represent frequency levels for each FFT bin
       const xSize = this.voxelModel.xSize();
       const ySize = this.voxelModel.ySize();
       const zSize = this.voxelModel.zSize();
-      //const halfYSize = Math.floor(ySize/2);
+      const halfYSize = Math.floor(ySize/2);
 
       this.meshes = [];
-      const Y_START = 0;
+      const Y_START = splitLevels ? halfYSize : 0;
       const levelColours = [];
       for (let y = Y_START; y < ySize; y++) {
         const t = THREE.MathUtils.smootherstep(y, Y_START, ySize-1);
@@ -65,18 +70,37 @@ class AudioVisualizerScene extends SceneRenderer {
         colour.lerp(highColour, t);
         levelColours.push(colour);
       }
-
+      
       for (let x = 0; x < xSize; x++) {
         for (let z = 0; z < zSize; z++) {
-
           const levelMeshes = [];
-          for (let y = Y_START; y < ySize; y++) {
-            const mesh = new VTVoxel(new THREE.Vector3(x,y,z), new VTLambertMaterial(levelColours[y-Y_START], 0));
-            levelMeshes.push(mesh);
+
+          if (splitLevels) {
+            const topLevelMeshes = [];
+            for (let y = Y_START; y < ySize; y++) {
+              const mesh = new VTVoxel(new THREE.Vector3(x,y,z), new VTLambertMaterial(levelColours[y-Y_START], 0));
+              topLevelMeshes.push(mesh);
+            }
+
+            const bottomLevelMeshes = [];
+            for (let y = Y_START-1; y >= 0; y--) {
+              const mesh = new VTVoxel(new THREE.Vector3(x,y,z), new VTLambertMaterial(levelColours[Y_START-y-1], 0));
+              bottomLevelMeshes.push(mesh);
+            }
+
+            levelMeshes.push(topLevelMeshes);
+            levelMeshes.push(bottomLevelMeshes);
+          }
+          else {
+            for (let y = Y_START; y < ySize; y++) {
+              const mesh = new VTVoxel(new THREE.Vector3(x,y,z), new VTLambertMaterial(levelColours[y-Y_START], 0));
+              levelMeshes.push(mesh);
+            }
           }
           this.meshes.push(levelMeshes);
         }
       }
+
       this._buildSpiralMeshIndices();
       this.timeCounter = 0;
       this._objectsBuilt = true;
@@ -84,8 +108,20 @@ class AudioVisualizerScene extends SceneRenderer {
 
     this.scene.addLight(this.ambientLight);
     for (let i = 0; i < this.meshes.length; i++) {
-      for (let j = 0; j < this.meshes[i].length; j++) {
-        this.scene.addObject(this.meshes[i][j]);
+      if (splitLevels) {
+        const levelMeshes = this.meshes[i];
+        const topLevelMeshes = levelMeshes[0];
+        const bottomLevelMeshes = levelMeshes[1];
+
+        for (let j = 0; j < topLevelMeshes.length; j++) {
+          this.scene.addObject(topLevelMeshes[j]);
+          this.scene.addObject(bottomLevelMeshes[j]);
+        }
+      }
+      else {
+        for (let j = 0; j < this.meshes[i].length; j++) {
+          this.scene.addObject(this.meshes[i][j]);
+        }
       }
     }
   }
@@ -99,7 +135,6 @@ class AudioVisualizerScene extends SceneRenderer {
     const startX = Math.floor(xSize/2);
     const startZ = Math.floor(zSize/2);
     
-
     // Get concentric rings of voxels
     let r = 1;
     const allIndices = {};
@@ -108,7 +143,6 @@ class AudioVisualizerScene extends SceneRenderer {
         allIndices[x*zSize + z] = true;
       }
     }
-    
     
     while (this.spiralMeshIndices.length < gridSize) {
       const rSqr = r*r;
@@ -136,13 +170,7 @@ class AudioVisualizerScene extends SceneRenderer {
     if (!this._objectsBuilt) {
       return;
     }
-
-    
     this.scene.render();
-
-
-    //this.voxelModel.mirror(plane='xz', fromDir=1);
-
     this.timeCounter += dt;
   }
 
@@ -151,10 +179,14 @@ class AudioVisualizerScene extends SceneRenderer {
     const dt = (this.currAudioFrameTime - this.lastAudioFrameTime) / 1000;
     this.lastAudioFrameTime = this.currAudioFrameTime;
 
+    const {sceneConfig} = this._options;
+
     const levelMax = this._options.levelMax ? this._options.levelMax : DEFAULT_LEVEL_MAX;
     const gamma = this._options.gamma ? this._options.gamma : DEFAULT_GAMMA;
     const fadeFactor = this._options.fadeFactor ? this._options.fadeFactor : DEFAULT_FADE_FACTOR;
-    const centerSorted = this._options.sceneConfig.centerSorted !== undefined ? this._options.sceneConfig.centerSorted : DEFAULT_CENTER_SORTED; 
+
+    const centerSorted = sceneConfig.centerSorted !== undefined ? sceneConfig.centerSorted : DEFAULT_CENTER_SORTED;
+    const splitLevels = sceneConfig.splitLevels ? sceneConfig.splitLevels : DEFAULT_SPLIT_LEVELS;
 
     const fadeFactorAdjusted = Math.pow(fadeFactor, dt);
 
@@ -163,38 +195,19 @@ class AudioVisualizerScene extends SceneRenderer {
     const xSize = this.voxelModel.xSize();
     const ySize = this.voxelModel.ySize();
     const zSize = this.voxelModel.zSize();
+    const gridSize = xSize*zSize;
 
-    const numFreqs = Math.floor(fft.length/(gamma+1.8));
-
-    // Get a distribution of what bins (i.e., meshes) to throw each frequency in
-    let binIndexLookup = {};
-    for (let i = 0; i < numFreqs; i++) {
-      let binIndex = Math.round(Math.pow(i/numFreqs, 1.0/gamma) * (this.meshes.length-1));
-      if (binIndex in binIndexLookup) {
-        binIndexLookup[binIndex].push(i);
-      }
-      else {
-        binIndexLookup[binIndex] = [i];
-      }
+    let numFreqs = Math.floor(fft.length/(gamma+1.8));
+    if (fft.length >= gridSize && numFreqs < gridSize) {
+      numFreqs = gridSize;
     }
-    // Find gaps in the lookup and just have those gaps reference the previous (or next) bin's frequency(ies)
-    for (let i = 0; i < this.meshes.length; i++) {
-      if (i in binIndexLookup) {
-        continue;
-      }
+    else if (fft.length < gridSize) {
+      console.error("You need to implement grouped level blocks.");
+    }
 
-      // Is there a previous bin?
-      if (i-1 in binIndexLookup) {
-        binIndexLookup[i] = binIndexLookup[i-1];
-      }
-      // Is there a next bin?
-      else if (i+1 in binIndexLookup) {
-        binIndexLookup[i] = binIndexLookup[i+1];
-      }
-      else {
-        // This really shouldn't happen, it means there's a huge gap
-        console.error("Big gap in frequency to mesh data, please find me and write code to fix this issue.");
-      }
+    // Build a distribution of what bins (i.e., meshes) to throw each frequency in
+    if (!this.binIndexLookup || numFreqs !== this.binIndexLookup.length) {
+      this.binIndexLookup = AudioVisUtils.buildBinIndexLookup(numFreqs, this.meshes.length, gamma);
     }
 
     // If the frequencies are center sorted, then we place the highest ones in the center of the base of the voxel grid, 
@@ -202,7 +215,7 @@ class AudioVisualizerScene extends SceneRenderer {
     if (centerSorted) {
       // First sort all of the frequency bins by their descending amplitudes
       // (after we add all of the indices in the collective bin index lookup)
-      const collectedFFTs = Object.keys(binIndexLookup).map(idx => this._calcFFTBinLevel(binIndexLookup[idx], fft));
+      const collectedFFTs = Object.keys(binIndexLookup).map(idx => AudioVisUtils.calcFFTBinLevelSum(this.binIndexLookup[idx], fft));
       collectedFFTs.sort((a,b) => b-a);
     
       // The spiral index list and the sorted fft list should be the same length.
@@ -214,35 +227,42 @@ class AudioVisualizerScene extends SceneRenderer {
         const currMeshIdx = this.spiralMeshIndices[i];
         const levelMeshes = this.meshes[currMeshIdx];
         const binLevel = collectedFFTs[i];
-        this._updateMeshLevels(binLevel, levelMax, fadeFactorAdjusted, levelMeshes);
+        this._updateMeshLevels(binLevel, levelMax, fadeFactorAdjusted, levelMeshes, splitLevels);
       }
 
     }
     else {
       for (let i = 0; i < this.meshes.length; i++) {
-        const fftIndices = binIndexLookup[i];
-        const binLevel = this._calcFFTBinLevel(fftIndices, fft);
+        const fftIndices = this.binIndexLookup[i];
+        const binLevel = AudioVisUtils.calcFFTBinLevelSum(fftIndices, fft);
         const levelMeshes = this.meshes[i];
-        this._updateMeshLevels(binLevel, levelMax, fadeFactorAdjusted, levelMeshes);
+        this._updateMeshLevels(binLevel, levelMax, fadeFactorAdjusted, levelMeshes, splitLevels);
       }
     }
   }
 
-  _calcFFTBinLevel(binIndices, fft) {
-    let binLevel = 0;
-    for (let i = 0; i < binIndices.length; i++) {
-      binLevel += fft[binIndices[i]];
+  _updateMeshLevels(binLevel, levelMax, fadeFactorAdjusted, levelMeshes, splitLevels) {
+    const updateLevel = (cutoffLvl, lvlMeshes) => {
+      for (let k = 0; k < lvlMeshes.length; k++) {
+        const alpha = k < cutoffLvl ? 1 : 0;
+        const mesh = lvlMeshes[k];
+        mesh.material.alpha = clamp(mesh.material.alpha * fadeFactorAdjusted + alpha * (1.0 - fadeFactorAdjusted), 0, 1);
+      }
+    };
+
+    if (splitLevels) {
+      const topLevelMeshes = levelMeshes[0];
+      const bottomLevelMeshes = levelMeshes[1];
+      const cutoffLevel = Math.floor(clamp(Math.log10(binLevel)/levelMax,0,1) * (topLevelMeshes.length));
+      updateLevel(cutoffLevel, topLevelMeshes);
+      updateLevel(cutoffLevel, bottomLevelMeshes);
     }
-    return binLevel;
-  }
-  _updateMeshLevels(binLevel, levelMax, fadeFactorAdjusted, levelMeshes) {
-    const cutoffLevel = Math.floor(clamp(Math.log10(binLevel)/levelMax,0,1) * (levelMeshes.length));
-    for (let k = 0; k < levelMeshes.length; k++) {
-      const alpha = k < cutoffLevel ? 1 : 0;
-      const mesh = levelMeshes[k];
-      mesh.material.alpha = clamp(mesh.material.alpha * fadeFactorAdjusted + alpha * (1.0 - fadeFactorAdjusted), 0, 1);
+    else {
+      const cutoffLevel = Math.floor(clamp(Math.log10(binLevel)/levelMax,0,1) * (levelMeshes.length));
+      updateLevel(cutoffLevel, levelMeshes);
     }
   }
+
 }
 
-export default AudioVisualizerScene;
+export default BasicBarsAudioVisScene;

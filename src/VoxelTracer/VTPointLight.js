@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import VoxelModel from '../Server/VoxelModel';
 
 export const defaultAttenuation = {
   quadratic:0, 

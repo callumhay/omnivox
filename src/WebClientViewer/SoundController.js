@@ -232,8 +232,6 @@ class SoundController {
 
     this._updateSprite();
   }
-
-
 }
 
 export default SoundController;
