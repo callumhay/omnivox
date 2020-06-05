@@ -4,11 +4,12 @@ import VoxelModel from '../Server/VoxelModel';
 
 class VTVoxel {
 
-  constructor(voxelIndexPt, material) {
+  constructor(voxelIndexPt, material, options={}) {
 
     this.voxelIndexPt = voxelIndexPt;
     this.material = material;
     this.matrixWorld = new THREE.Matrix4();
+    this.receivesShadow = (options.receivesShadow !== undefined) ? options.receivesShadow : true;
 
     this._tempVec3 = new THREE.Vector3();
 
@@ -49,7 +50,7 @@ class VTVoxel {
     const worldSpaceVoxelPt = new THREE.Vector3();
     this.worldSpacePosition(worldSpaceVoxelPt);
 
-    return scene.calculateVoxelLighting(worldSpaceVoxelPt, this.material);
+    return scene.calculateVoxelLighting(worldSpaceVoxelPt, this.material, this.receivesShadow);
   }
 
   intersectsBox(box) {

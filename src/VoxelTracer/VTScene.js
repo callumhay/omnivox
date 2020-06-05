@@ -54,13 +54,14 @@ class VTScene {
     }
   }
 
-  calculateVoxelLighting(point, material) {
+  calculateVoxelLighting(point, material, receivesShadow) {
     // We treat voxels as perfect inifintesmial spheres centered at a given voxel position
     // they can be shadowed and have materials like meshes
     const finalColour = new THREE.Color(0,0,0);
     
     if (this.lights.length > 0) {
       const nVoxelToLightVec = new THREE.Vector3();
+      const raycaster = new THREE.Raycaster();
 
       for (let j = 0; j < this.lights.length; j++) {
         const light = this.lights[j];
@@ -70,19 +71,21 @@ class VTScene {
         const distanceToLight = Math.max(VOXEL_EPSILON, nVoxelToLightVec.length());
         nVoxelToLightVec.divideScalar(distanceToLight);
 
-        // Check to see if the voxel is in shadow
-        // NOTE: We currently only use point lights so there's only umbra shadow (no soft shadows/sampling)
-        raycaster.set(point, nVoxelToLightVec); 
-        raycaster.near = VOXEL_EPSILON;
-        raycaster.far  = distanceToLight;
-
         let lightMultiplier = 1.0;
+        if (receivesShadow) {
 
-        for (let k = 0; k < this.shadowCasters.length; k++) {
-          const shadowCaster = this.shadowCasters[k];
-          const shadowCasterResult = shadowCaster.calculateShadow(raycaster);
-          if (shadowCasterResult.inShadow) {
-            lightMultiplier -= shadowCasterResult.lightReduction;
+          // Check to see if the voxel is in shadow
+          // NOTE: We currently only use point lights so there's only umbra shadow (no soft shadows/sampling)
+          raycaster.set(point, nVoxelToLightVec); 
+          raycaster.near = VOXEL_EPSILON;
+          raycaster.far  = distanceToLight;
+
+          for (let k = 0; k < this.shadowCasters.length; k++) {
+            const shadowCaster = this.shadowCasters[k];
+            const shadowCasterResult = shadowCaster.calculateShadow(raycaster);
+            if (shadowCasterResult.inShadow) {
+              lightMultiplier -= shadowCasterResult.lightReduction;
+            }
           }
         }
 
@@ -94,13 +97,13 @@ class VTScene {
           finalColour.add(materialLightingColour);
         }
       }
-
-      finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
     }
 
     if (this.ambientLight) {
-      finalColour.add(material.brdfAmbient(null, this.ambientLight.emission()));
+      finalColour.add(material.basicBrdfAmbient(null, this.ambientLight.emission()));
     }
+
+    finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
 
     return finalColour;
   }
@@ -132,6 +135,8 @@ class VTScene {
     // Go through each light in the scene and raytrace to them...
     const nObjToLightVec = new THREE.Vector3(0,0,0);
     const raycaster = new THREE.Raycaster();
+
+    const factorPerSample = 1.0 / samples.length;
 
     for (let i = 0; i < samples.length; i++) {
       const {point, normal, uv, falloff} = samples[i];
@@ -173,20 +178,20 @@ class VTScene {
           sampleLightContrib.add(materialLightingColour.multiplyScalar(falloff));
         }
       }
-      sampleLightContrib.setRGB(clamp(sampleLightContrib.r, 0, 1), clamp(sampleLightContrib.g, 0, 1), clamp(sampleLightContrib.b, 0, 1));
+      sampleLightContrib.multiplyScalar(factorPerSample);
       finalColour.add(sampleLightContrib);
     }
 
     if (this.ambientLight) {
-      const factorPerSample = 1.0 / samples.length;
       sampleLightContrib.set(0,0,0);
       for (let i = 0; i < samples.length; i++) {
         const {uv, falloff} = samples[i];
-        sampleLightContrib.add(material.brdfAmbient(uv, this.ambientLight.emission()).multiplyScalar(falloff*factorPerSample));
+        sampleLightContrib.add(material.basicBrdfAmbient(uv, this.ambientLight.emission()).multiplyScalar(falloff*factorPerSample));
       }
       finalColour.add(sampleLightContrib);
     }
 
+    finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
     return finalColour;
   }
 

@@ -70,6 +70,8 @@ class BasicBarsAudioVisScene extends SceneRenderer {
         colour.lerp(highColour, t);
         levelColours.push(colour);
       }
+
+      const voxelOptions = {receivesShadow: false};
       
       for (let x = 0; x < xSize; x++) {
         for (let z = 0; z < zSize; z++) {
@@ -78,13 +80,13 @@ class BasicBarsAudioVisScene extends SceneRenderer {
           if (splitLevels) {
             const topLevelMeshes = [];
             for (let y = Y_START; y < ySize; y++) {
-              const mesh = new VTVoxel(new THREE.Vector3(x,y,z), new VTLambertMaterial(levelColours[y-Y_START], 0));
+              const mesh = new VTVoxel(new THREE.Vector3(x,y,z), new VTLambertMaterial(levelColours[y-Y_START], 0), voxelOptions);
               topLevelMeshes.push(mesh);
             }
 
             const bottomLevelMeshes = [];
             for (let y = Y_START-1; y >= 0; y--) {
-              const mesh = new VTVoxel(new THREE.Vector3(x,y,z), new VTLambertMaterial(levelColours[Y_START-y-1], 0));
+              const mesh = new VTVoxel(new THREE.Vector3(x,y,z), new VTLambertMaterial(levelColours[Y_START-y-1], 0), voxelOptions);
               bottomLevelMeshes.push(mesh);
             }
 
@@ -93,7 +95,7 @@ class BasicBarsAudioVisScene extends SceneRenderer {
           }
           else {
             for (let y = Y_START; y < ySize; y++) {
-              const mesh = new VTVoxel(new THREE.Vector3(x,y,z), new VTLambertMaterial(levelColours[y-Y_START], 0));
+              const mesh = new VTVoxel(new THREE.Vector3(x,y,z), new VTLambertMaterial(levelColours[y-Y_START], 0), voxelOptions);
               levelMeshes.push(mesh);
             }
           }

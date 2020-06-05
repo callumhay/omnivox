@@ -10,6 +10,7 @@ import VTLambertMaterial from '../../VTLambertMaterial';
 import VTAmbientLight from '../../VTAmbientLight';
 import {clamp} from '../../../MathUtils';
 import AudioVisUtils from './AudioVisUtils';
+import VTPointLight from '../../VTPointLight';
 
 export const POS_X_DIR = "+x";
 export const NEG_X_DIR = "-x";
@@ -24,7 +25,7 @@ export const DIRECTION_TYPES = [
 ];
 
 export const DEFAULT_SPEED = 5;
-export const DEFAULT_DIR = POS_Z_DIR;
+export const DEFAULT_DIR = NEG_Z_DIR;
 
 export const historyBarsAudioVisDefaultConfig = {
   lowColour:        DEFAULT_LOW_COLOUR,
@@ -32,6 +33,8 @@ export const historyBarsAudioVisDefaultConfig = {
   speed:            DEFAULT_SPEED,
   direction:        DEFAULT_DIR,
 };
+
+const ptLightDistFromFront = 10;
 
 class HistoryBarsAudioVisScene extends SceneRenderer {
   constructor(scene, voxelModel) {
@@ -52,8 +55,10 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
     this.binIndexLookup = null;
 
     this.dRMSAvg = 0;
+    this.lastdRMS = 0;
     this.lastRMS = 0;
-    this.avgBPM = 0;
+    this.avgBeatsPerSec = 0;
+    this.avgSpectralCentroid = 0;
     this.timeSinceLastBeat = 0;
   }
 
@@ -74,21 +79,29 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
       const zSize = this.voxelModel.zSize();
 
       let voxelCoordFunc = null;
+      let ptLightPos = new THREE.Vector3();
+      
       switch (direction) {
         case POS_X_DIR:
           voxelCoordFunc = (x,y,z) => new THREE.Vector3(x,y,z);
+          ptLightPos.set(-ptLightDistFromFront, ySize/2 + 0.5, zSize/2 - 0.5);
           break;
         case NEG_X_DIR:
           voxelCoordFunc = (x,y,z) => new THREE.Vector3(xSize-x-1,y,z);
+          ptLightPos.set(xSize + ptLightDistFromFront, ySize/2 + 0.5, zSize/2 - 0.5);
           break;
         case POS_Z_DIR:
           voxelCoordFunc = (x,y,z) => new THREE.Vector3(z,y,x);
+          ptLightPos.set(xSize/2 - 0.5, ySize/2 + 0.5, -ptLightDistFromFront);
           break;
         case NEG_Z_DIR:
         default:
           voxelCoordFunc = (x,y,z) => new THREE.Vector3(z,y,xSize-x-1);
+          ptLightPos.set(xSize/2 - 0.5, ySize/2 + 0.5, zSize+ptLightDistFromFront);
           break;
       }
+
+      this.spectralPtLight = new VTPointLight(ptLightPos, new THREE.Color(0,0,0), {quadratic:0.5, linear:0, constant:0});
 
       this.meshes = [];
       const Y_START = 0;
@@ -100,11 +113,12 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
         levelColours.push(colour);
       }
       
+      const voxelOptions = {receivesShadow: false};
       for (let x = 0; x < xSize; x++) {
         for (let z = 0; z < zSize; z++) {
           const levelMeshes = [];        
           for (let y = Y_START; y < ySize; y++) {
-            const mesh = new VTVoxel(voxelCoordFunc(x,y,z), new VTLambertMaterial(levelColours[y-Y_START], 0));
+            const mesh = new VTVoxel(voxelCoordFunc(x,y,z), new VTLambertMaterial(levelColours[y-Y_START], 0, null, true), voxelOptions);
             levelMeshes.push(mesh);
           }
           this.meshes.push(levelMeshes);
@@ -122,6 +136,7 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
     }
 
     this.scene.addLight(this.ambientLight);
+    this.scene.addLight(this.spectralPtLight);
     for (let i = 0; i < this.meshes.length; i++) {
       for (let j = 0; j < this.meshes[i].length; j++) {
         this.scene.addObject(this.meshes[i][j]);
@@ -134,7 +149,6 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
       return;
     }
     this.scene.render();
-    
   }
 
   updateAudioInfo(audioInfo) {
@@ -151,42 +165,72 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
     const speed = sceneConfig.speed ? sceneConfig.speed : DEFAULT_SPEED;
     const direction  = sceneConfig.direction  ? sceneConfig.direction  : DEFAULT_DIR; 
 
-    const {fft, rms} = audioInfo;
+    const {fft, rms, spectralCentroid} = audioInfo;
 
-    const denoisedRMS = rms < 0.001 ? 0 : rms;
-    //console.log(denoisedRMS);
+    this.avgSpectralCentroid = (this.avgSpectralCentroid + spectralCentroid) / 2.0;
 
+    const denoisedRMS = rms < 0.01 ? 0 : rms;
     this.dRMSAvg = (this.dRMSAvg + (denoisedRMS - this.lastRMS) / dt) / 2.0;
-    if (this.timeSinceLastBeat > 0.0001 && (this.dRMSAvg < 0 && this.lastRMS > 0) || (this.dRMSAvg > 0 && this.lastRMS < 0)) {
+    if (this.timeSinceLastBeat > 0.0001 && (this.dRMSAvg < 0 && this.lastdRMS > 0) || (this.dRMSAvg > 0 && this.lastdRMS < 0)) {
       // We crossed zero, count the beat
-      this.avgBPM = (0.1*this.avgBPM + 0.9 / this.timeSinceLastBeat);
+      this.avgBeatsPerSec = 1.0 / this.timeSinceLastBeat;
       this.timeSinceLastBeat = 0;
     }
     else {
       this.timeSinceLastBeat += dt;
       if (this.timeSinceLastBeat > 1) {
-        this.avgBPM = 0;
+        this.avgBeatsPerSec = 0.01;
       }
     }
-    this.lastRMS = denoisedRMS;
-
+    
+    this.lastRMS  = denoisedRMS;
+    this.lastdRMS = this.dRMSAvg;
+  
     const xSize = this.voxelModel.xSize();
     const zSize = this.voxelModel.zSize();
     let loopSize = zSize;
+    let minSpectralCoord = 0;
+    let maxSpectralCoord = zSize-1;
+    let spectralComponent = 'z';
     switch (direction) {
       case POS_X_DIR:
-      case NEG_X_DIR:
         loopSize = zSize;
+        minSpectralCoord = 0;
+        maxSpectralCoord = zSize-1;
+        spectralComponent = 'z';
+        break;
+      case NEG_X_DIR:
+        minSpectralCoord = zSize-1;
+        maxSpectralCoord = 0;
+        loopSize = zSize;
+        spectralComponent = 'z';
         break;
       case POS_Z_DIR:
+        minSpectralCoord = xSize-1;
+        maxSpectralCoord = 0;
+        loopSize = xSize;
+        spectralComponent = 'x';
+        break;
       case NEG_Z_DIR:
       default:
+        minSpectralCoord = 0;
+        maxSpectralCoord = xSize-1;
         loopSize = xSize;
+        spectralComponent = 'x';
         break;
     }
 
     let numFreqs = Math.floor(fft.length/(gamma+1.8));
 
+    const spectralLightCoord = THREE.MathUtils.lerp(minSpectralCoord, maxSpectralCoord, clamp(this.avgSpectralCentroid/(numFreqs/2), 0, 1));
+    this.spectralPtLight.position[spectralComponent] = (this.spectralPtLight.position[spectralComponent] + spectralLightCoord) / 2.0;
+    //console.log(spectralLightCoord);
+
+    const colourRMS = (this.spectralPtLight.colour.r + clamp(denoisedRMS*2, 0, 0.333)) / 2.0; // NOTE: rms is typically pretty small (usually less than 0.2)
+    this.spectralPtLight.colour.setRGB(colourRMS, colourRMS, colourRMS);
+    this.spectralPtLight.attenuation.quadratic = (this.spectralPtLight.attenuation.quadratic + 1.0 / (Math.max(0.01, ptLightDistFromFront*ptLightDistFromFront*10*denoisedRMS))) / 2.0;
+
+  
     // Build a distribution of what bins (i.e., meshes) to throw each frequency in
     if (!this.binIndexLookup || numFreqs !== this.binIndexLookup.length) {
       this.binIndexLookup = AudioVisUtils.buildBinIndexLookup(numFreqs, loopSize, gamma);
@@ -200,18 +244,22 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
     }
 
     const fadeFactorAdjusted = Math.pow(fadeFactor, dt);
-    const tempoBeat = this.dRMSAvg > 0 ? denoisedRMS*(this.avgBPM/10) : 1;
+    const tempoBeat = this.dRMSAvg > 0 ? this.avgBeatsPerSec : 0;
     const oneOverSpeed = 1.0 / Math.max(1, speed + tempoBeat);
 
-    if (this.timeCounter > oneOverSpeed) {
-      this.audioFrameBuffer.pop();
-      this.audioFrameBuffer.unshift(newAudioFrame);
-      this.timeCounter -= oneOverSpeed;
+    if (this.timeCounter >= oneOverSpeed) {
+      const numFrames = Math.min(this.audioFrameBuffer.length, Math.floor(this.timeCounter/oneOverSpeed));
+      for (let i = 0; i < numFrames; i++) {
+        this.audioFrameBuffer.pop();
+        this.audioFrameBuffer.unshift(newAudioFrame);
+      }
+
+      this.timeCounter -= numFrames * oneOverSpeed;
     }
     else {
       for (let i = 0; i < loopSize; i++) {
         const fftIndices = this.binIndexLookup[i];
-        this.audioFrameBuffer[0][i] = AudioVisUtils.calcFFTBinLevelMax(fftIndices, fft);
+        this.audioFrameBuffer[0][i] = (AudioVisUtils.calcFFTBinLevelMax(fftIndices, fft) + this.audioFrameBuffer[0][i])/2;
       }
       this.timeCounter += dt;
     }

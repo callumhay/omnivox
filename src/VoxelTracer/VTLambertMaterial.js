@@ -2,10 +2,12 @@ import * as THREE from 'three';
 import {clamp} from '../MathUtils';
 
 class VTLambertMaterial {
-  constructor(colour, alpha=1, texture=null) {
+  constructor(colour, alpha=1, texture=null, reflect=false) {
     this.colour = colour ? colour : new THREE.Color(1,1,1);
     this.alpha = alpha;
     this.texture = texture;
+
+    this.brdfAmbient = reflect ? this._reflectiveBrdfAmbient : this.basicBrdfAmbient;
   }
 
   dispose() {}
@@ -27,9 +29,14 @@ class VTLambertMaterial {
     return this.brdfAmbient(uv, lightColour).multiplyScalar(dot);
   }
 
-  brdfAmbient(uv, lightColour) {
+  basicBrdfAmbient(uv, lightColour) {
     const albedoColour = this.albedo(uv);
     albedoColour.multiply(lightColour);
+    return albedoColour;
+  }
+  _reflectiveBrdfAmbient(uv, lightColour) {
+    const albedoColour = this.albedo(uv);
+    albedoColour.add(lightColour).multiply(lightColour);
     return albedoColour;
   }
 }

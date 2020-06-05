@@ -1,7 +1,7 @@
 import meyda from 'meyda';
 import * as THREE from 'three';
 
-export const DEFAULT_NUM_FFT_SAMPLES = 16;
+export const DEFAULT_NUM_FFT_SAMPLES = 1;
 export const DEFAULT_FFT_BUFFER_SIZE = 2048;
 
 class SoundController {
