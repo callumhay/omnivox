@@ -15,7 +15,7 @@ export const HALF_VOXEL_SIZE = 0.5;
 export const BLEND_MODE_OVERWRITE = 0;
 export const BLEND_MODE_ADDITIVE  = 1;
 
-const DEFAULT_POLLING_FREQUENCY_HZ = 120; // 60 FPS - if this is too high then we overwhelm our embedded hardware...
+const DEFAULT_POLLING_FREQUENCY_HZ = 60; // 60 FPS - if this is too high then we overwhelm our embedded hardware...
 const DEFAULT_POLLING_INTERVAL_MS  = 1000 / DEFAULT_POLLING_FREQUENCY_HZ;
 
 class VoxelModel {
@@ -95,18 +95,30 @@ class VoxelModel {
   run(voxelServer) {
     let self = this;
     let lastFrameTime = Date.now();
+    let dt = 0;
+    let dtSinceLastRender = 0;
+
+    const allowableEventLoopBackupSize = DEFAULT_POLLING_FREQUENCY_HZ;
+    const allowablePollingMsBackupSize = allowableEventLoopBackupSize * DEFAULT_POLLING_INTERVAL_MS; // 1 second
 
     setInterval(function() {
 
       self.currFrameTime = Date.now();
-      let dt = (self.currFrameTime - lastFrameTime) / 1000;
-      
-      // Simulate the model based on the current animation...
-      if (self.currentAnimator) {
-        self.currentAnimator.render(dt);
+      dt = (self.currFrameTime - lastFrameTime) / 1000;
+      dtSinceLastRender += dt;
+
+      // If it's taking longer to render than the setInterval time then we need to not
+      // waste our time rendering and let the node/javascript event loop catch up
+      if (dt <= allowablePollingMsBackupSize) {
+        // Simulate the model based on the current animation...
+        if (self.currentAnimator) {
+          self.currentAnimator.render(dtSinceLastRender);
+        }
+        dtSinceLastRender = 0;
+
+        // Let the server know to broadcast the new voxel data to all clients
+        voxelServer.setVoxelData(self.voxels, self.frameCounter);
       }
-      // Let the server know to broadcast the new voxel data to all clients
-      voxelServer.setVoxelData(self.voxels, self.frameCounter);
 
       lastFrameTime = self.currFrameTime;
       self.frameCounter++;
@@ -391,7 +403,7 @@ class VoxelModel {
   }
 
   drawBox(minPt=new THREE.Vector3(0,0,0), maxPt=new THREE.Vector3(1,1,1), colour=new THREE.Color(1,1,1), fill=false) {
-    const boxPts = this.voxelBoxList(minPt, maxPt, fill);
+    const boxPts = VoxelModel.voxelBoxList(minPt, maxPt, fill);
     boxPts.forEach((pt) => {
       this.drawPoint(pt, colour);
     });
