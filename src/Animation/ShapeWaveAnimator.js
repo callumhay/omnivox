@@ -57,6 +57,7 @@ export const shapeWaveAnimatorDefaultConfig = {
   waveGap: 1, // space between waves
   colourPalette: EIGHTIES_COLOUR_PALETTE,
   colourSelectionMode: COLOUR_SELECTION_RANDOM,
+  brightness: 1.0,
   repeat: -1, // This needs to be here for the VoxelAnimator setConfig
 };
 
@@ -72,15 +73,16 @@ class WaveShape {
     this.animationFinished = false;
   }
 
-  drawVoxels(drawRadius) {
+  drawVoxels(drawRadius, brightness) {
+    const adjustedColour = this.colour.clone().multiplyScalar(brightness);
     switch (this.shape) {
       case WAVE_SHAPE_CUBE:
         const minPt = this.getMinPt(drawRadius);
         const maxPt = this.getMaxPt(drawRadius);
-        this.voxelModel.drawBox(minPt, maxPt, this.colour, false);
+        this.voxelModel.drawBox(minPt, maxPt, adjustedColour, false);
         break;
       case WAVE_SHAPE_SPHERE:
-        this.voxelModel.drawSphere(this.center, drawRadius, this.colour, false);
+        this.voxelModel.drawSphere(this.center, drawRadius, adjustedColour, false);
         break;
 
       default:
@@ -111,7 +113,7 @@ class WaveShape {
     }
   }
 
-  render(dt, waveSpeed) {
+  render(dt, waveSpeed, brightness) {
     if (this.animationFinished) {
       return;
     }
@@ -120,7 +122,7 @@ class WaveShape {
 
     while (this.radius - this.lastDrawRadius >= redrawSampleUnits) {
       const currDrawRadius = this.lastDrawRadius + redrawSampleUnits;
-      this.drawVoxels(currDrawRadius);
+      this.drawVoxels(currDrawRadius, brightness);
       this.lastDrawRadius = currDrawRadius;
     }
 
@@ -140,7 +142,7 @@ class WaveShape {
       const maxRadius = distMaxVec.length() + VOXEL_EPSILON; // Furthest distance from the center of the wave to the bounds of the voxel grid
       while (this.lastDrawRadius <= maxRadius) {
         const currDrawRadius = this.lastDrawRadius + redrawSampleUnits;
-        this.drawVoxels(currDrawRadius);
+        this.drawVoxels(currDrawRadius, brightness);
         this.lastDrawRadius = currDrawRadius;
       }
 
@@ -198,7 +200,7 @@ class ShapeWaveAnimator extends VoxelAnimator {
   }
 
   render(dt) {
-    const {waveSpeed, waveGap} = this.config;
+    const {waveSpeed, waveGap, brightness} = this.config;
 
     const voxelSampleSize = 1 + waveGap;
     const lastShape = this.activeShapes.length > 0 ? this.activeShapes[this.activeShapes.length-1] : null;
@@ -208,7 +210,7 @@ class ShapeWaveAnimator extends VoxelAnimator {
     
     // Tick/draw each of the animators
     this.activeShapes.forEach((waveShape) => {
-      waveShape.render(dt, waveSpeed);
+      waveShape.render(dt, waveSpeed, brightness);
     });
 
     // Clean up animators that are no longer visible

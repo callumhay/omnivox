@@ -8,6 +8,7 @@ class VoxelClient {
     this.socket = new WebSocket('ws://' + VoxelProtocol.WEBSOCKET_HOST + ':' + VoxelProtocol.WEBSOCKET_PORT);
     this.lastFrameId = 0;
     this.consecutiveFramesOutofSequence = 0;
+    this.lastFrameHashCode = -1;
   }
 
   start(controlPanel) {
@@ -62,13 +63,6 @@ class VoxelClient {
         }
         break;
         
-      /*
-      case VoxelProtocol.SERVER_TO_CLIENT_SCENE_FRAMEBUFFER_HEADER:
-        const frameBufferData = VoxelProtocol.getFramebufferFromPacketStr(messageData);
-        console.log(frameBufferData);
-        break;
-      */
-
       case VoxelProtocol.VOXEL_DATA_HEADER:
         const voxelDataType = VoxelProtocol.readVoxelDataType(messageData);
         const packetFrameId = VoxelProtocol.readFrameId(messageData);
@@ -85,7 +79,8 @@ class VoxelClient {
         switch (voxelDataType) {
           
           case VoxelProtocol.VOXEL_DATA_ALL_TYPE:
-            if (!VoxelProtocol.readAndPaintVoxelDataAll(messageData, this.voxelDisplay)) {
+            this.lastFrameHashCode = VoxelProtocol.readAndPaintVoxelDataAll(messageData, this.voxelDisplay, this.lastFrameHashCode);
+            if (this.lastFrameHashCode === -1) {
               console.log("Invalid voxel (all) data.");
             }
             break;

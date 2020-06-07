@@ -5,8 +5,8 @@ import {Randomizer} from './Randomizers';
 
 import Fluid, {_I} from '../Fluid';
 import {generateSpectrum, ColourSystems} from '../Spectrum';
+import {PI2} from '../MathUtils';
 
-const PI2 = Math.PI*2;
 const SPECTRUM_WIDTH = 256;
 
 export const fireAnimatorDefaultConfig = {
@@ -53,7 +53,6 @@ class FireAnimator extends VoxelAnimator {
     const endZ = this.voxelModel.zSize()-startZ;
     const endY = this.voxelModel.ySize();
 
-
     for (let x = startX; x < endX; x++) {
       for (let z = startZ; z < endZ; z++) {
         let f = this.genFunc(x-startX, z-startZ, endX-startX, endY, this.t, this.randomArray);
@@ -90,7 +89,7 @@ class FireAnimator extends VoxelAnimator {
 
   reset() {
     super.reset();
-    this.randomArray = Randomizer.getRandomFloats(256);
+    this.randomArray = Randomizer.getRandomFloats(SPECTRUM_WIDTH);
     this.t = 0;
   }
 

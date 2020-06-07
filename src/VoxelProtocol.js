@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import SceneAnimator from './Animation/SceneAnimator';
+import { hashCode } from './MathUtils';
 
 const DISCOVERY_REQ_PACKET_HEADER = "REQ";
 const DISCOVERY_ACK_PACKET_HEADER = "ACK";
@@ -151,18 +152,14 @@ class VoxelProtocol {
     return true;
   }
 
-  //static getFramebufferFromPacketStr(packetStr) {
-  //  return JSON.parse(packetStr.substring(SERVER_TO_CLIENT_SCENE_FRAMEBUFFER_HEADER.length+1, packetStr.length-1));
-  //}
-
   static stuffVoxelDataAll(startIdx, packetBuf, data, slaveId = null) {
     let byteCount = startIdx;
 
-    if (slaveId) {
+    if (slaveId !== null) {
       // We split voxels up among the slave boards based on their ID
       const xLen = data.length;
       const startX = slaveId * VOXEL_MODULE_X_SIZE;
-      const endX = min(xLen, startX + VOXEL_MODULE_X_SIZE);
+      const endX = Math.min(xLen, startX + VOXEL_MODULE_X_SIZE);
 
       for (let x = startX; x < endX; x++) {
         const yLen = data[x].length;
@@ -170,7 +167,7 @@ class VoxelProtocol {
         for (let y = 0; y < yLen; y++) {
           const zLen = data[x][y].length;
           const startZ = (slaveId % zLen) * VOXEL_MODULE_Z_SIZE;
-          const endZ   = min(zLen, startZ + VOXEL_MODULE_Z_SIZE); 
+          const endZ   = Math.min(zLen, startZ + VOXEL_MODULE_Z_SIZE); 
 
           for (let z = startZ; z < endZ; z++) {
             const voxel = data[x][y][z];
@@ -294,7 +291,7 @@ class VoxelProtocol {
     return (parseInt(packetData[2]) << 8) + parseInt(packetData[3]);
   }
 
-  static readAndPaintVoxelDataAll(packetDataBuf, voxelDisplay) {
+  static readAndPaintVoxelDataAll(packetDataBuf, voxelDisplay, lastFrameHashCode) {
     
     const displayXSize = voxelDisplay.xSize();
     const displayYSize = voxelDisplay.ySize();
@@ -304,22 +301,25 @@ class VoxelProtocol {
 
     if (packetDataBuf.length < currIdx + 3*displayXSize*displayYSize*displayZSize) {
       console.log("Voxel data was invalid (package was not long enough).");
-      return false;
+      return -1;
     }
 
-    for (let x = 0; x < displayXSize; x++) {
-      for (let y = 0; y < displayYSize; y++) {
-        for (let z = 0; z < displayZSize; z++) {
-          const r = packetDataBuf[currIdx]/255;
-          const g = packetDataBuf[currIdx+1]/255;
-          const b = packetDataBuf[currIdx+2]/255;
-          voxelDisplay.setVoxelXYZRGB(x, y, z, r, g, b);
-          currIdx += 3;
+    let currFrameHashCode = hashCode(packetDataBuf.slice(currIdx));
+    if (lastFrameHashCode !== currFrameHashCode) {
+      for (let x = 0; x < displayXSize; x++) {
+        for (let y = 0; y < displayYSize; y++) {
+          for (let z = 0; z < displayZSize; z++) {
+            const r = packetDataBuf[currIdx]/255;
+            const g = packetDataBuf[currIdx+1]/255;
+            const b = packetDataBuf[currIdx+2]/255;
+            voxelDisplay.setVoxelXYZRGB(x, y, z, r, g, b);
+            currIdx += 3;
+          }
         }
       }
     }
 
-    return true;
+    return currFrameHashCode;
   }
 };
 

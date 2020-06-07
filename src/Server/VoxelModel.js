@@ -118,12 +118,12 @@ class VoxelModel {
 
         // Let the server know to broadcast the new voxel data to all clients
         voxelServer.setVoxelData(self.voxels, self.frameCounter);
+        self.frameCounter++;
+        //console.log(self.frameCounter % 0xFFFF);
       }
 
       lastFrameTime = self.currFrameTime;
-      self.frameCounter++;
-      //console.log(self.frameCounter % 0xFFFF);
-
+      
     }, DEFAULT_POLLING_INTERVAL_MS);
   }
 
