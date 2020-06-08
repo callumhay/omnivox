@@ -1,23 +1,21 @@
 import * as THREE from 'three';
 import {clamp} from '../MathUtils';
 
-class VTLambertMaterial {
-  constructor(colour, alpha=1, texture=null, reflect=false) {
+class VTEmissionMaterial {
+  constructor(colour, alpha=1, texture=null) {
     this.colour = colour;
     this.alpha = alpha;
     this.texture = texture;
-
-    this.brdfAmbient = reflect ? this._reflectiveBrdfAmbient : this.basicBrdfAmbient;
   }
 
   dispose() {}
 
-  isVisible() {
-    return Math.round(this.alpha*255) >= 1;
+  emission(uv) {
+    return this.albedo(uv);
   }
 
-  emission(uv) {
-    return new THREE.Color(0,0,0);
+  isVisible() {
+    return Math.round(this.alpha*255) >= 1;
   }
 
   albedo(uv) {
@@ -33,16 +31,11 @@ class VTLambertMaterial {
     return this.brdfAmbient(uv, lightColour).multiplyScalar(dot);
   }
 
-  basicBrdfAmbient(uv, lightColour) {
+  brdfAmbient(uv, lightColour) {
     const albedoColour = this.albedo(uv);
-    albedoColour.multiply(lightColour).multiplyScalar(this.alpha);
-    return albedoColour;
-  }
-  _reflectiveBrdfAmbient(uv, lightColour) {
-    const albedoColour = this.albedo(uv);
-    albedoColour.add(lightColour).multiply(lightColour).multiplyScalar(this.alpha);
+    albedoColour.add(lightColour).multiplyScalar(this.alpha);
     return albedoColour;
   }
 }
 
-export default VTLambertMaterial;
+export default VTEmissionMaterial;

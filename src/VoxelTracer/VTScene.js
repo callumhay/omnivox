@@ -57,7 +57,7 @@ class VTScene {
   calculateVoxelLighting(point, material, receivesShadow) {
     // We treat voxels as perfect inifintesmial spheres centered at a given voxel position
     // they can be shadowed and have materials like meshes
-    const finalColour = new THREE.Color(0,0,0);
+    const finalColour = material.emission(null);
     
     if (this.lights.length > 0) {
       const nVoxelToLightVec = new THREE.Vector3();
@@ -140,7 +140,8 @@ class VTScene {
 
     for (let i = 0; i < samples.length; i++) {
       const {point, normal, uv, falloff} = samples[i];
-      sampleLightContrib.set(0,0,0);
+
+      sampleLightContrib.copy(material.emission(uv));
 
       for (let j = 0; j < this.lights.length; j++) {
         const light = this.lights[j];

@@ -2,11 +2,11 @@
 import * as THREE from 'three';
 
 import VoxelAnimator from "./VoxelAnimator";
-import AudioFireAnimator, {audioFireAnimatorDefaultConfig} from './AudioFireAnimator';
-
-import VTScene from '../VoxelTracer/VTScene';
+import FireAudioVisScene from '../VoxelTracer/Scenes/Audio/FireAudioVisScene';
 import BasicBarsAudioVisScene, {DEFAULT_LEVEL_MAX, DEFAULT_GAMMA, DEFAULT_FADE_FACTOR, basicBarsAudioVisDefaultConfig} from "../VoxelTracer/Scenes/Audio/BasicBarsAudioVisScene";
 import HistoryBarsAudioVisScene from "../VoxelTracer/Scenes/Audio/HistoryBarsAudioVisScene";
+
+import VTScene from '../VoxelTracer/VTScene';
 
 import {DEFAULT_NUM_FFT_SAMPLES, DEFAULT_FFT_BUFFER_SIZE} from '../WebClientViewer/SoundController';
 
@@ -31,8 +31,6 @@ export const soundVisDefaultConfig = {
   sceneConfig: {...basicBarsAudioVisDefaultConfig},
 };
 
-const AUDIO_BUFFER_SIZE = 1;
-
 class AudioVisualizerAnimator extends VoxelAnimator {
   constructor(voxelModel, config={...soundVisDefaultConfig}) {
     super(voxelModel, config);
@@ -49,12 +47,7 @@ class AudioVisualizerAnimator extends VoxelAnimator {
       this.sceneMap = {
         [SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE]:  new BasicBarsAudioVisScene(this.scene, this.voxelModel),
         [SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE]: new HistoryBarsAudioVisScene(this.scene, this.voxelModel),
-        [SOUND_VIZ_FIRE_SCENE_TYPE]: new AudioFireAnimator(this.voxelModel, 
-          {...soundVisDefaultConfig,
-            sceneType: SOUND_VIZ_FIRE_SCENE_TYPE,
-            sceneConfig: {...audioFireAnimatorDefaultConfig}
-          }
-        ),
+        [SOUND_VIZ_FIRE_SCENE_TYPE]: new FireAudioVisScene(this.scene, this.voxelModel),
       };
     }
 

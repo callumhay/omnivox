@@ -18,7 +18,7 @@ import {fogSceneDefaultOptions} from '../VoxelTracer/Scenes/FogScene';
 
 import {basicBarsAudioVisDefaultConfig} from "../VoxelTracer/Scenes/Audio/BasicBarsAudioVisScene";
 import {historyBarsAudioVisDefaultConfig, DIRECTION_TYPES} from "../VoxelTracer/Scenes/Audio/HistoryBarsAudioVisScene";
-import { audioFireAnimatorDefaultConfig } from '../Animation/AudioFireAnimator';
+import {fireAudioVisDefaultConfig} from '../VoxelTracer/Scenes/Audio/FireAudioVisScene';
 
 
 const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
@@ -58,6 +58,7 @@ class ControlPanel {
     this.sceneAnimatorConfig = {...sceneAnimatorDefaultConfig};
     this.sceneAnimatorConfig.sceneOptions = {...sceneAnimatorDefaultConfig.sceneOptions};
     this.soundVizAnimatorConfig = {...soundVisDefaultConfig};
+    this.soundVizAnimatorConfig.sceneConfig = {...soundVisDefaultConfig.sceneConfig};
 
     this.reloadSettings();
     
@@ -226,9 +227,9 @@ class ControlPanel {
           lowColour:  THREEColorToGuiColor(historyBarsAudioVisDefaultConfig.lowColour),
           highColour: THREEColorToGuiColor(historyBarsAudioVisDefaultConfig.highColour),
         },
-        fireSettings: {...audioFireAnimatorDefaultConfig,
-          lowTempColour: THREEColorToGuiColor(audioFireAnimatorDefaultConfig.lowTempColour),
-          highTempColour: THREEColorToGuiColor(audioFireAnimatorDefaultConfig.highTempColour),
+        fireSettings: {...fireAudioVisDefaultConfig,
+          lowTempColour: THREEColorToGuiColor(fireAudioVisDefaultConfig.lowTempColour),
+          highTempColour: THREEColorToGuiColor(fireAudioVisDefaultConfig.highTempColour),
         },
       },
     };

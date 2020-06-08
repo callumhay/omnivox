@@ -1,16 +1,19 @@
 import * as THREE from 'three';
 
-import VoxelAnimator from './VoxelAnimator';
-import {Randomizer} from './Randomizers';
+import SceneRenderer from '../SceneRenderer';
+import AudioVisUtils from './AudioVisUtils';
 
-import AudioVisUtils from '../VoxelTracer/Scenes/Audio/AudioVisUtils';
+import VTVoxel from '../../VTVoxel';
+import VTEmissionMaterial from '../../VTEmissionMaterial';
 
-import Fluid, {_I} from '../Fluid';
-import {PI2, clamp, VOXEL_EPSILON} from '../MathUtils';
+import Fluid, {_I} from '../../../Fluid';
+import {PI2, clamp} from '../../../MathUtils';
+
+import {Randomizer} from '../../../Animation/Randomizers';
 
 const SPECTRUM_WIDTH = 256;
 
-export const audioFireAnimatorDefaultConfig = {
+export const fireAudioVisDefaultConfig = {
   speedMultiplier: 1,
   coolingMultiplier: 1,
   boyancyMultiplier: 1,
@@ -18,62 +21,103 @@ export const audioFireAnimatorDefaultConfig = {
   highTempColour: new THREE.Color(1, 0, 180/255),
 };
 
-class AudioFireAnimator extends VoxelAnimator {
-  constructor(voxels, config) {
-    super(voxels, config);
-    this.reset();
-  }
-
-  setConfig(c) {
-    super.setConfig(c);
-
-    if (!this.initArray) {
-      this.initArray = Randomizer.getRandomFloats(SPECTRUM_WIDTH);
-    }
-
+class FireAudioVisScene extends SceneRenderer {
+  constructor(scene, voxelModel) {
+    super(scene, voxelModel);
+    this._objectsBuilt = false;
+    this.initArray = Randomizer.getRandomFloats(SPECTRUM_WIDTH);
+    
     // Setup basic defaults for the fire's fluid model - these will immediately be modified based on the audio
-    if (!this.fluidModel) {
-      this.fluidModel = new Fluid(this.voxelModel);
-    }
+    this.fluidModel = new Fluid(voxelModel);
     this.fluidModel.diffusion = 0.0001;
     this.fluidModel.viscosity = 0;
     this.fluidModel.buoyancy  = 5.4;
     this.fluidModel.cooling   = 1.3;
     this.fluidModel.vc_eps    = 8;
+  }
 
-    this._genFireColourLookup();
+  clear() {
+    super.clear();
+    this._objectsBuilt = false;
+
+    this.t = 0;
+    this.avgSpectralCentroid = 0;
+    this.avgRMS = 0;
+    this.lastAudioFrameTime = Date.now();
+    this.currAudioFrameTime = this.lastAudioFrameTime;
+    this.dRMSAvg = 0;
+    this.avgBeatsPerSec = 0;
+    this.lastdRMS = 0;
+    this.avgBeatsPerSec = 0;
+    this.timeSinceLastBeat = 1;
+  }
+
+  build(options) {
+    const xSize = this.voxelModel.xSize();
+    const ySize = this.voxelModel.ySize();
+    const zSize = this.voxelModel.zSize();
+
+    if (!this._objectsBuilt) {
+
+      this.voxels = new Array(xSize);
+      for (let x = 0; x < xSize; x++) {
+        const yVoxels = new Array(ySize);
+        this.voxels[x] = yVoxels;
+        for (let y = 0; y < ySize; y++) {
+          const zVoxels = new Array(zSize);
+          yVoxels[y] = zVoxels;
+          for (let z = 0; z < zSize; z++) {
+            zVoxels[z] = new VTVoxel(new THREE.Vector3(x,y,z), new VTEmissionMaterial(new THREE.Color(0,0,0), 1));
+          }
+        }
+      }
+
+      this._objectsBuilt = true;
+    }
+
+    for (let x = 0; x < xSize; x++) {
+      for (let y = 0; y < ySize; y++) {
+        for (let z = 0; z < zSize; z++) {
+          this.scene.addObject(this.voxels[x][y][z]);
+        }
+      }
+    }
+
+    this._genFireColourLookup(options);
   }
 
   render(dt) {
-    super.render(dt);
+    if (!this._objectsBuilt) {
+      return;
+    }
+
+    const xSize = this.voxelModel.xSize();
+    const ySize = this.voxelModel.ySize();
+    const zSize = this.voxelModel.zSize();
 
     const startX = 1;
-    const endX = this.voxelModel.xSize()-startX;
+    const endX = xSize-startX;
     const startZ = 1;
-    const endZ = this.voxelModel.zSize()-startZ;
-    const endY = this.voxelModel.ySize();
+    const endZ = zSize-startZ;
+    const endY = ySize;
 
     for (let x = startX; x < endX; x++) {
       for (let z = startZ; z < endZ; z++) {
         let f = this._genFunc(x-startX, z-startZ, endX-startX, endY, this.t, this.initArray);
         this.fluidModel.sd[this.fluidModel._I(x, 1, z)] = 1.0;
-        this.fluidModel.sT[this.fluidModel._I(x, 1, z)] = 1.0 + f*8.0;
+        this.fluidModel.sT[this.fluidModel._I(x, 1, z)] = 0.25*this.fluidModel.sT[this.fluidModel._I(x, 1, z)] + 0.75*(1.0 + f*8.0);
       }
     }
 
-    const {speedMultiplier} = this.config.sceneConfig;
-    const currSpeed = speedMultiplier * (2 + clamp(THREE.MathUtils.smootherstep(this.avgBeatsPerSec, 0, 80), 0, 0.75));
+    const {speedMultiplier} = this._options.sceneConfig;
+    const currSpeed = speedMultiplier * (2 + clamp(THREE.MathUtils.smootherstep(this.avgBeatsPerSec, 0, 80), 0, 0.5));
     //console.log(currSpeed);
 
     const speedDt = dt*currSpeed;
     this.fluidModel.step(speedDt);
     this.t += speedDt;
 
-    // Update the voxels...
-    const xSize = this.voxelModel.xSize();
-    const ySize = this.voxelModel.ySize();
-    const zSize = this.voxelModel.zSize();
-
+    // Update the voxels and render them
     for (let x = 0; x < xSize; x++) {
       for (let y = 0; y < ySize; y++) {
         for (let z = 0; z < zSize; z++) {
@@ -89,36 +133,17 @@ class AudioFireAnimator extends VoxelAnimator {
           const intensityIdx = Math.round(lighting*15);
 
           const voxelColour = this.fireTexture[intensityIdx][densityIdx][temperatureIdx];
-          this.voxelModel.drawPoint(new THREE.Vector3(x,y,z), new THREE.Color(voxelColour.a*voxelColour.r, voxelColour.a*voxelColour.g, voxelColour.a*voxelColour.b));
+          this.voxels[x][y][z].material.colour.setRGB(voxelColour.a*voxelColour.r, voxelColour.a*voxelColour.g, voxelColour.a*voxelColour.b);
         }
       }
     }
-  }
 
-  rebuild(config) {
-    this.setConfig(config);
-    this.reset();
+    this.scene.render();
   }
-
-  reset() {
-    super.reset();
-    this.t = 0;
-    this.avgSpectralCentroid = 0;
-    this.avgRMS = 0;
-    this.lastAudioFrameTime = Date.now();
-    this.currAudioFrameTime = this.lastAudioFrameTime;
-    this.dRMSAvg = 0;
-    this.avgBeatsPerSec = 0;
-    this.lastdRMS = 0;
-    this.avgBeatsPerSec = 0;
-    this.timeSinceLastBeat = 1;
-  }
-
-  clear() {}
 
   updateAudioInfo(audioInfo) {
-    const {gamma, levelMax} = this.config;
-    const {boyancyMultiplier, coolingMultiplier} = this.config.sceneConfig;
+    const {gamma, levelMax} = this._options;
+    const {boyancyMultiplier, coolingMultiplier} = this._options.sceneConfig;
     const {fft, rms, spectralCentroid} = audioInfo;
 
     // Use the FFT array to populate the initialization array for the fire
@@ -134,6 +159,7 @@ class AudioFireAnimator extends VoxelAnimator {
       const binLevel = AudioVisUtils.calcFFTBinLevelMax(fftIndices, fft);
       this.initArray[i] = THREE.MathUtils.smootherstep(binLevel/levelMax, 0, 1);
     }
+    //console.log(this.initArray);
 
     // Update the fluid model levers based on the current audio
     const denoisedRMS = rms < 0.01 ? 0 : rms;
@@ -150,7 +176,7 @@ class AudioFireAnimator extends VoxelAnimator {
     this.fluidModel.viscosity = 0;
     this.fluidModel.buoyancy  = boyancyVal * boyancyMultiplier;
     this.fluidModel.cooling   = 0.1 + (1.0 - this.avgRMS) * 1.1 * coolingMultiplier; // Values range from [0.1, 2] where lower values make the fire brighter/bigger
-    this.fluidModel.vc_eps    = this.avgRMS*100;
+    this.fluidModel.vc_eps    = this.avgRMS*80;
 
     this.currAudioFrameTime = Date.now();
     const dt = (this.currAudioFrameTime - this.lastAudioFrameTime) / 1000;
@@ -176,10 +202,9 @@ class AudioFireAnimator extends VoxelAnimator {
   _genCustomColourSpectrum(lowTempColour, highTempColour, spectrumWidth) {
     let result = new Array(spectrumWidth);
     let j = spectrumWidth-1;
-    //const rgbEpsilon = 1.0 / 256;
     for (let i = 0; i < spectrumWidth; i++) {
       const t = THREE.MathUtils.smootherstep(i, 0, spectrumWidth-1);
-      const rgb = new THREE.Color(lowTempColour.r, lowTempColour.g, lowTempColour.b).lerp(highTempColour, t);
+      const rgb = new THREE.Color(highTempColour.r, highTempColour.g, highTempColour.b).lerp(lowTempColour, t);
 
       result[j] = {
         r: rgb.r,
@@ -193,12 +218,14 @@ class AudioFireAnimator extends VoxelAnimator {
     return result;
   }
 
-  _genFireColourLookup() {
+  _genFireColourLookup(options) {
     const FIRE_THRESHOLD = 7;
     const MAX_FIRE_ALPHA = 1.0;
     const FULL_ON_FIRE   = 100;
 
-    const {lowTempColour, highTempColour} = this.config.sceneConfig;
+    const {sceneConfig} = options;
+    const lowTempColour = sceneConfig.lowTempColour; //instanceof THREE.Color ? sceneConfig.lowTempColour : new THREE.Color(sceneConfig.lowTempColour[0]/255, sceneConfig.lowTempColour[1]/255, sceneConfig.lowTempColour[2]/255);
+    const highTempColour = sceneConfig.highTempColour;// instanceof THREE.Color ? sceneConfig.highTempColour : new THREE.Color(sceneConfig.highTempColour[0]/255, sceneConfig.highTempColour[1]/255, sceneConfig.highTempColour[2]/255);
 
     const spectrum = this._genCustomColourSpectrum(lowTempColour, highTempColour, SPECTRUM_WIDTH);
     this.fireTexture = [];
@@ -220,9 +247,9 @@ class AudioFireAnimator extends VoxelAnimator {
           if (k >= FIRE_THRESHOLD) {
             const currSpectrumVal = spectrum[k];
             jTex.push({
-              r: currSpectrumVal.r,
-              g: currSpectrumVal.g,
-              b: currSpectrumVal.b,
+              r: isNaN(currSpectrumVal.r) ? 0 : currSpectrumVal.r,
+              g: isNaN(currSpectrumVal.g) ? 0 : currSpectrumVal.g,
+              b: isNaN(currSpectrumVal.b) ? 0 : currSpectrumVal.b,
               a: MAX_FIRE_ALPHA * ((k>FULL_ON_FIRE) ? 1.0 : (k-FIRE_THRESHOLD)/(FULL_ON_FIRE-FIRE_THRESHOLD))
             });
           }
@@ -239,11 +266,18 @@ class AudioFireAnimator extends VoxelAnimator {
     let f = 0;
     let i = 0;
 
+    let avgP = 0;
+    for (let j = 0; j < p.length; j++) {
+      avgP += p[j];
+    }
+    avgP /= p.length;
+    const multiplier = avgP < 0.01 ? 0.0 : 0.25;
+
     for (; i < 12; i++) {
       f += (1.0 +
         Math.sin(x/sx*PI2*(p[pi++]+1)+p[pi++]*PI2 + p[pi++]*t) *
         Math.sin(y/sy*PI2*(p[pi++]+1)+p[pi++]*PI2 + p[pi++]*t)) *
-        (1 + Math.sin((p[pi++]+0.5)*t + p[pi++]*PI2)) * 0.25;
+        (1 + Math.sin((p[pi++]+0.5)*t + p[pi++]*PI2)) * multiplier;
     }
     f *= 1.0/i;
 
@@ -260,4 +294,4 @@ class AudioFireAnimator extends VoxelAnimator {
   }
 }
 
-export default AudioFireAnimator;
+export default FireAudioVisScene;
