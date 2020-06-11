@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import chroma from 'chroma-js'
 import { VOXEL_EPSILON } from '../MathUtils';
 
 export class Randomizer {
@@ -138,49 +139,13 @@ export class Vector3DirectionRandomizer extends Randomizer {
 export class ColourRandomizer extends Randomizer {
   constructor(min = new THREE.Color(0,0,0), max = new THREE.Color(1,1,1)) {
     super();
-
-    let _min = min.clone();
-    let _max = max.clone();
-    
-    this.getMin = () => (_min);
-    this.setMin = (m) => { _min.setRGB(m.r, m.g, m.b); };
-    this.getMax = () => (_max);
-    this.setMax = (m) => { _max.setRGB(m.r, m.g, m.b); };
-
-    this.setMin(min);
-    this.setMax(max);
-
-    this.setRandomizers = (min, max) => {
-      this._randomizers = [
-        new UniformIntRandomizer(Math.floor(255*min.r), Math.floor(255*max.r), false),
-        new UniformIntRandomizer(Math.floor(255*min.g), Math.floor(255*max.g), false),
-        new UniformIntRandomizer(Math.floor(255*min.b), Math.floor(255*max.b), false)
-      ];
-    }
-    this.setRandomizers(_min, _max);
-  }
-
-  get min() { return this.getMin(); }
-  get max() { return this.getMax(); }
-
-  set min(min) {
-    this.setMin(new THREE.Color(min.r, min.g, min.b));
-    this.setRandomizers(this.getMin(), this.getMax())
-  }
-  set max(max) {
-    this.setMax(new THREE.Color(max.r, max.g, max.b));
-    this.setRandomizers(this.getMin(), this.getMax());
+    this.min = min;
+    this.max = max;
   }
 
   generate() {
-    const colour = new THREE.Color();
-    colour.setRGB(
-      this._randomizers[0].generate() / 255.0, 
-      this._randomizers[1].generate() / 255.0, 
-      this._randomizers[2].generate() / 255.0
-    );
-
-    return colour;
+    const temp = chroma.mix(chroma.gl(this.min), chroma.gl(this.max), Randomizer.getRandomIntInclusive(0,1000)/1000).gl();
+    return new THREE.Color(temp[0], temp[1], temp[2]);
   }
 
   toJSON() {

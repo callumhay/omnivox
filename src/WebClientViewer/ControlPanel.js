@@ -718,12 +718,17 @@ class ControlPanel {
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
     }).setValue(fireSettings.vorticityConfinement);
 
+    folder.add(fireSettings, 'initialIntensityMultiplier', 0.1, 10, 0.1).onChange((value) => {
+      this.fireAnimatorConfig.initialIntensityMultiplier = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+    }).setValue(fireSettings.initialIntensityMultiplier);
+
     folder.add(fireSettings, 'spectrumTempMin', 0, 5000, 100).onChange((value) => {
       this.fireAnimatorConfig.spectrumTempMin = value;
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
     }).setValue(fireSettings.spectrumTempMin);
 
-    folder.add(fireSettings, 'spectrumTempMax', 0, 5000, 100).onChange((value) => {
+    folder.add(fireSettings, 'spectrumTempMax', 0, 30000, 100).onChange((value) => {
       this.fireAnimatorConfig.spectrumTempMax = value;
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
     }).setValue(fireSettings.spectrumTempMax);
@@ -1015,10 +1020,14 @@ class ControlPanel {
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
           }).setValue(vizTypeOptions.highColour);
 
-          this.audioVizSettingsFolder.add(vizTypeOptions, 'speed', 1, 100, 1).onChange((value) => {
+          this.audioVizSettingsFolder.add(vizTypeOptions, 'speed', 1, 20, 0.1).onChange((value) => {
             this.soundVizAnimatorConfig.sceneConfig.speed = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
           }).setValue(vizTypeOptions.speed);
+          this.audioVizSettingsFolder.add(vizTypeOptions, 'tempoMultiplier', 1, 100, 1).onChange((value) => {
+            this.soundVizAnimatorConfig.sceneConfig.tempoMultiplier = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+          }).setValue(vizTypeOptions.tempoMultiplier);
 
           this.audioVizSettingsFolder.add(vizTypeOptions, 'direction', DIRECTION_TYPES).onChange((value) => {
             this.soundVizAnimatorConfig.sceneConfig.direction = value;
@@ -1030,6 +1039,12 @@ class ControlPanel {
         case SOUND_VIZ_FIRE_SCENE_TYPE:
           vizTypeOptions = soundVizSettings.fireSettings;
           this.soundVizAnimatorConfig.sceneConfig = {...vizTypeOptions};
+
+          
+          this.audioVizSettingsFolder.add(vizTypeOptions, 'initialIntensityMultiplier', 0.1, 10, 0.1).onChange((value) => {
+            this.soundVizAnimatorConfig.sceneConfig.initialIntensityMultiplier = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+          }).setValue(vizTypeOptions.initialIntensityMultiplier);
 
           this.audioVizSettingsFolder.add(vizTypeOptions, 'speedMultiplier', 0.1, 3, 0.01).onChange((value) => {
             this.soundVizAnimatorConfig.sceneConfig.speedMultiplier = value;

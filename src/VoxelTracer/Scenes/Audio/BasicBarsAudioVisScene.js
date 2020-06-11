@@ -1,5 +1,6 @@
 
 import * as THREE from 'three';
+import chroma from 'chroma-js';
 
 import AudioVisUtils from './AudioVisUtils';
 
@@ -66,9 +67,8 @@ class BasicBarsAudioVisScene extends SceneRenderer {
       const levelColours = [];
       for (let y = Y_START; y < ySize; y++) {
         const t = THREE.MathUtils.smootherstep(y, Y_START, ySize-1);
-        const colour = new THREE.Color(lowColour.r, lowColour.g, lowColour.b);
-        colour.lerp(highColour, t);
-        levelColours.push(colour);
+        const temp = chroma.mix(chroma.gl(lowColour), chroma.gl(highColour), t, 'lrgb').gl();
+        levelColours.push(new THREE.Color(temp[0], temp[1], temp[2]));
       }
 
       const voxelOptions = {receivesShadow: false};
@@ -217,7 +217,7 @@ class BasicBarsAudioVisScene extends SceneRenderer {
     if (centerSorted) {
       // First sort all of the frequency bins by their descending amplitudes
       // (after we add all of the indices in the collective bin index lookup)
-      const collectedFFTs = Object.keys(binIndexLookup).map(idx => AudioVisUtils.calcFFTBinLevelSum(this.binIndexLookup[idx], fft));
+      const collectedFFTs = Object.keys(this.binIndexLookup).map(idx => AudioVisUtils.calcFFTBinLevelSum(this.binIndexLookup[idx], fft));
       collectedFFTs.sort((a,b) => b-a);
     
       // The spiral index list and the sorted fft list should be the same length.

@@ -15,6 +15,7 @@ export const fireAnimatorDefaultConfig = {
   viscosity: 0.000,
   buoyancy:  5.4,
   cooling:   1.3,
+  initialIntensityMultiplier: 8,
   vorticityConfinement: 8.0,
   spectrumTempMin: 700,
   spectrumTempMax: 1700,
@@ -47,6 +48,8 @@ class FireAnimator extends VoxelAnimator {
   render(dt) {
     super.render(dt);
 
+    const {speed, initialIntensityMultiplier} = this.config;
+
     const startX = 1;
     const endX = this.voxelModel.xSize()-startX;
     const startZ = 1;
@@ -57,10 +60,10 @@ class FireAnimator extends VoxelAnimator {
       for (let z = startZ; z < endZ; z++) {
         let f = this.genFunc(x-startX, z-startZ, endX-startX, endY, this.t, this.randomArray);
         this.fluidModel.sd[this.fluidModel._I(x, 1, z)] = 1.0;
-        this.fluidModel.sT[this.fluidModel._I(x, 1, z)] = 1.0 + f*8.0;
+        this.fluidModel.sT[this.fluidModel._I(x, 1, z)] = 1.0 + f*initialIntensityMultiplier;
       }
     }
-    const speedDt = dt*this.config.speed;
+    const speedDt = dt*speed;
     this.fluidModel.step(speedDt);
     this.t += speedDt;
 

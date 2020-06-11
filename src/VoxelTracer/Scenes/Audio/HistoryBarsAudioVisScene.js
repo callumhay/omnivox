@@ -1,7 +1,8 @@
 
 import * as THREE from 'three';
+import chroma from 'chroma-js';
 
-import {DEFAULT_LEVEL_MAX, DEFAULT_LOW_COLOUR, DEFAULT_HIGH_COLOUR, DEFAULT_GAMMA, DEFAULT_FADE_FACTOR, DEFAULT_CENTER_SORTED} from './BasicBarsAudioVisScene';
+import {DEFAULT_LOW_COLOUR, DEFAULT_HIGH_COLOUR, DEFAULT_GAMMA, DEFAULT_FADE_FACTOR} from './BasicBarsAudioVisScene';
 
 import SceneRenderer from '../SceneRenderer';
 
@@ -31,6 +32,7 @@ export const historyBarsAudioVisDefaultConfig = {
   lowColour:        DEFAULT_LOW_COLOUR,
   highColour:       DEFAULT_HIGH_COLOUR,
   speed:            DEFAULT_SPEED,
+  tempoMultiplier:  15.0,
   direction:        DEFAULT_DIR,
 };
 
@@ -108,9 +110,8 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
       const levelColours = [];
       for (let y = Y_START; y < ySize; y++) {
         const t = THREE.MathUtils.smootherstep(y, Y_START, ySize-1);
-        const colour = new THREE.Color(lowColour.r, lowColour.g, lowColour.b);
-        colour.lerp(highColour, t);
-        levelColours.push(colour);
+        const temp = chroma.mix(chroma.gl(lowColour), chroma.gl(highColour), t, 'lrgb').gl();
+        levelColours.push(new THREE.Color(temp[0], temp[1], temp[2]));
       }
       
       const voxelOptions = {receivesShadow: false};
@@ -163,6 +164,7 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
     const gamma = this._options.gamma ? this._options.gamma : DEFAULT_GAMMA;
     const fadeFactor = this._options.fadeFactor ? this._options.fadeFactor : DEFAULT_FADE_FACTOR;
     const speed = sceneConfig.speed ? sceneConfig.speed : DEFAULT_SPEED;
+    const tempoMultiplier = sceneConfig.tempoMultiplier ? sceneConfig.tempoMultiplier : 1;
     const direction  = sceneConfig.direction  ? sceneConfig.direction  : DEFAULT_DIR; 
 
     const {fft, rms, spectralCentroid} = audioInfo;
@@ -173,16 +175,16 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
     this.dRMSAvg = (this.dRMSAvg + (denoisedRMS - this.lastRMS) / dt) / 2.0;
     if (this.timeSinceLastBeat > 0.0001 && (this.dRMSAvg < 0 && this.lastdRMS > 0) || (this.dRMSAvg > 0 && this.lastdRMS < 0)) {
       // We crossed zero, count the beat
-      this.avgBeatsPerSec = 1.0 / this.timeSinceLastBeat;
+      this.avgBeatsPerSec = clamp((this.avgBeatsPerSec + 1.0 / this.timeSinceLastBeat) / 2.0, 0, 80);
       this.timeSinceLastBeat = 0;
     }
     else {
       this.timeSinceLastBeat += dt;
       if (this.timeSinceLastBeat > 1) {
-        this.avgBeatsPerSec = 0.01;
+        this.avgBeatsPerSec = clamp((this.avgBeatsPerSec + 0.01) / 2.0, 0, 80);
       }
     }
-    
+
     this.lastRMS  = denoisedRMS;
     this.lastdRMS = this.dRMSAvg;
   
@@ -230,7 +232,6 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
     this.spectralPtLight.colour.setRGB(colourRMS, colourRMS, colourRMS);
     this.spectralPtLight.attenuation.quadratic = (this.spectralPtLight.attenuation.quadratic + 1.0 / (Math.max(0.01, ptLightDistFromFront*ptLightDistFromFront*10*denoisedRMS))) / 2.0;
 
-  
     // Build a distribution of what bins (i.e., meshes) to throw each frequency in
     if (!this.binIndexLookup || numFreqs !== this.binIndexLookup.length) {
       this.binIndexLookup = AudioVisUtils.buildBinIndexLookup(numFreqs, loopSize, gamma);
@@ -244,7 +245,8 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
     }
 
     const fadeFactorAdjusted = Math.pow(fadeFactor, dt);
-    const tempoBeat = this.dRMSAvg > 0 ? this.avgBeatsPerSec : 0;
+    const tempoBeat = clamp(THREE.MathUtils.smootherstep(this.avgBeatsPerSec, 0, 80), 0, 1)*tempoMultiplier;
+
     const oneOverSpeed = 1.0 / Math.max(1, speed + tempoBeat);
 
     if (this.timeCounter >= oneOverSpeed) {

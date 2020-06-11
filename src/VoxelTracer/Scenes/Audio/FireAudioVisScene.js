@@ -14,6 +14,7 @@ import {Randomizer} from '../../../Animation/Randomizers';
 const SPECTRUM_WIDTH = 256;
 
 export const fireAudioVisDefaultConfig = {
+  initialIntensityMultiplier: 8,
   speedMultiplier: 1,
   coolingMultiplier: 1,
   boyancyMultiplier: 1,
@@ -91,6 +92,8 @@ class FireAudioVisScene extends SceneRenderer {
       return;
     }
 
+    const {speedMultiplier, initialIntensityMultiplier} = this._options.sceneConfig;
+
     const xSize = this.voxelModel.xSize();
     const ySize = this.voxelModel.ySize();
     const zSize = this.voxelModel.zSize();
@@ -105,14 +108,11 @@ class FireAudioVisScene extends SceneRenderer {
       for (let z = startZ; z < endZ; z++) {
         let f = this._genFunc(x-startX, z-startZ, endX-startX, endY, this.t, this.initArray);
         this.fluidModel.sd[this.fluidModel._I(x, 1, z)] = 1.0;
-        this.fluidModel.sT[this.fluidModel._I(x, 1, z)] = 0.25*this.fluidModel.sT[this.fluidModel._I(x, 1, z)] + 0.75*(1.0 + f*8.0);
+        this.fluidModel.sT[this.fluidModel._I(x, 1, z)] = 0.25*this.fluidModel.sT[this.fluidModel._I(x, 1, z)] + 0.75*(1.0 + f*initialIntensityMultiplier);
       }
     }
 
-    const {speedMultiplier} = this._options.sceneConfig;
-    const currSpeed = speedMultiplier * (2 + clamp(THREE.MathUtils.smootherstep(this.avgBeatsPerSec, 0, 80), 0, 0.5));
-    //console.log(currSpeed);
-
+    const currSpeed = speedMultiplier * (2 + clamp(THREE.MathUtils.smootherstep(this.avgBeatsPerSec, 0, 80), 0, 1));
     const speedDt = dt*currSpeed;
     this.fluidModel.step(speedDt);
     this.t += speedDt;
@@ -157,7 +157,7 @@ class FireAudioVisScene extends SceneRenderer {
     for (let i = 0; i < this.initArray.length; i++) {
       const fftIndices = this.binIndexLookup[i];
       const binLevel = AudioVisUtils.calcFFTBinLevelMax(fftIndices, fft);
-      this.initArray[i] = THREE.MathUtils.smootherstep(binLevel/levelMax, 0, 1);
+      this.initArray[i] = clamp(binLevel/levelMax, 0, 1);
     }
     //console.log(this.initArray);
 
@@ -185,13 +185,13 @@ class FireAudioVisScene extends SceneRenderer {
     this.dRMSAvg = (this.dRMSAvg + (denoisedRMS - this.lastRMS) / dt) / 2.0;
     if (this.timeSinceLastBeat > 0.001 && (this.dRMSAvg < 0 && this.lastdRMS > 0) || (this.dRMSAvg > 0 && this.lastdRMS < 0)) {
       // We crossed zero, count the beat
-      this.avgBeatsPerSec = 1.0 / this.timeSinceLastBeat;
+      this.avgBeatsPerSec = clamp((this.avgBeatsPerSec + 1.0 / this.timeSinceLastBeat) / 2.0, 0, 80);
       this.timeSinceLastBeat = 0;
     }
     else {
       this.timeSinceLastBeat += dt;
       if (this.timeSinceLastBeat > 1) {
-        this.avgBeatsPerSec = 0.01;
+        this.avgBeatsPerSec = clamp((this.avgBeatsPerSec + 0.01) / 2.0, 0, 80);
       }
     }
     
@@ -223,9 +223,7 @@ class FireAudioVisScene extends SceneRenderer {
     const MAX_FIRE_ALPHA = 1.0;
     const FULL_ON_FIRE   = 100;
 
-    const {sceneConfig} = options;
-    const lowTempColour = sceneConfig.lowTempColour; //instanceof THREE.Color ? sceneConfig.lowTempColour : new THREE.Color(sceneConfig.lowTempColour[0]/255, sceneConfig.lowTempColour[1]/255, sceneConfig.lowTempColour[2]/255);
-    const highTempColour = sceneConfig.highTempColour;// instanceof THREE.Color ? sceneConfig.highTempColour : new THREE.Color(sceneConfig.highTempColour[0]/255, sceneConfig.highTempColour[1]/255, sceneConfig.highTempColour[2]/255);
+    const {lowTempColour, highTempColour} = options.sceneConfig;
 
     const spectrum = this._genCustomColourSpectrum(lowTempColour, highTempColour, SPECTRUM_WIDTH);
     this.fireTexture = [];
@@ -267,11 +265,13 @@ class FireAudioVisScene extends SceneRenderer {
     let i = 0;
 
     let avgP = 0;
+    let maxP = 0;
     for (let j = 0; j < p.length; j++) {
       avgP += p[j];
+      maxP = Math.max(maxP, p[j]);
     }
     avgP /= p.length;
-    const multiplier = avgP < 0.01 ? 0.0 : 0.25;
+    const multiplier = maxP < 0.1 ? 0.0 : Math.min(avgP, 0.25);
 
     for (; i < 12; i++) {
       f += (1.0 +

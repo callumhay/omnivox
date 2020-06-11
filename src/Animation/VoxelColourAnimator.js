@@ -1,11 +1,20 @@
 import * as THREE from 'three';
+import chroma from 'chroma-js';
+
 import VoxelAnimator, {REPEAT_INFINITE_TIMES} from './VoxelAnimator';
 
-export const COLOUR_INTERPOLATION_HSL = 'hsl';
-export const COLOUR_INTERPOLATION_RGB = 'rgb';
+
+export const COLOUR_INTERPOLATION_RGB  = 'rgb';
+export const COLOUR_INTERPOLATION_HSL  = 'hsl';
+export const COLOUR_INTERPOLATION_LAB  = 'lab';
+export const COLOUR_INTERPOLATION_LCH  = 'lch';
+export const COLOUR_INTERPOLATION_LRGB = 'lrgb';
 export const COLOUR_INTERPOLATION_TYPES = [
-  COLOUR_INTERPOLATION_HSL,
   COLOUR_INTERPOLATION_RGB,
+  COLOUR_INTERPOLATION_HSL,
+  COLOUR_INTERPOLATION_LAB,
+  COLOUR_INTERPOLATION_LCH,
+  COLOUR_INTERPOLATION_LRGB,
 ];
 
 export const INTERPOLATION_LERP     = 'lerp';
@@ -73,17 +82,8 @@ class VoxelColourAnimator extends VoxelAnimator {
           break;
       }
       
-      const currColour = this.colourStart.clone();
-      
-      switch (colourInterpolationType) {
-        default:
-        case COLOUR_INTERPOLATION_HSL:
-          currColour.lerpHSL(this.colourEnd, interpolateAlpha);
-          break;
-        case COLOUR_INTERPOLATION_RGB:
-          currColour.lerp(this.colourEnd, interpolateAlpha);
-          break;
-      }
+      const temp = chroma.mix(chroma.gl(this.colourStart), chroma.gl(this.colourEnd), interpolateAlpha, colourInterpolationType).gl();
+      const currColour = new THREE.Color(temp[0], temp[1], temp[2]);
 
       this.voxelPositions.forEach(voxelPos => {
         this.voxelModel.setVoxel(voxelPos, currColour);

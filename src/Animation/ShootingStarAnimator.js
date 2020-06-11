@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 import VoxelAnimator, {REPEAT_INFINITE_TIMES} from './VoxelAnimator';
-import VoxelColourAnimator, {INTERPOLATION_SMOOTHER} from './VoxelColourAnimator';
+import VoxelColourAnimator, {INTERPOLATION_SMOOTHER, COLOUR_INTERPOLATION_LRGB} from './VoxelColourAnimator';
 
 import {VOXEL_EPSILON, VOXEL_ERR_UNITS} from '../MathUtils';
 
@@ -61,6 +61,7 @@ class ShootingStarAnimator extends VoxelAnimator {
         startTimeSecs: 0.0,
         endTimeSecs: fadeTimeSecs,
         interpolation: INTERPOLATION_SMOOTHER,
+        colourInterpolationType: COLOUR_INTERPOLATION_LRGB,
       }),
     };
     this.currAnimatorMap.push(animatorObj);
