@@ -2,7 +2,7 @@ import * as dat from 'dat.gui';
 import * as THREE from 'three';
 
 import VoxelAnimator from '../Animation/VoxelAnimator';
-import {voxelColourAnimatorDefaultConfig, COLOUR_INTERPOLATION_TYPES, INTERPOLATION_TYPES} from '../Animation/VoxelColourAnimator';
+import {voxelColourAnimatorDefaultConfig, INTERPOLATION_TYPES} from '../Animation/VoxelColourAnimator';
 import {starShowerDefaultConfig} from '../Animation/StarShowerAnimator';
 import {shapeWaveAnimatorDefaultConfig, WAVE_SHAPE_TYPES} from '../Animation/ShapeWaveAnimator';
 import {gameOfLifeAnimatorDefaultConfig} from '../Animation/GameOfLifeAnimator';
@@ -10,7 +10,7 @@ import {fireAnimatorDefaultConfig} from '../Animation/FireAnimator';
 import {sceneAnimatorDefaultConfig, SCENE_TYPES, SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG} from '../Animation/SceneAnimator';
 import {soundVisDefaultConfig, SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE, SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE, SOUND_VIZ_TYPES, SOUND_VIZ_FIRE_SCENE_TYPE} from '../Animation/AudioVisualizerAnimator';
 
-import {ColourSystems} from '../Spectrum';
+import {ColourSystems, COLOUR_INTERPOLATION_TYPES} from '../Spectrum';
 
 import {simpleSceneDefaultOptions} from '../VoxelTracer/Scenes/SimpleScene';
 import {shadowSceneDefaultOptions} from '../VoxelTracer/Scenes/ShadowScene';
@@ -952,7 +952,7 @@ class ControlPanel {
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
     }).setValue(soundVizSettings.numFFTSamples);
     */
-    folder.add(soundVizSettings, 'levelMax', 0.1, 3, 0.01).onChange((value) => {
+    folder.add(soundVizSettings, 'levelMax', 0.1, 10, 0.01).onChange((value) => {
       this.soundVizAnimatorConfig.levelMax = value;
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
     }).setValue(soundVizSettings.levelMax);
@@ -1041,7 +1041,7 @@ class ControlPanel {
           this.soundVizAnimatorConfig.sceneConfig = {...vizTypeOptions};
 
           
-          this.audioVizSettingsFolder.add(vizTypeOptions, 'initialIntensityMultiplier', 0.1, 10, 0.1).onChange((value) => {
+          this.audioVizSettingsFolder.add(vizTypeOptions, 'initialIntensityMultiplier', 0.1, 20, 0.1).onChange((value) => {
             this.soundVizAnimatorConfig.sceneConfig.initialIntensityMultiplier = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
           }).setValue(vizTypeOptions.initialIntensityMultiplier);
@@ -1067,6 +1067,11 @@ class ControlPanel {
             this.soundVizAnimatorConfig.sceneConfig.highTempColour = GuiColorToRGBObj(value);
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
           }).setValue(vizTypeOptions.highTempColour);
+
+          this.audioVizSettingsFolder.add(vizTypeOptions, 'colourInterpolationType', COLOUR_INTERPOLATION_TYPES).onChange((value) => {
+            this.soundVizAnimatorConfig.sceneConfig.colourInterpolationType = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+          }).setValue(vizTypeOptions.colourInterpolationType);
         
           break;
 

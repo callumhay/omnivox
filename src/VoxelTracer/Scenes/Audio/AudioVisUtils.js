@@ -52,6 +52,41 @@ class AudioVisUtils {
     return binLevel;
   }
 
+  static buildSpiralIndices(xSize, ySize) {
+    const allIndices = {};
+    for (let x = 0; x < xSize; x++) {
+      for (let y = 0; y < ySize; y++) {
+        allIndices[x*ySize + y] = true;
+      }
+    }
+
+    let r = 1;
+
+    const gridSize = xSize*ySize;
+    const startX = Math.floor(xSize/2);
+    const startY = Math.floor(ySize/2);
+    const result = [];
+
+    while (result.length < gridSize) {
+      const rSqr = r*r;
+      for (let x = 0; x < xSize; x++) {
+        for (let y = 0; y < ySize; y++) {
+          const idx = x*zSize + y;
+          if (allIndices[idx]) {
+            let xDiff = x - startX;
+            let yDiff = y - startY;
+            if (xDiff*xDiff + yDiff*yDiff <= rSqr) {
+              result.push(idx);
+              allIndices[idx] = false;
+            }
+          }
+        }
+      }
+      r++;
+    }
+    return result;
+  }
+
 }
 
 export default AudioVisUtils;

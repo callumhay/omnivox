@@ -50,17 +50,21 @@ class FireAnimator extends VoxelAnimator {
 
     const {speed, initialIntensityMultiplier} = this.config;
 
+    const xSize = this.voxelModel.xSize();
+    const zSize = this.voxelModel.zSize();
+
     const startX = 1;
-    const endX = this.voxelModel.xSize()-startX;
+    const endX = xSize+1;
     const startZ = 1;
-    const endZ = this.voxelModel.zSize()-startZ;
-    const endY = this.voxelModel.ySize();
+    const endZ = zSize+1;
+    const startY = 1;
 
     for (let x = startX; x < endX; x++) {
       for (let z = startZ; z < endZ; z++) {
-        let f = this.genFunc(x-startX, z-startZ, endX-startX, endY, this.t, this.randomArray);
-        this.fluidModel.sd[this.fluidModel._I(x, 1, z)] = 1.0;
-        this.fluidModel.sT[this.fluidModel._I(x, 1, z)] = 1.0 + f*initialIntensityMultiplier;
+        let f = this.genFunc(x-startX, z-startZ, endX-startX, endZ-startZ, this.t, this.randomArray);
+        const idx = this.fluidModel._I(x, startY, z);
+        this.fluidModel.sd[idx] = 1.0;
+        this.fluidModel.sT[idx] = 1.0 + f*initialIntensityMultiplier;
       }
     }
     const speedDt = dt*speed;
@@ -74,8 +78,9 @@ class FireAnimator extends VoxelAnimator {
         for (let z = 0; z < voxelArray[x][y].length; z++) {
 
           // Start by looking up the temperature and density of the flame, both are constrained in [0,1]
-          const temperature = this.fluidModel.T[this.fluidModel._I(x,y,z)];
-          const density = this.fluidModel.d[this.fluidModel._I(x,y,z)];
+          const idx = this.fluidModel._I(x+startX,y+startY,z+startZ);
+          const temperature = this.fluidModel.T[idx];
+          const density = this.fluidModel.d[idx];
           const lighting = 0.6;
 
           // Use the temp and density to look up the expected colour of the flame at the current voxel

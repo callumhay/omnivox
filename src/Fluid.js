@@ -2,7 +2,7 @@ const NUM_BUFFERS = 10;
 
 class Fluid {
   constructor(voxelModel) {
-    this.N = voxelModel.xSize()-2;
+    this.N = voxelModel.xSize();
     this.SIZE = Math.pow(this.N+2,3);
 
     // Initialize the array of buffers

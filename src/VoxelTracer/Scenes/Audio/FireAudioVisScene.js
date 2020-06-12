@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import chroma from 'chroma-js';
 
 import SceneRenderer from '../SceneRenderer';
 import AudioVisUtils from './AudioVisUtils';
@@ -6,6 +7,7 @@ import AudioVisUtils from './AudioVisUtils';
 import VTVoxel from '../../VTVoxel';
 import VTEmissionMaterial from '../../VTEmissionMaterial';
 
+import {COLOUR_INTERPOLATION_RGB} from '../../../Spectrum';
 import Fluid, {_I} from '../../../Fluid';
 import {PI2, clamp} from '../../../MathUtils';
 
@@ -20,13 +22,14 @@ export const fireAudioVisDefaultConfig = {
   boyancyMultiplier: 1,
   lowTempColour:  new THREE.Color(135/255, 1, 0),
   highTempColour: new THREE.Color(1, 0, 180/255),
+  colourInterpolationType: COLOUR_INTERPOLATION_RGB,
 };
 
 class FireAudioVisScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
     this._objectsBuilt = false;
-    this.initArray = Randomizer.getRandomFloats(SPECTRUM_WIDTH);
+    
     
     // Setup basic defaults for the fire's fluid model - these will immediately be modified based on the audio
     this.fluidModel = new Fluid(voxelModel);
@@ -57,6 +60,8 @@ class FireAudioVisScene extends SceneRenderer {
     const xSize = this.voxelModel.xSize();
     const ySize = this.voxelModel.ySize();
     const zSize = this.voxelModel.zSize();
+    this.initArray = Randomizer.getRandomFloats(xSize*zSize);
+    //this.initArray = new Array(xSize*zSize).fill(0);
 
     if (!this._objectsBuilt) {
 
@@ -99,20 +104,21 @@ class FireAudioVisScene extends SceneRenderer {
     const zSize = this.voxelModel.zSize();
 
     const startX = 1;
-    const endX = xSize-startX;
+    const endX = xSize+1;
     const startZ = 1;
-    const endZ = zSize-startZ;
-    const endY = ySize;
+    const endZ = zSize+1;
+    const startY = 1;
 
     for (let x = startX; x < endX; x++) {
       for (let z = startZ; z < endZ; z++) {
-        let f = this._genFunc(x-startX, z-startZ, endX-startX, endY, this.t, this.initArray);
-        this.fluidModel.sd[this.fluidModel._I(x, 1, z)] = 1.0;
-        this.fluidModel.sT[this.fluidModel._I(x, 1, z)] = 0.25*this.fluidModel.sT[this.fluidModel._I(x, 1, z)] + 0.75*(1.0 + f*initialIntensityMultiplier);
+        let f = this._genFunc(x-startX, z-startZ, endX-startX, endZ-startZ, this.t, this.initArray);
+        const idx = this.fluidModel._I(x, startY, z);
+        this.fluidModel.sd[idx] = 1.0;
+        this.fluidModel.sT[idx] = 0.25*this.fluidModel.sT[idx] + 0.75*(1.0 + f*initialIntensityMultiplier);
       }
     }
 
-    const currSpeed = speedMultiplier * (2 + clamp(THREE.MathUtils.smootherstep(this.avgBeatsPerSec, 0, 80), 0, 1));
+    const currSpeed = speedMultiplier * (2 + clamp(THREE.MathUtils.smootherstep(this.avgBeatsPerSec, 0, 80), 0, 0.75));
     const speedDt = dt*currSpeed;
     this.fluidModel.step(speedDt);
     this.t += speedDt;
@@ -123,8 +129,9 @@ class FireAudioVisScene extends SceneRenderer {
         for (let z = 0; z < zSize; z++) {
 
           // Start by looking up the temperature and density of the flame, both are constrained in [0,1]
-          const temperature = this.fluidModel.T[this.fluidModel._I(x,y,z)];
-          const density = this.fluidModel.d[this.fluidModel._I(x,y,z)];
+          const idx = this.fluidModel._I(x+startX,y+startY,z+startZ);
+          const temperature = this.fluidModel.T[idx];
+          const density = this.fluidModel.d[idx];
           const lighting = 0.6;
 
           // Use the temp and density to look up the expected colour of the flame at the current voxel
@@ -157,7 +164,7 @@ class FireAudioVisScene extends SceneRenderer {
     for (let i = 0; i < this.initArray.length; i++) {
       const fftIndices = this.binIndexLookup[i];
       const binLevel = AudioVisUtils.calcFFTBinLevelMax(fftIndices, fft);
-      this.initArray[i] = clamp(binLevel/levelMax, 0, 1);
+      this.initArray[i] = clamp(Math.log10(binLevel)/levelMax, 0, 1);
     }
     //console.log(this.initArray);
 
@@ -199,19 +206,21 @@ class FireAudioVisScene extends SceneRenderer {
     this.lastdRMS = this.dRMSAvg;
   }
 
-  _genCustomColourSpectrum(lowTempColour, highTempColour, spectrumWidth) {
+  _genCustomColourSpectrum(options, spectrumWidth) {
+    const {lowTempColour, highTempColour, colourInterpolationType} = options.sceneConfig;
+
     let result = new Array(spectrumWidth);
     let j = spectrumWidth-1;
     for (let i = 0; i < spectrumWidth; i++) {
-      const t = THREE.MathUtils.smootherstep(i, 0, spectrumWidth-1);
-      const rgb = new THREE.Color(highTempColour.r, highTempColour.g, highTempColour.b).lerp(lowTempColour, t);
+      const temp = chroma.mix(chroma.gl(highTempColour), chroma.gl(lowTempColour), i/(spectrumWidth-1), colourInterpolationType).gl();
 
       result[j] = {
-        r: rgb.r,
-        g: rgb.g,
-        b: rgb.b,
-        a: ((rgb.r + rgb.g + rgb.b) > 0.1) ? rgb.b : 0
+        r: temp[0],
+        g: temp[1],
+        b: temp[2],
+        a: ((temp[0] + temp[1] + temp[2]) > 0.1) ? temp[1] : 0
       };
+
       j--;
     }
 
@@ -223,9 +232,7 @@ class FireAudioVisScene extends SceneRenderer {
     const MAX_FIRE_ALPHA = 1.0;
     const FULL_ON_FIRE   = 100;
 
-    const {lowTempColour, highTempColour} = options.sceneConfig;
-
-    const spectrum = this._genCustomColourSpectrum(lowTempColour, highTempColour, SPECTRUM_WIDTH);
+    const spectrum = this._genCustomColourSpectrum(options, SPECTRUM_WIDTH);
     this.fireTexture = [];
 
     // Create a (16 x 16 x SPECTRUM_WIDTH) 3D texture array for looking up encoded colour based on fire characteristics
@@ -260,9 +267,6 @@ class FireAudioVisScene extends SceneRenderer {
   }
 
   _genFunc(x, y, sx, sy, t, p) {
-    let pi = 0;
-    let f = 0;
-    let i = 0;
 
     let avgP = 0;
     let maxP = 0;
@@ -271,15 +275,19 @@ class FireAudioVisScene extends SceneRenderer {
       maxP = Math.max(maxP, p[j]);
     }
     avgP /= p.length;
-    const multiplier = maxP < 0.1 ? 0.0 : Math.min(avgP, 0.25);
+    const multiplier = maxP < 0.05 ? 0.0 : Math.min(avgP, 0.25);
 
-    for (; i < 12; i++) {
+    let f = 0;
+    let i = 0;
+    for (; i < p.length; i++) {
+      const freqAvg = p[i];
+
       f += (1.0 +
-        Math.sin(x/sx*PI2*(p[pi++]+1)+p[pi++]*PI2 + p[pi++]*t) *
-        Math.sin(y/sy*PI2*(p[pi++]+1)+p[pi++]*PI2 + p[pi++]*t)) *
-        (1 + Math.sin((p[pi++]+0.5)*t + p[pi++]*PI2)) * multiplier;
+        Math.sin(x/sx*PI2*(freqAvg+1)+freqAvg*PI2 + freqAvg*t) *
+        Math.sin(y/sy*PI2*(freqAvg+1)+freqAvg*PI2 + freqAvg*t)) *
+        (1 + Math.sin((freqAvg+0.5)*t + freqAvg*PI2)) * multiplier;
     }
-    f *= 1.0/i;
+    f /= i;
 
     let fx = (x < sx*0.9) ? 1.0 : 1.0-(x-sx*0.9)/(sx*0.2);
     if (x < sx*0.1) {
