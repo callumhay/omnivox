@@ -18,8 +18,11 @@ import {fogSceneDefaultOptions} from '../VoxelTracer/Scenes/FogScene';
 
 import {basicBarsAudioVisDefaultConfig} from "../VoxelTracer/Scenes/Audio/BasicBarsAudioVisScene";
 import {historyBarsAudioVisDefaultConfig, DIRECTION_TYPES} from "../VoxelTracer/Scenes/Audio/HistoryBarsAudioVisScene";
-import {fireAudioVisDefaultConfig} from '../VoxelTracer/Scenes/Audio/FireAudioVisScene';
-
+import { 
+  fireAudioVisDefaultConfig, COLOUR_MODES, 
+  LOW_HIGH_TEMP_COLOUR_MODE, AUDIO_BRIGHTNESS_COLOUR_MODE, 
+  TEMPERATURE_COLOUR_MODE, RANDOM_COLOUR_MODE
+} from '../VoxelTracer/Scenes/Audio/FireAudioVisScene';
 
 const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
 const VOXEL_COLOUR_SHAPE_TYPE_SPHERE = "Sphere";
@@ -84,6 +87,7 @@ class ControlPanel {
         this.shapeSettingsFolder = null;
         this.sceneSettingsFolder = null;
         this.audioVizSettingsFolder = null;
+        this.audioVizTypeFolder = null;
       }
 
       switch (value) {
@@ -1039,8 +1043,12 @@ class ControlPanel {
         case SOUND_VIZ_FIRE_SCENE_TYPE:
           vizTypeOptions = soundVizSettings.fireSettings;
           this.soundVizAnimatorConfig.sceneConfig = {...vizTypeOptions};
-
           
+          this.audioVizSettingsFolder.add(vizTypeOptions, 'noise', 0, 1, 0.01).onChange((value) => {
+            this.soundVizAnimatorConfig.sceneConfig.noise = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+          }).setValue(vizTypeOptions.noise);
+
           this.audioVizSettingsFolder.add(vizTypeOptions, 'initialIntensityMultiplier', 0.1, 20, 0.1).onChange((value) => {
             this.soundVizAnimatorConfig.sceneConfig.initialIntensityMultiplier = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
@@ -1058,21 +1066,76 @@ class ControlPanel {
             this.soundVizAnimatorConfig.sceneConfig.boyancyMultiplier = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
           }).setValue(vizTypeOptions.boyancyMultiplier);
+          this.audioVizSettingsFolder.add(vizTypeOptions, 'turbulenceMultiplier', 0, 5, 0.1).onChange((value) => {
+            this.soundVizAnimatorConfig.sceneConfig.turbulenceMultiplier = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+          }).setValue(vizTypeOptions.turbulenceMultiplier);
+          
+          this.audioVizSettingsFolder.add(vizTypeOptions, 'colourMode', COLOUR_MODES).onChange((value) => {
+            if (this.audioVizTypeFolder) {
+              this.audioVizSettingsFolder.removeFolder(this.audioVizTypeFolder);
+              this.audioVizTypeFolder = null;
+            }
 
-          this.audioVizSettingsFolder.addColor(vizTypeOptions, 'lowTempColour').onChange((value) => {
-            this.soundVizAnimatorConfig.sceneConfig.lowTempColour = GuiColorToRGBObj(value);
+            this.audioVizTypeFolder = this.audioVizSettingsFolder.addFolder(value + " Settings");
+            this.soundVizAnimatorConfig.sceneConfig.colourMode = value;
+
+            switch (value) {
+              case AUDIO_BRIGHTNESS_COLOUR_MODE:
+                break;
+
+              case TEMPERATURE_COLOUR_MODE:
+                this.audioVizTypeFolder.add(vizTypeOptions, 'temperatureMin', 0, 5000, 100).onChange((value) => {
+                  this.soundVizAnimatorConfig.sceneConfig.temperatureMin = value;
+                  this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+                }).setValue(vizTypeOptions.temperatureMin);
+
+                this.audioVizTypeFolder.add(vizTypeOptions, 'temperatureMax', 0, 8000, 100).onChange((value) => {
+                  this.soundVizAnimatorConfig.sceneConfig.temperatureMax = value;
+                  this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+                }).setValue(vizTypeOptions.temperatureMax);
+                break;
+
+              case RANDOM_COLOUR_MODE:
+                this.audioVizTypeFolder.add(vizTypeOptions, 'randomColourHoldTime', 0.1, 60, 0.1).onChange((value) => {
+                  this.soundVizAnimatorConfig.sceneConfig.randomColourHoldTime = value;
+                  this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+                }).setValue(vizTypeOptions.randomColourHoldTime);
+                this.audioVizTypeFolder.add(vizTypeOptions, 'randomColourTransitionTime', 0.1, 60, 0.1).onChange((value) => {
+                  this.soundVizAnimatorConfig.sceneConfig.randomColourTransitionTime = value;
+                  this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+                }).setValue(vizTypeOptions.randomColourTransitionTime);
+                break;
+              
+              case LOW_HIGH_TEMP_COLOUR_MODE:
+              default:
+                this.audioVizTypeFolder.addColor(vizTypeOptions, 'lowTempColour').onChange((value) => {
+                  this.soundVizAnimatorConfig.sceneConfig.lowTempColour = GuiColorToRGBObj(value);
+                  this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+                }).setValue(vizTypeOptions.lowTempColour);
+                this.audioVizTypeFolder.addColor(vizTypeOptions, 'highTempColour').onChange((value) => {
+                  this.soundVizAnimatorConfig.sceneConfig.highTempColour = GuiColorToRGBObj(value);
+                  this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+                }).setValue(vizTypeOptions.highTempColour);
+                break;
+            }
+
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
-          }).setValue(vizTypeOptions.lowTempColour);
-          this.audioVizSettingsFolder.addColor(vizTypeOptions, 'highTempColour').onChange((value) => {
-            this.soundVizAnimatorConfig.sceneConfig.highTempColour = GuiColorToRGBObj(value);
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
-          }).setValue(vizTypeOptions.highTempColour);
+            this.audioVizTypeFolder.open();
+
+          }).setValue(vizTypeOptions.colourMode);
 
           this.audioVizSettingsFolder.add(vizTypeOptions, 'colourInterpolationType', COLOUR_INTERPOLATION_TYPES).onChange((value) => {
             this.soundVizAnimatorConfig.sceneConfig.colourInterpolationType = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
           }).setValue(vizTypeOptions.colourInterpolationType);
         
+          this.audioVizSettingsFolder.add(vizTypeOptions, 'colourGamma', 1, 5, 0.1).onChange((value) => {
+            this.soundVizAnimatorConfig.sceneConfig.colourGamma = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+          }).setValue(vizTypeOptions.colourGamma);
+          
+
           break;
 
         default:

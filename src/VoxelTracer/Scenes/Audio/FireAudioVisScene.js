@@ -7,29 +7,51 @@ import AudioVisUtils from './AudioVisUtils';
 import VTVoxel from '../../VTVoxel';
 import VTEmissionMaterial from '../../VTEmissionMaterial';
 
-import {COLOUR_INTERPOLATION_RGB} from '../../../Spectrum';
+import {COLOUR_INTERPOLATION_HSL} from '../../../Spectrum';
 import Fluid, {_I} from '../../../Fluid';
 import {PI2, clamp} from '../../../MathUtils';
 
 import {Randomizer} from '../../../Animation/Randomizers';
 
 const SPECTRUM_WIDTH = 256;
+const FIRE_THRESHOLD = 7;
+const MAX_FIRE_ALPHA = 1.0;
+const FULL_ON_FIRE   = 100;
+
+export const LOW_HIGH_TEMP_COLOUR_MODE    = "Low/High Temp";
+export const AUDIO_BRIGHTNESS_COLOUR_MODE = "Audio Brightness";
+export const TEMPERATURE_COLOUR_MODE      = "Temperature";
+export const RANDOM_COLOUR_MODE           = "Random";
+
+export const COLOUR_MODES = [
+  LOW_HIGH_TEMP_COLOUR_MODE,
+  AUDIO_BRIGHTNESS_COLOUR_MODE,
+  TEMPERATURE_COLOUR_MODE,
+  RANDOM_COLOUR_MODE,
+];
 
 export const fireAudioVisDefaultConfig = {
   initialIntensityMultiplier: 8,
-  speedMultiplier: 1,
-  coolingMultiplier: 1,
-  boyancyMultiplier: 1,
-  lowTempColour:  new THREE.Color(135/255, 1, 0),
-  highTempColour: new THREE.Color(1, 0, 180/255),
-  colourInterpolationType: COLOUR_INTERPOLATION_RGB,
+  speedMultiplier: 1.2,
+  coolingMultiplier: 0.9,
+  boyancyMultiplier: 0.6,
+  turbulenceMultiplier: 1,
+  colourMode: LOW_HIGH_TEMP_COLOUR_MODE,
+  lowTempColour:  new THREE.Color(0.2, 0, 1),
+  highTempColour: new THREE.Color(1, 0, 0.7),
+  colourGamma: 1.7,
+  randomColourHoldTime: 5,
+  randomColourTransitionTime: 2,
+  temperatureMin: 100,
+  temperatureMax: 3000,
+  colourInterpolationType: COLOUR_INTERPOLATION_HSL,
+  noise: 0.25,
 };
 
 class FireAudioVisScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
     this._objectsBuilt = false;
-    
     
     // Setup basic defaults for the fire's fluid model - these will immediately be modified based on the audio
     this.fluidModel = new Fluid(voxelModel);
@@ -38,6 +60,11 @@ class FireAudioVisScene extends SceneRenderer {
     this.fluidModel.buoyancy  = 5.4;
     this.fluidModel.cooling   = 1.3;
     this.fluidModel.vc_eps    = 8;
+
+    this.colourTransitionTimeCounter = 0;
+    this.colourHoldTimeCounter = 0;
+    this.currRandomColours = this._genRandomFireColours();
+    this.nextRandomColours = this._genRandomFireColours(this.currRandomColours);
   }
 
   clear() {
@@ -45,7 +72,9 @@ class FireAudioVisScene extends SceneRenderer {
     this._objectsBuilt = false;
 
     this.t = 0;
+
     this.avgSpectralCentroid = 0;
+    this.avgNormalizedSpectralCentroid = 0;
     this.avgRMS = 0;
     this.lastAudioFrameTime = Date.now();
     this.currAudioFrameTime = this.lastAudioFrameTime;
@@ -57,13 +86,23 @@ class FireAudioVisScene extends SceneRenderer {
   }
 
   build(options) {
+    const { colourGamma, colourInterpolationType, noise } = options.sceneConfig;
+
     const xSize = this.voxelModel.xSize();
     const ySize = this.voxelModel.ySize();
     const zSize = this.voxelModel.zSize();
+
     this.initArray = Randomizer.getRandomFloats(xSize*zSize);
-    //this.initArray = new Array(xSize*zSize).fill(0);
+    this.randomArray = Randomizer.getRandomFloats(xSize*zSize, 0, noise);
+    //console.log(this.randomArray);
+
+    this.audioColourScale = chroma.scale([
+      '#450c3d', '#2e86ab', '#df2935', '#ffc600', '#fcf300'
+    ]).gamma(colourGamma).mode(colourInterpolationType);
 
     if (!this._objectsBuilt) {
+
+      //this.spiralIndices = AudioVisUtils.buildSpiralIndices(xSize, zSize);
 
       this.voxels = new Array(xSize);
       for (let x = 0; x < xSize; x++) {
@@ -88,8 +127,6 @@ class FireAudioVisScene extends SceneRenderer {
         }
       }
     }
-
-    this._genFireColourLookup(options);
   }
 
   render(dt) {
@@ -97,7 +134,15 @@ class FireAudioVisScene extends SceneRenderer {
       return;
     }
 
-    const {speedMultiplier, initialIntensityMultiplier} = this._options.sceneConfig;
+    const {
+      speedMultiplier, 
+      initialIntensityMultiplier, 
+      randomColourHoldTime,
+      randomColourTransitionTime,
+      colourMode,
+      highTempColour, lowTempColour,
+      colourInterpolationType
+    } = this._options.sceneConfig;
 
     const xSize = this.voxelModel.xSize();
     const ySize = this.voxelModel.ySize();
@@ -109,19 +154,81 @@ class FireAudioVisScene extends SceneRenderer {
     const endZ = zSize+1;
     const startY = 1;
 
+    //const fluidTemperatures = new Array((endX-startX)*(endZ-startZ));
+    //let idxCount = 0;
+
     for (let x = startX; x < endX; x++) {
       for (let z = startZ; z < endZ; z++) {
         let f = this._genFunc(x-startX, z-startZ, endX-startX, endZ-startZ, this.t, this.initArray);
         const idx = this.fluidModel._I(x, startY, z);
         this.fluidModel.sd[idx] = 1.0;
-        this.fluidModel.sT[idx] = 0.25*this.fluidModel.sT[idx] + 0.75*(1.0 + f*initialIntensityMultiplier);
+        this.fluidModel.sT[idx] = (1.0 + f*initialIntensityMultiplier);
       }
     }
-
-    const currSpeed = speedMultiplier * (2 + clamp(THREE.MathUtils.smootherstep(this.avgBeatsPerSec, 0, 80), 0, 0.75));
+    /*
+    // Sort the fluid model starting points by highest to lowest from the center spiraling outward
+    fluidTemperatures.sort((a,b) => b-a);
+    idxCount = 0;
+    for (let i = 0; i < this.spiralIndices.length; i++) {
+      const sIdx = this.spiralIndices[i];
+      const x = sIdx[0];
+      const z = sIdx[1];
+      if (x >= startX && x < endX && z >= startZ && z < endZ) {
+        const fIdx = this.fluidModel._I(x, startY, z);
+        this.fluidModel.sT[fIdx] = fluidTemperatures[idxCount++];
+      }
+    }
+    */
+    const currSpeed = 2 + speedMultiplier * (1 + clamp(THREE.MathUtils.smootherstep(this.avgBeatsPerSec, 0, 80), 0, 0.75));
     const speedDt = dt*currSpeed;
     this.fluidModel.step(speedDt);
     this.t += speedDt;
+
+    let fireLookupFunc = null;
+    switch (colourMode) {
+      case AUDIO_BRIGHTNESS_COLOUR_MODE: {
+        fireLookupFunc = this._fireFuncGenAudioColour();
+        break;
+      }
+
+      case TEMPERATURE_COLOUR_MODE:
+        fireLookupFunc = this._fireFuncGenTemperature();
+        break;
+
+      case RANDOM_COLOUR_MODE: {
+        let finalLowTempColour  = this.currRandomColours.lowTempColour;
+        let finalHighTempColour = this.currRandomColours.highTempColour;
+        if (this.colourHoldTimeCounter >= randomColourHoldTime) {
+
+          // We're transitioning between random colours, interpolate from the previous to the next
+          const interpolationVal = THREE.MathUtils.smoothstep(this.colourTransitionTimeCounter, 0, randomColourTransitionTime);
+          const tempLowTempColour = chroma.mix(chroma.gl(this.currRandomColours.lowTempColour), chroma.gl(this.nextRandomColours.lowTempColour), interpolationVal, colourInterpolationType).gl();
+          finalLowTempColour = new THREE.Color(tempLowTempColour[0], tempLowTempColour[1], tempLowTempColour[2]);
+          const tempHighTempColour = chroma.mix(chroma.gl(this.currRandomColours.highTempColour), chroma.gl(this.nextRandomColours.highTempColour), interpolationVal, colourInterpolationType).gl();
+          finalHighTempColour = new THREE.Color(tempHighTempColour[0], tempHighTempColour[1], tempHighTempColour[2]);
+          this.colourTransitionTimeCounter += dt;
+
+          if (this.colourTransitionTimeCounter >= randomColourTransitionTime) {
+            this.currRandomColours.lowTempColour = finalLowTempColour;
+            this.currRandomColours.highTempColour = finalHighTempColour;
+            this.nextRandomColours = this._genRandomFireColours(this.currRandomColours);
+            this.colourTransitionTimeCounter = 0;
+            this.colourHoldTimeCounter = 0;
+          }
+        }
+        else {
+          this.colourHoldTimeCounter += dt;
+        }
+
+        fireLookupFunc = this._fireFuncGenHighLow(finalHighTempColour, finalLowTempColour);
+        break;
+      }
+
+      case LOW_HIGH_TEMP_COLOUR_MODE:
+      default:
+        fireLookupFunc = this._fireFuncGenHighLow(highTempColour, lowTempColour);
+        break;
+    }
 
     // Update the voxels and render them
     for (let x = 0; x < xSize; x++) {
@@ -132,14 +239,14 @@ class FireAudioVisScene extends SceneRenderer {
           const idx = this.fluidModel._I(x+startX,y+startY,z+startZ);
           const temperature = this.fluidModel.T[idx];
           const density = this.fluidModel.d[idx];
-          const lighting = 0.6;
+          //const lighting = 0.0;
 
           // Use the temp and density to look up the expected colour of the flame at the current voxel
           const temperatureIdx = Math.min(SPECTRUM_WIDTH-1, Math.max(0, Math.round(temperature*(SPECTRUM_WIDTH-1))));
           const densityIdx = Math.min(15, Math.max(0, Math.round(density*15)));
-          const intensityIdx = Math.round(lighting*15);
+          const intensityIdx = 0;//Math.round(lighting*15);
 
-          const voxelColour = this.fireTexture[intensityIdx][densityIdx][temperatureIdx];
+          const voxelColour = fireLookupFunc(intensityIdx, densityIdx, temperatureIdx);
           this.voxels[x][y][z].material.colour.setRGB(voxelColour.a*voxelColour.r, voxelColour.a*voxelColour.g, voxelColour.a*voxelColour.b);
         }
       }
@@ -150,7 +257,7 @@ class FireAudioVisScene extends SceneRenderer {
 
   updateAudioInfo(audioInfo) {
     const {gamma, levelMax} = this._options;
-    const {boyancyMultiplier, coolingMultiplier} = this._options.sceneConfig;
+    const {boyancyMultiplier, coolingMultiplier, turbulenceMultiplier} = this._options.sceneConfig;
     const {fft, rms, spectralCentroid} = audioInfo;
 
     // Use the FFT array to populate the initialization array for the fire
@@ -172,18 +279,17 @@ class FireAudioVisScene extends SceneRenderer {
     const denoisedRMS = rms < 0.01 ? 0 : rms;
     this.avgRMS = (this.avgRMS + denoisedRMS) / 2.0;
     this.avgSpectralCentroid = (this.avgSpectralCentroid + spectralCentroid) / 2.0;
-
-    const normalizedSC = clamp(this.avgSpectralCentroid/(fft.length/2), 0, 1);
-    const boyancyVal = clamp(normalizedSC * 30, 1, 5);
+    this.avgNormalizedSpectralCentroid = clamp(this.avgSpectralCentroid / (fft.length / 2), 0, 1);
+    const boyancyVal = clamp(this.avgNormalizedSpectralCentroid * 10, 1, 5);
     //console.log(boyancyVal);
-    //console.log(normalizedSC);
+    //console.log(this.avgNormalizedSpectralCentroid);
     //console.log(this.avgRMS);
 
     this.fluidModel.diffusion = 0.0001;
     this.fluidModel.viscosity = 0;
     this.fluidModel.buoyancy  = boyancyVal * boyancyMultiplier;
     this.fluidModel.cooling   = 0.1 + (1.0 - this.avgRMS) * 1.1 * coolingMultiplier; // Values range from [0.1, 2] where lower values make the fire brighter/bigger
-    this.fluidModel.vc_eps    = this.avgRMS*80;
+    this.fluidModel.vc_eps = this.avgRMS * 40 * turbulenceMultiplier;
 
     this.currAudioFrameTime = Date.now();
     const dt = (this.currAudioFrameTime - this.lastAudioFrameTime) / 1000;
@@ -206,68 +312,151 @@ class FireAudioVisScene extends SceneRenderer {
     this.lastdRMS = this.dRMSAvg;
   }
 
-  _genCustomColourSpectrum(options, spectrumWidth) {
-    const {lowTempColour, highTempColour, colourInterpolationType} = options.sceneConfig;
+  _genRandomFireColours(currRandomColours=null) {
+    const BRIGHTEN_FACTOR = [0, 1];
+    const LOW_TEMP_SATURATION = [0.75, 1.0];
+    const LOW_TEMP_INTENSITY  = [0.33, 0.66];
+    const HUE_DISTANCE_FROM_LOW_TEMP = [90,270];
 
-    let result = new Array(spectrumWidth);
-    let j = spectrumWidth-1;
-    for (let i = 0; i < spectrumWidth; i++) {
-      const temp = chroma.mix(chroma.gl(highTempColour), chroma.gl(lowTempColour), i/(spectrumWidth-1), colourInterpolationType).gl();
+    let nextHighTempColour = null;
+    let nextLowTempColour  = null;
 
-      result[j] = {
-        r: temp[0],
-        g: temp[1],
-        b: temp[2],
-        a: ((temp[0] + temp[1] + temp[2]) > 0.1) ? temp[1] : 0
-      };
+    const brightenFactor = Randomizer.getRandomFloat(BRIGHTEN_FACTOR[0], BRIGHTEN_FACTOR[1]);
 
-      j--;
+    if (currRandomColours) {
+      // Use the existing random colours as a jump-off point to make sure we don't repeat them consecutively
+      const lowTempChromaHsi  = chroma(chroma.gl(currRandomColours.lowTempColour)).hsi();
+
+      lowTempChromaHsi[0] = (lowTempChromaHsi[0] + Randomizer.getRandomInt(60,300)) % 360;
+      lowTempChromaHsi[1] = Randomizer.getRandomFloat(LOW_TEMP_SATURATION[0], LOW_TEMP_SATURATION[1]);
+      lowTempChromaHsi[2] = Randomizer.getRandomFloat(LOW_TEMP_INTENSITY[0], LOW_TEMP_INTENSITY[1]);
+
+      const highTempChromaHsi = [
+        (lowTempChromaHsi[0] + Randomizer.getRandomInt(HUE_DISTANCE_FROM_LOW_TEMP[0], HUE_DISTANCE_FROM_LOW_TEMP[1])) % 360, 
+        1, lowTempChromaHsi[2]
+      ];
+      nextLowTempColour = chroma(lowTempChromaHsi, 'hsi').gl();
+      nextLowTempColour = new THREE.Color(nextLowTempColour[0], nextLowTempColour[1], nextLowTempColour[2]);
+      nextHighTempColour = chroma(highTempChromaHsi, 'hsi').brighten(brightenFactor).gl();
+      nextHighTempColour = new THREE.Color(nextHighTempColour[0], nextHighTempColour[1], nextHighTempColour[2]);
+    }
+    else {
+      // First time generation, pick some good random colours
+      const lowTempChroma = chroma(
+        Randomizer.getRandomInt(0,360),
+        Randomizer.getRandomFloat(LOW_TEMP_SATURATION[0], LOW_TEMP_SATURATION[1]),
+        Randomizer.getRandomFloat(LOW_TEMP_INTENSITY[0], LOW_TEMP_INTENSITY[1]), 'hsi');
+      let temp = lowTempChroma.gl();
+      nextLowTempColour = new THREE.Color(temp[0], temp[1], temp[2]);
+      //console.log("low: " + temp);
+      
+      let lowTempHsi = lowTempChroma.hsi();
+      //console.log("low temp Hsi: " + lowTempHsi);
+      const highTempChroma = chroma((lowTempHsi[0] + 180) % 360, 1, lowTempHsi[2], 'hsi').brighten(brightenFactor);
+      temp = highTempChroma.gl();
+      nextHighTempColour = new THREE.Color(temp[0], temp[1], temp[2]);
+      //console.log("high: " + temp);
     }
 
-    return result;
+    return {
+      highTempColour: nextHighTempColour,
+      lowTempColour: nextLowTempColour
+    };
   }
 
-  _genFireColourLookup(options) {
-    const FIRE_THRESHOLD = 7;
-    const MAX_FIRE_ALPHA = 1.0;
-    const FULL_ON_FIRE   = 100;
-
-    const spectrum = this._genCustomColourSpectrum(options, SPECTRUM_WIDTH);
-    this.fireTexture = [];
-
-    // Create a (16 x 16 x SPECTRUM_WIDTH) 3D texture array for looking up encoded colour based on fire characteristics
-    for (let i = 0; i < 16; i++) {
-      let iTex = [];
-      this.fireTexture.push(iTex);
-
-      for (let j = 0; j < 16; j++) {
-        let jTex = [];
-        iTex.push(jTex);
-
-        for (let k = 0; k < SPECTRUM_WIDTH; k++) {
-          //let intensity = i/16.0;
-          //let density = j/16.0;
-          //let temperature = k/SPECTRUM_WIDTH;
-          
-          if (k >= FIRE_THRESHOLD) {
-            const currSpectrumVal = spectrum[k];
-            jTex.push({
-              r: isNaN(currSpectrumVal.r) ? 0 : currSpectrumVal.r,
-              g: isNaN(currSpectrumVal.g) ? 0 : currSpectrumVal.g,
-              b: isNaN(currSpectrumVal.b) ? 0 : currSpectrumVal.b,
-              a: MAX_FIRE_ALPHA * ((k>FULL_ON_FIRE) ? 1.0 : (k-FIRE_THRESHOLD)/(FULL_ON_FIRE-FIRE_THRESHOLD))
-            });
-          }
-          else {
-            jTex.push({r: 0, g: 0, b: 0, a: 0});
-          }
-        }
+  _fireFuncGenTemperature() {
+    return (intensityIdx, densityIdx, temperatureIdx) => {
+      if (temperatureIdx < FIRE_THRESHOLD) {
+        return { r: 0, g: 0, b: 0, a: 0 };
       }
+
+      const {temperatureMin, temperatureMax} = this._options.sceneConfig;
+
+      const intensityCoeff = THREE.MathUtils.smoothstep(intensityIdx, 0, 15);
+      const densityCoeff   = THREE.MathUtils.smoothstep(densityIdx, 0, 15);
+      const brightenAmt    = intensityCoeff * 2;
+      const desaturateAmt  = densityCoeff * 2;
+
+      const temperatureNorm = temperatureIdx / (SPECTRUM_WIDTH - 1);
+      const temperature = THREE.MathUtils.lerp(temperatureMin, temperatureMax, temperatureNorm) + 
+        100 * brightenAmt - 100 * desaturateAmt; 
+      //console.log(temperature);
+      const finalColour = chroma.temperature(temperature).gl();
+
+      return {
+        r: finalColour[0],
+        g: finalColour[1],
+        b: finalColour[2],
+        a: this._fireAlpha(temperatureIdx)
+      };
+    };
+  }
+
+  _fireFuncGenAudioColour() {
+    return (intensityIdx, densityIdx, temperatureIdx) => {
+      if (temperatureIdx < FIRE_THRESHOLD) {
+        return { r: 0, g: 0, b: 0, a: 0 };
+      }
+
+      const intensityCoeff = THREE.MathUtils.smoothstep(intensityIdx, 0, 15);
+      const densityCoeff = THREE.MathUtils.smoothstep(densityIdx, 0, 15);
+      const brightenAmt = intensityCoeff * 2;
+      const desaturateAmt = densityCoeff * 2;
+      const finalColour = this.audioColourScale(temperatureIdx / (SPECTRUM_WIDTH - 1))
+        .brighten(brightenAmt).desaturate(desaturateAmt).gl();
+        
+      return {
+        r: finalColour[0],
+        g: finalColour[1],
+        b: finalColour[2],
+        a: this._fireAlpha(temperatureIdx)
+      };
+    };
+  }
+
+  _fireFuncGenHighLow(highTempColour, lowTempColour) {
+    return (intensityIdx, densityIdx, temperatureIdx) => {
+      if (temperatureIdx < FIRE_THRESHOLD) {
+        return {r: 0, g:0, b:0, a:0};
+      }
+  
+      const { colourInterpolationType, colourGamma } = this._options.sceneConfig;
+      const intensityCoeff = THREE.MathUtils.smoothstep(intensityIdx, 0, 15);
+      const densityCoeff = THREE.MathUtils.smoothstep(densityIdx, 0, 15);
+
+      const brightenAmt = intensityCoeff*2;
+      const desaturateAmt = densityCoeff*2;
+
+      const lowTempColourWithAlpha = {
+        r: lowTempColour.r, g: lowTempColour.g, b: lowTempColour.b, a:1
+      };
+      const highTempColourWithAlpha = {
+        r: highTempColour.r, g: highTempColour.g, b: highTempColour.b, a: 1
+      };
+
+      // The mix needs gamma to better replicate a temperature colour scale (i.e., non-linear)
+      const tempColourScale = chroma.scale([
+        chroma.gl(lowTempColourWithAlpha).brighten(brightenAmt), 
+        chroma.gl(highTempColourWithAlpha).brighten(brightenAmt)
+      ]).gamma(colourGamma).mode(colourInterpolationType);
+
+      const finalColour = tempColourScale(temperatureIdx / (SPECTRUM_WIDTH - 1)).desaturate(desaturateAmt).gl();
+      return {
+        r: finalColour[0],
+        g: finalColour[1],
+        b: finalColour[2],
+        a: this._fireAlpha(temperatureIdx)
+      };
     }
+  }
+
+  _fireAlpha(temperatureIdx) {
+    return MAX_FIRE_ALPHA * ((temperatureIdx > FULL_ON_FIRE) ? 1.0 : 
+      (temperatureIdx-FIRE_THRESHOLD) / (FULL_ON_FIRE-FIRE_THRESHOLD));
   }
 
   _genFunc(x, y, sx, sy, t, p) {
-
+    const {noise} = this._options.sceneConfig;
     let avgP = 0;
     let maxP = 0;
     for (let j = 0; j < p.length; j++) {
@@ -275,17 +464,24 @@ class FireAudioVisScene extends SceneRenderer {
       maxP = Math.max(maxP, p[j]);
     }
     avgP /= p.length;
-    const multiplier = maxP < 0.05 ? 0.0 : Math.min(avgP, 0.25);
+
+    const multiplier = Math.max(avgP, noise/4);
 
     let f = 0;
     let i = 0;
-    for (; i < p.length; i++) {
-      const freqAvg = p[i];
+    
+    let pIdx = 0;
+    const calcP = () => {
+      const result = p[pIdx] + this.randomArray[pIdx];
+      pIdx = (pIdx + 1) % p.length;
+      return clamp(result, 0, 1);
+    };
 
+    for (; i < 12; i++) {
       f += (1.0 +
-        Math.sin(x/sx*PI2*(freqAvg+1)+freqAvg*PI2 + freqAvg*t) *
-        Math.sin(y/sy*PI2*(freqAvg+1)+freqAvg*PI2 + freqAvg*t)) *
-        (1 + Math.sin((freqAvg+0.5)*t + freqAvg*PI2)) * multiplier;
+        Math.sin(x/sx*PI2*(calcP()+1)+(calcP())*PI2 + (calcP())*t) *
+        Math.sin(y/sy*PI2*(calcP()+1)+(calcP())*PI2 + (calcP())*t)) *
+        (1 + Math.sin((calcP()+0.5)*t + (calcP())*PI2)) * multiplier;
     }
     f /= i;
 

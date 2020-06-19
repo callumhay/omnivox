@@ -20,8 +20,8 @@ const DEFAULT_CENTER_SORTED = false;
 const DEFAULT_SPLIT_LEVELS  = false;
 
 export const basicBarsAudioVisDefaultConfig = {
-  lowColour:    DEFAULT_LOW_COLOUR.clone(),
-  highColour:   DEFAULT_HIGH_COLOUR.clone(),
+  lowColour:    DEFAULT_LOW_COLOUR,
+  highColour:   DEFAULT_HIGH_COLOUR,
   centerSorted: DEFAULT_CENTER_SORTED,
   splitLevels:  DEFAULT_SPLIT_LEVELS,
 };
@@ -50,8 +50,8 @@ class BasicBarsAudioVisScene extends SceneRenderer {
     const splitLevels = sceneConfig.splitLevels ? sceneConfig.splitLevels : DEFAULT_SPLIT_LEVELS;
 
     if (!this._objectsBuilt || this._options.sceneConfig.splitLevels !== splitLevels) {
-      const lowColour  = sceneConfig.lowColour instanceof THREE.Color ? sceneConfig.lowColour  : DEFAULT_LOW_COLOUR.clone();
-      const highColour = sceneConfig.highColour instanceof THREE.Color ? sceneConfig.highColour : DEFAULT_HIGH_COLOUR.clone();
+      const lowColour  = sceneConfig.lowColour instanceof THREE.Color ? sceneConfig.lowColour  : DEFAULT_LOW_COLOUR;
+      const highColour = sceneConfig.highColour instanceof THREE.Color ? sceneConfig.highColour : DEFAULT_HIGH_COLOUR;
       
       const ambientLightColour = new THREE.Color(1,1,1);
       this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
@@ -131,39 +131,13 @@ class BasicBarsAudioVisScene extends SceneRenderer {
   _buildSpiralMeshIndices() {
     const xSize = this.voxelModel.xSize();
     const zSize = this.voxelModel.zSize();
-    const gridSize = xSize*zSize;
+    const spiralXZIndices = AudioVisUtils.buildSpiralIndices(xSize,zSize);
 
     this.spiralMeshIndices = [];
-    const startX = Math.floor(xSize/2);
-    const startZ = Math.floor(zSize/2);
-    
-    // Get concentric rings of voxels
-    let r = 1;
-    const allIndices = {};
-    for (let x = 0; x < xSize; x++) {
-      for (let z = 0; z < zSize; z++) {
-        allIndices[x*zSize + z] = true;
-      }
+    for (let i = 0; i < spiralXZIndices.length; i++) {
+      const idx = spiralXZIndices[i][0]*zSize + spiralXZIndices[i][1];
+      this.spiralMeshIndices.push(idx);
     }
-    
-    while (this.spiralMeshIndices.length < gridSize) {
-      const rSqr = r*r;
-      for (let x = 0; x < xSize; x++) {
-        for (let z = 0; z < zSize; z++) {
-          const idx = x*zSize + z;
-          if (allIndices[idx]) {
-            let xDiff = x - startX;
-            let zDiff = z - startZ;
-            if (xDiff*xDiff + zDiff*zDiff <= rSqr) {
-              this.spiralMeshIndices.push(idx);
-              allIndices[idx] = false;
-            }
-          }
-        }
-      }
-      r++;
-    }
-
     //console.log(this.spiralMeshIndices);
     //console.log(this.spiralMeshIndices.length);
   }

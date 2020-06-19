@@ -68,8 +68,8 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
     const {sceneConfig} = options;
 
     if (!this._objectsBuilt) {
-      const lowColour  = sceneConfig.lowColour  ? sceneConfig.lowColour  : DEFAULT_LOW_COLOUR;
-      const highColour = sceneConfig.highColour ? sceneConfig.highColour : DEFAULT_HIGH_COLOUR;
+      const lowColour  = sceneConfig.lowColour instanceof THREE.Color  ? sceneConfig.lowColour  : DEFAULT_LOW_COLOUR;
+      const highColour = sceneConfig.highColour instanceof THREE.Color ? sceneConfig.highColour : DEFAULT_HIGH_COLOUR;
       const direction  = sceneConfig.direction  ? sceneConfig.direction  : DEFAULT_DIR; 
       
       const ambientLightColour = new THREE.Color(1,1,1);
