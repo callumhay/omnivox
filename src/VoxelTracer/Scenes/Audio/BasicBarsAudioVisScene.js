@@ -10,6 +10,8 @@ import VTVoxel from '../../VTVoxel';
 import VTLambertMaterial from '../../VTLambertMaterial';
 import VTAmbientLight from '../../VTAmbientLight';
 import {clamp} from '../../../MathUtils';
+import { COLOUR_INTERPOLATION_RGB } from '../../../Spectrum';
+
 
 export const DEFAULT_LEVEL_MAX = 1.75;
 export const DEFAULT_GAMMA = 1.6;
@@ -22,6 +24,7 @@ const DEFAULT_SPLIT_LEVELS  = false;
 export const basicBarsAudioVisDefaultConfig = {
   lowColour:    DEFAULT_LOW_COLOUR,
   highColour:   DEFAULT_HIGH_COLOUR,
+  colourInterpolationType: COLOUR_INTERPOLATION_RGB,
   centerSorted: DEFAULT_CENTER_SORTED,
   splitLevels:  DEFAULT_SPLIT_LEVELS,
 };
@@ -50,9 +53,13 @@ class BasicBarsAudioVisScene extends SceneRenderer {
     const splitLevels = sceneConfig.splitLevels ? sceneConfig.splitLevels : DEFAULT_SPLIT_LEVELS;
 
     if (!this._objectsBuilt || this._options.sceneConfig.splitLevels !== splitLevels) {
-      const lowColour  = sceneConfig.lowColour instanceof THREE.Color ? sceneConfig.lowColour  : DEFAULT_LOW_COLOUR;
-      const highColour = sceneConfig.highColour instanceof THREE.Color ? sceneConfig.highColour : DEFAULT_HIGH_COLOUR;
-      
+      const { colourInterpolationType } = options.sceneConfig;
+
+      const lowColour = (sceneConfig.lowColour.r !== undefined && sceneConfig.lowColour.g && sceneConfig.lowColour.b) ?
+        sceneConfig.lowColour : DEFAULT_LOW_COLOUR;
+      const highColour = (sceneConfig.highColour.r !== undefined && sceneConfig.highColour.g && sceneConfig.highColour.b) ?
+        sceneConfig.highColour : DEFAULT_HIGH_COLOUR;
+
       const ambientLightColour = new THREE.Color(1,1,1);
       this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
 
@@ -67,7 +74,7 @@ class BasicBarsAudioVisScene extends SceneRenderer {
       const levelColours = [];
       for (let y = Y_START; y < ySize; y++) {
         const t = THREE.MathUtils.smootherstep(y, Y_START, ySize-1);
-        const temp = chroma.mix(chroma.gl(lowColour), chroma.gl(highColour), t, 'lrgb').gl();
+        const temp = chroma.mix(chroma.gl(lowColour), chroma.gl(highColour), t, colourInterpolationType).gl();
         levelColours.push(new THREE.Color(temp[0], temp[1], temp[2]));
       }
 

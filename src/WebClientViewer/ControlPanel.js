@@ -998,6 +998,10 @@ class ControlPanel {
             this.soundVizAnimatorConfig.sceneConfig.highColour = GuiColorToRGBObj(value);
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
           }).setValue(vizTypeOptions.highColour);
+          this.audioVizSettingsFolder.add(vizTypeOptions, 'colourInterpolationType', COLOUR_INTERPOLATION_TYPES).onChange((value) => {
+            this.soundVizAnimatorConfig.sceneConfig.colourInterpolationType = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+          }).setValue(vizTypeOptions.colourInterpolationType);
 
           this.audioVizSettingsFolder.add(vizTypeOptions, 'splitLevels').onChange((value) => {
             this.soundVizAnimatorConfig.sceneConfig.splitLevels = value;
@@ -1023,6 +1027,10 @@ class ControlPanel {
             this.soundVizAnimatorConfig.sceneConfig.highColour = GuiColorToRGBObj(value);
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
           }).setValue(vizTypeOptions.highColour);
+          this.audioVizSettingsFolder.add(vizTypeOptions, 'colourInterpolationType', COLOUR_INTERPOLATION_TYPES).onChange((value) => {
+            this.soundVizAnimatorConfig.sceneConfig.colourInterpolationType = value;
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
+          }).setValue(vizTypeOptions.colourInterpolationType);
 
           this.audioVizSettingsFolder.add(vizTypeOptions, 'speed', 1, 20, 0.1).onChange((value) => {
             this.soundVizAnimatorConfig.sceneConfig.speed = value;
