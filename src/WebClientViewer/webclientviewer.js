@@ -17,7 +17,7 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHei
 const controls = new OrbitControls(camera, renderer.domElement);
 
 // Setup the visualizer for rendering the voxels
-const voxelDisplay = new VoxelDisplay(scene);
+const voxelDisplay = new VoxelDisplay(scene, controls);
 // Setup the client (recieves render messages from the server and sends control messages to the server)
 const voxelClient = new VoxelClient(voxelDisplay);
 // Setup the sound controller for playing music and capturing audio from the mic

@@ -97,9 +97,13 @@ class VoxelModel {
     let lastFrameTime = Date.now();
     let dt = 0;
     let dtSinceLastRender = 0;
+    let skipFrameNumber = 1;
+    let catchupTimeInSecs = 0;
+    const allowableEventLoopBackupSize = 3;
+    const allowablePollingMsBackupSize = allowableEventLoopBackupSize * DEFAULT_POLLING_INTERVAL_MS;
+    const allowablePollingSecBackupSize = allowablePollingMsBackupSize / 1000;
 
-    const allowableEventLoopBackupSize = DEFAULT_POLLING_FREQUENCY_HZ;
-    const allowablePollingMsBackupSize = allowableEventLoopBackupSize * DEFAULT_POLLING_INTERVAL_MS; // 1 second
+    console.log("Allowable max render time per frame set to " + allowablePollingMsBackupSize.toFixed(2) + "ms");
 
     setInterval(function() {
 
@@ -107,19 +111,32 @@ class VoxelModel {
       dt = (self.currFrameTime - lastFrameTime) / 1000;
       dtSinceLastRender += dt;
 
-      // If it's taking longer to render than the setInterval time then we need to not
-      // waste our time rendering and let the node/javascript event loop catch up
-      if (dt <= allowablePollingMsBackupSize) {
+      // If we need to catchup with the interval timer then we need to keep track of
+      // how long it's been and skip rendering until we've caught up
+      if (catchupTimeInSecs > 0) {
+        catchupTimeInSecs = Math.max(0, catchupTimeInSecs - dt);
+      }
+      else {
+        catchupTimeInSecs = Math.max(0, dt - allowablePollingSecBackupSize);
+      }
+      
+      if (catchupTimeInSecs === 0) {
         // Simulate the model based on the current animation...
         if (self.currentAnimator) {
           self.currentAnimator.render(dtSinceLastRender);
         }
         dtSinceLastRender = 0;
+        skipFrameNumber = 1;
 
         // Let the server know to broadcast the new voxel data to all clients
         voxelServer.setVoxelData(self.voxels, self.frameCounter);
         self.frameCounter++;
+        
         //console.log(self.frameCounter % 0xFFFF);
+      }
+      else {
+        console.log("Skipping Frame: " + self.frameCounter + " (+" + skipFrameNumber + "), catch-up required: " + (catchupTimeInSecs*1000).toFixed(0) + "ms");
+        skipFrameNumber++;
       }
 
       lastFrameTime = self.currFrameTime;

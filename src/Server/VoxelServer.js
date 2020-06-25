@@ -155,7 +155,6 @@ class VoxelServer {
   }
 
   sendClientSocketVoxelData(voxelData) {
-    
     if (this.connectedSerialPorts.length > 0) {
       // Send data frames out through all connected serial ports
       this.connectedSerialPorts.forEach((currSerialPort) => {

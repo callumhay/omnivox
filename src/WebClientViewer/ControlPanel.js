@@ -142,6 +142,9 @@ class ControlPanel {
     this.gui.add(this.settings, 'showWireFrame').onChange((value) => {
       this.voxelDisplay.setOutlinesEnabled(value);
     });
+    this.gui.add(this.settings, 'orbitMode').onChange((value) => {
+      this.voxelDisplay.setOrbitModeEnabled(value);
+    });
     
 
     this.gui.open();
@@ -158,6 +161,7 @@ class ControlPanel {
     this.settings = {
       animatorType: VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR,
       showWireFrame: this.voxelDisplay.outlinesEnabled,
+      orbitMode: this.voxelDisplay.orbitModeEnabled,
 
       voxelColourSettings: {...this.colourAnimatorConfig,
         shapeType: VOXEL_COLOUR_SHAPE_TYPE_ALL,
@@ -820,11 +824,11 @@ class ControlPanel {
           }).setValue(sceneTypeOptions.pointLight3Colour);
 
           const pointLightAttenFolder = this.sceneSettingsFolder.addFolder("Point Light Attenuation");
-          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'quadratic', 0, 10, 0.01).onChange((value) => {
+          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'quadratic', 0, 2, 0.001).onChange((value) => {
             this.sceneAnimatorConfig.sceneOptions.pointLightAtten.quadratic = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
           }).setValue(sceneTypeOptions.pointLightAtten.quadratic);
-          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'linear', 0, 10, 0.01).onChange((value) => {
+          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'linear', 0, 4, 0.001).onChange((value) => {
             this.sceneAnimatorConfig.sceneOptions.pointLightAtten.linear = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
           }).setValue(sceneTypeOptions.pointLightAtten.linear);
@@ -835,6 +839,7 @@ class ControlPanel {
         case SCENE_TYPE_SHADOW: {
           sceneTypeOptions = sceneSettings.shadowSceneOptions;
           this.sceneAnimatorConfig.sceneOptions = {...sceneTypeOptions};
+          
           
           const boxSizeFolder = this.sceneSettingsFolder.addFolder("Moving Box Size");
           boxSizeFolder.add(sceneTypeOptions.movingBoxSize, 'x', 0.5, 5, 0.25).onChange((value) => {
@@ -871,21 +876,21 @@ class ControlPanel {
           }).setValue(sceneTypeOptions.pointLightPosition.z);
           pointLightPosFolder.open();
 
+          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'pointLightColour').onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.pointLightColour = GuiColorToRGBObj(value);
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.pointLightColour);
+
           const pointLightAttenFolder = this.sceneSettingsFolder.addFolder("Point Light Attenuation");
           pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'quadratic', 0, 1, 0.001).onChange((value) => {
             this.sceneAnimatorConfig.sceneOptions.pointLightAtten.quadratic = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
           }).setValue(sceneTypeOptions.pointLightAtten.quadratic);
-          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'linear', 0, 1, 0.01).onChange((value) => {
+          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'linear', 0, 2, 0.001).onChange((value) => {
             this.sceneAnimatorConfig.sceneOptions.pointLightAtten.linear = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
           }).setValue(sceneTypeOptions.pointLightAtten.linear);
           pointLightAttenFolder.open();
-
-          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'pointLightColour').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLightColour = GuiColorToRGBObj(value);
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.pointLightColour);
 
           break;
         }
@@ -909,7 +914,7 @@ class ControlPanel {
             this.sceneAnimatorConfig.sceneOptions.pointLightAtten.quadratic = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
           }).setValue(sceneTypeOptions.pointLightAtten.quadratic);
-          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'linear', 0, 1, 0.01).onChange((value) => {
+          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'linear', 0, 2, 0.001).onChange((value) => {
             this.sceneAnimatorConfig.sceneOptions.pointLightAtten.linear = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
           }).setValue(sceneTypeOptions.pointLightAtten.linear);
@@ -977,6 +982,12 @@ class ControlPanel {
 
     folder.add(soundVizSettings, 'sceneType', SOUND_VIZ_TYPES).onChange((value) => {
       if (this.audioVizSettingsFolder) {
+
+        if (this.audioVizTypeFolder) {
+          this.audioVizSettingsFolder.removeFolder(this.audioVizTypeFolder);
+          this.audioVizTypeFolder = null;
+        }
+
         folder.removeFolder(this.audioVizSettingsFolder);
         this.audioVizSettingsFolder = null;
       }
@@ -1080,11 +1091,6 @@ class ControlPanel {
           }).setValue(vizTypeOptions.turbulenceMultiplier);
           
           this.audioVizSettingsFolder.add(vizTypeOptions, 'colourMode', COLOUR_MODES).onChange((value) => {
-            if (this.audioVizTypeFolder) {
-              this.audioVizSettingsFolder.removeFolder(this.audioVizTypeFolder);
-              this.audioVizTypeFolder = null;
-            }
-
             this.audioVizTypeFolder = this.audioVizSettingsFolder.addFolder(value + " Settings");
             this.soundVizAnimatorConfig.sceneConfig.colourMode = value;
 
