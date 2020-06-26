@@ -56,7 +56,7 @@ class AudioVisUtils {
     const allIndices = {};
     for (let x = 0; x < xSize; x++) {
       for (let y = 0; y < ySize; y++) {
-        allIndices[x*ySize + y] = true;
+        allIndices[x+"_"+y] = true;
       }
     }
 
@@ -71,12 +71,12 @@ class AudioVisUtils {
       const rSqr = r*r;
       for (let x = 0; x < xSize; x++) {
         for (let y = 0; y < ySize; y++) {
-          const idx = x*zSize + y;
+          const idx = x+"_"+y;
           if (allIndices[idx]) {
             let xDiff = x - startX;
             let yDiff = y - startY;
             if (xDiff*xDiff + yDiff*yDiff <= rSqr) {
-              result.push(idx);
+              result.push([x,y]);
               allIndices[idx] = false;
             }
           }
@@ -84,6 +84,7 @@ class AudioVisUtils {
       }
       r++;
     }
+    
     return result;
   }
 

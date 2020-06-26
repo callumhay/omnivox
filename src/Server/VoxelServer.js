@@ -58,86 +58,92 @@ class VoxelServer {
     const parser = new Readline();
 
     setInterval(function() {
+
       SerialPort.list().then(
         ports => {
           self.availableSerialPorts = ports;
-
-          /*
-          console.log("Available serial ports:");
-          self.availableSerialPorts.forEach((availablePort) => {
-            console.log(availablePort);
-          });
-          */
+          //console.log("Available serial ports:");
+          //self.availableSerialPorts.forEach((availablePort) => {
+          //  console.log(availablePort);
+          //});
           
           // Attempt to connect to each of the serial ports that might be teensies...
-          self.availableSerialPorts.forEach((availablePort) => {
-            
-            // Check whether we've already opened the port...
-            if (self.connectedSerialPorts.filter(item => item.path === availablePort.path).length > 0) {
-              return;
-            }
+          try {
+            self.availableSerialPorts.forEach((availablePort) => {
+              
+              // Check whether we've already opened the port...
+              if (self.connectedSerialPorts.filter(item => item.path === availablePort.path).length > 0) {
+                return;
+              }
 
-            if (availablePort.manufacturer.match(/PJRC/i)) {
-              console.log("Attempting connection with port '" + availablePort.path + "'...");
-              const newSerialPort = new SerialPort(availablePort.path, {
-                autoOpen: false,
-                baudRate: DEFAULT_TEENSY_SERIAL_BAUD
-              });
+              if (availablePort.manufacturer instanceof String && availablePort.manufacturer.match(/PJRC/i)) {
+                console.log("Attempting connection with port '" + availablePort.path + "'...");
 
-              newSerialPort.on('error', (spErr) => {
-                console.error("Serial port error: " + spErr);
-              });
+                const newSerialPort = new SerialPort(availablePort.path, {
+                  autoOpen: false,
+                  baudRate: DEFAULT_TEENSY_SERIAL_BAUD
+                });
 
-              newSerialPort.on('close', () => {
-                console.log("Serial port closed: " + availablePort.path);
-                delete self.slaveDataMap[availablePort.path];
-                self.connectedSerialPorts.splice(self.connectedSerialPorts.indexOf(newSerialPort), 1);
-              });
+                newSerialPort.on('error', (spErr) => {
+                  console.error("Serial port error: " + spErr);
+                });
 
-              newSerialPort.on('open', () => {
-                newSerialPort.pipe(parser);
-                parser.on('data', (data) => {
-                  const slaveInfoMatch = data.match(/SLAVE_ID (\d)/);
-                  if (slaveInfoMatch) {
-        
-                    if (!(availablePort.path in self.slaveDataMap)) {
-                      const slaveDataObj = {
-                        id: parseInt(slaveInfoMatch[1])
-                      };
-                      self.slaveDataMap[availablePort.path] = slaveDataObj;
-        
-                      // First time getting information from the current serial port, send a welcome packet
-                      console.log("Slave ID at " + availablePort.path + " = " + self.slaveDataMap[availablePort.path].id);
-                      console.log("Sending welcome packet to " + availablePort.path + "...");
-        
-                      const welcomePacketBuf = VoxelProtocol.buildWelcomePacketForSlaves(self.voxelModel);
-                      welcomePacketBuf[0] = slaveDataObj.id;
-                      newSerialPort.write(cobs.encode(welcomePacketBuf, true));
+                newSerialPort.on('close', () => {
+                  console.log("Serial port closed: " + availablePort.path);
+                  delete self.slaveDataMap[availablePort.path];
+                  self.connectedSerialPorts.splice(self.connectedSerialPorts.indexOf(newSerialPort), 1);
+                });
+
+                newSerialPort.on('open', () => {
+                  newSerialPort.pipe(parser);
+                  parser.on('data', (data) => {
+                    const slaveInfoMatch = data.match(/SLAVE_ID (\d)/);
+                    if (slaveInfoMatch) {
+          
+                      if (!(availablePort.path in self.slaveDataMap)) {
+                        const slaveDataObj = {
+                          id: parseInt(slaveInfoMatch[1])
+                        };
+                        self.slaveDataMap[availablePort.path] = slaveDataObj;
+          
+                        // First time getting information from the current serial port, send a welcome packet
+                        console.log("Slave ID at " + availablePort.path + " = " + self.slaveDataMap[availablePort.path].id);
+                        console.log("Sending welcome packet to " + availablePort.path + "...");
+          
+                        const welcomePacketBuf = VoxelProtocol.buildWelcomePacketForSlaves(self.voxelModel);
+                        welcomePacketBuf[0] = slaveDataObj.id;
+                        newSerialPort.write(cobs.encode(welcomePacketBuf, true));
+                      }
+                      else {
+                        self.slaveDataMap[availablePort.path].id = parseInt(slaveInfoMatch[1]);
+                      }
                     }
                     else {
-                      self.slaveDataMap[availablePort.path].id = parseInt(slaveInfoMatch[1]);
+                      console.log(data);
                     }
+                  });
+                  self.connectedSerialPorts.push(newSerialPort);
+                });
+
+                // Open the serial port
+                newSerialPort.open((err) => {
+                  if (err) {
+                    console.error("Failed to open serial port '" + availablePort.path + "': " + err);
                   }
                   else {
-                    console.log(data);
+                    console.log("Now connected to port '" + newSerialPort.path + "' @" + newSerialPort.baudRate + " baud");
                   }
                 });
-                self.connectedSerialPorts.push(newSerialPort);
-              });
-
-              // Open the serial port
-              newSerialPort.open((err) => {
-                if (err) {
-                  console.error("Failed to open serial port '" + availablePort.path + "': " + err);
-                }
-                else {
-                  console.log("Now connected to port '" + newSerialPort.path + "' @" + newSerialPort.baudRate + " baud");
-                }
-              });
-            }
-          });
+              }
+            });
+          }
+          catch (err) {
+            console.error(err);
+          }
         },
-        err => console.error(err)
+        err => {
+          console.error(err);
+        }
       );
     }, SERIAL_POLLING_INTERVAL_MS);
   }
@@ -149,7 +155,6 @@ class VoxelServer {
   }
 
   sendClientSocketVoxelData(voxelData) {
-    
     if (this.connectedSerialPorts.length > 0) {
       // Send data frames out through all connected serial ports
       this.connectedSerialPorts.forEach((currSerialPort) => {

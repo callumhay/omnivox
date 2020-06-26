@@ -99,6 +99,11 @@ class VoxelClient {
     }
   }
 
+  sendRequestFullStateUpdate() {
+    if (this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(VoxelProtocol.buildClientPacketStr(VoxelProtocol.FULL_STATE_UPDATE_HEADER, null, null));
+    }
+  }
   sendAnimatorChangeCommand(animatorType, config) {
     if (this.socket.readyState === WebSocket.OPEN) {
       this.socket.send(VoxelProtocol.buildClientPacketStr(VoxelProtocol.VOXEL_ROUTINE_CHANGE_HEADER, animatorType, config));

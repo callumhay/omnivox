@@ -13,6 +13,8 @@ import {clamp} from '../../../MathUtils';
 import AudioVisUtils from './AudioVisUtils';
 import VTPointLight from '../../VTPointLight';
 
+import { COLOUR_INTERPOLATION_RGB } from '../../../Spectrum';
+
 export const POS_X_DIR = "+x";
 export const NEG_X_DIR = "-x";
 export const POS_Z_DIR = "+z";
@@ -29,8 +31,9 @@ export const DEFAULT_SPEED = 5;
 export const DEFAULT_DIR = NEG_Z_DIR;
 
 export const historyBarsAudioVisDefaultConfig = {
-  lowColour:        DEFAULT_LOW_COLOUR,
-  highColour:       DEFAULT_HIGH_COLOUR,
+  lowColour:        DEFAULT_LOW_COLOUR.clone(),
+  highColour:       DEFAULT_HIGH_COLOUR.clone(),
+  colourInterpolationType: COLOUR_INTERPOLATION_RGB,
   speed:            DEFAULT_SPEED,
   tempoMultiplier:  15.0,
   direction:        DEFAULT_DIR,
@@ -66,11 +69,16 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
 
   build(options) {
     const {sceneConfig} = options;
-
+    
     if (!this._objectsBuilt) {
-      const lowColour  = sceneConfig.lowColour  ? sceneConfig.lowColour  : DEFAULT_LOW_COLOUR;
-      const highColour = sceneConfig.highColour ? sceneConfig.highColour : DEFAULT_HIGH_COLOUR;
-      const direction  = sceneConfig.direction  ? sceneConfig.direction  : DEFAULT_DIR; 
+
+      const { colourInterpolationType } = options.sceneConfig;
+
+      const lowColour = (sceneConfig.lowColour.r !== undefined && sceneConfig.lowColour.g && sceneConfig.lowColour.b) ?
+        sceneConfig.lowColour : DEFAULT_LOW_COLOUR;
+      const highColour = (sceneConfig.highColour.r !== undefined && sceneConfig.highColour.g && sceneConfig.highColour.b) ?
+        sceneConfig.highColour : DEFAULT_HIGH_COLOUR;
+      const direction  = sceneConfig.direction  ? sceneConfig.direction  : DEFAULT_DIR;
       
       const ambientLightColour = new THREE.Color(1,1,1);
       this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
@@ -110,7 +118,7 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
       const levelColours = [];
       for (let y = Y_START; y < ySize; y++) {
         const t = THREE.MathUtils.smootherstep(y, Y_START, ySize-1);
-        const temp = chroma.mix(chroma.gl(lowColour), chroma.gl(highColour), t, 'lrgb').gl();
+        const temp = chroma.mix(chroma.gl(lowColour), chroma.gl(highColour), t, colourInterpolationType).gl();
         levelColours.push(new THREE.Color(temp[0], temp[1], temp[2]));
       }
       

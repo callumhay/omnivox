@@ -35,10 +35,14 @@ const POINTS_FRAGMENT_SHADER = `
 `;
 
 class VoxelDisplay {
-  constructor(scene) {
+  constructor(scene, controls) {
     this.voxels = [];
     this._scene = scene;
+    this._controls = controls;
+
+    // Settings
     this.outlinesEnabled = false;
+    this.orbitModeEnabled = false;
 
     this.rebuild(DEFAULT_VOXEL_GRID_SIZE);
   }
@@ -144,6 +148,7 @@ class VoxelDisplay {
     this.outlines = new THREE.LineSegments(wireframeGeometry, outlineMaterial);
     this.outlines.name = "outlines";
     this.setOutlinesEnabled(this.outlinesEnabled);
+    this.setOrbitModeEnabled(this.orbitModeEnabled);
 
     for (let x = 0; x < this.gridSize; x++) {
       let currXArr = [];
@@ -189,6 +194,11 @@ class VoxelDisplay {
         this._scene.remove(this.outlines);
       }
     }
+    this.outlinesEnabled = enable;
+  }
+  setOrbitModeEnabled(enable) {
+    this._controls.autoRotate = enable;
+    this.orbitModeEnabled = enable;
   }
 
   xSize() { return this.voxels.length; }

@@ -22,10 +22,10 @@ export class Randomizer {
     return Math.floor(Math.random() * (max - min + 1)) + min; // The maximum is inclusive and the minimum is inclusive 
   }
 
-  static getRandomFloats(size) {
+  static getRandomFloats(size, min=0, max=1) {
     let result = new Array(size);
     for (let i = 0; i < size; i++) {
-      result[i] = Randomizer.getRandomInt(0,1000)/1000;
+      result[i] = Randomizer.getRandomFloat(min,max);
     }
     return result;
   }
