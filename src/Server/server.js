@@ -52,8 +52,9 @@ const voxelModel = new VoxelModel(VOXEL_GRID_SIZE);
 // hardware clients and to the localhost for virtual display of the voxels
 const voxelServer = new VoxelServer(voxelModel);
 
-voxelModel.run(voxelServer);
+
 voxelServer.start();
+voxelModel.run(voxelServer);
 
 
 /*

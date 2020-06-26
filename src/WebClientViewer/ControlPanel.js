@@ -1106,6 +1106,11 @@ class ControlPanel {
           }).setValue(vizTypeOptions.turbulenceMultiplier);
           
           this.audioVizSettingsFolder.add(vizTypeOptions, 'colourMode', COLOUR_MODES).onChange((value) => {
+            if (this.audioVizTypeFolder) {
+              this.audioVizSettingsFolder.removeFolder(this.audioVizTypeFolder);
+              this.audioVizTypeFolder = null;
+            }
+
             this.audioVizTypeFolder = this.audioVizSettingsFolder.addFolder(value + " Settings");
             this.soundVizAnimatorConfig.sceneConfig.colourMode = value;
 

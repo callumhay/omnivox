@@ -15,7 +15,7 @@ export const HALF_VOXEL_SIZE = 0.5;
 export const BLEND_MODE_OVERWRITE = 0;
 export const BLEND_MODE_ADDITIVE  = 1;
 
-const DEFAULT_POLLING_FREQUENCY_HZ = 60; // 60 FPS - if this is too high then we overwhelm our embedded hardware...
+const DEFAULT_POLLING_FREQUENCY_HZ = 60; // Render Frames per second - if this is too high then we overwhelm our clients
 const DEFAULT_POLLING_INTERVAL_MS  = 1000 / DEFAULT_POLLING_FREQUENCY_HZ;
 
 class VoxelModel {
@@ -99,14 +99,13 @@ class VoxelModel {
     let dtSinceLastRender = 0;
     let skipFrameNumber = 1;
     let catchupTimeInSecs = 0;
-    const allowableEventLoopBackupSize = 3;
+    const allowableEventLoopBackupSize = 5;
     const allowablePollingMsBackupSize = allowableEventLoopBackupSize * DEFAULT_POLLING_INTERVAL_MS;
     const allowablePollingSecBackupSize = allowablePollingMsBackupSize / 1000;
 
     console.log("Allowable max render time per frame set to " + allowablePollingMsBackupSize.toFixed(2) + "ms");
 
     setInterval(function() {
-
       self.currFrameTime = Date.now();
       dt = (self.currFrameTime - lastFrameTime) / 1000;
       dtSinceLastRender += dt;
@@ -120,7 +119,7 @@ class VoxelModel {
         catchupTimeInSecs = Math.max(0, dt - allowablePollingSecBackupSize);
       }
       
-      if (catchupTimeInSecs === 0) {
+      if (catchupTimeInSecs <= 0) {
         // Simulate the model based on the current animation...
         if (self.currentAnimator) {
           self.currentAnimator.render(dtSinceLastRender);
@@ -131,8 +130,6 @@ class VoxelModel {
         // Let the server know to broadcast the new voxel data to all clients
         voxelServer.setVoxelData(self.voxels, self.frameCounter);
         self.frameCounter++;
-        
-        //console.log(self.frameCounter % 0xFFFF);
       }
       else {
         console.log("Skipping Frame: " + self.frameCounter + " (+" + skipFrameNumber + "), catch-up required: " + (catchupTimeInSecs*1000).toFixed(0) + "ms");
@@ -142,6 +139,7 @@ class VoxelModel {
       lastFrameTime = self.currFrameTime;
       
     }, DEFAULT_POLLING_INTERVAL_MS);
+
   }
 
   /**
