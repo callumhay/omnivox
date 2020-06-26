@@ -28,6 +28,8 @@ class FireAnimator extends VoxelAnimator {
     this.reset();
   }
 
+  getType() { return VoxelAnimator.VOXEL_ANIM_FIRE; }
+
   setConfig(c) {
     super.setConfig(c);
 

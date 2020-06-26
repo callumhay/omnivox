@@ -55,8 +55,16 @@ function onWindowResize(event) {
 }
 // ------------------------------------------------------------------------------
 
+
 let frameCount = 0;
+//let lastFrameTime = Date.now();
+//let requestStatePingTime = 0;
+//const TIME_BETWEEN_STATE_PINGS_S = 10.0;
+
 const render = function () {
+  //let currFrameTime = Date.now();
+  //let dt = (currFrameTime - lastFrameTime) / 1000;
+
   requestAnimationFrame(render);
 
   // Updates for controls/sound/etc.
@@ -69,6 +77,15 @@ const render = function () {
   soundController.render(renderer);
   
   frameCount++;
+  /*
+  // Every once in a while we request a full state update from the server
+  requestStatePingTime += dt;
+  if (requestStatePingTime >= TIME_BETWEEN_STATE_PINGS_S) {
+    voxelClient.sendRequestFullStateUpdate();
+    requestStatePingTime = 0;
+  }
+  */
+
 };
 render();
 

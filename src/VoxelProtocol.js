@@ -5,7 +5,7 @@ import { hashCode } from './MathUtils';
 const DISCOVERY_REQ_PACKET_HEADER = "REQ";
 const DISCOVERY_ACK_PACKET_HEADER = "ACK";
 
-// Packet Header/Identifier Constants - TCP ONLY
+// Packet Header/Identifier Constants
 const VOXEL_DATA_HEADER = "D";
 // Data type constants
 const VOXEL_DATA_ALL_TYPE   = "A";
@@ -15,6 +15,7 @@ const SERVER_TO_CLIENT_WELCOME_HEADER = "W";
 const SERVER_TO_CLIENT_SCENE_FRAMEBUFFER_HEADER = "F";
 
 // Client Command / Request Headers
+const FULL_STATE_UPDATE_HEADER = "F";
 const VOXEL_ROUTINE_CHANGE_HEADER = "C";
 const VOXEL_ROUTINE_CONFIG_UPDATE_HEADER = "U";
 const VOXEL_ROUTINE_RESET_HEADER = "R";
@@ -44,8 +45,9 @@ class VoxelProtocol {
   static get WEBSOCKET_PORT() {return WEBSOCKET_PORT;}
 
   static get SERVER_TO_CLIENT_WELCOME_HEADER() {return SERVER_TO_CLIENT_WELCOME_HEADER;}
-  static get SERVER_TO_CLIENT_SCENE_FRAMEBUFFER_HEADER() { return SERVER_TO_CLIENT_SCENE_FRAMEBUFFER_HEADER;}
+  static get SERVER_TO_CLIENT_SCENE_FRAMEBUFFER_HEADER() {return SERVER_TO_CLIENT_SCENE_FRAMEBUFFER_HEADER;}
 
+  static get FULL_STATE_UPDATE_HEADER() {return FULL_STATE_UPDATE_HEADER;}
   static get VOXEL_ROUTINE_CHANGE_HEADER() {return VOXEL_ROUTINE_CHANGE_HEADER;}
   static get VOXEL_ROUTINE_CONFIG_UPDATE_HEADER() {return VOXEL_ROUTINE_CONFIG_UPDATE_HEADER;}
   static get VOXEL_ROUTINE_RESET_HEADER() {return VOXEL_ROUTINE_RESET_HEADER;}
@@ -106,6 +108,10 @@ class VoxelProtocol {
     }
     
     switch (dataObj.packetType) {
+      case FULL_STATE_UPDATE_HEADER:
+        // We need to let the client know the full server state
+        socket.send(VoxelProtocol.buildClientWelcomePacketStr(voxelModel));
+        break;
 
       case VOXEL_ROUTINE_CHANGE_HEADER:
         if (!dataObj.config || !dataObj.voxelAnimType) {

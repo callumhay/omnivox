@@ -63,6 +63,7 @@ class ControlPanel {
     this.soundVizAnimatorConfig = {...soundVisDefaultConfig};
     this.soundVizAnimatorConfig.sceneConfig = {...soundVisDefaultConfig.sceneConfig};
 
+    this.settings = {};
     this.reloadSettings();
     
     this.currFolder = null;
@@ -150,161 +151,175 @@ class ControlPanel {
     this.gui.open();
   }
 
-  reloadSettings() {
-    const resetFunc = (() => {
-      this.voxelClient.sendRoutineResetCommand();
-      this.voxelClient.sendClearCommand(0,0,0);
-    }).bind(this);
+  resetDisplay() {
+    this.voxelClient.sendRoutineResetCommand();
+    this.voxelClient.sendClearCommand(0, 0, 0);
+  }
 
+  reloadVoxelColourSettings() {
     const halfVoxelDisplayUnits = (this.voxelClient.voxelDisplay.gridSize - 1) / 2;
-
-    this.settings = {
-      animatorType: VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR,
-      showWireFrame: this.voxelDisplay.outlinesEnabled,
-      orbitMode: this.voxelDisplay.orbitModeEnabled,
-
-      voxelColourSettings: {...this.colourAnimatorConfig,
-        shapeType: VOXEL_COLOUR_SHAPE_TYPE_ALL,
-        sphereProperties: {center: {x:halfVoxelDisplayUnits, y:halfVoxelDisplayUnits, z:halfVoxelDisplayUnits}, radius:halfVoxelDisplayUnits, fill:false},
-        boxProperties: {center: {x:halfVoxelDisplayUnits, y:halfVoxelDisplayUnits, z:halfVoxelDisplayUnits}, width:2*halfVoxelDisplayUnits-2, height:2*halfVoxelDisplayUnits-2, depth:2*halfVoxelDisplayUnits-2, fill:false},
-        colourStart: THREEColorToGuiColor(this.colourAnimatorConfig.colourStart),
-        colourEnd: THREEColorToGuiColor(this.colourAnimatorConfig.colourEnd),
-        reset: resetFunc,
-      },
-
-      starShowerSettings: {
-        minSpawnPos: {x: this.starShowerAnimatorConfig.positionRandomizer.min.x, y: this.starShowerAnimatorConfig.positionRandomizer.min.y, z: this.starShowerAnimatorConfig.positionRandomizer.min.z},
-        maxSpawnPos: {x: this.starShowerAnimatorConfig.positionRandomizer.max.x, y: this.starShowerAnimatorConfig.positionRandomizer.max.y, z: this.starShowerAnimatorConfig.positionRandomizer.max.z},
-        direction: {x: this.starShowerAnimatorConfig.directionRandomizer.baseDirection.x, y: this.starShowerAnimatorConfig.directionRandomizer.baseDirection.y, z: this.starShowerAnimatorConfig.directionRandomizer.baseDirection.z},
-        directionVariance: this.starShowerAnimatorConfig.directionRandomizer.radAngle, // [0, PI]
-        speedMin: this.starShowerAnimatorConfig.speedRandomizer.min,
-        speedMax: this.starShowerAnimatorConfig.speedRandomizer.max,
-        spawnRate: this.starShowerAnimatorConfig.spawnRate,
-        colourMin: THREEColorToGuiColor(this.starShowerAnimatorConfig.colourRandomizer.min), 
-        colourMax: THREEColorToGuiColor(this.starShowerAnimatorConfig.colourRandomizer.max), 
-        reset: resetFunc,
-      },
-     
-      shapeWaveSettings: {
-        center: {x: this.shapeWaveAnimatorConfig.center.x, y: this.shapeWaveAnimatorConfig.center.y, z: this.shapeWaveAnimatorConfig.center.z},
-        shapeType: this.shapeWaveAnimatorConfig.waveShape,
-        waveSpeed: this.shapeWaveAnimatorConfig.waveSpeed,
-        waveGap: this.shapeWaveAnimatorConfig.waveGap,
-        colourPalette: this.shapeWaveAnimatorConfig.colourPalette,
-        brightness: this.shapeWaveAnimatorConfig.brightness,
-        reset: resetFunc,
-      },
-
-      gameOfLifeSettings: {
-        seed: this.gameOfLifeAnimatorConfig.seed,
-        reset: resetFunc,
-      },
-
-      fireSettings: {...this.fireAnimatorConfig,
-        reset: resetFunc,
-      },
-
-      sceneSettings: {
-        sceneType: this.sceneAnimatorConfig.sceneType,
-        simpleSceneOptions: {...simpleSceneDefaultOptions,
-          ambientLightColour: THREEColorToGuiColor(simpleSceneDefaultOptions.ambientLightColour),
-          pointLight1Colour:  THREEColorToGuiColor(simpleSceneDefaultOptions.pointLight1Colour),
-          pointLight2Colour:  THREEColorToGuiColor(simpleSceneDefaultOptions.pointLight2Colour),
-          pointLight3Colour:  THREEColorToGuiColor(simpleSceneDefaultOptions.pointLight3Colour),
-          sphereColour:       THREEColorToGuiColor(simpleSceneDefaultOptions.sphereColour),
-          wallColour:         THREEColorToGuiColor(simpleSceneDefaultOptions.wallColour),
-        },
-        shadowSceneOptions: {...shadowSceneDefaultOptions,
-          ambientLightColour: THREEColorToGuiColor(shadowSceneDefaultOptions.ambientLightColour),
-          pointLightColour: THREEColorToGuiColor(shadowSceneDefaultOptions.pointLightColour),
-        },
-        fogSceneOptions: {...fogSceneDefaultOptions,
-          fogColour: THREEColorToGuiColor(fogSceneDefaultOptions.fogColour),
-          ambientLightColour: THREEColorToGuiColor(fogSceneDefaultOptions.ambientLightColour),
-          pointLightColour: THREEColorToGuiColor(fogSceneDefaultOptions.pointLightColour),
-        },
-      },
-
-      audioVisSettings: {...this.soundVizAnimatorConfig,
-        showDebug: this.soundController.showDebug,
-        basicBarsAudioVisSettings: {...basicBarsAudioVisDefaultConfig,
-          lowColour:  THREEColorToGuiColor(basicBarsAudioVisDefaultConfig.lowColour),
-          highColour: THREEColorToGuiColor(basicBarsAudioVisDefaultConfig.highColour),
-        },
-        historyBarsAudioVisSettings: {...historyBarsAudioVisDefaultConfig,
-          lowColour:  THREEColorToGuiColor(historyBarsAudioVisDefaultConfig.lowColour),
-          highColour: THREEColorToGuiColor(historyBarsAudioVisDefaultConfig.highColour),
-        },
-        fireSettings: {...fireAudioVisDefaultConfig,
-          lowTempColour: THREEColorToGuiColor(fireAudioVisDefaultConfig.lowTempColour),
-          highTempColour: THREEColorToGuiColor(fireAudioVisDefaultConfig.highTempColour),
-        },
-      },
+    this.settings.voxelColourSettings = {...this.colourAnimatorConfig,
+      shapeType: VOXEL_COLOUR_SHAPE_TYPE_ALL,
+      sphereProperties: { center: { x: halfVoxelDisplayUnits, y: halfVoxelDisplayUnits, z: halfVoxelDisplayUnits }, radius: halfVoxelDisplayUnits, fill: false },
+      boxProperties: { center: { x: halfVoxelDisplayUnits, y: halfVoxelDisplayUnits, z: halfVoxelDisplayUnits }, width: 2 * halfVoxelDisplayUnits - 2, height: 2 * halfVoxelDisplayUnits - 2, depth: 2 * halfVoxelDisplayUnits - 2, fill: false },
+      colourStart: THREEColorToGuiColor(this.colourAnimatorConfig.colourStart),
+      colourEnd: THREEColorToGuiColor(this.colourAnimatorConfig.colourEnd),
+      reset: this.resetDisplay,
     };
-
-    this.gui.remember(this.settings);
-    
     this.gui.remember(this.settings.voxelColourSettings);
     this.gui.remember(this.settings.voxelColourSettings.sphereProperties);
     this.gui.remember(this.settings.voxelColourSettings.sphereProperties.center);
     this.gui.remember(this.settings.voxelColourSettings.boxProperties);
     this.gui.remember(this.settings.voxelColourSettings.boxProperties.center);
-
+  }
+  reloadStarShowerSettings() {
+    this.settings.starShowerSettings = {
+      minSpawnPos: { x: this.starShowerAnimatorConfig.positionRandomizer.min.x, y: this.starShowerAnimatorConfig.positionRandomizer.min.y, z: this.starShowerAnimatorConfig.positionRandomizer.min.z },
+      maxSpawnPos: { x: this.starShowerAnimatorConfig.positionRandomizer.max.x, y: this.starShowerAnimatorConfig.positionRandomizer.max.y, z: this.starShowerAnimatorConfig.positionRandomizer.max.z },
+      direction: { x: this.starShowerAnimatorConfig.directionRandomizer.baseDirection.x, y: this.starShowerAnimatorConfig.directionRandomizer.baseDirection.y, z: this.starShowerAnimatorConfig.directionRandomizer.baseDirection.z },
+      directionVariance: this.starShowerAnimatorConfig.directionRandomizer.radAngle, // [0, PI]
+      speedMin: this.starShowerAnimatorConfig.speedRandomizer.min,
+      speedMax: this.starShowerAnimatorConfig.speedRandomizer.max,
+      spawnRate: this.starShowerAnimatorConfig.spawnRate,
+      colourMin: THREEColorToGuiColor(this.starShowerAnimatorConfig.colourRandomizer.min),
+      colourMax: THREEColorToGuiColor(this.starShowerAnimatorConfig.colourRandomizer.max),
+      reset: this.resetDisplay,
+    };
     this.gui.remember(this.settings.starShowerSettings);
     this.gui.remember(this.settings.starShowerSettings.minSpawnPos);
     this.gui.remember(this.settings.starShowerSettings.maxSpawnPos);
     this.gui.remember(this.settings.starShowerSettings.direction);
-
+  }
+  reloadShapeWavesSettings() {
+    this.settings.shapeWaveSettings = {
+      center: { x: this.shapeWaveAnimatorConfig.center.x, y: this.shapeWaveAnimatorConfig.center.y, z: this.shapeWaveAnimatorConfig.center.z },
+      shapeType: this.shapeWaveAnimatorConfig.waveShape,
+      waveSpeed: this.shapeWaveAnimatorConfig.waveSpeed,
+      waveGap: this.shapeWaveAnimatorConfig.waveGap,
+      colourPalette: this.shapeWaveAnimatorConfig.colourPalette,
+      brightness: this.shapeWaveAnimatorConfig.brightness,
+      reset: this.resetDisplay,
+    };
     this.gui.remember(this.settings.shapeWaveSettings);
     this.gui.remember(this.settings.shapeWaveSettings.center);
-
+  }
+  reloadGameOfLifeSettings() {
+    this.settings.gameOfLifeSettings = {
+      seed: this.gameOfLifeAnimatorConfig.seed,
+      reset: this.resetDisplay,
+    };
     this.gui.remember(this.settings.gameOfLifeSettings);
-
+  }
+  reloadFireSettings() {
+    this.settings.fireSettings = {...this.fireAnimatorConfig,
+      reset: this.resetDisplay,
+    };
     this.gui.remember(this.settings.fireSettings);
-
+  }
+  reloadSceneSettings() {
+    this.settings.sceneSettings = {
+      sceneType: this.sceneAnimatorConfig.sceneType,
+      simpleSceneOptions: {...simpleSceneDefaultOptions,
+        ambientLightColour: THREEColorToGuiColor(simpleSceneDefaultOptions.ambientLightColour),
+        pointLight1Colour: THREEColorToGuiColor(simpleSceneDefaultOptions.pointLight1Colour),
+        pointLight2Colour: THREEColorToGuiColor(simpleSceneDefaultOptions.pointLight2Colour),
+        pointLight3Colour: THREEColorToGuiColor(simpleSceneDefaultOptions.pointLight3Colour),
+        sphereColour: THREEColorToGuiColor(simpleSceneDefaultOptions.sphereColour),
+        wallColour: THREEColorToGuiColor(simpleSceneDefaultOptions.wallColour),
+      },
+      shadowSceneOptions: {...shadowSceneDefaultOptions,
+        ambientLightColour: THREEColorToGuiColor(shadowSceneDefaultOptions.ambientLightColour),
+        pointLightColour: THREEColorToGuiColor(shadowSceneDefaultOptions.pointLightColour),
+      },
+      fogSceneOptions: {...fogSceneDefaultOptions,
+        fogColour: THREEColorToGuiColor(fogSceneDefaultOptions.fogColour),
+        ambientLightColour: THREEColorToGuiColor(fogSceneDefaultOptions.ambientLightColour),
+        pointLightColour: THREEColorToGuiColor(fogSceneDefaultOptions.pointLightColour),
+      },
+    };
     this.gui.remember(this.settings.sceneSettings);
     this.gui.remember(this.settings.sceneSettings.sceneType);
     this.gui.remember(this.settings.sceneSettings.simpleSceneOptions);
     this.gui.remember(this.settings.sceneSettings.shadowSceneOptions);
     this.gui.remember(this.settings.sceneSettings.fogSceneOptions);
-
+  }
+  reloadAudioVisSettings() {
+    this.settings.audioVisSettings = {...this.soundVizAnimatorConfig,
+      showDebug: this.soundController.showDebug,
+      basicBarsAudioVisSettings: {...basicBarsAudioVisDefaultConfig,
+        lowColour: THREEColorToGuiColor(basicBarsAudioVisDefaultConfig.lowColour),
+        highColour: THREEColorToGuiColor(basicBarsAudioVisDefaultConfig.highColour),
+      },
+      historyBarsAudioVisSettings: {...historyBarsAudioVisDefaultConfig,
+        lowColour: THREEColorToGuiColor(historyBarsAudioVisDefaultConfig.lowColour),
+        highColour: THREEColorToGuiColor(historyBarsAudioVisDefaultConfig.highColour),
+      },
+      fireSettings: {...fireAudioVisDefaultConfig,
+        lowTempColour: THREEColorToGuiColor(fireAudioVisDefaultConfig.lowTempColour),
+        highTempColour: THREEColorToGuiColor(fireAudioVisDefaultConfig.highTempColour),
+      },
+    };
     this.gui.remember(this.settings.audioVisSettings);
     this.gui.remember(this.settings.audioVisSettings.basicBarsAudioVisSettings);
     this.gui.remember(this.settings.audioVisSettings.historyBarsAudioVisSettings);
     this.gui.remember(this.settings.audioVisSettings.fireSettings);
   }
 
+  reloadSettings() {
+    this.settings = {...this.settings,
+      animatorType: VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR,
+      showWireFrame: this.voxelDisplay.outlinesEnabled,
+      orbitMode: this.voxelDisplay.orbitModeEnabled,
+    };
+
+    this.reloadVoxelColourSettings();
+    this.reloadStarShowerSettings();
+    this.reloadShapeWavesSettings();
+    this.reloadGameOfLifeSettings();
+    this.reloadFireSettings();
+    this.reloadSceneSettings();
+    this.reloadAudioVisSettings();
+
+    this.gui.remember(this.settings);
+  }
+
   updateAnimator(animatorType, config) {
+    
     switch (animatorType) {
 
       case VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR:
         this.colourAnimatorConfig = config;
+        this.reloadVoxelColourSettings();
         break;
       case VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER:
         this.starShowerAnimatorConfig = config;
+        this.reloadStarShowerSettings();
         break;
       case VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES:
         this.shapeWaveAnimatorConfig = config;
+        this.reloadShapeWavesSettings();
         break;
       case VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE:
         this.gameOfLifeAnimatorConfig = config;
+        this.reloadGameOfLifeSettings();
         break;
       case VoxelAnimator.VOXEL_ANIM_FIRE:
         this.fireAnimatorConfig = config;
+        this.reloadFireSettings();
         break;
       case VoxelAnimator.VOXEL_ANIM_SCENE:
         this.sceneAnimatorConfig = config;
+        this.reloadSceneSettings();
         break;
       case VoxelAnimator.VOXEL_ANIM_SOUND_VIZ:
         this.soundVizAnimatorConfig = config;
+        this.reloadAudioVisSettings();
         break;
 
       default:
         console.error("Animator type Not implemented!");
         break;
     }
-
-    this.reloadSettings();
     this.animatorTypeController.setValue(animatorType);
   }
 
