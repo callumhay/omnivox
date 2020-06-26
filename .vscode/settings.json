@@ -1,5 +1,6 @@
 {
     "editor.tabSize": 2,
     "editor.tabCompletion": "on",
-    "debug.node.autoAttach": "on"
+    "debug.node.autoAttach": "on",
+    "python.pythonPath": "C:\\Users\\beowulf\\AppData\\Local\\Programs\\Python\\Python36\\python.exe"
 }
