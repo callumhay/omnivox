@@ -1,57 +1,28 @@
 import * as THREE from 'three';
+import os from 'os';
 
-import {VOXEL_EPSILON, clamp} from '../MathUtils';
-import VTAmbientLight from './VTAmbientLight';
+import {VOXEL_EPSILON, clamp} from '../../MathUtils';
+import VTMeshMultithreading from './VTMeshMultithreading';
 
-class VTScene {
-  constructor(voxelModel) {
-    this.voxelModel = voxelModel;
-
-    // TODO: Octree... for faster ray collisions etc.
+export class VTSceneMultithreading {
+  constructor(vtSceneModel) {
     this.renderables = [];
     this.shadowCasters = [];
-    this.lights = [];
 
-    this.ambientLight = null;
-  }
-
-  dispose() {
-    this.renderables.forEach(renderable => {
-      renderable.dispose();
-    });
-
-    this.renderables = [];
-    this.lights = [];
-    this.shadowCasters = [];
-    this.ambientLight = null;
-  }
-
-  addLight(l) {
-    if (l instanceof VTAmbientLight) {
-      this.ambientLight = l;
+    for (let i = 0; i < vtSceneModel.renderables.length; i++) {
+      const renderable = vtSceneModel.renderables[i];
+      if (renderable instanceof VTMesh) {
+        const mtMesh = new VTMeshMultithreading(renderable);
+        this.renderables.push(mtMesh);
+        this.shadowCasters.push(mtMesh)
+      }
+      else {
+        this.renderables.push(renderable);
+      }
     }
-    else {
-      this.renderables.push(l);
-      this.lights.push(l);
-    }
-  }
-  addObject(o) {
-    this.renderables.push(o);
-    this.shadowCasters.push(o);
-  }
-  addFog(f) {
-    this.addObject(f);
-  }
 
-  removeObject(o) {
-    let index = this.renderables.indexOf(o);
-    if (index > -1) {
-      this.renderables.splice(index, 1);
-    }
-    index = this.shadowCasters.indexOf(o);
-    if (index > -1) {
-      this.shadowCasters.splice(index, 1);
-    }
+    this.lights = vtSceneModel.lights;
+    this.ambientLight = vtSceneModel.ambientLight;
   }
 
   calculateVoxelLighting(point, material, receivesShadow) {
@@ -104,7 +75,6 @@ class VTScene {
     }
 
     finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
-
     return finalColour;
   }
 
@@ -195,35 +165,71 @@ class VTScene {
     finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
     return finalColour;
   }
+}
+
+class VTSceneMultithreading {
+  constructor(voxelModel) {
+    this.voxelModel = voxelModel;
+    this.sceneModel = new VTSceneModel();
+
+    // Create a thread pool based on the number of cpu cores on this machine
+    const cpuCount = os.cpus().length;
+    console.log("Initializing thread pool, size: " + cpuCount + "...");
+    this.threadPool = new DynamicPool(cpuCount);
+  }
+
+  dispose() {
+    this.sceneModel.dispose();
+  }
+
+  addLight(l) {
+    this.sceneModel.addLight(l);
+  }
+  addObject(o) {
+    this.sceneModel.addObject(o);
+  }
+  addFog(f) {
+    this.sceneModel.addFog(f);
+  }
+  removeObject(o) {
+    this.sceneModel.removeObject(o);
+  }
 
   render() {
-    // Find all renderable entities that exist within the bounds of the voxels (i.e., visible entities)
-    const voxelBoundingBox = this.voxelModel.getBoundingBox();
-    const visibleRenderables = [];
-    for (let i = 0; i < this.renderables.length; i++) {
-      const renderable = this.renderables[i];
-      if (renderable.intersectsBox(voxelBoundingBox)) {
-        visibleRenderables.push(renderable);
-      }
-    }
+    // Get a list of every voxel that will need to be rendered
+    const renderData = this.sceneModel.calculateRenderData(this.voxelModel);
 
-    for (let i = 0; i < visibleRenderables.length; i++) {
-      const renderable = visibleRenderables[i];
+    // Split up the voxels evenly among threads
+    const numThreads = os.cpus().length;
+    const chunkSize = renderData.length / numThreads;
+    const splitArrayIntoChunks = (array, chunk_size) => 
+      Array(Math.ceil(array.length / chunk_size)).fill().map((_, index) => index * chunk_size).map(begin => array.slice(begin, begin + chunk_size));
+    const chunkedRenderData = splitArrayIntoChunks(renderData, chunkSize);
 
-      // Get all of the voxels that collide with the renderable object
-      const voxelIndexPoints = renderable.getCollidingVoxels();
-      for (let j = 0; j < voxelIndexPoints.length; j++) {
-        const voxelIdxPt = voxelIndexPoints[j];
-        const voxelObj = this.voxelModel.getVoxel(voxelIdxPt);
-        if (voxelObj) {
-          // Map the index point into the centroid of the voxel in worldspace
-          //const wsVoxelCentroid = this.voxelModel.calcVoxelWorldSpaceCentroid(voxelIdxPt);
-          const calcColour = renderable.calculateVoxelColour(voxelIdxPt, this);
-          voxelObj.addColour(calcColour);
+    //console.log(chunkedRenderData);
+
+    const sceneModelMT = new VTSceneModelMultithreading(this.sceneModel);
+
+
+    for (let i = 0; i < chunkedRenderData.length; i++) {
+      (async () => {
+        const currRenderData = chunkedRenderData[i];
+        const result = await this.threadPool.exec({
+          task: threadMain,
+          workerData: {
+            sceneModel: sceneModelMT,
+            renderData: currRenderData,
+          },
+        });
+        
+        // The result will be a list of colours that correspond to the given render data
+        for (let j = 0; j < result.length; j++) {
+          const {voxelObj} = currRenderData[j];
+          voxelObj.addColour(result[j]);
         }
-      }
+      })();
     }
   }
 }
 
-export default VTScene;
+export default VTSceneMultithreading;

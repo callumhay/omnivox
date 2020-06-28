@@ -57,19 +57,25 @@ function onWindowResize(event) {
 
 
 let frameCount = 0;
-//let lastFrameTime = Date.now();
-//let requestStatePingTime = 0;
-//const TIME_BETWEEN_STATE_PINGS_S = 10.0;
+let lastFrameTime = Date.now();
+let sampleAudioTime = 0;
+const TIME_BETWEEN_AUDIO_SAMPLES = 1.0 / 60; // 60Hz
 
 const render = function () {
-  //let currFrameTime = Date.now();
-  //let dt = (currFrameTime - lastFrameTime) / 1000;
+  let currFrameTime = Date.now();
+  let dt = (currFrameTime - lastFrameTime) / 1000;
 
   requestAnimationFrame(render);
 
   // Updates for controls/sound/etc.
   controls.update();
-  soundController.sample(voxelClient);
+
+  // Avoid overwhelming the server by only sending audio samples at a reasonable frequency
+  sampleAudioTime += dt;
+  if (sampleAudioTime >= TIME_BETWEEN_AUDIO_SAMPLES) {
+    soundController.sample(voxelClient);
+    sampleAudioTime -= TIME_BETWEEN_AUDIO_SAMPLES;
+  }
   
   // Rendering
   renderer.clear();

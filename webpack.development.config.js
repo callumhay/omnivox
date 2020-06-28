@@ -1,5 +1,7 @@
+
 const path = require('path');
 const nodeExternals = require('webpack-node-externals');
+const webpack = require('webpack');
 
 const distPath = path.resolve(__dirname, 'dist');
 

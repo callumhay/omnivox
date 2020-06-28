@@ -10,26 +10,6 @@ import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';
 import VTTexture from '../VTTexture';
 
-export const simpleSceneDefaultOptions = {
-  sphereRadius: 2,
-  sphereColour: {r:1, g:1, b:1},
-
-  pointLightsSpd: Math.PI,
-  pointLight1Colour: {r:1, g:0, b:0},
-  pointLight2Colour: {r:0, g:1, b:0},
-  pointLight3Colour: {r:0, g:0, b:1},
-  pointLightAtten: {quadratic:0.01, linear:0},
-
-  ambientLightColour: {r:0.05, g:0.05, b:0.05},
-
-  textureFilename: '',
-
-  wallX: true,
-  wallY: true,
-  wallZ: true,
-  wallColour: {r:1, g:1, b:1},
-};
-
 class SimpleScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);

@@ -6,47 +6,16 @@ import AudioVisUtils from './AudioVisUtils';
 
 import VTVoxel from '../../VTVoxel';
 import VTEmissionMaterial from '../../VTEmissionMaterial';
-
-import {COLOUR_INTERPOLATION_HSL} from '../../../Spectrum';
 import Fluid, {_I} from '../../../Fluid';
 import {PI2, clamp} from '../../../MathUtils';
-
 import {Randomizer} from '../../../Animation/Randomizers';
+
+import {LOW_HIGH_TEMP_COLOUR_MODE, TEMPERATURE_COLOUR_MODE, RANDOM_COLOUR_MODE} from './AudioSceneDefaultConfigs';
 
 const SPECTRUM_WIDTH = 256;
 const FIRE_THRESHOLD = 7;
 const MAX_FIRE_ALPHA = 1.0;
 const FULL_ON_FIRE   = 100;
-
-export const LOW_HIGH_TEMP_COLOUR_MODE    = "Low/High Temp";
-export const AUDIO_BRIGHTNESS_COLOUR_MODE = "Audio Brightness";
-export const TEMPERATURE_COLOUR_MODE      = "Temperature";
-export const RANDOM_COLOUR_MODE           = "Random";
-
-export const COLOUR_MODES = [
-  LOW_HIGH_TEMP_COLOUR_MODE,
-  AUDIO_BRIGHTNESS_COLOUR_MODE,
-  TEMPERATURE_COLOUR_MODE,
-  RANDOM_COLOUR_MODE,
-];
-
-export const fireAudioVisDefaultConfig = {
-  initialIntensityMultiplier: 8,
-  speedMultiplier: 1.2,
-  coolingMultiplier: 0.9,
-  boyancyMultiplier: 0.6,
-  turbulenceMultiplier: 1,
-  colourMode: LOW_HIGH_TEMP_COLOUR_MODE,
-  lowTempColour:  new THREE.Color(0.2, 0, 1),
-  highTempColour: new THREE.Color(1, 0, 0.7),
-  colourGamma: 1.7,
-  randomColourHoldTime: 5,
-  randomColourTransitionTime: 2,
-  temperatureMin: 100,
-  temperatureMax: 3000,
-  colourInterpolationType: COLOUR_INTERPOLATION_HSL,
-  noise: 0.25,
-};
 
 class FireAudioVisScene extends SceneRenderer {
   constructor(scene, voxelModel) {
@@ -95,10 +64,6 @@ class FireAudioVisScene extends SceneRenderer {
     this.initArray = Randomizer.getRandomFloats(xSize*zSize);
     this.randomArray = Randomizer.getRandomFloats(xSize*zSize, 0, noise);
     //console.log(this.randomArray);
-
-    this.audioColourScale = chroma.scale([
-      '#450c3d', '#2e86ab', '#df2935', '#ffc600', '#fcf300'
-    ]).gamma(colourGamma).mode(colourInterpolationType);
 
     if (!this._objectsBuilt) {
 
@@ -186,11 +151,6 @@ class FireAudioVisScene extends SceneRenderer {
 
     let fireLookupFunc = null;
     switch (colourMode) {
-      case AUDIO_BRIGHTNESS_COLOUR_MODE: {
-        fireLookupFunc = this._fireFuncGenAudioColour();
-        break;
-      }
-
       case TEMPERATURE_COLOUR_MODE:
         fireLookupFunc = this._fireFuncGenTemperature();
         break;
@@ -198,23 +158,23 @@ class FireAudioVisScene extends SceneRenderer {
       case RANDOM_COLOUR_MODE: {
         let finalLowTempColour  = this.currRandomColours.lowTempColour;
         let finalHighTempColour = this.currRandomColours.highTempColour;
-        if (this.colourHoldTimeCounter >= randomColourHoldTime) {
 
+        if (this.colourHoldTimeCounter >= randomColourHoldTime) {
           // We're transitioning between random colours, interpolate from the previous to the next
-          const interpolationVal = THREE.MathUtils.smoothstep(this.colourTransitionTimeCounter, 0, randomColourTransitionTime);
+          const interpolationVal = this.colourTransitionTimeCounter/randomColourTransitionTime;
           const tempLowTempColour = chroma.mix(chroma.gl(this.currRandomColours.lowTempColour), chroma.gl(this.nextRandomColours.lowTempColour), interpolationVal, colourInterpolationType).gl();
           finalLowTempColour = new THREE.Color(tempLowTempColour[0], tempLowTempColour[1], tempLowTempColour[2]);
           const tempHighTempColour = chroma.mix(chroma.gl(this.currRandomColours.highTempColour), chroma.gl(this.nextRandomColours.highTempColour), interpolationVal, colourInterpolationType).gl();
           finalHighTempColour = new THREE.Color(tempHighTempColour[0], tempHighTempColour[1], tempHighTempColour[2]);
-          this.colourTransitionTimeCounter += dt;
-
+        
           if (this.colourTransitionTimeCounter >= randomColourTransitionTime) {
-            this.currRandomColours.lowTempColour = finalLowTempColour;
-            this.currRandomColours.highTempColour = finalHighTempColour;
+            this.currRandomColours.lowTempColour  = this.nextRandomColours.lowTempColour;
+            this.currRandomColours.highTempColour = this.nextRandomColours.highTempColour;
             this.nextRandomColours = this._genRandomFireColours(this.currRandomColours);
-            this.colourTransitionTimeCounter = 0;
-            this.colourHoldTimeCounter = 0;
+            this.colourTransitionTimeCounter -= randomColourTransitionTime;
+            this.colourHoldTimeCounter -= randomColourHoldTime;
           }
+          this.colourTransitionTimeCounter += dt;
         }
         else {
           this.colourHoldTimeCounter += dt;
@@ -392,35 +352,14 @@ class FireAudioVisScene extends SceneRenderer {
     };
   }
 
-  _fireFuncGenAudioColour() {
-    return (intensityIdx, densityIdx, temperatureIdx) => {
-      if (temperatureIdx < FIRE_THRESHOLD) {
-        return { r: 0, g: 0, b: 0, a: 0 };
-      }
-
-      const intensityCoeff = THREE.MathUtils.smoothstep(intensityIdx, 0, 15);
-      const densityCoeff = THREE.MathUtils.smoothstep(densityIdx, 0, 15);
-      const brightenAmt = intensityCoeff * 2;
-      const desaturateAmt = densityCoeff * 2;
-      const finalColour = this.audioColourScale(temperatureIdx / (SPECTRUM_WIDTH - 1))
-        .brighten(brightenAmt).desaturate(desaturateAmt).gl();
-        
-      return {
-        r: finalColour[0],
-        g: finalColour[1],
-        b: finalColour[2],
-        a: this._fireAlpha(temperatureIdx)
-      };
-    };
-  }
-
   _fireFuncGenHighLow(highTempColour, lowTempColour) {
     return (intensityIdx, densityIdx, temperatureIdx) => {
       if (temperatureIdx < FIRE_THRESHOLD) {
         return {r: 0, g:0, b:0, a:0};
       }
   
-      const { colourInterpolationType, colourGamma } = this._options.sceneConfig;
+
+      const {colourInterpolationType} = this._options.sceneConfig;
       const intensityCoeff = THREE.MathUtils.smoothstep(intensityIdx, 0, 15);
       const densityCoeff = THREE.MathUtils.smoothstep(densityIdx, 0, 15);
 
@@ -435,12 +374,11 @@ class FireAudioVisScene extends SceneRenderer {
       };
 
       // The mix needs gamma to better replicate a temperature colour scale (i.e., non-linear)
-      const tempColourScale = chroma.scale([
-        chroma.gl(lowTempColourWithAlpha).brighten(brightenAmt), 
-        chroma.gl(highTempColourWithAlpha).brighten(brightenAmt)
-      ]).gamma(colourGamma).mode(colourInterpolationType);
+      const finalColour = chroma.mix(
+        chroma.gl(lowTempColourWithAlpha), chroma.gl(highTempColourWithAlpha), 
+        temperatureIdx / (SPECTRUM_WIDTH - 1), colourInterpolationType
+      ).brighten(brightenAmt).desaturate(desaturateAmt).gl();
 
-      const finalColour = tempColourScale(temperatureIdx / (SPECTRUM_WIDTH - 1)).desaturate(desaturateAmt).gl();
       return {
         r: finalColour[0],
         g: finalColour[1],

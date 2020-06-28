@@ -26,6 +26,8 @@ class VTPointLight {
     return 1.0 / (this.attenuation.quadratic*distance*distance + this.attenuation.linear*distance + 1.0); // Always in [0,1]
   }
 
+  preRender(voxelIdxPt) {} // No memoization for lights
+
   calculateVoxelColour(voxelPt, scene=null) {
     const d = this.position.distanceTo(voxelPt);
     return this.emission(d);

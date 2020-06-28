@@ -41,6 +41,8 @@ class VTVoxel {
     };
   }
 
+  preRender(voxelIdxPt) {} // No memoization for single Voxels
+
   calculateVoxelColour(voxelIdxPt, scene) {
     // Fast-out if we can't even see this mesh
     if (!this.material.isVisible()) {

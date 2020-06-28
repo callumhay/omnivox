@@ -7,14 +7,7 @@ import VTLambertMaterial from '../VTLambertMaterial';
 import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';
 
-export const shadowSceneDefaultOptions = {
-  movingBoxSize: {x: 1.5, y:2, z:1.5},
-  movingBoxSpeed: 1.5*Math.PI,
-  ambientLightColour: {r:0.1, g:0.1, b:0.1},
-  pointLightColour: {r:1, g:1, b:1},
-  pointLightPosition: {x:4, y:0, z:4},
-  pointLightAtten: {quadratic:0, linear:0},
-};
+
 
 class ShadowScene extends SceneRenderer {
   constructor(scene, voxelModel) {
@@ -79,7 +72,7 @@ class ShadowScene extends SceneRenderer {
     const halfZSize = this.voxelModel.zSize()/2;
     const RADIUS = halfXSize-1.5;
     const t = this.timeCounter*movingBoxSpeed;
-    this.movingBoxMesh.position.set((RADIUS)*Math.cos(t) + halfXSize, halfYSize-1, (RADIUS)*Math.sin(t) + halfZSize);
+    this.movingBoxMesh.setPosition((RADIUS)*Math.cos(t) + halfXSize, halfYSize-1, (RADIUS)*Math.sin(t) + halfZSize);
     this.movingBoxMesh.updateMatrixWorld();
 
     this.scene.render();

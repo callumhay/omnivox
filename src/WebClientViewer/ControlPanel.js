@@ -7,22 +7,16 @@ import {starShowerDefaultConfig} from '../Animation/StarShowerAnimator';
 import {shapeWaveAnimatorDefaultConfig, WAVE_SHAPE_TYPES} from '../Animation/ShapeWaveAnimator';
 import {gameOfLifeAnimatorDefaultConfig} from '../Animation/GameOfLifeAnimator';
 import {fireAnimatorDefaultConfig} from '../Animation/FireAnimator';
-import {sceneAnimatorDefaultConfig, SCENE_TYPES, SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG} from '../Animation/SceneAnimator';
-import {soundVisDefaultConfig, SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE, SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE, SOUND_VIZ_TYPES, SOUND_VIZ_FIRE_SCENE_TYPE} from '../Animation/AudioVisualizerAnimator';
+import {sceneAnimatorDefaultConfig, SCENE_TYPES, SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG} from '../Animation/SceneAnimatorDefaultConfigs';
+import {soundVisDefaultConfig, SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE, SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE, SOUND_VIZ_TYPES, SOUND_VIZ_FIRE_SCENE_TYPE} from '../Animation/AudioVisAnimatorDefaultConfigs';
 
 import {ColourSystems, COLOUR_INTERPOLATION_TYPES} from '../Spectrum';
 
-import {simpleSceneDefaultOptions} from '../VoxelTracer/Scenes/SimpleScene';
-import {shadowSceneDefaultOptions} from '../VoxelTracer/Scenes/ShadowScene';
-import {fogSceneDefaultOptions} from '../VoxelTracer/Scenes/FogScene';
+import {simpleSceneDefaultOptions, shadowSceneDefaultOptions, fogSceneDefaultOptions} from '../VoxelTracer/Scenes/SceneDefaultConfigs';
 
-import {basicBarsAudioVisDefaultConfig} from "../VoxelTracer/Scenes/Audio/BasicBarsAudioVisScene";
-import {historyBarsAudioVisDefaultConfig, DIRECTION_TYPES} from "../VoxelTracer/Scenes/Audio/HistoryBarsAudioVisScene";
-import { 
-  fireAudioVisDefaultConfig, COLOUR_MODES, 
-  LOW_HIGH_TEMP_COLOUR_MODE, AUDIO_BRIGHTNESS_COLOUR_MODE, 
-  TEMPERATURE_COLOUR_MODE, RANDOM_COLOUR_MODE
-} from '../VoxelTracer/Scenes/Audio/FireAudioVisScene';
+import {
+  basicBarsAudioVisDefaultConfig, historyBarsAudioVisDefaultConfig, fireAudioVisDefaultConfig, 
+  DIRECTION_TYPES, COLOUR_MODES, LOW_HIGH_TEMP_COLOUR_MODE, TEMPERATURE_COLOUR_MODE, RANDOM_COLOUR_MODE} from "../VoxelTracer/Scenes/Audio/AudioSceneDefaultConfigs";
 
 const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
 const VOXEL_COLOUR_SHAPE_TYPE_SPHERE = "Sphere";
@@ -1115,9 +1109,6 @@ class ControlPanel {
             this.soundVizAnimatorConfig.sceneConfig.colourMode = value;
 
             switch (value) {
-              case AUDIO_BRIGHTNESS_COLOUR_MODE:
-                break;
-
               case TEMPERATURE_COLOUR_MODE:
                 this.audioVizTypeFolder.add(vizTypeOptions, 'temperatureMin', 0, 5000, 100).onChange((value) => {
                   this.soundVizAnimatorConfig.sceneConfig.temperatureMin = value;

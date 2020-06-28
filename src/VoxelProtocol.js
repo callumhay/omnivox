@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import SceneAnimator from './Animation/SceneAnimator';
 import { hashCode } from './MathUtils';
 
 const DISCOVERY_REQ_PACKET_HEADER = "REQ";

@@ -2,7 +2,10 @@
 import * as THREE from 'three';
 import chroma from 'chroma-js';
 
-import {DEFAULT_LOW_COLOUR, DEFAULT_HIGH_COLOUR, DEFAULT_GAMMA, DEFAULT_FADE_FACTOR} from './BasicBarsAudioVisScene';
+import {
+  DEFAULT_LOW_COLOUR, DEFAULT_HIGH_COLOUR, DEFAULT_GAMMA, DEFAULT_FADE_FACTOR, DEFAULT_SPEED, DEFAULT_DIR,
+  POS_X_DIR, NEG_X_DIR, POS_Z_DIR, NEG_Z_DIR
+} from './AudioSceneDefaultConfigs';
 
 import SceneRenderer from '../SceneRenderer';
 
@@ -12,32 +15,6 @@ import VTAmbientLight from '../../VTAmbientLight';
 import {clamp} from '../../../MathUtils';
 import AudioVisUtils from './AudioVisUtils';
 import VTPointLight from '../../VTPointLight';
-
-import { COLOUR_INTERPOLATION_RGB } from '../../../Spectrum';
-
-export const POS_X_DIR = "+x";
-export const NEG_X_DIR = "-x";
-export const POS_Z_DIR = "+z";
-export const NEG_Z_DIR = "-z";
-
-export const DIRECTION_TYPES = [
-  POS_X_DIR,
-  NEG_X_DIR,
-  POS_Z_DIR,
-  NEG_Z_DIR,
-];
-
-export const DEFAULT_SPEED = 5;
-export const DEFAULT_DIR = NEG_Z_DIR;
-
-export const historyBarsAudioVisDefaultConfig = {
-  lowColour:        DEFAULT_LOW_COLOUR.clone(),
-  highColour:       DEFAULT_HIGH_COLOUR.clone(),
-  colourInterpolationType: COLOUR_INTERPOLATION_RGB,
-  speed:            DEFAULT_SPEED,
-  tempoMultiplier:  15.0,
-  direction:        DEFAULT_DIR,
-};
 
 const ptLightDistFromFront = 10;
 

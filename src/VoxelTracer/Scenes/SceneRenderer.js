@@ -1,3 +1,4 @@
+
 class SceneRenderer {
   constructor(scene, voxelModel) {
     this.scene = scene;

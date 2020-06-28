@@ -3,20 +3,11 @@ import * as THREE from 'three';
 
 import SceneRenderer from './SceneRenderer';
 
-import VTMesh from '../VTMesh';
-import VTLambertMaterial from '../VTLambertMaterial';
 import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';
 import VTFog, { fogDefaultOptions } from '../VTFog';
 
-export const fogSceneDefaultOptions = {
-  fogColour: {r:1, g:1, b:1},
-  fogScattering: 0.1,
-  ambientLightColour: {r:0.1, g:0.1, b:0.1},
-  pointLightColour: {r:1, g:1, b:1},
-  pointLightPosition: {x:4, y:0, z:4},
-  pointLightAtten: {quadratic:0.3, linear:0},
-};
+
 
 class FogScene extends SceneRenderer {
   constructor(scene, voxelModel) {
@@ -49,8 +40,8 @@ class FogScene extends SceneRenderer {
       this.timeCounter = 0;
 
       const size = this.voxelModel.xSize();
-      const halfXSize = this.voxelModel.xSize()/2;
-      const halfZSize = this.voxelModel.zSize()/2;
+      //const halfXSize = this.voxelModel.xSize()/2;
+      //const halfZSize = this.voxelModel.zSize()/2;
 
       this.ptLight = new VTPointLight(
         new THREE.Vector3(pointLightPosition.x, pointLightPosition.y, pointLightPosition.z), 

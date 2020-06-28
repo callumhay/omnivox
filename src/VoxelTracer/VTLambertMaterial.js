@@ -6,8 +6,7 @@ class VTLambertMaterial {
     this.colour = colour;
     this.alpha = alpha;
     this.texture = texture;
-
-    this.brdfAmbient = reflect ? this._reflectiveBrdfAmbient : this.basicBrdfAmbient;
+    this.reflect = reflect;
   }
 
   dispose() {}
@@ -31,6 +30,10 @@ class VTLambertMaterial {
   brdf(nObjToLightVec, normal, uv, lightColour) {
     const dot = clamp(nObjToLightVec.dot(normal), 0, 1);
     return this.brdfAmbient(uv, lightColour).multiplyScalar(dot);
+  }
+
+  brdfAmbient(uv, lightColour) {
+    return this.reflect ? this._reflectiveBrdfAmbient(uv, lightColour) : this.basicBrdfAmbient(uv, lightColour);
   }
 
   basicBrdfAmbient(uv, lightColour) {

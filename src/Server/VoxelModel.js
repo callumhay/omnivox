@@ -10,6 +10,9 @@ import FireAnimator from '../Animation/FireAnimator';
 import SceneAnimator from '../Animation/SceneAnimator';
 import AudioVisualizerAnimator from '../Animation/AudioVisualizerAnimator';
 
+import VTScene from '../VoxelTracer/VTScene';
+//import VTSceneMultithreading from '../VoxelTracer/Thread/VTSceneMultithreading'; // Too much work and overhead... not worth it?
+
 export const HALF_VOXEL_SIZE = 0.5;
 
 export const BLEND_MODE_OVERWRITE = 0;
@@ -17,6 +20,24 @@ export const BLEND_MODE_ADDITIVE  = 1;
 
 const DEFAULT_POLLING_FREQUENCY_HZ = 60; // Render Frames per second - if this is too high then we overwhelm our clients
 const DEFAULT_POLLING_INTERVAL_MS  = 1000 / DEFAULT_POLLING_FREQUENCY_HZ;
+
+class VoxelObject {
+  constructor(position, colour) {
+    this.position = position;
+    this.colour = colour;
+  }
+
+  setColourRGB(r,g,b) { 
+    this.colour.setRGB(r,g,b); 
+  }
+  setColour(colour) { 
+    this.colour.setRGB(colour.r, colour.g, colour.b);
+  }
+  addColour(colour) { 
+    this.colour.add(colour); 
+    this.colour.setRGB(clamp(this.colour.r, 0, 1), clamp(this.colour.g, 0, 1), clamp(this.colour.b, 0, 1));
+  }
+}
 
 class VoxelModel {
 
@@ -34,29 +55,22 @@ class VoxelModel {
         let currYArr = [];
         currXArr.push(currYArr);
         for (let z = 0; z < gridSize; z++) {
-          const voxelObj = {
-            position: new THREE.Vector3(x,y,z),
-            colour: new THREE.Color(0,0,0),
-            setColourRGB: function(r, g, b) { this.colour.setRGB(r,g,b); },
-            setColour: function(colour) { this.colour.setRGB(colour.r, colour.g, colour.b); },
-            addColour: function(colour) { 
-              this.colour.add(colour); 
-              this.colour.setRGB(clamp(this.colour.r, 0, 1), clamp(this.colour.g, 0, 1), clamp(this.colour.b, 0, 1));
-            },
-          };
-          currYArr.push(voxelObj);
+          currYArr.push(new VoxelObject(new THREE.Vector3(x,y,z), new THREE.Color(0,0,0)));
         }
       }
     }
 
+    // Build a voxel tracer scene, which will be shared by all animators that use it
+    this.vtScene = new VTScene(this); //new VTSceneMultithreading(this);
+
     this._animators = {
-      [VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR]: new VoxelColourAnimator(this),
-      [VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER] : new StarShowerAnimator(this),
-      [VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES] : new ShapeWaveAnimator(this),
+      [VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR]       : new VoxelColourAnimator(this),
+      [VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER]  : new StarShowerAnimator(this),
+      [VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES]  : new ShapeWaveAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE] : new GameOfLifeAnimator(this),
-      [VoxelAnimator.VOXEL_ANIM_FIRE] : new FireAnimator(this),
-      [VoxelAnimator.VOXEL_ANIM_SCENE] : new SceneAnimator(this),
-      [VoxelAnimator.VOXEL_ANIM_SOUND_VIZ] : new AudioVisualizerAnimator(this),
+      [VoxelAnimator.VOXEL_ANIM_FIRE]              : new FireAnimator(this),
+      [VoxelAnimator.VOXEL_ANIM_SCENE]             : new SceneAnimator(this, this.vtScene),
+      [VoxelAnimator.VOXEL_ANIM_SOUND_VIZ]         : new AudioVisualizerAnimator(this, this.vtScene),
     };
     this.currentAnimator = this._animators[VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR];
 
@@ -179,8 +193,6 @@ class VoxelModel {
     return new THREE.Box3(new THREE.Vector3(0,0,0), new THREE.Vector3(this.xSize(), this.ySize(), this.zSize()));
   }
   
-
-  
   setVoxel(pt, colour) {
     const roundedX = Math.floor(pt.x);
     const roundedY = Math.floor(pt.y);
@@ -230,6 +242,14 @@ class VoxelModel {
 
   voxelColour(pt) {
     return this.getVoxel(pt).colour;
+  }
+
+  static voxelIdStr(voxelPt) {
+    return voxelPt.x.toFixed(0) + "_" + voxelPt.y.toFixed(0) + "_" + voxelPt.z.toFixed(0);
+  }
+
+  mapVoxelXYZToIdx(voxelPt) {
+    return voxelPt.x*this.ySize()*this.zSize() + voxelPt.y*this.zSize() + voxelPt.z;
   }
 
   static calcVoxelBoundingBox(voxelPt) {

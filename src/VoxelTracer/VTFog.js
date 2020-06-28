@@ -66,6 +66,8 @@ class VTFog {
     return result;
   }
 
+  preRender(voxelIdxPt) {} // No memoization for the fog
+
   calculateVoxelColour(voxelIdxPt, scene) {
     const finalColour = new THREE.Color(0,0,0);
     if (this.boundingBox.containsPoint(voxelIdxPt)) {

@@ -3,62 +3,42 @@ import * as THREE from 'three';
 
 import VoxelAnimator from "./VoxelAnimator";
 import FireAudioVisScene from '../VoxelTracer/Scenes/Audio/FireAudioVisScene';
-import BasicBarsAudioVisScene, {DEFAULT_LEVEL_MAX, DEFAULT_GAMMA, DEFAULT_FADE_FACTOR, basicBarsAudioVisDefaultConfig} from "../VoxelTracer/Scenes/Audio/BasicBarsAudioVisScene";
+
+import BasicBarsAudioVisScene from "../VoxelTracer/Scenes/Audio/BasicBarsAudioVisScene";
 import HistoryBarsAudioVisScene from "../VoxelTracer/Scenes/Audio/HistoryBarsAudioVisScene";
 
-import VTScene from '../VoxelTracer/VTScene';
-
-import {DEFAULT_NUM_FFT_SAMPLES, DEFAULT_FFT_BUFFER_SIZE} from '../WebClientViewer/SoundController';
-
-export const SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE    = "Basic Bars";
-export const SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE  = "History Bars";
-export const SOUND_VIZ_FIRE_SCENE_TYPE                = "Fire";
-
-export const SOUND_VIZ_TYPES = [
-  SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE,
-  SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE,
-  SOUND_VIZ_FIRE_SCENE_TYPE,
-];
-
-export const soundVisDefaultConfig = {
-  levelMax: DEFAULT_LEVEL_MAX,
-  fftBufferSize: DEFAULT_FFT_BUFFER_SIZE,
-  numFFTSamples: DEFAULT_NUM_FFT_SAMPLES,
-  gamma: DEFAULT_GAMMA,
-  fadeFactor: DEFAULT_FADE_FACTOR,
-
-  sceneType: SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE,
-  sceneConfig: {...basicBarsAudioVisDefaultConfig},
-};
+import {soundVisDefaultConfig, SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE, SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE, SOUND_VIZ_FIRE_SCENE_TYPE} from './AudioVisAnimatorDefaultConfigs';
 
 class AudioVisualizerAnimator extends VoxelAnimator {
-  constructor(voxelModel, config={...soundVisDefaultConfig}) {
+  constructor(voxelModel, vtScene, config={...soundVisDefaultConfig}) {
     super(voxelModel, config);
+
     this.currAudioInfo = null;
     this._clearColour = new THREE.Color(0,0,0);
+    this._sceneMap = {
+      [SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE]:  new BasicBarsAudioVisScene(vtScene, this.voxelModel),
+      [SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE]: new HistoryBarsAudioVisScene(vtScene, this.voxelModel),
+      [SOUND_VIZ_FIRE_SCENE_TYPE]: new FireAudioVisScene(vtScene, this.voxelModel),
+    };
+
+    this.setConfig(config);
   }
 
   getType() { return VoxelAnimator.VOXEL_ANIM_SOUND_VIZ; }
 
   setConfig(c) {
     super.setConfig(c);
-    if (!this.scene) {
-      this.scene = new VTScene(this.voxelModel);
-      this.sceneMap = {
-        [SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE]:  new BasicBarsAudioVisScene(this.scene, this.voxelModel),
-        [SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE]: new HistoryBarsAudioVisScene(this.scene, this.voxelModel),
-        [SOUND_VIZ_FIRE_SCENE_TYPE]: new FireAudioVisScene(this.scene, this.voxelModel),
-      };
-    }
-
-    const {sceneType} = c;
-    this.audioVisualizer = this.sceneMap[sceneType];
-    if (this.audioVisualizer) {
-      this.audioVisualizer.rebuild(c);
-    }
-    else {
-      this.audioVisualizer = null;
-      console.error("Invalid audio scene type: " + sceneType);
+    
+    if (this._sceneMap) {
+      const {sceneType} = c;
+      this.audioVisualizer = this._sceneMap[sceneType];
+      if (this.audioVisualizer) {
+        this.audioVisualizer.rebuild(c);
+      }
+      else {
+        this.audioVisualizer = null;
+        console.error("Invalid audio scene type: " + sceneType);
+      }
     }
   }
 
