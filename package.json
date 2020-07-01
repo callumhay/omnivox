@@ -5,7 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node ./dist/server.js",
-    "start_debug": "node --inspect ./dist/server.js",
+    "start_dev": "nodemon ./dist/server.js",
+    "start_dev_debug": "nodemon --inspect ./dist/server.js",
     "build": "webpack",
     "dev": "webpack --config webpack.development.config.js",
     "prod": "webpack --config webpack.production.config.js"
@@ -34,6 +35,7 @@
     "ws": "^7.3.0"
   },
   "devDependencies": {
+    "nodemon": "^2.0.4",
     "reload": "^3.0.4",
     "watch": "^1.0.2",
     "webpack": "^4.43.0",
