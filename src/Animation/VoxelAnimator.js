@@ -22,8 +22,11 @@ const VOXEL_ANIM_TYPES = [
 
 class VoxelAnimator {
   constructor(voxels, config=null) {
+
     this.voxelModel = voxels;
     this.repeat = 0;
+    this.crossfadeAlpha = 1;
+    this.config = {};
     
     let _playCounter = 0;
     this.setPlayCounter = (val) => { _playCounter = val; };
@@ -56,6 +59,8 @@ class VoxelAnimator {
   }
 
   render(dt) {}
+
+  crossfade(alpha) { this.crossfadeAlpha = alpha; }
 
   reset() {
     this.setPlayCounter(0);

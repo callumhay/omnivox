@@ -37,19 +37,19 @@ class ShadowScene extends SceneRenderer {
       const halfZSize = this.voxelModel.zSize()/2;
 
       this.movingBoxGeometry = new THREE.BoxBufferGeometry(movingBoxSize.x, movingBoxSize.y, movingBoxSize.z, 1, 1, 1);
-      this.movingBoxMesh = new VTMesh(this.movingBoxGeometry, new VTLambertMaterial(new THREE.Color(1,1,1)));
+      this.movingBoxMesh = new VTMesh(this.movingBoxGeometry, new VTLambertMaterial(new THREE.Color(1,1,1), this.crossfadeAlpha));
 
       this.boxGeometry = new THREE.BoxBufferGeometry(size,2,size);
       this.boxGeometry.translate(halfXSize, size-1, halfZSize);
-      this.boxMesh = new VTMesh(this.boxGeometry, new VTLambertMaterial(new THREE.Color(1,1,1)));
+      this.boxMesh = new VTMesh(this.boxGeometry, new VTLambertMaterial(new THREE.Color(1,1,1), this.crossfadeAlpha));
 
       this.ptLight = new VTPointLight(
         new THREE.Vector3(pointLightPosition.x, pointLightPosition.y, pointLightPosition.z), 
-        new THREE.Color(pointLightColour.r, pointLightColour.g, pointLightColour.b), 
+        new THREE.Color(pointLightColour.r, pointLightColour.g, pointLightColour.b).multiplyScalar(this.crossfadeAlpha), 
         {...pointLightAtten}
       );
 
-      this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
+      this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b).multiplyScalar(this.crossfadeAlpha));
 
       this._objectsBuilt = true;
     }
@@ -78,6 +78,17 @@ class ShadowScene extends SceneRenderer {
     this.scene.render();
 
     this.timeCounter += dt;
+  }
+
+  crossfade(alpha) {
+    super.crossfade(alpha);
+
+    const {pointLightColour, ambientLightColour} = this._options;
+
+    this.movingBoxMesh.material.alpha = alpha;
+    this.boxMesh.material.alpha = alpha;
+    this.ptLight.colour.setRGB(pointLightColour.r, pointLightColour.g, pointLightColour.b).multiplyScalar(alpha);
+    this.ambientLight.colour.setRGB(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b).multiplyScalar(alpha);
   }
 }
 

@@ -76,6 +76,11 @@ class VoxelModel {
 
     this.currFrameTime = Date.now();
     this.frameCounter = 0;
+
+    // Crossfading
+    this.totalCrossfadeTime = 0;
+    this.crossfadeCounter = Infinity;
+    this.nextAnimator = null;
   }
 
   xSize() {
@@ -106,6 +111,10 @@ class VoxelModel {
     return true;
   }
 
+  setCrossfadeTime(t) {
+    this.totalCrossfadeTime = Math.max(0, t);
+  }
+
   run(voxelServer) {
     let self = this;
     let lastFrameTime = Date.now();
@@ -113,7 +122,7 @@ class VoxelModel {
     let dtSinceLastRender = 0;
     let skipFrameNumber = 1;
     let catchupTimeInSecs = 0;
-    const allowableEventLoopBackupSize = 5;
+    const allowableEventLoopBackupSize = 2;
     const allowablePollingMsBackupSize = allowableEventLoopBackupSize * DEFAULT_POLLING_INTERVAL_MS;
     const allowablePollingSecBackupSize = allowablePollingMsBackupSize / 1000;
 
@@ -153,7 +162,6 @@ class VoxelModel {
       lastFrameTime = self.currFrameTime;
       
     }, DEFAULT_POLLING_INTERVAL_MS);
-
   }
 
   /**
@@ -235,6 +243,16 @@ class VoxelModel {
       for (let y = 0; y < this.voxels[x].length; y++) {
         for (let z = 0; z < this.voxels[x][y].length; z++) {
           this.voxels[x][y][z].setColour(colour);
+        }
+      }
+    }
+  }
+
+  multiply(alpha) {
+    for (let x = 0; x < this.voxels.length; x++) {
+      for (let y = 0; y < this.voxels[x].length; y++) {
+        for (let z = 0; z < this.voxels[x][y].length; z++) {
+          this.voxels[x][y][z].colour.multiplyScalar(alpha);
         }
       }
     }

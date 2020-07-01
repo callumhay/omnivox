@@ -24,7 +24,6 @@ class VTTriSample {
   }
 }
 
-
 class VTMesh {
   // NOTE: All geometry MUST be buffer geometry!
   constructor(geometry, material) {

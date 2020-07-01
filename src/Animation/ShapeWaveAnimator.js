@@ -210,7 +210,7 @@ class ShapeWaveAnimator extends VoxelAnimator {
     
     // Tick/draw each of the animators
     this.activeShapes.forEach((waveShape) => {
-      waveShape.render(dt, waveSpeed, brightness);
+      waveShape.render(dt, waveSpeed, brightness*this.crossfadeAlpha);
     });
 
     // Clean up animators that are no longer visible

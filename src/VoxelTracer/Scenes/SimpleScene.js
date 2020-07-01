@@ -51,12 +51,11 @@ class SimpleScene extends SceneRenderer {
         this.sphereTexture = null;
       }
 
-      this.sphereMesh = new VTMesh(this.sphereGeometry, new VTLambertMaterial(new THREE.Color(sphereColour.r, sphereColour.g, sphereColour.b), 1, this.sphereTexture || null));
-      this.ptLight1 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight1Colour.r, pointLight1Colour.g, pointLight1Colour.b), {...pointLightAtten});
-      this.ptLight2 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight2Colour.r, pointLight2Colour.g, pointLight2Colour.b), {...pointLightAtten});
-      this.ptLight3 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight3Colour.r, pointLight3Colour.g, pointLight3Colour.b), {...pointLightAtten});
-      this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
-
+      this.sphereMesh = new VTMesh(this.sphereGeometry, new VTLambertMaterial(new THREE.Color(sphereColour.r, sphereColour.g, sphereColour.b), this.crossfadeAlpha, this.sphereTexture || null));
+      this.ptLight1 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight1Colour.r, pointLight1Colour.g, pointLight1Colour.b).multiplyScalar(this.crossfadeAlpha), {...pointLightAtten});
+      this.ptLight2 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight2Colour.r, pointLight2Colour.g, pointLight2Colour.b).multiplyScalar(this.crossfadeAlpha), {...pointLightAtten});
+      this.ptLight3 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight3Colour.r, pointLight3Colour.g, pointLight3Colour.b).multiplyScalar(this.crossfadeAlpha), {...pointLightAtten});
+      this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b).multiplyScalar(this.crossfadeAlpha));
 
       const size = this.voxelModel.xSize();
       const halfXSize = this.voxelModel.xSize()/2;
@@ -66,17 +65,17 @@ class SimpleScene extends SceneRenderer {
       if (wallX) {
         this.wallXGeometry = new THREE.BoxBufferGeometry(1,size,size);
         this.wallXGeometry.translate(0, halfYSize, halfZSize);
-        this.wallXMesh = new VTMesh(this.wallXGeometry, new VTLambertMaterial(new THREE.Color(wallColour.r, wallColour.g, wallColour.b)));
+        this.wallXMesh = new VTMesh(this.wallXGeometry, new VTLambertMaterial(new THREE.Color(wallColour.r, wallColour.g, wallColour.b), this.crossfadeAlpha));
       }
       if (wallY) {
         this.wallYGeometry = new THREE.BoxBufferGeometry(size,1,size);
         this.wallYGeometry.translate(halfXSize, 0, halfZSize);
-        this.wallYMesh = new VTMesh(this.wallYGeometry, new VTLambertMaterial(new THREE.Color(wallColour.r, wallColour.g, wallColour.b)));
+        this.wallYMesh = new VTMesh(this.wallYGeometry, new VTLambertMaterial(new THREE.Color(wallColour.r, wallColour.g, wallColour.b), this.crossfadeAlpha));
       }
       if (wallZ) {
         this.wallZGeometry = new THREE.BoxBufferGeometry(size,size,1);
         this.wallZGeometry.translate(halfXSize, halfYSize, 0);
-        this.wallZMesh = new VTMesh(this.wallZGeometry, new VTLambertMaterial(new THREE.Color(wallColour.r, wallColour.g, wallColour.b)));
+        this.wallZMesh = new VTMesh(this.wallZGeometry, new VTLambertMaterial(new THREE.Color(wallColour.r, wallColour.g, wallColour.b), this.crossfadeAlpha));
       }
 
       this._objectsBuilt = true;
@@ -97,8 +96,6 @@ class SimpleScene extends SceneRenderer {
     if (wallZ) {
       this.scene.addObject(this.wallZMesh);
     }
-
-
   }
 
   render(dt) {
@@ -123,6 +120,25 @@ class SimpleScene extends SceneRenderer {
     this.scene.render();
 
     this.timeCounter += dt;
+  }
+
+  crossfade(alpha) {
+    super.crossfade(alpha);
+
+    const {
+      ambientLightColour, 
+      pointLight1Colour, pointLight2Colour, pointLight3Colour,
+    } = this._options;
+
+    this.sphereMesh.material.alpha = alpha;
+    if (this.wallXMesh) { this.wallXMesh.material.alpha = alpha; }
+    if (this.wallYMesh) { this.wallYMesh.material.alpha = alpha; }
+    if (this.wallZMesh) { this.wallZMesh.material.alpha = alpha; }
+
+    this.ptLight1.colour.setRGB(pointLight1Colour.r, pointLight1Colour.g, pointLight1Colour.b).multiplyScalar(alpha);
+    this.ptLight2.colour.setRGB(pointLight2Colour.r, pointLight2Colour.g, pointLight2Colour.b).multiplyScalar(alpha);
+    this.ptLight3.colour.setRGB(pointLight3Colour.r, pointLight3Colour.g, pointLight3Colour.b).multiplyScalar(alpha);
+    this.ambientLight.colour.setRGB(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b).multiplyScalar(alpha);
   }
 }
 

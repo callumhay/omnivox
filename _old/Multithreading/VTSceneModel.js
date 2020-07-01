@@ -90,7 +90,7 @@ class VTSceneModel {
         return {
           voxelIdxPt: voxelIdxPt,
           voxelObj: voxelObj,
-          visibleRenderableIdx: i,
+          renderableData: renderable.toPlainData(),
         };
       }).filter(value => value.voxelObj);
       Array.prototype.push.apply(renderData, currRenderData);

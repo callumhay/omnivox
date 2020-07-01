@@ -4,6 +4,7 @@ class SceneRenderer {
     this.scene = scene;
     this.voxelModel = voxelModel;
     this.timeCounter = 0;
+    this.crossfadeAlpha = 1;
   }
   clear() {
     this.scene.dispose();
@@ -16,6 +17,10 @@ class SceneRenderer {
     this.clear();
     this.build(options);
     this._options = options;
+  }
+
+  crossfade(alpha) {
+    this.crossfadeAlpha = alpha;
   }
 }
 
