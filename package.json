@@ -4,8 +4,9 @@
   "main": "webclientviewer.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon ./dist/server.js",
-    "start_debug": "nodemon --inspect ./dist/server.js",
+    "start": "node ./dist/server.js",
+    "start_dev": "nodemon ./dist/server.js",
+    "start_dev_debug": "nodemon --inspect ./dist/server.js",
     "build": "webpack",
     "dev": "webpack --config webpack.development.config.js",
     "prod": "webpack --config webpack.production.config.js"
