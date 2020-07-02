@@ -207,7 +207,8 @@ class FireAudioVisScene extends SceneRenderer {
           const intensityIdx = 0;//Math.round(lighting*15);
 
           const voxelColour = fireLookupFunc(intensityIdx, densityIdx, temperatureIdx);
-          this.voxels[x][y][z].material.colour.setRGB(voxelColour.a*voxelColour.r, voxelColour.a*voxelColour.g, voxelColour.a*voxelColour.b);
+          const voxelMaterialColour = this.voxels[x][y][z].material.colour;
+          voxelMaterialColour.setRGB(voxelColour.a*voxelColour.r, voxelColour.a*voxelColour.g, voxelColour.a*voxelColour.b);
         }
       }
     }

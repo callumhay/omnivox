@@ -68,13 +68,6 @@ class StarShowerAnimator extends VoxelAnimator {
     this.currSpawnTimer += dt;
   }
 
-  crossfade(alpha) {
-    super.crossfade(alpha);
-    for (let i = 0; i < this.activeShootingStars.length; i++) {
-      this.activeShootingStars[i].crossfade(alpha);
-    }
-  }
-
   reset() {
     super.reset();
     this.activeShootingStars = [];
@@ -104,7 +97,6 @@ class StarShowerAnimator extends VoxelAnimator {
     };
 
     const starAnim = new ShootingStarAnimator(this.voxelModel, starConfig);
-    starAnim.crossfade(this.crossfadeAlpha);
     this.activeShootingStars.push(starAnim);
   }
 

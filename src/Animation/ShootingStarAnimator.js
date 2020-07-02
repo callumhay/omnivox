@@ -64,7 +64,6 @@ class ShootingStarAnimator extends VoxelAnimator {
         colourInterpolationType: COLOUR_INTERPOLATION_LRGB,
       }),
     };
-    animatorObj.animator.crossfade(this.crossfadeAlpha);
     this.currAnimatorMap.push(animatorObj);
 
     return true;
@@ -133,13 +132,6 @@ class ShootingStarAnimator extends VoxelAnimator {
     }
     
     this.currPosition.add(incVelocity);
-  }
-
-  crossfade(alpha) {
-    super.crossfade(alpha);
-    for (let i = 0; i < this.currAnimatorMap.length; i++) {
-      this.currAnimatorMap[i].crossfade(alpha);
-    }
   }
 
   reset() {

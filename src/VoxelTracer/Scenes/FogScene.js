@@ -27,7 +27,7 @@ class FogScene extends SceneRenderer {
     const fogScattering = options.fogScattering ? options.fogScattering : fogDefaultOptions.fogScattering;
 
     const fogOptions = {
-      fogColour: new THREE.Color(fogColour.r, fogColour.g, fogColour.b).multiplyScalar(this.crossfadeAlpha), 
+      fogColour: new THREE.Color(fogColour.r, fogColour.g, fogColour.b), 
       scattering: fogScattering
     };
 
@@ -45,11 +45,11 @@ class FogScene extends SceneRenderer {
 
       this.ptLight = new VTPointLight(
         new THREE.Vector3(pointLightPosition.x, pointLightPosition.y, pointLightPosition.z), 
-        new THREE.Color(pointLightColour.r, pointLightColour.g, pointLightColour.b).multiplyScalar(this.crossfadeAlpha), 
+        new THREE.Color(pointLightColour.r, pointLightColour.g, pointLightColour.b), 
         {...pointLightAtten}
       );
 
-      this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b).multiplyScalar(this.crossfadeAlpha));
+      this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
       this.fog = new VTFog(new THREE.Vector3(0,0,0), new THREE.Vector3(size, size, size), fogOptions);
 
       this._objectsBuilt = true;
@@ -80,15 +80,6 @@ class FogScene extends SceneRenderer {
     this.scene.render();
 
     this.timeCounter += dt;
-  }
-
-  crossfade(alpha) {
-    super.crossfade(alpha);
-
-    const {fogColour, ambientLightColour, pointLightColour} = this._options;
-    this.ptLight.colour.setRGB(pointLightColour.r, pointLightColour.g, pointLightColour.b).multiplyScalar(alpha);
-    this.ambientLight.colour.setRGB(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b).multiplyScalar(alpha);
-    this.fog.colour.setRGB(fogColour.r, fogColour.g, fogColour.b).multiplyScalar(alpha);
   }
 }
 

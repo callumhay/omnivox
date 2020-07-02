@@ -1,7 +1,11 @@
 import * as THREE from 'three';
 
-import VoxelAnimator from './VoxelAnimator';
+import VoxelAnimator, {DEFAULT_CROSSFADE_TIME_SECS} from './VoxelAnimator';
 import {sceneAnimatorDefaultConfig, SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG} from './SceneAnimatorDefaultConfigs';
+
+import {clamp} from '../MathUtils';
+
+import {BLEND_MODE_ADDITIVE, BLEND_MODE_OVERWRITE} from '../Server/VoxelModel';
 
 import SimpleScene from '../VoxelTracer/Scenes/SimpleScene';
 import ShadowScene from '../VoxelTracer/Scenes/ShadowScene';
@@ -12,11 +16,10 @@ class SceneAnimator extends VoxelAnimator {
     super(voxelModel, config);
     
     // Cross-fading variables
-    this._totalCrossfadeTime = 0.0;
+    this._totalCrossfadeTime = DEFAULT_CROSSFADE_TIME_SECS;
     this._crossfadeCounter = Infinity;
-    this._prevSceneType = null;
-
-    this._clearColour = new THREE.Color(0,0,0);
+    this._prevSceneConfig = null;
+    
     this._scene = vtScene;
     this._sceneMap = {
       [SCENE_TYPE_SIMPLE]:  new SimpleScene(this._scene, this.voxelModel),
@@ -34,7 +37,7 @@ class SceneAnimator extends VoxelAnimator {
     if (this.config.sceneType !== c.sceneType) {
       if (this.config.sceneType) {
         // Crossfade between the previous scene and the new scene
-        this._prevSceneType = this.config.sceneType;
+        this._prevSceneConfig = this.config;
         this._crossfadeCounter = 0;
       }
     }
@@ -55,36 +58,43 @@ class SceneAnimator extends VoxelAnimator {
 
   render(dt) {
     const currScene = this._sceneMap[this.config.sceneType];
-    this.voxelModel.clear(this._clearColour);
 
     // Crossfade between scenes
-    if (this._prevSceneType) {
-      const prevScene = this._sceneMap[this._prevSceneType];
+    if (this._prevSceneConfig) {
+      const prevScene = this._sceneMap[this._prevSceneConfig.sceneType];
+
+      // Adjust the scene alphas as a percentage of the crossfade time and continue counting the total time until the crossfade is complete
+      const percentFade = clamp(this._crossfadeCounter / this._totalCrossfadeTime, 0, 1);
+
+      this.voxelModel.setFrameBuffer(0);
+      this.voxelModel.clear(new THREE.Color(0,0,0));
+      prevScene.rebuild(this._prevSceneConfig.sceneOptions);
+      prevScene.render(dt);
+      this.voxelModel.multiply(1-percentFade);
 
       if (this._crossfadeCounter < this._totalCrossfadeTime) {
-        // We are currently crossfading. Adjust the scene alphas as a percentage of the
-        // crossfade time and continue counting the total time until the crossfade is complete
-        const percentFade = this._crossfadeCounter / this._totalCrossfadeTime;
-        prevScene.crossfade(1.0-percentFade);
-        currScene.crossfade(percentFade);
-        
-        prevScene.render(dt);
         this._crossfadeCounter += dt;
       }
       else {
         // no longer crossfading, reset to just showing the current scene
         this._crossfadeCounter = Infinity;
-        this._prevSceneType = null;
+        this._prevSceneConfig = null;
       }
+
+      this.voxelModel.setFrameBuffer(1);
+      this.voxelModel.clear(new THREE.Color(0,0,0));
+      currScene.rebuild(this.config.sceneOptions);
+      currScene.render(dt);
+      this.voxelModel.multiply(percentFade);
+
+      this.voxelModel.setFrameBuffer(0);
+      this.voxelModel.blendMode = BLEND_MODE_ADDITIVE;
+      this.voxelModel.drawFramebuffer(1);
+      this.voxelModel.blendMode = BLEND_MODE_OVERWRITE;
     }
-
-    currScene.render(dt);
-
-    // Crossfade between animators
-    if (this.crossfadeAlpha < 1) { 
-      this.voxelModel.multiply(this.crossfadeAlpha);
+    else {
+      currScene.render(dt);
     }
-
   }
 
   setCrossfadeTime(t) {

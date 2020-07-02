@@ -129,6 +129,11 @@ class VoxelClient {
       this.socket.send(VoxelProtocol.buildClientPacketStrAudio(audioInfo));
     }
   }
+  sendCrossfadeTime(crossfadeTimeInSecs) {
+    if (this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(VoxelProtocol.buildClientCrossfadePacketStr(crossfadeTimeInSecs));
+    }
+  }
 }
 
 export default VoxelClient;

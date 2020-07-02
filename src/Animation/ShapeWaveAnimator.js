@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 import VoxelAnimator from './VoxelAnimator';
 import {Randomizer} from './Randomizers';
-import {VOXEL_EPSILON, VOXEL_ERR_UNITS} from '../MathUtils';
+import {VOXEL_EPSILON} from '../MathUtils';
 
 const EIGHTIES_MAGENTA_HEX    = 0xF00078;
 const EIGHTIES_YELLOW_HEX     = 0xFFC70E;
@@ -71,6 +71,7 @@ class WaveShape {
     this.radius = 0;
     this.lastDrawRadius = 0;
     this.animationFinished = false;
+    this.removeMe = false;
   }
 
   drawVoxels(drawRadius, brightness) {
@@ -79,10 +80,10 @@ class WaveShape {
       case WAVE_SHAPE_CUBE:
         const minPt = this.getMinPt(drawRadius);
         const maxPt = this.getMaxPt(drawRadius);
-        this.voxelModel.drawBox(minPt, maxPt, adjustedColour, false);
+        this.voxelModel.drawBox(minPt, maxPt, adjustedColour, true);
         break;
       case WAVE_SHAPE_SPHERE:
-        this.voxelModel.drawSphere(this.center, drawRadius, adjustedColour, false);
+        this.voxelModel.drawSphere(this.center, drawRadius, adjustedColour, true);
         break;
 
       default:
@@ -118,34 +119,10 @@ class WaveShape {
       return;
     }
 
-    const redrawSampleUnits = VOXEL_ERR_UNITS;
-
-    while (this.radius - this.lastDrawRadius >= redrawSampleUnits) {
-      const currDrawRadius = this.lastDrawRadius + redrawSampleUnits;
-      this.drawVoxels(currDrawRadius, brightness);
-      this.lastDrawRadius = currDrawRadius;
-    }
-
+    this.drawVoxels(this.radius, brightness);
     this.radius += dt*waveSpeed;
 
     if (!this.isInsideVoxels()) {
-      // Draw the last shapes before going outside of the display...
-
-      // Find the largest radius from the center of this wave to the outside of the voxel grid
-      const voxelGridSize = this.voxelModel.gridSize + VOXEL_EPSILON;
-      const maxVoxelSpacePt = new THREE.Vector3(voxelGridSize,voxelGridSize,voxelGridSize);
-      const distMinVec = new THREE.Vector3(Math.abs(this.center.x), Math.abs(this.center.y), Math.abs(this.center.z)); // Since the min point is (0,0,0) just use the absolute value of the center
-      const distMaxVec = new THREE.Vector3().subVectors(maxVoxelSpacePt, this.center);
-      distMaxVec.set(Math.abs(distMaxVec.x), Math.abs(distMaxVec.y), Math.abs(distMaxVec.z));
-      distMaxVec.max(distMinVec);
-
-      const maxRadius = distMaxVec.length() + VOXEL_EPSILON; // Furthest distance from the center of the wave to the bounds of the voxel grid
-      while (this.lastDrawRadius <= maxRadius) {
-        const currDrawRadius = this.lastDrawRadius + redrawSampleUnits;
-        this.drawVoxels(currDrawRadius, brightness);
-        this.lastDrawRadius = currDrawRadius;
-      }
-
       this.animationFinished = true;
     }
   }
@@ -207,14 +184,22 @@ class ShapeWaveAnimator extends VoxelAnimator {
     if (!lastShape || lastShape.radius >= voxelSampleSize) {
       this.activeShapes.push(this.buildWaveShapeAnimator());
     }
-    
+
     // Tick/draw each of the animators
-    this.activeShapes.forEach((waveShape) => {
-      waveShape.render(dt, waveSpeed, brightness*this.crossfadeAlpha);
-    });
+    for (let i = 0; i < this.activeShapes.length; i++) {
+      const currWaveShape = this.activeShapes[i];
+      currWaveShape.render(dt, waveSpeed, brightness);
+
+      if (i > 0) {
+        const largerThanCurrentWave = this.activeShapes[i-1];
+        if (currWaveShape.animationFinished && largerThanCurrentWave.animationFinished) {
+          largerThanCurrentWave.removeMe = true;
+        }
+      }
+    }
 
     // Clean up animators that are no longer visible
-    this.activeShapes = this.activeShapes.filter((waveShape) => !waveShape.animationFinished);
+    this.activeShapes = this.activeShapes.filter((waveShape) => !waveShape.removeMe);
   }
 
   reset() {

@@ -20,6 +20,7 @@ const VOXEL_ROUTINE_CONFIG_UPDATE_HEADER = "U";
 const VOXEL_ROUTINE_RESET_HEADER = "R";
 const VOXEL_CLEAR_COMMAND_HEADER = "L";
 const AUDIO_INFO_HEADER = "A";
+const CROSSFADE_UPDATE_HEADER = "X";
 
 const PACKET_END = ";";
 
@@ -52,6 +53,7 @@ class VoxelProtocol {
   static get VOXEL_ROUTINE_RESET_HEADER() {return VOXEL_ROUTINE_RESET_HEADER;}
   static get VOXEL_CLEAR_COMMAND_HEADER() {return VOXEL_CLEAR_COMMAND_HEADER;}
   static get AUDIO_INFO_HEADER() {return AUDIO_INFO_HEADER;}
+  static get CROSSFADE_UPDATE_HEADER() {return CROSSFADE_UPDATE_HEADER;}
 
   static buildWelcomePacketForSlaves(voxelModel) {
     const packetDataBuf = new Uint8Array(3); // slaveid (1 byte), type (1 byte), y-size (1 byte)
@@ -91,6 +93,12 @@ class VoxelProtocol {
       config: config,
     });
   }
+  static buildClientCrossfadePacketStr(crossfadeTimeInSecs) {
+    return JSON.stringify({
+      packetType: CROSSFADE_UPDATE_HEADER,
+      timeInSecs: crossfadeTimeInSecs,
+    });
+  } 
   static buildClientPacketStrAudio(audioInfo) {
     return JSON.stringify({
       packetType: AUDIO_INFO_HEADER,
@@ -141,13 +149,17 @@ class VoxelProtocol {
           console.log("Invalid config for clear colour.");
           return false;
         }
-        voxelModel.clear(new THREE.Color(config.r, config.g, config.b));
+        voxelModel.clearAllFramebuffers(new THREE.Color(config.r, config.g, config.b));
         break;
 
       case AUDIO_INFO_HEADER:
         if (voxelModel.currentAnimator && voxelModel.currentAnimator.setAudioInfo) {
           voxelModel.currentAnimator.setAudioInfo(dataObj.audioInfo);
         }
+        break;
+
+      case CROSSFADE_UPDATE_HEADER:
+        voxelModel.setCrossfadeTime(dataObj.timeInSecs);
         break;
 
       default:

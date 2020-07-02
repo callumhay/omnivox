@@ -157,10 +157,10 @@ class BasicBarsAudioVisScene extends SceneRenderer {
 
     const fadeFactorAdjusted = Math.pow(fadeFactor, dt);
 
-    const {fft, rms, spectralRolloff, spectralCentroid} = audioInfo;
+    const {fft} = audioInfo;
 
     const xSize = this.voxelModel.xSize();
-    const ySize = this.voxelModel.ySize();
+    //const ySize = this.voxelModel.ySize();
     const zSize = this.voxelModel.zSize();
     const gridSize = xSize*zSize;
 

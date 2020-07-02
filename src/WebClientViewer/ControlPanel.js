@@ -1,7 +1,7 @@
 import * as dat from 'dat.gui';
 import * as THREE from 'three';
 
-import VoxelAnimator from '../Animation/VoxelAnimator';
+import VoxelAnimator, {DEFAULT_CROSSFADE_TIME_SECS} from '../Animation/VoxelAnimator';
 import {voxelColourAnimatorDefaultConfig, INTERPOLATION_TYPES} from '../Animation/VoxelColourAnimator';
 import {starShowerDefaultConfig} from '../Animation/StarShowerAnimator';
 import {shapeWaveAnimatorDefaultConfig, WAVE_SHAPE_TYPES} from '../Animation/ShapeWaveAnimator';
@@ -136,12 +136,14 @@ class ControlPanel {
 
     this.gui.add(this.settings, 'showWireFrame').onChange((value) => {
       this.voxelDisplay.setOutlinesEnabled(value);
-    });
+    }).setValue(this.settings.showWireFrame);
     this.gui.add(this.settings, 'orbitMode').onChange((value) => {
       this.voxelDisplay.setOrbitModeEnabled(value);
-    });
+    }).setValue(this.settings.orbitMode);
+    this.gui.add(this.settings, 'crossfadeTime', 0, 10, 0.1).onChange((value) => {
+      this.voxelClient.sendCrossfadeTime(value);
+    }).setValue(this.settings.crossfadeTime);
     
-
     this.gui.open();
   }
 
@@ -158,7 +160,7 @@ class ControlPanel {
       boxProperties: { center: { x: halfVoxelDisplayUnits, y: halfVoxelDisplayUnits, z: halfVoxelDisplayUnits }, width: 2 * halfVoxelDisplayUnits - 2, height: 2 * halfVoxelDisplayUnits - 2, depth: 2 * halfVoxelDisplayUnits - 2, fill: false },
       colourStart: THREEColorToGuiColor(this.colourAnimatorConfig.colourStart),
       colourEnd: THREEColorToGuiColor(this.colourAnimatorConfig.colourEnd),
-      reset: this.resetDisplay,
+      reset: this.resetDisplay.bind(this),
     };
     this.gui.remember(this.settings.voxelColourSettings);
     this.gui.remember(this.settings.voxelColourSettings.sphereProperties);
@@ -177,7 +179,7 @@ class ControlPanel {
       spawnRate: this.starShowerAnimatorConfig.spawnRate,
       colourMin: THREEColorToGuiColor(this.starShowerAnimatorConfig.colourRandomizer.min),
       colourMax: THREEColorToGuiColor(this.starShowerAnimatorConfig.colourRandomizer.max),
-      reset: this.resetDisplay,
+      reset: this.resetDisplay.bind(this),
     };
     this.gui.remember(this.settings.starShowerSettings);
     this.gui.remember(this.settings.starShowerSettings.minSpawnPos);
@@ -192,7 +194,7 @@ class ControlPanel {
       waveGap: this.shapeWaveAnimatorConfig.waveGap,
       colourPalette: this.shapeWaveAnimatorConfig.colourPalette,
       brightness: this.shapeWaveAnimatorConfig.brightness,
-      reset: this.resetDisplay,
+      reset: this.resetDisplay.bind(this),
     };
     this.gui.remember(this.settings.shapeWaveSettings);
     this.gui.remember(this.settings.shapeWaveSettings.center);
@@ -200,13 +202,13 @@ class ControlPanel {
   reloadGameOfLifeSettings() {
     this.settings.gameOfLifeSettings = {
       seed: this.gameOfLifeAnimatorConfig.seed,
-      reset: this.resetDisplay,
+      reset: this.resetDisplay.bind(this),
     };
     this.gui.remember(this.settings.gameOfLifeSettings);
   }
   reloadFireSettings() {
     this.settings.fireSettings = {...this.fireAnimatorConfig,
-      reset: this.resetDisplay,
+      reset: this.resetDisplay.bind(this),
     };
     this.gui.remember(this.settings.fireSettings);
   }
@@ -264,6 +266,7 @@ class ControlPanel {
       animatorType: VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR,
       showWireFrame: this.voxelDisplay.outlinesEnabled,
       orbitMode: this.voxelDisplay.orbitModeEnabled,
+      crossfadeTime: DEFAULT_CROSSFADE_TIME_SECS,
     };
 
     this.reloadVoxelColourSettings();
