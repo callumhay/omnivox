@@ -71,7 +71,7 @@ class VoxelColourAnimator extends VoxelAnimator {
       
       const temp = chroma.mix(chroma.gl(this.colourStart), chroma.gl(this.colourEnd), interpolateAlpha, colourInterpolationType).gl();
       const currColour = new THREE.Color(temp[0], temp[1], temp[2]);
-
+      
       this.voxelPositions.forEach(voxelPos => {
         this.voxelModel.setVoxel(voxelPos, currColour);
       });

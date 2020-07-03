@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {VOXEL_ERR_UNITS, clamp} from '../MathUtils';
 
-import VoxelAnimator from '../Animation/VoxelAnimator';
+import VoxelAnimator, {DEFAULT_CROSSFADE_TIME_SECS} from '../Animation/VoxelAnimator';
 import VoxelColourAnimator from '../Animation/VoxelColourAnimator';
 import StarShowerAnimator from '../Animation/StarShowerAnimator';
 import ShapeWaveAnimator from '../Animation/ShapeWaveAnimator';
@@ -22,14 +22,10 @@ const DEFAULT_POLLING_FREQUENCY_HZ = 60; // Render Frames per second - if this i
 const DEFAULT_POLLING_INTERVAL_MS  = 1000 / DEFAULT_POLLING_FREQUENCY_HZ;
 
 class VoxelObject {
-  constructor(position, colour) {
-    this.position = position;
+  constructor(colour) {
     this.colour = colour;
   }
 
-  setColourRGB(r,g,b) { 
-    this.colour.setRGB(r,g,b); 
-  }
   setColour(colour) { 
     this.colour.setRGB(colour.r, colour.g, colour.b);
   }
@@ -46,23 +42,36 @@ class VoxelModel {
     this.gridSize = gridSize;
     this.blendMode = BLEND_MODE_OVERWRITE;
     
-    // Build the 3D array of voxels
-    this.voxels = [];
+    // Build the 3D array of voxels and an extra framebuffer
+    const voxelFramebuffer0 = [];
+    const voxelFramebuffer1 = [];
     for (let x = 0; x < gridSize; x++) {
       let currXArr = [];
-      this.voxels.push(currXArr);
+      voxelFramebuffer0.push(currXArr);
+
+      let currFBXArr = [];
+      voxelFramebuffer1.push(currFBXArr);
+
       for (let y = 0; y < gridSize; y++) {
         let currYArr = [];
         currXArr.push(currYArr);
+
+        let currFBYArr = [];
+        currFBXArr.push(currFBYArr);
+
         for (let z = 0; z < gridSize; z++) {
-          currYArr.push(new VoxelObject(new THREE.Vector3(x,y,z), new THREE.Color(0,0,0)));
+          currYArr.push(new VoxelObject(new THREE.Color(0,0,0)));
+          currFBYArr.push(new VoxelObject(new THREE.Color(0,0,0)));
         }
       }
     }
 
+    this.voxelFramebuffers = [voxelFramebuffer0, voxelFramebuffer1];
+    this.voxelFramebufferIdx = 0;
+    
     // Build a voxel tracer scene, which will be shared by all animators that use it
     this.vtScene = new VTScene(this); //new VTSceneMultithreading(this);
-
+    this._clearColour = new THREE.Color(0,0,0);
     this._animators = {
       [VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR]       : new VoxelColourAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER]  : new StarShowerAnimator(this),
@@ -72,10 +81,23 @@ class VoxelModel {
       [VoxelAnimator.VOXEL_ANIM_SCENE]             : new SceneAnimator(this, this.vtScene),
       [VoxelAnimator.VOXEL_ANIM_SOUND_VIZ]         : new AudioVisualizerAnimator(this, this.vtScene),
     };
+
     this.currentAnimator = this._animators[VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR];
 
     this.currFrameTime = Date.now();
     this.frameCounter = 0;
+
+    // Crossfading
+    this.totalCrossfadeTime = DEFAULT_CROSSFADE_TIME_SECS;
+    this.crossfadeCounter = Infinity;
+    this.prevAnimator = null;
+  }
+
+  get voxels() {
+    return this.voxelFramebuffers[this.voxelFramebufferIdx];
+  }
+  set voxels(v) {
+    this.voxelFramebuffers[this.voxelFramebufferIdx] = v;
   }
 
   xSize() {
@@ -93,17 +115,25 @@ class VoxelModel {
       return false;
     }
 
+    // Check to see if we're changing animators
     const nextAnimator = this._animators[type];
     if (this.currentAnimator !== nextAnimator) {
-      this.currentAnimator.stop();
+      this.prevAnimator = this.currentAnimator;
+      this.currentAnimator = nextAnimator;
+      this.crossfadeCounter = 0;
     }
 
-    this.currentAnimator = nextAnimator;
     if (config) {
       this.currentAnimator.setConfig(config);
     }
 
     return true;
+  }
+
+  setCrossfadeTime(t) {
+    this.totalCrossfadeTime = Math.max(0, t);
+    this._animators[VoxelAnimator.VOXEL_ANIM_SCENE].setCrossfadeTime(this.totalCrossfadeTime);
+    this._animators[VoxelAnimator.VOXEL_ANIM_SOUND_VIZ].setCrossfadeTime(this.totalCrossfadeTime);
   }
 
   run(voxelServer) {
@@ -113,7 +143,7 @@ class VoxelModel {
     let dtSinceLastRender = 0;
     let skipFrameNumber = 1;
     let catchupTimeInSecs = 0;
-    const allowableEventLoopBackupSize = 5;
+    const allowableEventLoopBackupSize = 2;
     const allowablePollingMsBackupSize = allowableEventLoopBackupSize * DEFAULT_POLLING_INTERVAL_MS;
     const allowablePollingSecBackupSize = allowablePollingMsBackupSize / 1000;
 
@@ -134,10 +164,46 @@ class VoxelModel {
       }
       
       if (catchupTimeInSecs <= 0) {
+        self.setFrameBuffer(0);
+        self.clear(self._clearColour);
+
         // Simulate the model based on the current animation...
-        if (self.currentAnimator) {
+        
+        // Deal with crossfading between animators
+        if (self.prevAnimator) {
+          // Adjust the animator alphas as a percentage of the crossfade time and continue counting the total time until the crossfade is complete
+          const percentFade = clamp(self.crossfadeCounter / self.totalCrossfadeTime, 0, 1);
+          const prevAnimator = self.prevAnimator;
+
+          if (self.crossfadeCounter < self.totalCrossfadeTime) {
+            self.crossfadeCounter += dtSinceLastRender;
+          }
+          else {
+            // no longer crossfading, reset to just showing the current scene
+            self.crossfadeCounter = Infinity;
+            self.prevAnimator.stop();
+            self.prevAnimator = null;
+          }
+          // Blend the "currentAnimtor" with the previous one via framebuffer - we need to do this so that we
+          // aren't just overwriting the voxel framebuffer despite the crossfade amounts for each animation
+          prevAnimator.render(dtSinceLastRender);
+          self.multiply(1-percentFade);
+
+          self.setFrameBuffer(1);
+          self.clear(self._clearColour);
+          self.currentAnimator.render(dtSinceLastRender);
+          self.multiply(percentFade);
+
+          self.setFrameBuffer(0);
+          self.blendMode = BLEND_MODE_ADDITIVE;
+          self.drawFramebuffer(1);
+          self.blendMode = BLEND_MODE_OVERWRITE;
+        }
+        else {
+          // No crossfade, just render the current animation
           self.currentAnimator.render(dtSinceLastRender);
         }
+
         dtSinceLastRender = 0;
         skipFrameNumber = 1;
 
@@ -153,7 +219,10 @@ class VoxelModel {
       lastFrameTime = self.currFrameTime;
       
     }, DEFAULT_POLLING_INTERVAL_MS);
+  }
 
+  setFrameBuffer(idx=0) {
+    this.voxelFramebufferIdx = idx;
   }
 
   /**
@@ -239,6 +308,24 @@ class VoxelModel {
       }
     }
   }
+  clearAllFramebuffers(colour) {
+    const prevFramebufferIdx = this.voxelFramebufferIdx;
+    for (let i = 0; i < this.voxelFramebuffers.length; i++) {
+      this.setFrameBuffer(i);
+      this.clear(colour);
+    }
+    this.setFrameBuffer(prevFramebufferIdx);
+  }
+
+  multiply(alpha) {
+    for (let x = 0; x < this.voxels.length; x++) {
+      for (let y = 0; y < this.voxels[x].length; y++) {
+        for (let z = 0; z < this.voxels[x][y].length; z++) {
+          this.voxels[x][y][z].colour.multiplyScalar(alpha);
+        }
+      }
+    }
+  }
 
   voxelColour(pt) {
     return this.getVoxel(pt).colour;
@@ -275,23 +362,32 @@ class VoxelModel {
     );
   }
 
+  drawFramebuffer(idx) {
+    const framebuffer = this.voxelFramebuffers[idx];
+    const currPt = new THREE.Vector3();
+    const blendFunc = this.getDrawPointBlendFunc();
+
+    for (let x = 0; x < framebuffer.length; x++) {
+      for (let y = 0; y < framebuffer[x].length; y++) {
+        for (let z = 0; z < framebuffer[x][y].length; z++) {
+          blendFunc(currPt.set(x,y,z), framebuffer[x][y][z].colour);
+        }
+      }
+    }
+  }
+
+  getDrawPointBlendFunc() {
+    return (this.blendMode === BLEND_MODE_ADDITIVE ? this.addToVoxel : this.setVoxel).bind(this);
+  }
+
   /**
    * Draw a coloured point (the point will be sampled to the nearest voxel).
    * @param {THREE.Vector3} pt - The position to draw the point at.
    * @param {THREE.Color} colour - The colour of the point
    */
   drawPoint(pt, colour) {
-    switch (this.blendMode) {
-
-      case BLEND_MODE_ADDITIVE:
-        this.addToVoxel(pt, colour);
-        break;
-
-      case BLEND_MODE_OVERWRITE:
-      default:
-        this.setVoxel(pt, colour);
-        break;
-    }
+    const blendFunc = this.getDrawPointBlendFunc();
+    blendFunc(pt, colour);
   }
 
  /**
@@ -302,7 +398,9 @@ class VoxelModel {
    */
   drawLine(p1, p2, colour) {
     // Code originally written by Anthony Thyssen, original algo of Bresenham's line in 3D
-		// http://www.ict.griffith.edu.au/anthony/info/graphics/bresenham.procs
+    // http://www.ict.griffith.edu.au/anthony/info/graphics/bresenham.procs
+    
+    const blendDrawPointFunc = this.getDrawPointBlendFunc();
 
 		let dx, dy, dz, l, m, n, dx2, dy2, dz2, i, x_inc, y_inc, z_inc, err_1, err_2;
 		let currentPoint = new THREE.Vector3(p1.x, p1.y, p1.z);
@@ -323,7 +421,7 @@ class VoxelModel {
 			err_1 = dy2 - l;
 			err_2 = dz2 - l;
 			for (i = 0; i < l; i++) {
-				this.drawPoint(currentPoint, colour);
+				blendDrawPointFunc(currentPoint, colour);
 				if (err_1 > 0) {
 					currentPoint.y += y_inc;
 					err_1 -= dx2;
@@ -341,7 +439,7 @@ class VoxelModel {
 			err_1 = dx2 - m;
 			err_2 = dz2 - m;
 			for (i = 0; i < m; i++) {
-				this.drawPoint(currentPoint, colour);
+				blendDrawPointFunc(currentPoint, colour);
 				if (err_1 > 0) {
 					currentPoint.x += x_inc;
 					err_1 -= dy2;
@@ -359,7 +457,7 @@ class VoxelModel {
 			err_1 = dy2 - n;
 			err_2 = dx2 - n;
 			for (i = 0; i < n; i++) {
-        this.drawPoint(currentPoint, colour);
+        blendDrawPointFunc(currentPoint, colour);
 				if (err_1 > 0) {
 					currentPoint.y += y_inc;
 					err_1 -= dz2;
@@ -374,7 +472,7 @@ class VoxelModel {
 			}
 		}
 
-		this.drawPoint(currentPoint, colour);
+		blendDrawPointFunc(currentPoint, colour);
   }
 
   static voxelBoxList(minPt=new THREE.Vector3(0,0,0), maxPt=new THREE.Vector3(1,1,1), fill=false) {
@@ -439,8 +537,9 @@ class VoxelModel {
 
   drawBox(minPt=new THREE.Vector3(0,0,0), maxPt=new THREE.Vector3(1,1,1), colour=new THREE.Color(1,1,1), fill=false) {
     const boxPts = VoxelModel.voxelBoxList(minPt, maxPt, fill);
+    const blendDrawPointFunc = this.getDrawPointBlendFunc();
     boxPts.forEach((pt) => {
-      this.drawPoint(pt, colour);
+      blendDrawPointFunc(pt, colour);
     });
   }
 
@@ -477,8 +576,9 @@ class VoxelModel {
 
   drawSphere(center=new THREE.Vector3(0,0,0), radius=1, colour=new THREE.Color(1,1,1), fill=false) {
     const spherePts = this.voxelSphereList(center, radius, fill);
+    const blendDrawPointFunc = this.getDrawPointBlendFunc();
     spherePts.forEach((pt) => {
-      this.drawPoint(pt, colour);
+      blendDrawPointFunc(pt, colour);
     });
   }
 

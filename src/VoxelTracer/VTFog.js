@@ -11,7 +11,8 @@ export const fogDefaultOptions = {
 class VTFog {
   constructor(minPt=new THREE.Vector3(2,2,2), maxPt=new THREE.Vector3(5,5,5), options={...fogDefaultOptions}) {
     this.boundingBox = new THREE.Box3(minPt, maxPt);
-    this.options = options;
+    this.colour = options.fogColour ? options.fogColour : fogDefaultOptions.fogColour.clone();
+    this.scattering = options.scattering ? options.scattering : fogDefaultOptions.scattering;
 
     // Temporary objects
     this._temp1Vec3 = new THREE.Vector3();
@@ -71,14 +72,12 @@ class VTFog {
   calculateVoxelColour(voxelIdxPt, scene) {
     const finalColour = new THREE.Color(0,0,0);
     if (this.boundingBox.containsPoint(voxelIdxPt)) {
-      const {scattering, fogColour} = this.options;
-
       // Fog captures light in the scene...
       const fogLighting = scene.calculateFogLighting(voxelIdxPt);
       finalColour.setRGB(
-        clamp(scattering*(fogLighting.r * fogColour.r), 0, 1), 
-        clamp(scattering*(fogLighting.g * fogColour.g), 0, 1), 
-        clamp(scattering*(fogLighting.b * fogColour.b), 0, 1)
+        clamp(this.scattering*(fogLighting.r * this.colour.r), 0, 1), 
+        clamp(this.scattering*(fogLighting.g * this.colour.g), 0, 1), 
+        clamp(this.scattering*(fogLighting.b * this.colour.b), 0, 1)
       );
       
     }

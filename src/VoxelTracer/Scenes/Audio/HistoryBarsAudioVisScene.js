@@ -22,11 +22,7 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
     this._objectsBuilt = false;
-  }
 
-  clear() {
-    super.clear();
-    this._objectsBuilt = false;
     this.timeCounter = 0;
 
     this.lastAudioFrameTime = Date.now();
@@ -42,6 +38,11 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
     this.avgBeatsPerSec = 0;
     this.avgSpectralCentroid = 0;
     this.timeSinceLastBeat = 0;
+  }
+
+  clear() {
+    super.clear();
+    this._objectsBuilt = false;
   }
 
   build(options) {

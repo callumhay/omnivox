@@ -34,14 +34,8 @@ class FireAudioVisScene extends SceneRenderer {
     this.colourHoldTimeCounter = 0;
     this.currRandomColours = this._genRandomFireColours();
     this.nextRandomColours = this._genRandomFireColours(this.currRandomColours);
-  }
-
-  clear() {
-    super.clear();
-    this._objectsBuilt = false;
 
     this.t = 0;
-
     this.avgSpectralCentroid = 0;
     this.avgNormalizedSpectralCentroid = 0;
     this.avgRMS = 0;
@@ -54,8 +48,13 @@ class FireAudioVisScene extends SceneRenderer {
     this.timeSinceLastBeat = 1;
   }
 
+  clear() {
+    super.clear();
+    this._objectsBuilt = false;
+  }
+
   build(options) {
-    const { colourGamma, colourInterpolationType, noise } = options.sceneConfig;
+    const {noise} = options.sceneConfig;
 
     const xSize = this.voxelModel.xSize();
     const ySize = this.voxelModel.ySize();
@@ -207,7 +206,8 @@ class FireAudioVisScene extends SceneRenderer {
           const intensityIdx = 0;//Math.round(lighting*15);
 
           const voxelColour = fireLookupFunc(intensityIdx, densityIdx, temperatureIdx);
-          this.voxels[x][y][z].material.colour.setRGB(voxelColour.a*voxelColour.r, voxelColour.a*voxelColour.g, voxelColour.a*voxelColour.b);
+          const voxelMaterialColour = this.voxels[x][y][z].material.colour;
+          voxelMaterialColour.setRGB(voxelColour.a*voxelColour.r, voxelColour.a*voxelColour.g, voxelColour.a*voxelColour.b);
         }
       }
     }

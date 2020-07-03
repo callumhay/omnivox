@@ -3,7 +3,7 @@
 
 1. Run `npm install` to get all the required node packages.
 2. Run `npm run dev|prod` for dev or production mode (leave this running for the watch).
-3. In parallel, run `npm start` to run `server.js`.
+3. In parallel, run `npm start` to run `server.js` in production, or run `npm run start_dev` to use nodemon while running the server during development.
 4. Navigate to `http://locahost:4000` and have fun!
 
 ## Modes

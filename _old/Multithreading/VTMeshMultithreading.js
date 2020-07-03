@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import VoxelModel from '../../Server/VoxelModel';
+import VoxelModel from '../../src/Server/VoxelModel';
 
 // A function prototype shell class for the VTMesh, for use in node.js multithreading
 class VTMeshMultithreading {

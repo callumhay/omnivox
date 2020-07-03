@@ -20,10 +20,14 @@ const VOXEL_ANIM_TYPES = [
   VOXEL_ANIM_SOUND_VIZ,
 ];
 
+export const DEFAULT_CROSSFADE_TIME_SECS = 1.0;
+
 class VoxelAnimator {
   constructor(voxels, config=null) {
+
     this.voxelModel = voxels;
     this.repeat = 0;
+    this.config = {};
     
     let _playCounter = 0;
     this.setPlayCounter = (val) => { _playCounter = val; };

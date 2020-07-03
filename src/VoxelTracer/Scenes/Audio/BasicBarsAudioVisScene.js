@@ -12,16 +12,11 @@ import {clamp} from '../../../MathUtils';
 
 import {DEFAULT_SPLIT_LEVELS, DEFAULT_LOW_COLOUR, DEFAULT_HIGH_COLOUR, DEFAULT_LEVEL_MAX, DEFAULT_GAMMA} from './AudioSceneDefaultConfigs';
 
-
 class BasicBarsAudioVisScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
     this._objectsBuilt = false;
-  }
 
-  clear() {
-    super.clear();
-    this._objectsBuilt = false;
     this.timeCounter = 0;
 
     this.lastAudioFrameTime = Date.now();
@@ -32,11 +27,17 @@ class BasicBarsAudioVisScene extends SceneRenderer {
     this.binIndexLookup = null;
   }
 
+  clear() {
+    super.clear();
+    this._objectsBuilt = false;
+  }
+
   build(options) {
     const {sceneConfig} = options;
     const splitLevels = sceneConfig.splitLevels ? sceneConfig.splitLevels : DEFAULT_SPLIT_LEVELS;
 
     if (!this._objectsBuilt || this._options.sceneConfig.splitLevels !== splitLevels) {
+
       const { colourInterpolationType } = options.sceneConfig;
 
       const lowColour = (sceneConfig.lowColour.r !== undefined && sceneConfig.lowColour.g && sceneConfig.lowColour.b) ?
@@ -57,7 +58,7 @@ class BasicBarsAudioVisScene extends SceneRenderer {
       const Y_START = splitLevels ? halfYSize : 0;
       const levelColours = [];
       for (let y = Y_START; y < ySize; y++) {
-        const t = THREE.MathUtils.smootherstep(y, Y_START, ySize-1);
+        const t = (y-Y_START) / (ySize-Y_START-1);
         const temp = chroma.mix(chroma.gl(lowColour), chroma.gl(highColour), t, colourInterpolationType).gl();
         levelColours.push(new THREE.Color(temp[0], temp[1], temp[2]));
       }
@@ -129,8 +130,6 @@ class BasicBarsAudioVisScene extends SceneRenderer {
       const idx = spiralXZIndices[i][0]*zSize + spiralXZIndices[i][1];
       this.spiralMeshIndices.push(idx);
     }
-    //console.log(this.spiralMeshIndices);
-    //console.log(this.spiralMeshIndices.length);
   }
 
   render(dt) {
@@ -157,10 +156,10 @@ class BasicBarsAudioVisScene extends SceneRenderer {
 
     const fadeFactorAdjusted = Math.pow(fadeFactor, dt);
 
-    const {fft, rms, spectralRolloff, spectralCentroid} = audioInfo;
+    const {fft} = audioInfo;
 
     const xSize = this.voxelModel.xSize();
-    const ySize = this.voxelModel.ySize();
+    //const ySize = this.voxelModel.ySize();
     const zSize = this.voxelModel.zSize();
     const gridSize = xSize*zSize;
 

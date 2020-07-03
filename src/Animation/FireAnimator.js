@@ -48,8 +48,6 @@ class FireAnimator extends VoxelAnimator {
   }
 
   render(dt) {
-    super.render(dt);
-
     const {speed, initialIntensityMultiplier} = this.config;
 
     const xSize = this.voxelModel.xSize();
@@ -74,7 +72,9 @@ class FireAnimator extends VoxelAnimator {
     this.t += speedDt;
 
     // Update the voxels...
+    const tempColour = new THREE.Color();
     const voxelArray = this.voxelModel.voxels;
+    const voxelPos = new THREE.Vector3();
     for (let x = 0; x < voxelArray.length; x++) {
       for (let y = 0; y < voxelArray[x].length; y++) {
         for (let z = 0; z < voxelArray[x][y].length; z++) {
@@ -91,7 +91,9 @@ class FireAnimator extends VoxelAnimator {
           const intensityIdx = Math.round(lighting*15);
 
           const voxelColour = this.fireTexture[intensityIdx][densityIdx][temperatureIdx];
-          this.voxelModel.drawPoint(new THREE.Vector3(x,y,z), new THREE.Color(voxelColour.a*voxelColour.r, voxelColour.a*voxelColour.g, voxelColour.a*voxelColour.b));
+          
+          tempColour.setRGB(voxelColour.a*voxelColour.r, voxelColour.a*voxelColour.g, voxelColour.a*voxelColour.b);
+          this.voxelModel.setVoxel(voxelPos.set(x,y,z), tempColour);
         }
       }
     }

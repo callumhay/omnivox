@@ -20,6 +20,10 @@ class VTScene {
       renderable.dispose();
     });
 
+    this.clear();
+  }
+
+  clear() {
     this.renderables = [];
     this.lights = [];
     this.shadowCasters = [];

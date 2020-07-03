@@ -1,4 +1,3 @@
-
 import * as THREE from 'three';
 
 import SceneRenderer from './SceneRenderer';
@@ -7,18 +6,16 @@ import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';
 import VTFog, { fogDefaultOptions } from '../VTFog';
 
-
-
 class FogScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
     this._objectsBuilt = false;
+    this.timeCounter = 0;
   }
 
   clear() {
     super.clear();
     this._objectsBuilt = false;
-    this.timeCounter = 0;
   }
 
   build(options) {
@@ -37,11 +34,7 @@ class FogScene extends SceneRenderer {
       const pointLightPosition = options.pointLightPosition ? options.pointLightPosition : fogSceneDefaultOptions.pointLightPosition;
       const pointLightAtten = options.pointLightAtten ? options.pointLightAtten : fogSceneDefaultOptions.pointLightAtten;
 
-      this.timeCounter = 0;
-
       const size = this.voxelModel.xSize();
-      //const halfXSize = this.voxelModel.xSize()/2;
-      //const halfZSize = this.voxelModel.zSize()/2;
 
       this.ptLight = new VTPointLight(
         new THREE.Vector3(pointLightPosition.x, pointLightPosition.y, pointLightPosition.z), 

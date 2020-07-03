@@ -14,12 +14,12 @@ class SimpleScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
     this._objectsBuilt = false;
+    this.prevTextureFilename = "";
   }
 
   clear() {
     super.clear();
     this._objectsBuilt = false;
-    this.prevTextureFilename = "";
   }
 
   build(options) {
@@ -56,7 +56,6 @@ class SimpleScene extends SceneRenderer {
       this.ptLight2 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight2Colour.r, pointLight2Colour.g, pointLight2Colour.b), {...pointLightAtten});
       this.ptLight3 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight3Colour.r, pointLight3Colour.g, pointLight3Colour.b), {...pointLightAtten});
       this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
-
 
       const size = this.voxelModel.xSize();
       const halfXSize = this.voxelModel.xSize()/2;
@@ -97,8 +96,6 @@ class SimpleScene extends SceneRenderer {
     if (wallZ) {
       this.scene.addObject(this.wallZMesh);
     }
-
-
   }
 
   render(dt) {
