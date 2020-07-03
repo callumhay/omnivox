@@ -13,12 +13,13 @@ class ShadowScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
     this._objectsBuilt = false;
+    this.timeCounter = 0;
   }
 
   clear() {
     super.clear();
     this._objectsBuilt = false;
-    this.timeCounter = 0;
+    
   }
 
   build(options) {
@@ -29,8 +30,6 @@ class ShadowScene extends SceneRenderer {
       const pointLightColour = options.pointLightColour ? options.pointLightColour : shadowSceneDefaultOptions.pointLightColour;
       const pointLightPosition = options.pointLightPosition ? options.pointLightPosition : shadowSceneDefaultOptions.pointLightPosition;
       const pointLightAtten = options.pointLightAtten ? options.pointLightAtten : shadowSceneDefaultOptions.pointLightAtten;
-
-      this.timeCounter = 0;
 
       const size = this.voxelModel.xSize();
       const halfXSize = this.voxelModel.xSize()/2;

@@ -22,6 +22,7 @@ class AudioVisualizerAnimator extends VoxelAnimator {
     this._prevSceneConfig = null;
 
     this.currAudioInfo = null;
+    this._scene = vtScene;
     this._sceneMap = {
       [SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE]:  new BasicBarsAudioVisScene(vtScene, this.voxelModel),
       [SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE]: new HistoryBarsAudioVisScene(vtScene, this.voxelModel),
@@ -65,6 +66,13 @@ class AudioVisualizerAnimator extends VoxelAnimator {
   render(dt) {
     if (this.currAudioInfo) {
       this.audioVisualizer.updateAudioInfo(this.currAudioInfo);
+
+      // When crossfading we need to update both scenes
+      if (this._prevSceneConfig) {
+        const prevScene = this._sceneMap[this._prevSceneConfig.sceneType];
+        prevScene.updateAudioInfo(this.currAudioInfo);
+      }
+
       this.currAudioInfo = null;
     }
 
@@ -77,7 +85,8 @@ class AudioVisualizerAnimator extends VoxelAnimator {
 
       this.voxelModel.setFrameBuffer(0);
       this.voxelModel.clear(new THREE.Color(0,0,0));
-      prevScene.rebuild(this._prevSceneConfig)
+      this._scene.clear();
+      prevScene.build(this._prevSceneConfig)
       prevScene.render(dt);
       this.voxelModel.multiply(1-percentFade);
 
@@ -94,7 +103,8 @@ class AudioVisualizerAnimator extends VoxelAnimator {
       // aren't just overwriting the voxel framebuffer despite the crossfade amounts for each animation
       this.voxelModel.setFrameBuffer(1);
       this.voxelModel.clear(new THREE.Color(0,0,0));
-      this.audioVisualizer.rebuild(this.config);
+      this._scene.clear();
+      this.audioVisualizer.build(this.config);
       this.audioVisualizer.render(dt);
       this.voxelModel.multiply(percentFade);
 
@@ -105,14 +115,19 @@ class AudioVisualizerAnimator extends VoxelAnimator {
     }
     else {
       this.audioVisualizer.render(dt);
-    } 
+    }
   }
 
   reset() {
     super.reset();
-    this.audioVisualizer.clear();
-    this.currAudioInfo = null;
+    //this.audioVisualizer.clear();
+    //this.currAudioInfo = null;
   }
+
+  setCrossfadeTime(t) {
+    this._totalCrossfadeTime = t;
+  }
+
 }
 
 export default AudioVisualizerAnimator;

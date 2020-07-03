@@ -14,12 +14,12 @@ class SimpleScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
     this._objectsBuilt = false;
+    this.prevTextureFilename = "";
   }
 
   clear() {
     super.clear();
     this._objectsBuilt = false;
-    this.prevTextureFilename = "";
   }
 
   build(options) {

@@ -26,9 +26,6 @@ class VoxelObject {
     this.colour = colour;
   }
 
-  setColourRGB(r,g,b) { 
-    this.colour.setRGB(r,g,b); 
-  }
   setColour(colour) { 
     this.colour.setRGB(colour.r, colour.g, colour.b);
   }
@@ -70,8 +67,8 @@ class VoxelModel {
     }
 
     this.voxelFramebuffers = [voxelFramebuffer0, voxelFramebuffer1];
-    this.voxels = voxelFramebuffer0;
-
+    this.voxelFramebufferIdx = 0;
+    
     // Build a voxel tracer scene, which will be shared by all animators that use it
     this.vtScene = new VTScene(this); //new VTSceneMultithreading(this);
     this._clearColour = new THREE.Color(0,0,0);
@@ -94,6 +91,13 @@ class VoxelModel {
     this.totalCrossfadeTime = DEFAULT_CROSSFADE_TIME_SECS;
     this.crossfadeCounter = Infinity;
     this.prevAnimator = null;
+  }
+
+  get voxels() {
+    return this.voxelFramebuffers[this.voxelFramebufferIdx];
+  }
+  set voxels(v) {
+    this.voxelFramebuffers[this.voxelFramebufferIdx] = v;
   }
 
   xSize() {
@@ -129,6 +133,7 @@ class VoxelModel {
   setCrossfadeTime(t) {
     this.totalCrossfadeTime = Math.max(0, t);
     this._animators[VoxelAnimator.VOXEL_ANIM_SCENE].setCrossfadeTime(this.totalCrossfadeTime);
+    this._animators[VoxelAnimator.VOXEL_ANIM_SOUND_VIZ].setCrossfadeTime(this.totalCrossfadeTime);
   }
 
   run(voxelServer) {
@@ -217,7 +222,7 @@ class VoxelModel {
   }
 
   setFrameBuffer(idx=0) {
-    this.voxels = this.voxelFramebuffers[idx];
+    this.voxelFramebufferIdx = idx;
   }
 
   /**
@@ -304,12 +309,12 @@ class VoxelModel {
     }
   }
   clearAllFramebuffers(colour) {
-    const prevFramebuffer = this.voxels;
+    const prevFramebufferIdx = this.voxelFramebufferIdx;
     for (let i = 0; i < this.voxelFramebuffers.length; i++) {
       this.setFrameBuffer(i);
       this.clear(colour);
     }
-    this.voxels = prevFramebuffer;
+    this.setFrameBuffer(prevFramebufferIdx);
   }
 
   multiply(alpha) {
