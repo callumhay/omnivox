@@ -481,6 +481,98 @@ class VoxelModel {
       this.drawPoint(pt, colour);
     });
   }
+
+
+  /*
+  voxelBoxMaskGPU(minPt=[0,0,0], maxPt=[1,1,1], fill=false) {
+    let boxMaskFunc = null;
+
+    // TODO: Move createKernel to constructor
+    const boxMaskFuncSettings = {
+      output: [this.xSize(), this.ySize(), this.zSize()],
+      pipeline: true,
+      constants: {
+        VOXEL_ERR_UNITS_SQR: VOXEL_ERR_UNITS*VOXEL_ERR_UNITS,
+      },
+    };
+
+    if (fill) {
+      boxMaskFunc = this.gpu.createKernel((minPt, maxPt) => {
+        const currVoxelPos = [this.thread.x, this.thread.y, this.thread.z];
+        return (
+          currVoxelPos[0] >= minPt[0] && currVoxelPos[0] <= maxPt[0] &&
+          currVoxelPos[1] >= minPt[1] && currVoxelPos[0] <= maxPt[1] &&
+          currVoxelPos[2] >= minPt[2] && currVoxelPos[0] <= maxPt[2] &&
+        ) ? 1.0 : 0.0;
+      }, boxMaskFuncSettings);
+    }
+    else {
+      boxMaskFunc = this.gpu.createKernel((minPt, maxPt) => {
+        const currVoxelPos = [this.thread.x, this.thread.y, this.thread.z];
+
+        // Is the voxel within the outer boundary voxels of the box?
+        const dx = Math.max(minPt[0] - currVoxelPos[0], 0, currVoxelPos[0] - maxPt[0]);
+        const dy = Math.max(minPt[1] - currVoxelPos[1], 0, currVoxelPos[1] - maxPt[1]);
+        const dz = Math.max(minPt[2] - currVoxelPos[2], 0, currVoxelPos[2] - maxPt[2]);
+        const sqrDist = dx*dx + dy*dy + dz*dz;
+        return (sqrDist <= VOXEL_ERR_UNITS_SQR) ? 1.0 : 0.0;
+      }, boxMaskFuncSettings);
+    }
+
+    return boxMaskFunc(minPt, maxPt);
+  }
+
+  voxelSphereMaskGPU(center = [0,0,0], radius = 1, fill = false) {
+    let sphereMaskFunc = null;
+    
+    // TODO: Move createKernel to constructor
+    const sphereMaskFuncSettings = {
+      output: [this.xSize(), this.ySize(), this.zSize()],
+      pipeline: true,
+      constants: {
+        VOXEL_ERR_UNITS_SQR: VOXEL_ERR_UNITS*VOXEL_ERR_UNITS
+      },
+    };
+
+    if (fill) {
+      sphereMaskFunc = this.gpu.createKernel((c, rSqr) => {
+        // Check whether the voxel is inside the sphere
+        const currVoxelPos = [this.thread.x, this.thread.y, this.thread.z];
+        // Find the squared distance from the center of the sphere to the voxel
+        const sqrDist = Math.pow(currVoxelPos[0]-c[0],2) + Math.pow(currVoxelPos[1]-c[1],2) + Math.pow(currVoxelPos[2]-c[2],2);
+        return sqrDist <= (rSqr + this.constants.VOXEL_ERR_UNITS_SQR) ? 1.0 : 0.0;
+      }, sphereMaskFuncSettings);
+    }
+    else {
+      sphereMaskFunc = this.gpu.createKernel((c, rSqr) => {
+        // Check whether the voxel is on the outside-ish of the sphere
+        const currVoxelPos = [this.thread.x, this.thread.y, this.thread.z];
+        // Find the squared distance from the center of the sphere to the voxel
+        const sqrDist = Math.pow(currVoxelPos[0]-c[0],2) + Math.pow(currVoxelPos[1]-c[1],2) + Math.pow(currVoxelPos[2]-c[2],2);
+        return Math.abs(rSqr-sqrDist) <= this.constants.VOXEL_ERR_UNITS_SQR ? 1.0 : 0.0;
+      }, sphereMaskFuncSettings);
+    }
+
+    return sphereMaskFunc(center, radius*radius); // Returns a 3D texture with a mask for the sphere 
+  }
+
+  drawSphereGPU(center=[0,0,0], radius=1, colour=[1,1,1], fill=false) {
+    const maskTexture = this.voxelSphereMaskGPU(center, radius, fill);
+
+    // TODO: move to constructor
+    const drawSphereFuncSettings = {
+      output: [this.xSize(), this.ySize(), this.zSize()],
+      pipeline: true,
+      immutable: true,
+    };
+    const drawSphereFunc = this.gpu.createKernel((mask, colour) => {
+      const maskVal = mask[this.thread.x][this.thread.y][this.thread.z];
+      return [maskVal*colour[0], maskVal*colour[1], maskVal*colour[2]];
+    }, drawSphereFuncSettings);
+
+    this.voxelTex = drawSphereFunc(maskTexture, colour);
+  }
+  */
 }
 
 export default VoxelModel;
