@@ -1,8 +1,8 @@
 const NUM_BUFFERS = 10;
 
 class Fluid {
-  constructor(voxelModel) {
-    this.N = voxelModel.xSize();
+  constructor(gridSize) {
+    this.N = gridSize;
     this.SIZE = Math.pow(this.N+2,3);
 
     // Initialize the array of buffers
@@ -39,7 +39,7 @@ class Fluid {
     return z*Math.pow(this.N+2,2) + y*(this.N+2) + x;
   }
 
-  set_bnd(b, x) {}
+  //set_bnd(b, x) {}
 
   addSource(srcBuffer, dstBuffer, dt) {
     for (let i = 0; i < this.SIZE; i++) {
@@ -67,7 +67,7 @@ class Fluid {
           }
         }
       }
-      this.set_bnd(b, x);
+      //this.set_bnd(b, x);
     }
   }
 
@@ -94,7 +94,7 @@ class Fluid {
         }
       }
     }
-    this.set_bnd(b, this.d);
+    //this.set_bnd(b, this.d);
   }
 
   advectCool(b, x0, x, y0, y, uu, vv, ww, dt) {
@@ -126,7 +126,7 @@ class Fluid {
         }
       }
     }
-    this.set_bnd(b, this.d);
+    //this.set_bnd(b, this.d);
   }
 
   project() {
@@ -145,8 +145,8 @@ class Fluid {
         }
       }
     }
-    this.set_bnd(0, div);
-    this.set_bnd(0, p);
+    //this.set_bnd(0, div);
+    //this.set_bnd(0, p);
 
     for (let l = 0; l < 20; l++) {
       for (let k = 1; k <= this.N; k++) {
@@ -159,7 +159,7 @@ class Fluid {
           }
         }
       }
-      this.set_bnd(0, p);
+      //this.set_bnd(0, p);
     }
 
     for (let k = 1; k <= this.N; k++) {
@@ -171,8 +171,8 @@ class Fluid {
         }
       }
     }
-    this.set_bnd(1, this.u);
-    this.set_bnd(2, this.v);
+    //this.set_bnd(1, this.u);
+    //this.set_bnd(2, this.v);
   }
 
   vorticityConfinement(dt) {

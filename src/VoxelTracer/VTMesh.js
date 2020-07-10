@@ -213,9 +213,9 @@ class VTMesh {
     return raycaster.intersectObjects([this._threeMesh]).length > 0;
   }
 
-  getCollidingVoxels() {
+  getCollidingVoxels(voxelGridBoundingBox) {
     const worldSpaceBB = this.geometry.boundingBox.clone().applyMatrix4(this._threeMesh.matrixWorld);
-    return VoxelModel.voxelBoxList(worldSpaceBB.min, worldSpaceBB.max, true);
+    return VoxelModel.voxelBoxList(worldSpaceBB.min, worldSpaceBB.max, true, voxelGridBoundingBox);
   }
 }
 

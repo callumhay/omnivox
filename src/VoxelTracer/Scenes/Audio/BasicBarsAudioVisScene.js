@@ -136,6 +136,7 @@ class BasicBarsAudioVisScene extends SceneRenderer {
     if (!this._objectsBuilt) {
       return;
     }
+    
     this.scene.render();
     this.timeCounter += dt;
   }

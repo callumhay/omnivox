@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import chroma from 'chroma-js';
 
 import VoxelAnimator, {REPEAT_INFINITE_TIMES} from './VoxelAnimator';
+import VoxelModel from '../Server/VoxelModel';
 import {COLOUR_INTERPOLATION_RGB} from '../Spectrum';
 
 export const INTERPOLATION_LERP     = 'lerp';
@@ -47,6 +48,8 @@ class VoxelColourAnimator extends VoxelAnimator {
     }
   }
 
+  rendersToCPUOnly() { return true; }
+
   render(dt) {
     super.render(dt);
 
@@ -73,7 +76,7 @@ class VoxelColourAnimator extends VoxelAnimator {
       const currColour = new THREE.Color(temp[0], temp[1], temp[2]);
       
       this.voxelPositions.forEach(voxelPos => {
-        this.voxelModel.setVoxel(voxelPos, currColour);
+        this.voxelModel.drawPoint(voxelPos, currColour);
       });
 
       const isFinishedCurrentLoop = (this.currTime >= endTimeSecs);

@@ -4,6 +4,8 @@ import VoxelAnimator from './VoxelAnimator';
 import {Randomizer} from './Randomizers';
 import {VOXEL_EPSILON} from '../MathUtils';
 
+import {BLEND_MODE_OVERWRITE} from '../Server/VoxelModel';
+
 const EIGHTIES_MAGENTA_HEX    = 0xF00078;
 const EIGHTIES_YELLOW_HEX     = 0xFFC70E;
 const EIGHTIES_LIME_HEX       = 0x99FC20;
@@ -61,7 +63,6 @@ export const shapeWaveAnimatorDefaultConfig = {
   repeat: -1, // This needs to be here for the VoxelAnimator setConfig
 };
 
-
 class WaveShape {
   constructor(voxelModel, center, shape, colour) {
     this.voxelModel = voxelModel;
@@ -85,7 +86,6 @@ class WaveShape {
       case WAVE_SHAPE_SPHERE:
         this.voxelModel.drawSphere(this.center, drawRadius, adjustedColour, true);
         break;
-
       default:
         break;
     }
@@ -98,19 +98,30 @@ class WaveShape {
     return this.center.clone().addScalar(r);
   }
   isInsideVoxels() {
-    const voxelGridSize = this.voxelModel.gridSize + VOXEL_EPSILON;
-    const minBoundsPt = new THREE.Vector3(-VOXEL_EPSILON,-VOXEL_EPSILON,-VOXEL_EPSILON);
+    const voxelGridSize = this.voxelModel.gridSize + 1 + VOXEL_EPSILON;
+    const minValue = -(1+VOXEL_EPSILON);
+    const minBoundsPt = new THREE.Vector3(minValue, minValue, minValue);
     const maxBoundsPt = new THREE.Vector3(voxelGridSize, voxelGridSize, voxelGridSize);
 
     switch (this.shape) {
       case WAVE_SHAPE_CUBE:
-        const boundingBox = new THREE.Box3(this.getMinPt(this.radius), this.getMaxPt(this.radius));
-        return !boundingBox.containsBox(new THREE.Box3(minBoundsPt, maxBoundsPt));
+        const boundingBox = new THREE.Box3(this.getMinPt(this.radius-1), this.getMaxPt(this.radius-1));
+        return !(boundingBox.containsPoint(minBoundsPt) && boundingBox.containsPoint(maxBoundsPt));
       case WAVE_SHAPE_SPHERE:
-        const boundingSphere = new THREE.Sphere(this.center, this.radius + VOXEL_EPSILON);
+        const boundingSphere = new THREE.Sphere(this.center, this.radius - VOXEL_EPSILON);
         return !(boundingSphere.containsPoint(minBoundsPt) && boundingSphere.containsPoint(maxBoundsPt));
       default:
         return false;
+    }
+  }
+
+  tick(dt, waveSpeed) {
+    if (this.animationFinished) {
+      return;
+    }
+    this.radius += dt*waveSpeed;
+    if (!this.isInsideVoxels()) {
+      this.animationFinished = true;
     }
   }
 
@@ -177,7 +188,7 @@ class ShapeWaveAnimator extends VoxelAnimator {
   }
 
   render(dt) {
-    const {waveSpeed, waveGap, brightness} = this.config;
+    const {waveSpeed, waveGap, brightness, waveShape, center} = this.config;
 
     const voxelSampleSize = 1 + waveGap;
     const lastShape = this.activeShapes.length > 0 ? this.activeShapes[this.activeShapes.length-1] : null;
@@ -185,10 +196,14 @@ class ShapeWaveAnimator extends VoxelAnimator {
       this.activeShapes.push(this.buildWaveShapeAnimator());
     }
 
-    // Tick/draw each of the animators
-    for (let i = 0; i < this.activeShapes.length; i++) {
+    // Build a list of everything we need to render
+    const radii = [];
+    const colours = [];
+    for (let i = this.activeShapes.length-1; i >= 0; i--) {
       const currWaveShape = this.activeShapes[i];
-      currWaveShape.render(dt, waveSpeed, brightness);
+      currWaveShape.tick(dt, waveSpeed);
+      radii.push(currWaveShape.radius);
+      colours.push(currWaveShape.colour.toArray());
 
       if (i > 0) {
         const largerThanCurrentWave = this.activeShapes[i-1];
@@ -196,6 +211,28 @@ class ShapeWaveAnimator extends VoxelAnimator {
           largerThanCurrentWave.removeMe = true;
         }
       }
+    }
+
+    // Fill the reamining elements (or remove extra elements) in the arrays up to the grid size 
+    // (this is needed to make the array the same size everytime for the GPU)
+    for (let i = radii.length; i < this.voxelModel.gridSize; i++) {
+      radii.push(0);
+      colours.push([0,0,0]);
+    }
+    for (let i = radii.length; i > this.voxelModel.gridSize; i--) {
+      radii.pop();
+      colours.pop();
+    }
+
+    switch (waveShape) {
+      case WAVE_SHAPE_CUBE:
+        this.voxelModel.drawCubes([center.x, center.y, center.z], radii, colours, brightness);
+        break;
+      case WAVE_SHAPE_SPHERE:
+        this.voxelModel.drawSpheres([center.x, center.y, center.z], radii, colours, brightness);
+        break;
+      default:
+        break;
     }
 
     // Clean up animators that are no longer visible

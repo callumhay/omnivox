@@ -215,16 +215,11 @@ class VTScene {
       const renderable = visibleRenderables[i];
 
       // Get all of the voxels that collide with the renderable object
-      const voxelIndexPoints = renderable.getCollidingVoxels();
+      const voxelIndexPoints = renderable.getCollidingVoxels(voxelBoundingBox);
       for (let j = 0; j < voxelIndexPoints.length; j++) {
         const voxelIdxPt = voxelIndexPoints[j];
-        const voxelObj = this.voxelModel.getVoxel(voxelIdxPt);
-        if (voxelObj) {
-          // Map the index point into the centroid of the voxel in worldspace
-          //const wsVoxelCentroid = this.voxelModel.calcVoxelWorldSpaceCentroid(voxelIdxPt);
-          const calcColour = renderable.calculateVoxelColour(voxelIdxPt, this);
-          voxelObj.addColour(calcColour);
-        }
+        const calcColour = renderable.calculateVoxelColour(voxelIdxPt, this);
+        this.voxelModel.addToVoxel(voxelIdxPt, calcColour);
       }
     }
   }

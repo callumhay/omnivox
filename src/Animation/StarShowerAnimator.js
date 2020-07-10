@@ -4,6 +4,8 @@ import VoxelAnimator from './VoxelAnimator';
 import ShootingStarAnimator from './ShootingStarAnimator';
 import {UniformVector3Randomizer, Vector3DirectionRandomizer, UniformFloatRandomizer, ColourRandomizer} from './Randomizers';
 
+import VoxelModel from '../Server/VoxelModel';
+
 export const starShowerDefaultConfig = {
   positionRandomizer: new UniformVector3Randomizer(new THREE.Vector3(0,0,7), new THREE.Vector3(7,7,7)),
   directionRandomizer: new Vector3DirectionRandomizer(new THREE.Vector3(0,0,-1), 0),
@@ -44,6 +46,8 @@ class StarShowerAnimator extends VoxelAnimator {
     
     this.currSpawnRate = Math.max(1.0, c.spawnRate);
   }
+
+  rendersToCPUOnly() { return true; }
 
   render(dt) {
     // Check whether it's time to spawn a new shooting star

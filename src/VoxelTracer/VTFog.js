@@ -89,8 +89,8 @@ class VTFog {
     return this.boundingBox.intersectsBox(box);
   }
 
-  getCollidingVoxels() {
-    return VoxelModel.voxelBoxList(this.boundingBox.min, this.boundingBox.max, true);
+  getCollidingVoxels(voxelGridBoundingBox) {
+    return VoxelModel.voxelBoxList(this.boundingBox.min, this.boundingBox.max, true, voxelGridBoundingBox);
   }
 }
 

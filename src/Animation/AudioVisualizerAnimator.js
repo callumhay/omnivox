@@ -6,7 +6,7 @@ import {soundVisDefaultConfig, SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE, SOUND_VIZ_
 
 import {clamp} from '../MathUtils';
 
-import {BLEND_MODE_ADDITIVE, BLEND_MODE_OVERWRITE} from '../Server/VoxelModel';
+import VoxelModel from '../Server/VoxelModel';
 
 import FireAudioVisScene from '../VoxelTracer/Scenes/Audio/FireAudioVisScene';
 import BasicBarsAudioVisScene from "../VoxelTracer/Scenes/Audio/BasicBarsAudioVisScene";
@@ -63,6 +63,8 @@ class AudioVisualizerAnimator extends VoxelAnimator {
     this.currAudioInfo = audioInfo;
   }
 
+  rendersToCPUOnly() { return this._prevSceneConfig === null; }
+
   render(dt) {
     if (this.currAudioInfo) {
       this.audioVisualizer.updateAudioInfo(this.currAudioInfo);
@@ -82,13 +84,15 @@ class AudioVisualizerAnimator extends VoxelAnimator {
 
       // Adjust the scene alphas as a percentage of the crossfade time and continue counting the total time until the crossfade is complete
       const percentFade = clamp(this._crossfadeCounter / this._totalCrossfadeTime, 0, 1);
+      const prevSceneFBIdx = VoxelModel.CPU_FRAMEBUFFER_IDX_0;
+      const currSceneFBIdx = VoxelModel.CPU_FRAMEBUFFER_IDX_1;
 
-      this.voxelModel.setFrameBuffer(0);
-      this.voxelModel.clear(new THREE.Color(0,0,0));
       this._scene.clear();
-      prevScene.build(this._prevSceneConfig)
+      prevScene.build(this._prevSceneConfig);
+
+      this.voxelModel.setFramebuffer(prevSceneFBIdx);
+      this.voxelModel.clear();
       prevScene.render(dt);
-      this.voxelModel.multiply(1-percentFade);
 
       if (this._crossfadeCounter < this._totalCrossfadeTime) {
         this._crossfadeCounter += dt;
@@ -99,19 +103,19 @@ class AudioVisualizerAnimator extends VoxelAnimator {
         this._prevSceneConfig = null;
       }
 
-      // Blend with the previous visualizer via framebuffer - we need to do this so that we
-      // aren't just overwriting the voxel framebuffer despite the crossfade amounts for each animation
-      this.voxelModel.setFrameBuffer(1);
-      this.voxelModel.clear(new THREE.Color(0,0,0));
       this._scene.clear();
       this.audioVisualizer.build(this.config);
-      this.audioVisualizer.render(dt);
-      this.voxelModel.multiply(percentFade);
 
-      this.voxelModel.setFrameBuffer(0);
-      this.voxelModel.blendMode = BLEND_MODE_ADDITIVE;
-      this.voxelModel.drawFramebuffer(1);
-      this.voxelModel.blendMode = BLEND_MODE_OVERWRITE;
+      this.voxelModel.setFramebuffer(currSceneFBIdx);
+      this.voxelModel.clear();
+      this.audioVisualizer.render(dt);
+
+      // Now we set the default render framebuffer for the animator and we combine the two scene framebuffers into it
+      this.voxelModel.setFramebuffer(VoxelModel.GPU_FRAMEBUFFER_IDX_0);
+      this.voxelModel.drawCombinedFramebuffers(
+        currSceneFBIdx, prevSceneFBIdx, 
+        {mode: VoxelModel.FB1_ALPHA_FB2_ONE_MINUS_ALPHA, alpha: percentFade}
+      );
     }
     else {
       this.audioVisualizer.render(dt);

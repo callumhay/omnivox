@@ -8,11 +8,12 @@ import VTVoxel from '../../VTVoxel';
 import VTEmissionMaterial from '../../VTEmissionMaterial';
 import Fluid, {_I} from '../../../Fluid';
 import {PI2, clamp} from '../../../MathUtils';
+import {FIRE_SPECTRUM_WIDTH} from '../../../Spectrum';
 import {Randomizer} from '../../../Animation/Randomizers';
 
 import {LOW_HIGH_TEMP_COLOUR_MODE, TEMPERATURE_COLOUR_MODE, RANDOM_COLOUR_MODE} from './AudioSceneDefaultConfigs';
 
-const SPECTRUM_WIDTH = 256;
+
 const FIRE_THRESHOLD = 7;
 const MAX_FIRE_ALPHA = 1.0;
 const FULL_ON_FIRE   = 100;
@@ -23,7 +24,7 @@ class FireAudioVisScene extends SceneRenderer {
     this._objectsBuilt = false;
     
     // Setup basic defaults for the fire's fluid model - these will immediately be modified based on the audio
-    this.fluidModel = new Fluid(voxelModel);
+    this.fluidModel = new Fluid(voxelModel.gridSize);
     this.fluidModel.diffusion = 0.0001;
     this.fluidModel.viscosity = 0;
     this.fluidModel.buoyancy  = 5.4;
@@ -201,7 +202,7 @@ class FireAudioVisScene extends SceneRenderer {
           //const lighting = 0.0;
 
           // Use the temp and density to look up the expected colour of the flame at the current voxel
-          const temperatureIdx = Math.min(SPECTRUM_WIDTH-1, Math.max(0, Math.round(temperature*(SPECTRUM_WIDTH-1))));
+          const temperatureIdx = Math.min(FIRE_SPECTRUM_WIDTH-1, Math.max(0, Math.round(temperature*(FIRE_SPECTRUM_WIDTH-1))));
           const densityIdx = Math.min(15, Math.max(0, Math.round(density*15)));
           const intensityIdx = 0;//Math.round(lighting*15);
 
@@ -337,10 +338,9 @@ class FireAudioVisScene extends SceneRenderer {
       const brightenAmt    = intensityCoeff * 2;
       const desaturateAmt  = densityCoeff * 2;
 
-      const temperatureNorm = temperatureIdx / (SPECTRUM_WIDTH - 1);
+      const temperatureNorm = temperatureIdx / (FIRE_SPECTRUM_WIDTH - 1);
       const temperature = THREE.MathUtils.lerp(temperatureMin, temperatureMax, temperatureNorm) + 
-        100 * brightenAmt - 100 * desaturateAmt; 
-      //console.log(temperature);
+        100 * brightenAmt - 100 * desaturateAmt;
       const finalColour = chroma.temperature(temperature).gl();
 
       return {
@@ -358,7 +358,6 @@ class FireAudioVisScene extends SceneRenderer {
         return {r: 0, g:0, b:0, a:0};
       }
   
-
       const {colourInterpolationType} = this._options.sceneConfig;
       const intensityCoeff = THREE.MathUtils.smoothstep(intensityIdx, 0, 15);
       const densityCoeff = THREE.MathUtils.smoothstep(densityIdx, 0, 15);
@@ -366,17 +365,12 @@ class FireAudioVisScene extends SceneRenderer {
       const brightenAmt = intensityCoeff*2;
       const desaturateAmt = densityCoeff*2;
 
-      const lowTempColourWithAlpha = {
-        r: lowTempColour.r, g: lowTempColour.g, b: lowTempColour.b, a:1
-      };
-      const highTempColourWithAlpha = {
-        r: highTempColour.r, g: highTempColour.g, b: highTempColour.b, a: 1
-      };
+      const lowTempColourWithAlpha  = { r: lowTempColour.r,  g: lowTempColour.g,  b: lowTempColour.b,  a: 1 };
+      const highTempColourWithAlpha = { r: highTempColour.r, g: highTempColour.g, b: highTempColour.b, a: 1 };
 
-      // The mix needs gamma to better replicate a temperature colour scale (i.e., non-linear)
       const finalColour = chroma.mix(
         chroma.gl(lowTempColourWithAlpha), chroma.gl(highTempColourWithAlpha), 
-        temperatureIdx / (SPECTRUM_WIDTH - 1), colourInterpolationType
+        temperatureIdx / (FIRE_SPECTRUM_WIDTH - 1), colourInterpolationType
       ).brighten(brightenAmt).desaturate(desaturateAmt).gl();
 
       return {

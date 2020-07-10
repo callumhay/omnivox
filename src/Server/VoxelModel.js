@@ -1,19 +1,22 @@
 import * as THREE from 'three';
-import {VOXEL_ERR_UNITS, clamp} from '../MathUtils';
+
+import {clamp, VOXEL_ERR_UNITS} from '../MathUtils';
 
 import VoxelAnimator, {DEFAULT_CROSSFADE_TIME_SECS} from '../Animation/VoxelAnimator';
 import VoxelColourAnimator from '../Animation/VoxelColourAnimator';
 import StarShowerAnimator from '../Animation/StarShowerAnimator';
 import ShapeWaveAnimator from '../Animation/ShapeWaveAnimator';
-import GameOfLifeAnimator from '../Animation/GameOfLifeAnimator';
 import FireAnimator from '../Animation/FireAnimator';
 import SceneAnimator from '../Animation/SceneAnimator';
 import AudioVisualizerAnimator from '../Animation/AudioVisualizerAnimator';
 
 import VTScene from '../VoxelTracer/VTScene';
-//import VTSceneMultithreading from '../VoxelTracer/Thread/VTSceneMultithreading'; // Too much work and overhead... not worth it?
+import VoxelFramebufferCPU from './VoxelFramebufferCPU';
+import VoxelFramebufferGPU from './VoxelFramebufferGPU';
+import GPUKernelManager from './GPUKernelManager';
 
-export const HALF_VOXEL_SIZE = 0.5;
+export const VOXEL_SIZE = 1.0;
+export const HALF_VOXEL_SIZE = VOXEL_SIZE / 2.0;
 
 export const BLEND_MODE_OVERWRITE = 0;
 export const BLEND_MODE_ADDITIVE  = 1;
@@ -21,62 +24,51 @@ export const BLEND_MODE_ADDITIVE  = 1;
 const DEFAULT_POLLING_FREQUENCY_HZ = 60; // Render Frames per second - if this is too high then we overwhelm our clients
 const DEFAULT_POLLING_INTERVAL_MS  = 1000 / DEFAULT_POLLING_FREQUENCY_HZ;
 
-class VoxelObject {
-  constructor(colour) {
-    this.colour = colour;
-  }
-
-  setColour(colour) { 
-    this.colour.setRGB(colour.r, colour.g, colour.b);
-  }
-  addColour(colour) { 
-    this.colour.add(colour); 
-    this.colour.setRGB(clamp(this.colour.r, 0, 1), clamp(this.colour.g, 0, 1), clamp(this.colour.b, 0, 1));
-  }
-}
-
 class VoxelModel {
+
+  // Framebuffer index constants
+  static get GPU_FRAMEBUFFER_IDX_0() { return 0; }
+  static get GPU_FRAMEBUFFER_IDX_1() { return 1; }
+  static get CPU_FRAMEBUFFER_IDX_0() { return 2; }
+  static get CPU_FRAMEBUFFER_IDX_1() { return 3; }
+
+  static getOtherFramebufferIndex(idx) {
+    switch (idx) {
+      case VoxelModel.GPU_FRAMEBUFFER_IDX_0: return VoxelModel.GPU_FRAMEBUFFER_IDX_1;
+      case VoxelModel.GPU_FRAMEBUFFER_IDX_1: return VoxelModel.GPU_FRAMEBUFFER_IDX_0;
+      case VoxelModel.CPU_FRAMEBUFFER_IDX_0: return VoxelModel.CPU_FRAMEBUFFER_IDX_1;
+      case VoxelModel.CPU_FRAMEBUFFER_IDX_1: return VoxelModel.CPU_FRAMEBUFFER_IDX_0;
+      default:
+        console.log("Invalid framebuffer index.");
+        break;
+    }
+    return null;
+  }
+
+  // Framebuffer combination constants
+  static get FB1_ALPHA_FB2_ONE_MINUS_ALPHA() { return 0; }
 
   constructor(gridSize) {
 
     this.gridSize = gridSize;
     this.blendMode = BLEND_MODE_OVERWRITE;
-    
-    // Build the 3D array of voxels and an extra framebuffer
-    const voxelFramebuffer0 = [];
-    const voxelFramebuffer1 = [];
-    for (let x = 0; x < gridSize; x++) {
-      let currXArr = [];
-      voxelFramebuffer0.push(currXArr);
+    this.gpuKernelMgr = new GPUKernelManager(gridSize);
 
-      let currFBXArr = [];
-      voxelFramebuffer1.push(currFBXArr);
+    // Note: Indices MUST match up with the constants for *_FRAMEBUFFER_IDX_* !!!!
+    this._framebuffers = [
+      new VoxelFramebufferGPU(0, this.gpuKernelMgr),
+      new VoxelFramebufferGPU(1, this.gpuKernelMgr),
+      new VoxelFramebufferCPU(2, gridSize, this.gpuKernelMgr),
+      new VoxelFramebufferCPU(3, gridSize, this.gpuKernelMgr),
+    ];
+    this._framebufferIdx = VoxelModel.GPU_FRAMEBUFFER_IDX_0;
 
-      for (let y = 0; y < gridSize; y++) {
-        let currYArr = [];
-        currXArr.push(currYArr);
-
-        let currFBYArr = [];
-        currFBXArr.push(currFBYArr);
-
-        for (let z = 0; z < gridSize; z++) {
-          currYArr.push(new VoxelObject(new THREE.Color(0,0,0)));
-          currFBYArr.push(new VoxelObject(new THREE.Color(0,0,0)));
-        }
-      }
-    }
-
-    this.voxelFramebuffers = [voxelFramebuffer0, voxelFramebuffer1];
-    this.voxelFramebufferIdx = 0;
-    
     // Build a voxel tracer scene, which will be shared by all animators that use it
     this.vtScene = new VTScene(this); //new VTSceneMultithreading(this);
-    this._clearColour = new THREE.Color(0,0,0);
     this._animators = {
       [VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR]       : new VoxelColourAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER]  : new StarShowerAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES]  : new ShapeWaveAnimator(this),
-      [VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE] : new GameOfLifeAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_FIRE]              : new FireAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_SCENE]             : new SceneAnimator(this, this.vtScene),
       [VoxelAnimator.VOXEL_ANIM_SOUND_VIZ]         : new AudioVisualizerAnimator(this, this.vtScene),
@@ -93,21 +85,64 @@ class VoxelModel {
     this.prevAnimator = null;
   }
 
-  get voxels() {
-    return this.voxelFramebuffers[this.voxelFramebufferIdx];
-  }
-  set voxels(v) {
-    this.voxelFramebuffers[this.voxelFramebufferIdx] = v;
+  xSize() { return this.gridSize; }
+  ySize() { return this.gridSize; }
+  zSize() { return this.gridSize; }
+
+  setFramebuffer(idx=0) { this._framebufferIdx = idx; }
+  get framebuffer() {
+    return this._framebuffers[this._framebufferIdx];
   }
 
-  xSize() {
-    return this.voxels.length;
+  test() {
+    /*
+    this.setFramebuffer(VoxelModel.CPU_FRAMEBUFFER_IDX_0);
+    this.clear();
+    for (let x = 0; x < this.xSize(); x++) {
+      for (let y = 0; y < this.ySize(); y++) {
+        for (let z = 0; z < this.zSize(); z++) {
+          this.drawPoint(new THREE.Vector3(x, y, z), new THREE.Color(x, y, z));
+        }
+      }
+    }
+    
+    console.log("CPU:");
+    this.debugPrintVoxelTexture(true);
+
+    this.setFramebuffer(VoxelModel.GPU_FRAMEBUFFER_IDX_0);
+    this.clear();
+    this.drawFramebuffer(VoxelModel.CPU_FRAMEBUFFER_IDX_0);
+    console.log("GPU:");
+    this.debugPrintVoxelTexture(false);
+    */
+
+    const fireAnimator = this._animators[VoxelAnimator.VOXEL_ANIM_FIRE];
+    while (true) {
+      this.setFramebuffer(VoxelModel.GPU_FRAMEBUFFER_IDX_0);
+      this.clear();
+      //fireAnimator.render(0.0001);
+      this.framebuffer.getCPUBuffer();
+    }
+
+
   }
-  ySize() {
-    return this.voxels[0].length;
-  }
-  zSize() {
-    return this.voxels[0][0].length;
+
+  debugPrintVoxelTexture(isCPU) {
+    const arr = this.framebuffer.getCPUBuffer();
+    //console.log(arr);
+
+    const strArr = [];
+    for (let x = 0; x < this.xSize(); x++) {
+      for (let y = 0; y < this.ySize(); y++) {
+        const temp = [];
+        for (let z = 0; z < this.zSize(); z++) {
+          const currColour = arr[x][y][z];
+          temp.push("("+currColour[0].toFixed(0)+","+currColour[1].toFixed(0)+","+currColour[2].toFixed(0)+")")
+        }
+        strArr.push(temp.join(", "));
+      }
+    }
+    console.log(strArr.join("\n"));
   }
 
   setAnimator(type, config) {
@@ -156,19 +191,19 @@ class VoxelModel {
 
       // If we need to catchup with the interval timer then we need to keep track of
       // how long it's been and skip rendering until we've caught up
+      /*
       if (catchupTimeInSecs > 0) {
         catchupTimeInSecs = Math.max(0, catchupTimeInSecs - dt);
       }
       else {
         catchupTimeInSecs = Math.max(0, dt - allowablePollingSecBackupSize);
       }
+      */
       
       if (catchupTimeInSecs <= 0) {
-        self.setFrameBuffer(0);
-        self.clear(self._clearColour);
-
         // Simulate the model based on the current animation...
-        
+        this.blendMode = BLEND_MODE_OVERWRITE;
+
         // Deal with crossfading between animators
         if (self.prevAnimator) {
           // Adjust the animator alphas as a percentage of the crossfade time and continue counting the total time until the crossfade is complete
@@ -184,23 +219,33 @@ class VoxelModel {
             self.prevAnimator.stop();
             self.prevAnimator = null;
           }
-          // Blend the "currentAnimtor" with the previous one via framebuffer - we need to do this so that we
+
+          // Blend the currentAnimtor with the previous one via framebuffer - we need to do this so that we
           // aren't just overwriting the voxel framebuffer despite the crossfade amounts for each animation
+          const prevAnimatorFBIdx = prevAnimator.rendersToCPUOnly() ? VoxelModel.CPU_FRAMEBUFFER_IDX_0 : VoxelModel.GPU_FRAMEBUFFER_IDX_0;
+          self.setFramebuffer(prevAnimatorFBIdx);
+          self.clear();
           prevAnimator.render(dtSinceLastRender);
-          self.multiply(1-percentFade);
+          //console.log("Previous:");
+          //self.debugPrintVoxelTexture();
 
-          self.setFrameBuffer(1);
-          self.clear(self._clearColour);
+          const currAnimatorFBIdx = self.currentAnimator.rendersToCPUOnly() ? VoxelModel.CPU_FRAMEBUFFER_IDX_1 : VoxelModel.GPU_FRAMEBUFFER_IDX_1;
+          self.setFramebuffer(currAnimatorFBIdx);
+          self.clear();
           self.currentAnimator.render(dtSinceLastRender);
-          self.multiply(percentFade);
+          //console.log("CPU:");
+          //self.debugPrintVoxelTexture();
 
-          self.setFrameBuffer(0);
-          self.blendMode = BLEND_MODE_ADDITIVE;
-          self.drawFramebuffer(1);
-          self.blendMode = BLEND_MODE_OVERWRITE;
+          self.setFramebuffer(VoxelModel.GPU_FRAMEBUFFER_IDX_0);
+          self.drawCombinedFramebuffers(currAnimatorFBIdx, prevAnimatorFBIdx, {mode: VoxelModel.FB1_ALPHA_FB2_ONE_MINUS_ALPHA, alpha: percentFade});
+          //console.log("GPU:");
+          //self.debugPrintVoxelTexture();
         }
         else {
           // No crossfade, just render the current animation
+          const currFBIdx = self.currentAnimator.rendersToCPUOnly() ? VoxelModel.CPU_FRAMEBUFFER_IDX_0 : VoxelModel.GPU_FRAMEBUFFER_IDX_0;
+          self.setFramebuffer(currFBIdx);
+          self.clear();
           self.currentAnimator.render(dtSinceLastRender);
         }
 
@@ -208,7 +253,7 @@ class VoxelModel {
         skipFrameNumber = 1;
 
         // Let the server know to broadcast the new voxel data to all clients
-        voxelServer.setVoxelData(self.voxels, self.frameCounter);
+        voxelServer.setVoxelData(self.framebuffer.getCPUBuffer(), self.frameCounter);
         self.frameCounter++;
       }
       else {
@@ -220,133 +265,47 @@ class VoxelModel {
       
     }, DEFAULT_POLLING_INTERVAL_MS);
   }
-
-  setFrameBuffer(idx=0) {
-    this.voxelFramebufferIdx = idx;
-  }
-
-  /**
-   * Build a flat list of all of the possible voxel indices (x,y,z) in this display
-   * as a list of THREE.Vector3 objects.
-   */
-  voxelIndexList() {
-    const idxList = [];
-    for (let x = 0; x < this.voxels.length; x++) {
-      for (let y = 0; y < this.voxels[x].length; y++) {
-        for (let z = 0; z < this.voxels[x][y].length; z++) {
-          idxList.push(new THREE.Vector3(x,y,z));
-        }
-      }
-    }
-    return idxList;
-  }
-
+ 
   /**
    * Check whether the given point is in the local space bounds of the voxels.
    * @param {THREE.Vector3} pt 
    */
   isInBounds(pt) {
-    const roundedX = Math.floor(pt.x);
-    const roundedY = Math.floor(pt.y);
-    const roundedZ = Math.floor(pt.z);
-
-    return roundedX >= 0 && roundedX < this.voxels.length &&
-      roundedY >= 0 && roundedY < this.voxels[roundedX].length &&
-      roundedZ >= 0 && roundedZ < this.voxels[roundedX][roundedY].length;
+    const adjustedX = Math.floor(pt.x);
+    const adjustedY = Math.floor(pt.y);
+    const adjustedZ = Math.floor(pt.z);
+    return adjustedX >= 0 && adjustedX < this.xSize() && adjustedY >= 0 && adjustedY < this.ySize() && adjustedZ >= 0 && adjustedZ < this.zSize();
   }
 
   /**
    * Get the local space Axis-Aligned Bounding Box for all voxels.
    */
   getBoundingBox() {
-    return new THREE.Box3(new THREE.Vector3(0,0,0), new THREE.Vector3(this.xSize(), this.ySize(), this.zSize()));
+    return VoxelModel.voxelBoundingBox(this.xSize(), this.ySize(), this.zSize());
+  }
+  static voxelBoundingBox(xSize, ySize, zSize) {
+    return new THREE.Box3(new THREE.Vector3(0,0,0), new THREE.Vector3(xSize-1, ySize-1, zSize-1));
   }
   
-  setVoxel(pt, colour) {
-    const roundedX = Math.floor(pt.x);
-    const roundedY = Math.floor(pt.y);
-    const roundedZ = Math.floor(pt.z);
-
-    if (roundedX >= 0 && roundedX < this.voxels.length &&
-        roundedY >= 0 && roundedY < this.voxels[roundedX].length &&
-        roundedZ >= 0 && roundedZ < this.voxels[roundedX][roundedY].length) {
-
-      this.voxels[roundedX][roundedY][roundedZ].setColour(colour);
-    } 
+  setVoxel(pt=new THREE.Vector3(0,0,0), colour=new THREE.Color(0,0,0))   {
+    this.framebuffer.setVoxel([pt.x, pt.y, pt.z], [colour.r, colour.g, colour.b]);
   }
-  getVoxel(pt) {
-    const roundedX = Math.floor(pt.x);
-    const roundedY = Math.floor(pt.y);
-    const roundedZ = Math.floor(pt.z);
-
-    return (roundedX >= 0 && roundedX < this.voxels.length &&
-        roundedY >= 0 && roundedY < this.voxels[roundedX].length &&
-        roundedZ >= 0 && roundedZ < this.voxels[roundedX][roundedY].length) ?
-        this.voxels[roundedX][roundedY][roundedZ] : null;
-  }
-
-  addToVoxel(pt, colour) {
-    const roundedX = Math.floor(pt.x);
-    const roundedY = Math.floor(pt.y);
-    const roundedZ = Math.floor(pt.z);
-
-    if (roundedX >= 0 && roundedX < this.voxels.length &&
-        roundedY >= 0 && roundedY < this.voxels[roundedX].length &&
-        roundedZ >= 0 && roundedZ < this.voxels[roundedX][roundedY].length) {
-
-      const voxel = this.voxels[roundedX][roundedY][roundedZ];
-      voxel.addColour(colour);
-    } 
-  }
-
-  clear(colour) {
-    for (let x = 0; x < this.voxels.length; x++) {
-      for (let y = 0; y < this.voxels[x].length; y++) {
-        for (let z = 0; z < this.voxels[x][y].length; z++) {
-          this.voxels[x][y][z].setColour(colour);
-        }
-      }
-    }
-  }
-  clearAllFramebuffers(colour) {
-    const prevFramebufferIdx = this.voxelFramebufferIdx;
-    for (let i = 0; i < this.voxelFramebuffers.length; i++) {
-      this.setFrameBuffer(i);
-      this.clear(colour);
-    }
-    this.setFrameBuffer(prevFramebufferIdx);
-  }
-
-  multiply(alpha) {
-    for (let x = 0; x < this.voxels.length; x++) {
-      for (let y = 0; y < this.voxels[x].length; y++) {
-        for (let z = 0; z < this.voxels[x][y].length; z++) {
-          this.voxels[x][y][z].colour.multiplyScalar(alpha);
-        }
-      }
-    }
-  }
-
-  voxelColour(pt) {
-    return this.getVoxel(pt).colour;
+  addToVoxel(pt=new THREE.Vector3(0,0,0), colour=new THREE.Color(0,0,0)) {
+    this.framebuffer.addToVoxel([pt.x, pt.y, pt.z], [colour.r, colour.g, colour.b]);
   }
 
   static voxelIdStr(voxelPt) {
     return voxelPt.x.toFixed(0) + "_" + voxelPt.y.toFixed(0) + "_" + voxelPt.z.toFixed(0);
   }
 
-  mapVoxelXYZToIdx(voxelPt) {
-    return voxelPt.x*this.ySize()*this.zSize() + voxelPt.y*this.zSize() + voxelPt.z;
-  }
-
   static calcVoxelBoundingBox(voxelPt) {
-    const roundedX = Math.floor(voxelPt.x);
-    const roundedY = Math.floor(voxelPt.y);
-    const roundedZ = Math.floor(voxelPt.z);
+    const adjustedX = Math.floor(voxelPt.x);
+    const adjustedY = Math.floor(voxelPt.y);
+    const adjustedZ = Math.floor(voxelPt.z);
 
     return new THREE.Box3(
-      new THREE.Vector3(roundedX, roundedY, roundedZ), 
-      new THREE.Vector3(roundedX+1, roundedY+1, roundedZ+1)
+      new THREE.Vector3(adjustedX, adjustedY, adjustedZ), 
+      new THREE.Vector3(adjustedX + VOXEL_SIZE, adjustedY + VOXEL_SIZE, adjustedZ + VOXEL_SIZE)
     );
   }
 
@@ -354,137 +313,93 @@ class VoxelModel {
     return new THREE.Vector3(Math.floor(pt.x), Math.floor(pt.y), Math.floor(pt.z));
   }
 
-  static calcVoxelWorldSpaceCentroid(idxSpacePt) {
-    return new THREE.Vector3(
-      Math.floor(idxSpacePt.x) + HALF_VOXEL_SIZE, 
-      Math.floor(idxSpacePt.y) + HALF_VOXEL_SIZE,
-      Math.floor(idxSpacePt.z) + HALF_VOXEL_SIZE
-    );
+  drawFramebuffer(idx) {
+    if (idx === this._framebufferIdx) {
+      console.error("Attempting to draw a framebuffer into itself, ignoring.");
+      return;
+    }
+
+    this.framebuffer.drawFramebuffer(this._framebuffers[idx], this.blendMode);
   }
 
-  drawFramebuffer(idx) {
-    const framebuffer = this.voxelFramebuffers[idx];
-    const currPt = new THREE.Vector3();
-    const blendFunc = this.getDrawPointBlendFunc();
+  drawCombinedFramebuffers(fb1Idx, fb2Idx, options) {
+    this.framebuffer.drawCombinedFramebuffers(this._framebuffers[fb1Idx], this._framebuffers[fb2Idx], options);
+  }
 
-    for (let x = 0; x < framebuffer.length; x++) {
-      for (let y = 0; y < framebuffer[x].length; y++) {
-        for (let z = 0; z < framebuffer[x][y].length; z++) {
-          blendFunc(currPt.set(x,y,z), framebuffer[x][y][z].colour);
+  clear(colour=new THREE.Color(0,0,0)) {
+    this.framebuffer.clear([colour.r, colour.g, colour.b]);
+  }
+
+  clearAll(colour=new THREE.Color(0,0,0)) {
+    const colourArr = [colour.r, colour.g, colour.b];
+    for (let i = 0; i < this._framebuffers.length; i++) {
+      this._framebuffers[i].clear(colourArr);
+    }
+  }
+
+  drawPoint(pt=new THREE.Vector3(0,0,0), colour=new THREE.Color(1,1,1)) {
+    this.framebuffer.drawPoint([pt.x, pt.y, pt.z], [colour.r, colour.g, colour.b], this.blendMode);
+  }
+
+  drawBox(minPt=new THREE.Vector3(0,0,0), maxPt=new THREE.Vector3(1,1,1), colour=new THREE.Color(1,1,1), fill=false) {
+    this.framebuffer.drawBox(minPt, maxPt, colour, fill, this.blendMode);
+  }
+
+  drawSphere(center=new THREE.Vector3(0,0,0), radius=1, colour=new THREE.Color(1,1,1), fill=false) {
+    this.framebuffer.drawSphere(center, radius, colour, fill, this.blendMode);
+  }
+  drawSpheres(center=[0,0,0], radii, colours, brightness) {
+    this.framebuffer.drawSpheres(center, radii, colours, brightness);
+  }
+  drawCubes(center=[0,0,0], radii, colours, brightness) {
+    this.framebuffer.drawCubes(center, radii, colours, brightness);
+  }
+
+  static voxelSphereList(center, radius, fill, voxelBoundingBox) {
+    // Create a bounding box for the sphere: 
+    // Centered at the given center with a half width/height/depth of the given radius
+    const sphereBounds = new THREE.Sphere(center, radius);
+    const sphereBoundingBox = new THREE.Box3(center.clone().subScalar(radius).floor().max(voxelBoundingBox.min), center.clone().addScalar(radius).ceil().min(voxelBoundingBox.max));
+
+    // Now we go through all the voxels in the bounding box and build a point list
+    const voxelPts = [];
+    for (let x = sphereBoundingBox.min.x; x <= sphereBoundingBox.max.x; x++) {
+      for (let y = sphereBoundingBox.min.y; y <= sphereBoundingBox.max.y; y++) {
+        for (let z = sphereBoundingBox.min.z; z <= sphereBoundingBox.max.z; z++) {
+
+          // Check whether the current voxel is inside the voxel grid and inside the radius of the sphere
+          const currPt = new THREE.Vector3(x,y,z);
+          const distToCurrPt = sphereBounds.distanceToPoint(currPt);
+          if (fill) {
+            if (distToCurrPt < VOXEL_ERR_UNITS) {
+              voxelPts.push(currPt);
+            }
+          }
+          else {
+            if (Math.abs(distToCurrPt) < VOXEL_ERR_UNITS) {
+              voxelPts.push(currPt);
+            }
+          }
+
         }
+
       }
     }
+    return voxelPts;
   }
 
-  getDrawPointBlendFunc() {
-    return (this.blendMode === BLEND_MODE_ADDITIVE ? this.addToVoxel : this.setVoxel).bind(this);
-  }
-
-  /**
-   * Draw a coloured point (the point will be sampled to the nearest voxel).
-   * @param {THREE.Vector3} pt - The position to draw the point at.
-   * @param {THREE.Color} colour - The colour of the point
-   */
-  drawPoint(pt, colour) {
-    const blendFunc = this.getDrawPointBlendFunc();
-    blendFunc(pt, colour);
-  }
-
- /**
-   * Draw a line through voxel space from the start point to the end point with the given colour.
-   * @param {Vector3} p1 - The position where the line starts, in local coordinates.
-   * @param {Vector3} p2 - The position where the line ends, in local coordinates.
-   * @param {Color} colour - The colour of the line.
-   */
-  drawLine(p1, p2, colour) {
-    // Code originally written by Anthony Thyssen, original algo of Bresenham's line in 3D
-    // http://www.ict.griffith.edu.au/anthony/info/graphics/bresenham.procs
-    
-    const blendDrawPointFunc = this.getDrawPointBlendFunc();
-
-		let dx, dy, dz, l, m, n, dx2, dy2, dz2, i, x_inc, y_inc, z_inc, err_1, err_2;
-		let currentPoint = new THREE.Vector3(p1.x, p1.y, p1.z);
-		dx = p2.x - p1.x;
-		dy = p2.y - p1.y;
-		dz = p2.z - p1.z;
-		x_inc = (dx < 0) ? -1 : 1;
-		l = Math.abs(dx);
-		y_inc = (dy < 0) ? -1 : 1;
-		m = Math.abs(dy);
-		z_inc = (dz < 0) ? -1 : 1;
-		n = Math.abs(dz);
-		dx2 = l * 2;
-		dy2 = m * 2;
-		dz2 = n * 2;
-
-		if ((l >= m) && (l >= n)) {
-			err_1 = dy2 - l;
-			err_2 = dz2 - l;
-			for (i = 0; i < l; i++) {
-				blendDrawPointFunc(currentPoint, colour);
-				if (err_1 > 0) {
-					currentPoint.y += y_inc;
-					err_1 -= dx2;
-				}
-				if (err_2 > 0) {
-					currentPoint.z += z_inc;
-					err_2 -= dx2;
-				}
-				err_1 += dy2;
-				err_2 += dz2;
-				currentPoint.x += x_inc;
-			}
-    } 
-    else if ((m >= l) && (m >= n)) {
-			err_1 = dx2 - m;
-			err_2 = dz2 - m;
-			for (i = 0; i < m; i++) {
-				blendDrawPointFunc(currentPoint, colour);
-				if (err_1 > 0) {
-					currentPoint.x += x_inc;
-					err_1 -= dy2;
-				}
-				if (err_2 > 0) {
-					currentPoint.z += z_inc;
-					err_2 -= dy2;
-				}
-				err_1 += dx2;
-				err_2 += dz2;
-				currentPoint.y += y_inc;
-			}
-    }
-    else {
-			err_1 = dy2 - n;
-			err_2 = dx2 - n;
-			for (i = 0; i < n; i++) {
-        blendDrawPointFunc(currentPoint, colour);
-				if (err_1 > 0) {
-					currentPoint.y += y_inc;
-					err_1 -= dz2;
-				}
-				if (err_2 > 0) {
-					currentPoint.x += x_inc;
-					err_2 -= dz2;
-				}
-				err_1 += dy2;
-				err_2 += dx2;
-				currentPoint.z += z_inc;
-			}
-		}
-
-		blendDrawPointFunc(currentPoint, colour);
-  }
-
-  static voxelBoxList(minPt=new THREE.Vector3(0,0,0), maxPt=new THREE.Vector3(1,1,1), fill=false) {
+  static voxelBoxList(minPt, maxPt, fill, voxelBoundingBox) {
     
     const voxelPts = [];
     const mappedMinPt = minPt.clone().floor();
-    const mappedMaxPt  = maxPt.clone().ceil();
+    mappedMinPt.max(voxelBoundingBox.min);
+    const mappedMaxPt = maxPt.clone().ceil();
+    mappedMaxPt.min(voxelBoundingBox.max);
 
     if (fill) {
-      for (let x = mappedMinPt.x; x < mappedMaxPt.x; x++) {
-        for (let y = mappedMinPt.y; y < mappedMaxPt.y; y++) {
-          for (let z = mappedMinPt.z; z < mappedMaxPt.z; z++) {
+      for (let x = mappedMinPt.x; x <= mappedMaxPt.x; x++) {
+        for (let y = mappedMinPt.y; y <= mappedMaxPt.y; y++) {
+          for (let z = mappedMinPt.z; z <= mappedMaxPt.z; z++) {
             voxelPts.push(new THREE.Vector3(x,y,z));
           }
         }
@@ -531,148 +446,9 @@ class VoxelModel {
         }
       }
     }
-
     return voxelPts;
   }
 
-  drawBox(minPt=new THREE.Vector3(0,0,0), maxPt=new THREE.Vector3(1,1,1), colour=new THREE.Color(1,1,1), fill=false) {
-    const boxPts = VoxelModel.voxelBoxList(minPt, maxPt, fill);
-    const blendDrawPointFunc = this.getDrawPointBlendFunc();
-    boxPts.forEach((pt) => {
-      blendDrawPointFunc(pt, colour);
-    });
-  }
-
-  voxelSphereList(center=new THREE.Vector3(0,0,0), radius=1, fill=false) {
-    // Create a bounding box for the sphere: 
-    // Centered at the given center with a half width/height/depth of the given radius
-    const sphereBounds = new THREE.Sphere(center, radius);
-    const sphereBoundingBox = new THREE.Box3(center.clone().subScalar(radius).floor(), center.clone().addScalar(radius).ceil());
-
-    // Now we go through all the voxels in the bounding box and build a point list
-    const voxelPts = [];
-    for (let x = sphereBoundingBox.min.x; x <= sphereBoundingBox.max.x; x++) {
-      for (let y = sphereBoundingBox.min.y; y <= sphereBoundingBox.max.y; y++) {
-        for (let z = sphereBoundingBox.min.z; z <= sphereBoundingBox.max.z; z++) {
-          // Check whether the current voxel is inside the radius of the sphere
-          const currPt = new THREE.Vector3(x,y,z);
-          const distToCurrPt = sphereBounds.distanceToPoint(currPt);
-          if (fill) {
-            if (distToCurrPt < VOXEL_ERR_UNITS) {
-              voxelPts.push(currPt);
-            }
-          }
-          else {
-            if (Math.abs(distToCurrPt) < VOXEL_ERR_UNITS) {
-              voxelPts.push(currPt);
-            }
-          }
-        }
-      }
-    }
-
-    return voxelPts;
-  }
-
-  drawSphere(center=new THREE.Vector3(0,0,0), radius=1, colour=new THREE.Color(1,1,1), fill=false) {
-    const spherePts = this.voxelSphereList(center, radius, fill);
-    const blendDrawPointFunc = this.getDrawPointBlendFunc();
-    spherePts.forEach((pt) => {
-      blendDrawPointFunc(pt, colour);
-    });
-  }
-
-
-  /*
-  voxelBoxMaskGPU(minPt=[0,0,0], maxPt=[1,1,1], fill=false) {
-    let boxMaskFunc = null;
-
-    // TODO: Move createKernel to constructor
-    const boxMaskFuncSettings = {
-      output: [this.xSize(), this.ySize(), this.zSize()],
-      pipeline: true,
-      constants: {
-        VOXEL_ERR_UNITS_SQR: VOXEL_ERR_UNITS*VOXEL_ERR_UNITS,
-      },
-    };
-
-    if (fill) {
-      boxMaskFunc = this.gpu.createKernel((minPt, maxPt) => {
-        const currVoxelPos = [this.thread.x, this.thread.y, this.thread.z];
-        return (
-          currVoxelPos[0] >= minPt[0] && currVoxelPos[0] <= maxPt[0] &&
-          currVoxelPos[1] >= minPt[1] && currVoxelPos[0] <= maxPt[1] &&
-          currVoxelPos[2] >= minPt[2] && currVoxelPos[0] <= maxPt[2] &&
-        ) ? 1.0 : 0.0;
-      }, boxMaskFuncSettings);
-    }
-    else {
-      boxMaskFunc = this.gpu.createKernel((minPt, maxPt) => {
-        const currVoxelPos = [this.thread.x, this.thread.y, this.thread.z];
-
-        // Is the voxel within the outer boundary voxels of the box?
-        const dx = Math.max(minPt[0] - currVoxelPos[0], 0, currVoxelPos[0] - maxPt[0]);
-        const dy = Math.max(minPt[1] - currVoxelPos[1], 0, currVoxelPos[1] - maxPt[1]);
-        const dz = Math.max(minPt[2] - currVoxelPos[2], 0, currVoxelPos[2] - maxPt[2]);
-        const sqrDist = dx*dx + dy*dy + dz*dz;
-        return (sqrDist <= VOXEL_ERR_UNITS_SQR) ? 1.0 : 0.0;
-      }, boxMaskFuncSettings);
-    }
-
-    return boxMaskFunc(minPt, maxPt);
-  }
-
-  voxelSphereMaskGPU(center = [0,0,0], radius = 1, fill = false) {
-    let sphereMaskFunc = null;
-    
-    // TODO: Move createKernel to constructor
-    const sphereMaskFuncSettings = {
-      output: [this.xSize(), this.ySize(), this.zSize()],
-      pipeline: true,
-      constants: {
-        VOXEL_ERR_UNITS_SQR: VOXEL_ERR_UNITS*VOXEL_ERR_UNITS
-      },
-    };
-
-    if (fill) {
-      sphereMaskFunc = this.gpu.createKernel((c, rSqr) => {
-        // Check whether the voxel is inside the sphere
-        const currVoxelPos = [this.thread.x, this.thread.y, this.thread.z];
-        // Find the squared distance from the center of the sphere to the voxel
-        const sqrDist = Math.pow(currVoxelPos[0]-c[0],2) + Math.pow(currVoxelPos[1]-c[1],2) + Math.pow(currVoxelPos[2]-c[2],2);
-        return sqrDist <= (rSqr + this.constants.VOXEL_ERR_UNITS_SQR) ? 1.0 : 0.0;
-      }, sphereMaskFuncSettings);
-    }
-    else {
-      sphereMaskFunc = this.gpu.createKernel((c, rSqr) => {
-        // Check whether the voxel is on the outside-ish of the sphere
-        const currVoxelPos = [this.thread.x, this.thread.y, this.thread.z];
-        // Find the squared distance from the center of the sphere to the voxel
-        const sqrDist = Math.pow(currVoxelPos[0]-c[0],2) + Math.pow(currVoxelPos[1]-c[1],2) + Math.pow(currVoxelPos[2]-c[2],2);
-        return Math.abs(rSqr-sqrDist) <= this.constants.VOXEL_ERR_UNITS_SQR ? 1.0 : 0.0;
-      }, sphereMaskFuncSettings);
-    }
-
-    return sphereMaskFunc(center, radius*radius); // Returns a 3D texture with a mask for the sphere 
-  }
-
-  drawSphereGPU(center=[0,0,0], radius=1, colour=[1,1,1], fill=false) {
-    const maskTexture = this.voxelSphereMaskGPU(center, radius, fill);
-
-    // TODO: move to constructor
-    const drawSphereFuncSettings = {
-      output: [this.xSize(), this.ySize(), this.zSize()],
-      pipeline: true,
-      immutable: true,
-    };
-    const drawSphereFunc = this.gpu.createKernel((mask, colour) => {
-      const maskVal = mask[this.thread.x][this.thread.y][this.thread.z];
-      return [maskVal*colour[0], maskVal*colour[1], maskVal*colour[2]];
-    }, drawSphereFuncSettings);
-
-    this.voxelTex = drawSphereFunc(maskTexture, colour);
-  }
-  */
 }
 
 export default VoxelModel;

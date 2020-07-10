@@ -4,8 +4,8 @@ import watch from 'watch';
 import http from 'http';
 import reload from 'reload';
 
-import VoxelModel from './VoxelModel';
 import VoxelServer from './VoxelServer';
+import VoxelModel from './VoxelModel';
 
 const LOCALHOST_WEB_PORT = 4000;
 const DISTRIBUTION_DIRNAME = "dist";
@@ -47,30 +47,12 @@ reload(app).then((reloadReturned) => {
 // that we send to various clients
 const VOXEL_GRID_SIZE = 8;
 const voxelModel = new VoxelModel(VOXEL_GRID_SIZE);
+//voxelModel.test();
 
 // Create the voxel server - this will handle discovery and transmission of voxel data to both
 // hardware clients and to the localhost for virtual display of the voxels
 const voxelServer = new VoxelServer(voxelModel);
 
-
 voxelServer.start();
 voxelModel.run(voxelServer);
 
-
-/*
-// THIS CODE DOESN'T WORK ON NON-WINDOWS SYSTEMS!
-// When this app is killed (Ctrl+C) we need to do some clean-up
-const onKill = () => {
-  voxelServer.stop();
-  console.log("Voxel server stopped.");
-  webServer.close(() => {
-    console.log("Webserver closed.");
-  });
-}
-process.on('SIGTERM', () => {
-  onKill();
-});
-process.on('SIGKILL', () => {
-  onKill();
-});
-*/

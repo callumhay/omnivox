@@ -69,6 +69,8 @@ class ShootingStarAnimator extends VoxelAnimator {
     return true;
   }
 
+  rendersToCPUOnly() { return true; }
+
   render(dt) {
     if (this.animationFinished) {
       return;

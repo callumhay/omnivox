@@ -47,7 +47,7 @@ class VTPointLight {
     return new THREE.Sphere(this.position.clone(), 0.5);
   }
 
-  getCollidingVoxels() {
+  getCollidingVoxels(voxelGridBoundingBox=null) {
     // Just return the nearest voxel to this light (since it's a point light it will only be a single voxel)
     return [VoxelModel.closestVoxelIdxPt(this.position)];
   }

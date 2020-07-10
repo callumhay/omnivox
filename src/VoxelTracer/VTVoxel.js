@@ -63,7 +63,7 @@ class VTVoxel {
     return raycaster.ray.intersectsBox(this.boundingBox, this._tempVec3) !== null;
   }
 
-  getCollidingVoxels() {
+  getCollidingVoxels(voxelBoundingBox=null) {
     return [VoxelModel.closestVoxelIdxPt(this.voxelIndexPt)];
   }
 }

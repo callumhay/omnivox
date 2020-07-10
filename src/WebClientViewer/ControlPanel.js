@@ -5,7 +5,6 @@ import VoxelAnimator, {DEFAULT_CROSSFADE_TIME_SECS} from '../Animation/VoxelAnim
 import {voxelColourAnimatorDefaultConfig, INTERPOLATION_TYPES} from '../Animation/VoxelColourAnimator';
 import {starShowerDefaultConfig} from '../Animation/StarShowerAnimator';
 import {shapeWaveAnimatorDefaultConfig, WAVE_SHAPE_TYPES} from '../Animation/ShapeWaveAnimator';
-import {gameOfLifeAnimatorDefaultConfig} from '../Animation/GameOfLifeAnimator';
 import {fireAnimatorDefaultConfig} from '../Animation/FireAnimator';
 import {sceneAnimatorDefaultConfig, SCENE_TYPES, SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG} from '../Animation/SceneAnimatorDefaultConfigs';
 import {soundVisDefaultConfig, SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE, SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE, SOUND_VIZ_TYPES, SOUND_VIZ_FIRE_SCENE_TYPE} from '../Animation/AudioVisAnimatorDefaultConfigs';
@@ -50,7 +49,6 @@ class ControlPanel {
     this.colourAnimatorConfig = {...voxelColourAnimatorDefaultConfig};
     this.starShowerAnimatorConfig = {...starShowerDefaultConfig};
     this.shapeWaveAnimatorConfig = {...shapeWaveAnimatorDefaultConfig};
-    this.gameOfLifeAnimatorConfig = {...gameOfLifeAnimatorDefaultConfig};
     this.fireAnimatorConfig = {...fireAnimatorDefaultConfig};
     this.sceneAnimatorConfig = {...sceneAnimatorDefaultConfig};
     this.sceneAnimatorConfig.sceneOptions = {...sceneAnimatorDefaultConfig.sceneOptions};
@@ -72,7 +70,6 @@ class ControlPanel {
       VoxelAnimator.VOXEL_ANIM_FIRE,
       VoxelAnimator.VOXEL_ANIM_SCENE,
       VoxelAnimator.VOXEL_ANIM_SOUND_VIZ,
-      //VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE, // Meh... not very impressed by this, maybe when we have a much bigger grid
     ]).onChange((value) => {
 
       // Clear the display and remove any GUI elements from before
@@ -99,11 +96,6 @@ class ControlPanel {
         case VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES:
           this.currFolder = this.buildShapeWavesAnimatorControls();
           this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES, this.shapeWaveAnimatorConfig);
-          break;
-        
-        case VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE:
-          this.currFolder = this.buildGameOfLifeAnimatorControls();
-          this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE, this.gameOfLifeAnimatorConfig);
           break;
 
         case VoxelAnimator.VOXEL_ANIM_FIRE:
@@ -199,13 +191,6 @@ class ControlPanel {
     this.gui.remember(this.settings.shapeWaveSettings);
     this.gui.remember(this.settings.shapeWaveSettings.center);
   }
-  reloadGameOfLifeSettings() {
-    this.settings.gameOfLifeSettings = {
-      seed: this.gameOfLifeAnimatorConfig.seed,
-      reset: this.resetDisplay.bind(this),
-    };
-    this.gui.remember(this.settings.gameOfLifeSettings);
-  }
   reloadFireSettings() {
     this.settings.fireSettings = {...this.fireAnimatorConfig,
       reset: this.resetDisplay.bind(this),
@@ -272,7 +257,6 @@ class ControlPanel {
     this.reloadVoxelColourSettings();
     this.reloadStarShowerSettings();
     this.reloadShapeWavesSettings();
-    this.reloadGameOfLifeSettings();
     this.reloadFireSettings();
     this.reloadSceneSettings();
     this.reloadAudioVisSettings();
@@ -295,10 +279,6 @@ class ControlPanel {
       case VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES:
         this.shapeWaveAnimatorConfig = config;
         this.reloadShapeWavesSettings();
-        break;
-      case VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE:
-        this.gameOfLifeAnimatorConfig = config;
-        this.reloadGameOfLifeSettings();
         break;
       case VoxelAnimator.VOXEL_ANIM_FIRE:
         this.fireAnimatorConfig = config;
@@ -688,22 +668,6 @@ class ControlPanel {
     return folder;
   }
 
-  buildGameOfLifeAnimatorControls() {
-    const {gameOfLifeSettings} = this.settings;
-
-    const folder = this.gui.addFolder("Game of Life Controls");
-
-    folder.add(gameOfLifeSettings, 'seed').onChange((value) => {
-      this.gameOfLifeAnimatorConfig.seed = value;
-      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_GAME_OF_LIFE, this.gameOfLifeAnimatorConfig);
-    });
-
-    folder.add(gameOfLifeSettings, 'reset');
-    folder.open();
-
-    return folder;
-  }
-
   buildFireAnimatorControls() {
     const {fireSettings} = this.settings;
     const folder = this.gui.addFolder("Fire Controls");
@@ -712,16 +676,6 @@ class ControlPanel {
       this.fireAnimatorConfig.speed = value;
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
     }).setValue(fireSettings.speed);
-
-    folder.add(fireSettings, 'diffusion', 0.00001, 1.0, 0.0001).onChange((value) => {
-      this.fireAnimatorConfig.diffusion = value;
-      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
-    }).setValue(fireSettings.diffusion);
-
-    folder.add(fireSettings, 'viscosity', 0.0, 0.001, 0.00001).onChange((value) => {
-      this.fireAnimatorConfig.viscosity = value;
-      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
-    }).setValue(fireSettings.viscosity);
 
     folder.add(fireSettings, 'buoyancy', 0.1, 10, 0.1).onChange((value) => {
       this.fireAnimatorConfig.buoyancy = value;

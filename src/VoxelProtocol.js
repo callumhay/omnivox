@@ -149,7 +149,7 @@ class VoxelProtocol {
           console.log("Invalid config for clear colour.");
           return false;
         }
-        voxelModel.clearAllFramebuffers(new THREE.Color(config.r, config.g, config.b));
+        voxelModel.clearAll(new THREE.Color(config.r, config.g, config.b));
         break;
 
       case AUDIO_INFO_HEADER:
@@ -187,12 +187,11 @@ class VoxelProtocol {
           const endZ   = Math.min(zLen, startZ + VOXEL_MODULE_Z_SIZE); 
 
           for (let z = startZ; z < endZ; z++) {
-            const voxel = data[x][y][z];
-            const voxelColour = voxel.colour;
+            const voxelColour = data[x][y][z];
 
-            packetBuf[byteCount]   = parseInt(voxelColour.r*255);
-            packetBuf[byteCount+1] = parseInt(voxelColour.g*255);
-            packetBuf[byteCount+2] = parseInt(voxelColour.b*255);
+            packetBuf[byteCount]   = parseInt(voxelColour[0]*255);
+            packetBuf[byteCount+1] = parseInt(voxelColour[1]*255);
+            packetBuf[byteCount+2] = parseInt(voxelColour[2]*255);
             byteCount += 3;
           }
         }
@@ -205,12 +204,11 @@ class VoxelProtocol {
         for (let y = 0; y < yLen; y++) {
           const zLen = data[x][y].length;
           for (let z = 0; z < zLen; z++) {
-            const voxel = data[x][y][z];
-            const voxelColour = voxel.colour;
+            const voxelColour = data[x][y][z];
 
-            packetBuf[byteCount]   = parseInt(voxelColour.r*255);
-            packetBuf[byteCount+1] = parseInt(voxelColour.g*255);
-            packetBuf[byteCount+2] = parseInt(voxelColour.b*255);
+            packetBuf[byteCount]   = parseInt(voxelColour[0]*255);
+            packetBuf[byteCount+1] = parseInt(voxelColour[1]*255);
+            packetBuf[byteCount+2] = parseInt(voxelColour[2]*255);
             byteCount += 3;
           }
         }

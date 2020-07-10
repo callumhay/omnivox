@@ -1,3 +1,4 @@
+
 export const COLOUR_INTERPOLATION_RGB  = 'rgb';
 export const COLOUR_INTERPOLATION_HSL  = 'hsl';
 export const COLOUR_INTERPOLATION_LAB  = 'lab';
@@ -10,6 +11,8 @@ export const COLOUR_INTERPOLATION_TYPES = [
   COLOUR_INTERPOLATION_LCH,
   COLOUR_INTERPOLATION_LRGB,
 ];
+
+export const FIRE_SPECTRUM_WIDTH = 256;
 
 
 const cie_colour_match = [
@@ -193,12 +196,8 @@ export const generateSpectrum = (t1, t2, N, colourSystem=CIEsystem) => {
     rgb = constrainRgb(rgb.r, rgb.g, rgb.b);
     rgb = normalizeRgb(rgb.r, rgb.g, rgb.b);
     
-    result[j] = {
-      r: rgb.r,
-      g: rgb.g,
-      b: rgb.b,
-      a: (rgb.b>0.1)? rgb.b : 0
-    }
+    result[j] = [rgb.r, rgb.g, rgb.b, (rgb.b>0.1)? rgb.b : 0];
+    
 		j += dj;
   }
 
