@@ -1,4 +1,4 @@
-import {shadowSceneDefaultOptions} from '../VoxelTracer/Scenes/SceneDefaultConfigs';
+import {shadowSceneDefaultOptions, fogSceneDefaultOptions, simpleSceneDefaultOptions} from '../VoxelTracer/Scenes/SceneDefaultConfigs';
 
 export const SCENE_TYPE_SIMPLE  = "Simple";
 export const SCENE_TYPE_SHADOW  = "Shadow (Basic)";
@@ -11,6 +11,6 @@ export const SCENE_TYPES = [
 ];
 
 export const sceneAnimatorDefaultConfig = {
-  sceneType: SCENE_TYPE_SHADOW,
-  sceneOptions: {...shadowSceneDefaultOptions},
+  sceneType: SCENE_TYPE_SIMPLE,
+  sceneOptions: {...simpleSceneDefaultOptions},
 };

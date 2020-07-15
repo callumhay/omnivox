@@ -131,11 +131,9 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
     }
   }
 
-  render(dt) {
-    if (!this._objectsBuilt) {
-      return;
-    }
-    this.scene.render();
+  async render(dt) {
+    if (!this._objectsBuilt) { return; }
+    await this.scene.render();
   }
 
   updateAudioInfo(audioInfo) {
@@ -211,12 +209,12 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
     let numFreqs = Math.floor(fft.length/(gamma+1.8));
 
     const spectralLightCoord = THREE.MathUtils.lerp(minSpectralCoord, maxSpectralCoord, clamp(this.avgSpectralCentroid/(numFreqs/2), 0, 1));
-    this.spectralPtLight.position[spectralComponent] = (this.spectralPtLight.position[spectralComponent] + spectralLightCoord) / 2.0;
-    //console.log(spectralLightCoord);
 
+    this.spectralPtLight.position[spectralComponent] = (this.spectralPtLight.position[spectralComponent] + spectralLightCoord) / 2.0;
     const colourRMS = (this.spectralPtLight.colour.r + clamp(denoisedRMS*2, 0, 0.333)) / 2.0; // NOTE: rms is typically pretty small (usually less than 0.2)
     this.spectralPtLight.colour.setRGB(colourRMS, colourRMS, colourRMS);
     this.spectralPtLight.attenuation.quadratic = (this.spectralPtLight.attenuation.quadratic + 1.0 / (Math.max(0.01, ptLightDistFromFront*ptLightDistFromFront*10*denoisedRMS))) / 2.0;
+    this.spectralPtLight.makeDirty();
 
     // Build a distribution of what bins (i.e., meshes) to throw each frequency in
     if (!this.binIndexLookup || numFreqs !== this.binIndexLookup.length) {
@@ -270,7 +268,9 @@ class HistoryBarsAudioVisScene extends SceneRenderer {
       for (let k = 0; k < lvlMeshes.length; k++) {
         const alpha = k < cutoffLvl ? 1 : 0;
         const mesh = lvlMeshes[k];
-        mesh.material.alpha = clamp(mesh.material.alpha * fadeFactorAdjusted + alpha * (1.0 - fadeFactorAdjusted), 0, 1);
+        const {material} = mesh;
+        material.alpha = clamp(material.alpha * fadeFactorAdjusted + alpha * (1.0 - fadeFactorAdjusted), 0, 1);
+        mesh.setMaterial(material);
       }
     };
 

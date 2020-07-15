@@ -7,8 +7,6 @@ import VTLambertMaterial from '../VTLambertMaterial';
 import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';
 
-
-
 class ShadowScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
@@ -39,8 +37,8 @@ class ShadowScene extends SceneRenderer {
       this.movingBoxMesh = new VTMesh(this.movingBoxGeometry, new VTLambertMaterial(new THREE.Color(1,1,1)));
 
       this.boxGeometry = new THREE.BoxBufferGeometry(size,2,size);
-      this.boxGeometry.translate(halfXSize, size-1, halfZSize);
       this.boxMesh = new VTMesh(this.boxGeometry, new VTLambertMaterial(new THREE.Color(1,1,1)));
+      this.boxMesh.setPosition(halfXSize, size-1, halfZSize);
 
       this.ptLight = new VTPointLight(
         new THREE.Vector3(pointLightPosition.x, pointLightPosition.y, pointLightPosition.z), 
@@ -59,7 +57,7 @@ class ShadowScene extends SceneRenderer {
     this.scene.addLight(this.ambientLight);
   }
 
-  render(dt) {
+  async render(dt) {
     if (!this._objectsBuilt) {
       return;
     }
@@ -72,11 +70,9 @@ class ShadowScene extends SceneRenderer {
     const RADIUS = halfXSize-1.5;
     const t = this.timeCounter*movingBoxSpeed;
     this.movingBoxMesh.setPosition((RADIUS)*Math.cos(t) + halfXSize, halfYSize-1, (RADIUS)*Math.sin(t) + halfZSize);
-    this.movingBoxMesh.updateMatrixWorld();
-
-    this.scene.render();
-
     this.timeCounter += dt;
+
+    await this.scene.render();
   }
 }
 

@@ -4,50 +4,64 @@ import getPixels from 'get-pixels';
 import ndarray from 'ndarray';
 
 class VTTexture {
-  constructor(imgUrl) {
-    
-    let self = this;
+  constructor(imgUrl=null) {
     this.imgData = null;
 
-    getPixels(imgUrl, (err, pixels) => {
-      if (err) {
-        console.log("Failed to load image: " + imgUrl);
-        console.log(err);
-        return;
-      }
+    if (imgUrl) {
+      let self = this;
+      getPixels(imgUrl, (err, pixels) => {
+        if (err) {
+          console.log("Failed to load image: " + imgUrl);
+          console.log(err);
+          return;
+        }
 
-      if (pixels.shape.length === 4) {
-        console.log("Invalid texture dimension, scaling down...");
-        pixels = pixels.pick(0);
-      }
-      
-      /*
-      console.log("Size: " + pixels.size);
-      console.log("Shape: " + pixels.shape);
-      console.log("Stride: " + pixels.stride);
-      console.log("Offset: " + pixels.offset);
-      */
+        if (pixels.shape.length === 4) {
+          console.log("Invalid texture dimension, scaling down...");
+          pixels = pixels.pick(0);
+        }
+        
+        /*
+        console.log("Size: " + pixels.size);
+        console.log("Shape: " + pixels.shape);
+        console.log("Stride: " + pixels.stride);
+        console.log("Offset: " + pixels.offset);
+        */
 
-      // Normalize the image data into floating point [0,1] colour data
-      const fpData = ndarray(new Float32Array(pixels.size), pixels.shape, pixels.stride, pixels.offset);
-      
-      for (let i = 0; i < pixels.shape[0]; i++) {
-        for (let j = 0; j < pixels.shape[1]; j++) {
-          for (let k = 0; k < pixels.shape[2]; k++) {
-            fpData.set(i,j,k, pixels.get(i,j,k)/255.0);
-            //console.log(fpData.get(i,j,k));
+        // Normalize the image data into floating point [0,1] colour data
+        const fpData = ndarray(new Float32Array(pixels.size), pixels.shape, pixels.stride, pixels.offset);
+        
+        for (let i = 0; i < pixels.shape[0]; i++) {
+          for (let j = 0; j < pixels.shape[1]; j++) {
+            for (let k = 0; k < pixels.shape[2]; k++) {
+              fpData.set(i,j,k, pixels.get(i,j,k)/255.0);
+              //console.log(fpData.get(i,j,k));
+            }
           }
         }
-      }
-      self.imgData = fpData;
-      /*
-      for (let i = 0; i < pixels.shape[0]; i++) {
-        for (let j = 0; j < pixels.shape[1]; j++) {
-          console.log("r: " + self.imgData.get(i,j,0) + ", g: " + self.imgData.get(i,j,1) + ", b: " + self.imgData.get(i,j,2));
+        self.imgData = fpData;
+        /*
+        for (let i = 0; i < pixels.shape[0]; i++) {
+          for (let j = 0; j < pixels.shape[1]; j++) {
+            console.log("r: " + self.imgData.get(i,j,0) + ", g: " + self.imgData.get(i,j,1) + ", b: " + self.imgData.get(i,j,2));
+          }
         }
-      }
-      */
-    });
+        */
+      });
+    }
+  }
+
+  static build(jsonData) {
+    if (!jsonData) { return null; }
+    const {imgData} = jsonData;
+    const result = new VTTexture(null);
+    result.imgData = imgData;
+    return result;
+  }
+
+  toJSON() {
+    const {imgData} = this;
+    return {imgData};
   }
 
   isLoaded() {

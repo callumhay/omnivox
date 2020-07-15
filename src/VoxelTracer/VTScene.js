@@ -1,25 +1,40 @@
 import * as THREE from 'three';
+import os from 'os';
+import path from 'path';
+import {fork} from 'child_process';
 
-import {VOXEL_EPSILON, clamp} from '../MathUtils';
 import VTAmbientLight from './VTAmbientLight';
+import VTRenderProc from './RenderProc/VTRenderProc';
+import VoxelModel from '../Server/VoxelModel';
 
 class VTScene {
   constructor(voxelModel) {
     this.voxelModel = voxelModel;
 
-    // TODO: Octree... for faster ray collisions etc.
+    this.childProcesses = [];
+
+    // TODO: Octree: Split up among the child processes, who then perform the collision detection to determine what they should draw.
+
     this.renderables = [];
     this.shadowCasters = [];
     this.lights = [];
 
     this.ambientLight = null;
+    this.nextId = 0;
+
+    this._dirtyRemovedObjIds = [];
+
+    this._renderCount = 0;
+    this._forkChildProcesses();
   }
+
+  get gridSize() { return this.voxelModel.gridSize; }
+  getVoxelGridBoundingBox() { return this.voxelModel.getBoundingBox(); }
 
   dispose() {
     this.renderables.forEach(renderable => {
       renderable.dispose();
     });
-
     this.clear();
   }
 
@@ -28,9 +43,14 @@ class VTScene {
     this.lights = [];
     this.shadowCasters = [];
     this.ambientLight = null;
+    this.nextId = 0;
+
+    this._updateChildRenderProcsFromScene(true);
+    this._dirtyRemovedObjIds = [];
   }
 
   addLight(l) {
+    l.makeDirty();
     if (l instanceof VTAmbientLight) {
       this.ambientLight = l;
     }
@@ -38,10 +58,15 @@ class VTScene {
       this.renderables.push(l);
       this.lights.push(l);
     }
+    l.id = this.nextId++;
   }
   addObject(o) {
+    o.makeDirty();
     this.renderables.push(o);
-    this.shadowCasters.push(o);
+    if (o.isShadowCaster()) {
+      this.shadowCasters.push(o);
+    }
+    o.id = this.nextId++;
   }
   addFog(f) {
     this.addObject(f);
@@ -51,6 +76,7 @@ class VTScene {
     let index = this.renderables.indexOf(o);
     if (index > -1) {
       this.renderables.splice(index, 1);
+      this._dirtyRemovedObjIds.push(o.id);
     }
     index = this.shadowCasters.indexOf(o);
     if (index > -1) {
@@ -58,171 +84,259 @@ class VTScene {
     }
   }
 
-  calculateVoxelLighting(point, material, receivesShadow) {
-    // We treat voxels as perfect inifintesmial spheres centered at a given voxel position
-    // they can be shadowed and have materials like meshes
-    const finalColour = material.emission(null);
+  async render() {
+    this._renderCount = 0;
+    this._updateChildRenderProcsFromScene();
+    for (let i = 0; i < this.childProcesses.length; i++) {
+      this.childProcesses[i].send({type: VTRenderProc.TO_PROC_RENDER});
+    }
+
+    const self = this;
+    const waitForRenderToFinish = () => {
+      const poll = resolve => {
+        if (self._renderCount === self.childProcesses.length) {
+          resolve();
+        }
+        else {
+          setTimeout(() => poll(resolve), 1);
+          //setImmediate(() => poll(resolve));
+        }
+      }
+      return new Promise(poll);
+    };
+
+    await waitForRenderToFinish();
+  }
+
+  _renderFromChildProcData(renderedVoxels) {
+    if (renderedVoxels && renderedVoxels.length > 0) { 
+      const voxelPt = new THREE.Vector3();
+      const voxelColour = new THREE.Color();
+      for (let i = 0; i < renderedVoxels.length; i++) {
+        const {pt, colour} = renderedVoxels[i];
+
+        voxelPt.set(pt.x, pt.y, pt.z);
+        voxelColour.setHex(colour);
+
+        this.voxelModel.addToVoxel(voxelPt, voxelColour);
+      }
+    }
+    this._renderCount++;
+  }
+
+  _getChildProcUpdateAndDirty(reinit=false) {
+    let dirty = [];
+    let updatedRenderables = [];
+    let updatedLights = [];
+    let updatedAmbientLight = null;
+
+    if (reinit) {
+      updatedRenderables = [...this.renderables];
+      updatedLights = [...this.lights];
+      if (this.ambientLight) {
+        updatedAmbientLight = this.ambientLight;
+        dirty.push(this.ambientLight);
+      }
+      dirty = [...this.renderables];
+    }
+    else {
+      // N.B., All lights are renderables as well (so we don't need to loop through and add those)
+      for (let i = 0; i < this.renderables.length; i++) {
+        const renderable = this.renderables[i];
+        if (renderable.isDirty()) {
+          updatedRenderables.push(renderable);
+          dirty.push(renderable);
+        }
+      }
+      for (let i = 0; i < this.lights.length; i++) {
+        const light = this.lights[i];
+        if (light.isDirty()) {
+          updatedLights.push(light);
+          // N.B., Lights are already renderables so we don't need to add them to the dirty array
+        }
+      }
+      if (this.ambientLight && this.ambientLight.isDirty()) {
+        updatedAmbientLight = this.ambientLight;
+        dirty.push(this.ambientLight);
+      }
+    }
+
+    // NOTE: We don't include shadowcasters here because it is memoize-able data and can be derived by the child processes
+    const childProcUpdate = {
+      reinit: reinit,
+      renderables: updatedRenderables,
+      lights: updatedLights,
+      ambientLight: updatedAmbientLight,
+    };
+
+    return {childProcUpdate: childProcUpdate, dirty: dirty};
+  }
+
+  _updateChildRenderProcsFromScene(reinitAll=false) {
+    // Make sure the child processes know about any removed objects
+    if (this._dirtyRemovedObjIds.length > 0) {
+      const updateData = {removedIds: this._dirtyRemovedObjIds};
+      for (let i = 0; i < this.childProcesses.length; i++) {
+        this.childProcesses[i].send({type: VTRenderProc.TO_PROC_UPDATE_SCENE, data: updateData});
+      }
+      this._dirtyRemovedObjIds = [];
+    }
+
+    const {childProcUpdate, dirty} = this._getChildProcUpdateAndDirty(reinitAll);
+
+    // Update all the dirty items so they have the most up-to-date data in them and
+    // are ready to be sent to the child render processes
+    for (let i = 0; i < dirty.length; i++) {
+      const dirtyObj = dirty[i];
+      dirtyObj.unDirty(this);
+    }
     
-    if (this.lights.length > 0) {
-      const nVoxelToLightVec = new THREE.Vector3();
-      const raycaster = new THREE.Raycaster();
+    const boundingBox = this.getVoxelGridBoundingBox();
+    const updatedRenderableVoxels = VTScene.getRenderableVoxels(childProcUpdate.renderables, boundingBox);
+    const chunkedChildProcData = this._chunkRenderableVoxels(updatedRenderableVoxels);
 
-      for (let j = 0; j < this.lights.length; j++) {
-        const light = this.lights[j];
+    for (let i = 0; i < this.childProcesses.length; i++) {
+      const currChildProc = this.childProcesses[i];
 
-        nVoxelToLightVec.set(light.position.x, light.position.y, light.position.z);
-        nVoxelToLightVec.sub(point);
-        const distanceToLight = Math.max(VOXEL_EPSILON, nVoxelToLightVec.length());
-        nVoxelToLightVec.divideScalar(distanceToLight);
+      const updateVoxelInfoObj = {reinit: reinitAll, mapping: chunkedChildProcData[i]};
+      if (!reinitAll) { updateVoxelInfoObj['updatedRenderableVoxels'] = updatedRenderableVoxels; }
 
-        let lightMultiplier = 1.0;
-        if (receivesShadow) {
-
-          // Check to see if the voxel is in shadow
-          // NOTE: We currently only use point lights so there's only umbra shadow (no soft shadows/sampling)
-          raycaster.set(point, nVoxelToLightVec); 
-          raycaster.near = VOXEL_EPSILON;
-          raycaster.far  = distanceToLight;
-
-          for (let k = 0; k < this.shadowCasters.length; k++) {
-            const shadowCaster = this.shadowCasters[k];
-            const shadowCasterResult = shadowCaster.calculateShadow(raycaster);
-            if (shadowCasterResult.inShadow) {
-              lightMultiplier -= shadowCasterResult.lightReduction;
-            }
-          }
-        }
-
-        if (lightMultiplier > 0) {
-          // The voxel is not in total shadow, do the lighting - since it's a "infitesimal sphere" the normal is always
-          // in the direction of the light, so it's always ambiently lit (unless it's in shadow)
-          const lightEmission = light.emission(distanceToLight).multiplyScalar(lightMultiplier);
-          const materialLightingColour = material.brdfAmbient(null, lightEmission);
-          finalColour.add(materialLightingColour);
-        }
-      }
+      currChildProc.send({type: VTRenderProc.TO_PROC_UPDATE_VOXEL_INFO, data: updateVoxelInfoObj});
+      currChildProc.send({type: VTRenderProc.TO_PROC_UPDATE_SCENE, data: childProcUpdate});
     }
-
-    if (this.ambientLight) {
-      finalColour.add(material.basicBrdfAmbient(null, this.ambientLight.emission()));
-    }
-
-    finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
-
-    return finalColour;
   }
 
-  calculateFogLighting(point) {
-    const finalColour = new THREE.Color(0,0,0);
-    const nFogToLightVec = new THREE.Vector3(0,0,0);
-
-    if (this.lights.length > 0) {
-      for (let j = 0; j < this.lights.length; j++) {
-        const light = this.lights[j];
-
-        nFogToLightVec.set(light.position.x, light.position.y, light.position.z);
-        nFogToLightVec.sub(point);
-        const distanceToLight = Math.max(VOXEL_EPSILON, nFogToLightVec.length());
-        const lightEmission = light.emission(distanceToLight);
-        finalColour.add(lightEmission);
-      }
-      finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
-    }
-
-    return finalColour;
+  static debugInspectIsOn() {
+    return process.execArgv.filter(arg => arg.indexOf('--inspect') !== -1).length > 0;
   }
 
-  calculateLightingSamples(samples, material) {
-    const finalColour = new THREE.Color(0,0,0);
-    const sampleLightContrib = new THREE.Color(0,0,0);
-
-    // Go through each light in the scene and raytrace to them...
-    const nObjToLightVec = new THREE.Vector3(0,0,0);
-    const raycaster = new THREE.Raycaster();
-
-    const factorPerSample = 1.0 / samples.length;
-
-    for (let i = 0; i < samples.length; i++) {
-      const {point, normal, uv, falloff} = samples[i];
-
-      sampleLightContrib.copy(material.emission(uv));
-
-      for (let j = 0; j < this.lights.length; j++) {
-        const light = this.lights[j];
-
-        nObjToLightVec.set(light.position.x, light.position.y, light.position.z);
-        nObjToLightVec.sub(point);
-        const distanceToLight = Math.max(VOXEL_EPSILON, nObjToLightVec.length());
-        nObjToLightVec.divideScalar(distanceToLight);
-
-        // Early out - is the light vector in the same hemisphere as the normal?
-        if (nObjToLightVec.dot(normal) <= 0) {
-          continue;
-        }
-
-        // Check to see if the surface is in shadow
-        // NOTE: We currently only use point lights so there's only umbra shadow (no soft shadows/sampling)
-        raycaster.set(point, nObjToLightVec); 
-        raycaster.near = VOXEL_EPSILON;
-        raycaster.far  = distanceToLight;
-
-        let lightMultiplier = 1.0;
-        
-        for (let k = 0; k < this.shadowCasters.length; k++) {
-          const shadowCaster = this.shadowCasters[k];
-          const shadowCasterResult = shadowCaster.calculateShadow(raycaster);
-          if (shadowCasterResult.inShadow) {
-            lightMultiplier -= shadowCasterResult.lightReduction;
-          }
-        }
-
-        if (lightMultiplier > 0) {
-          // The voxel is not in total shadow, do the lighting
-          const lightEmission = light.emission(distanceToLight).multiplyScalar(lightMultiplier*falloff);
-          const materialLightingColour = material.brdf(nObjToLightVec, normal, uv, lightEmission);
-          sampleLightContrib.add(materialLightingColour.multiplyScalar(falloff));
-        }
-      }
-      sampleLightContrib.multiplyScalar(factorPerSample);
-      finalColour.add(sampleLightContrib);
-    }
-
-    if (this.ambientLight) {
-      sampleLightContrib.set(0,0,0);
-      for (let i = 0; i < samples.length; i++) {
-        const {uv, falloff} = samples[i];
-        sampleLightContrib.add(material.basicBrdfAmbient(uv, this.ambientLight.emission()).multiplyScalar(falloff*factorPerSample));
-      }
-      finalColour.add(sampleLightContrib);
-    }
-
-    finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
-    return finalColour;
+  static calcNumChildProcesses() {
+    //return (VTSceneTest.debugInspectIsOn()) ? 1 : os.cpus().length;
+    return 1;//os.cpus().length;
   }
 
-  render() {
-    // Find all renderable entities that exist within the bounds of the voxels (i.e., visible entities)
-    const voxelBoundingBox = this.voxelModel.getBoundingBox();
-    const visibleRenderables = [];
-    for (let i = 0; i < this.renderables.length; i++) {
-      const renderable = this.renderables[i];
-      if (renderable.intersectsBox(voxelBoundingBox)) {
-        visibleRenderables.push(renderable);
+  _killChildProcesses() {
+    for (let i = 0; i < this.childProcesses.length; i++) {
+      if (!this.childProcesses[i].kill()) {
+        console.error("Failed to properly kill child process.");
       }
     }
+    this.childProcesses = this.childProcesses.filter(c => !c.killed || c.connected);
+  }
 
+  _forkChildProcesses() {
+    const self = this;
+
+    const program = path.resolve('dist/vtrenderproc.js');
+    const programArgs = [];
+    const allChildsOptions = {
+      stdio: [0, 1, 2, 'ipc'],
+      execArgv: [],
+    };
+    
+    const CHILD_PROC_NAME = "VTRenderProc";
+    let childInspectPort = 31310;
+    const debugInspectIsOn = VTScene.debugInspectIsOn();
+    const numForks = VTScene.calcNumChildProcesses();
+    for (let i = 0; i < numForks; i++) {
+      // When debugging node applications we need to make sure each child process has its own inspect port assigned
+      // or the program will crash and burn
+      let childOptions = allChildsOptions;
+      if (debugInspectIsOn) {
+        childOptions = {...allChildsOptions,
+          execArgv: [...allChildsOptions.execArgv,
+            `--inspect=${childInspectPort++}`
+          ]
+        };
+      }
+      
+      // This will fork off a new child render process
+      const childProc = fork(program, programArgs, childOptions);
+      this.childProcesses.push(childProc);
+      
+      // Setup the child process for various messages between it and this parent process
+      childProc.on('message', message => {
+        switch (message.type) {
+          case VTRenderProc.FROM_PROC_RENDERED:
+            self._renderFromChildProcData(message.data);
+            break;
+
+          default:
+            console.log(`Invalid message type recieved from ${CHILD_PROC_NAME}.`);
+            break;
+        }
+      });
+
+      childProc.on('error', err => console.log(`${CHILD_PROC_NAME} error: ${err}`));
+      childProc.on('close', code => console.log(`${CHILD_PROC_NAME} has closed all stdio with code ${code}.`));
+
+      childProc.on('exit', code => {
+        console.log(`${CHILD_PROC_NAME} has exited with code ${code}.`);
+        // Remove the child process from the renderer
+        this.childProcesses = this.childProcesses.filter(c => c !== childProc);
+      });
+    }
+
+    this._initChildProcesses();
+  }
+
+  static getRenderableVoxels(visibleRenderables, boundingBox) {
+
+    let renderableVoxels = [];
     for (let i = 0; i < visibleRenderables.length; i++) {
-      const renderable = visibleRenderables[i];
-
       // Get all of the voxels that collide with the renderable object
-      const voxelIndexPoints = renderable.getCollidingVoxels(voxelBoundingBox);
-      for (let j = 0; j < voxelIndexPoints.length; j++) {
-        const voxelIdxPt = voxelIndexPoints[j];
-        const calcColour = renderable.calculateVoxelColour(voxelIdxPt, this);
-        this.voxelModel.addToVoxel(voxelIdxPt, calcColour);
+      const renderable = visibleRenderables[i];
+      const voxelPts = renderable.getCollidingVoxels(boundingBox);
+      if (voxelPts.length > 0) {
+        renderableVoxels.push.apply(renderableVoxels, voxelPts.map(vPt => ({voxelPt: vPt, renderableId: renderable.id})));
       }
     }
+
+    return renderableVoxels;
   }
+
+  _chunkRenderableVoxels(renderableVoxels) {
+    const numChildProcs = VTScene.calcNumChildProcesses();
+    if (renderableVoxels.length === 0) {
+      return new Array(numChildProcs).fill().map(() => ({}));
+    }
+
+    // Ordering is important here - the children are only given the voxels in their respective intervals. These intervals are designated as
+    // the total number of voxels divided by the total number of children (if it's an uneven division then the last child gets the lesser quantity).
+    const numVoxels = this.voxelModel.numVoxels();
+    const numVoxelsPerProc = Math.ceil(numVoxels / numChildProcs);
+
+    const chunkedRenderData = new Array(numChildProcs).fill().map(() => ({}));
+    for (let i = 0; i < renderableVoxels.length; i++) {
+      const renderableVoxel = renderableVoxels[i];
+      const voxelIdx = VoxelModel.voxelFlatIdx(renderableVoxel.voxelPt, this.voxelModel.gridSize);
+      if (voxelIdx >= 0 && voxelIdx < numVoxels) { 
+        const childProcIdx = Math.floor(voxelIdx / numVoxelsPerProc);
+        const childProcChunk = chunkedRenderData[childProcIdx];
+
+        if (!(renderableVoxel.renderableId in childProcChunk)) {
+          childProcChunk[renderableVoxel.renderableId] = [];
+        }
+        childProcChunk[renderableVoxel.renderableId].push(renderableVoxel.voxelPt);
+      }
+    }
+
+    return chunkedRenderData;
+  }
+
+  _initChildProcesses() {
+    const numVoxels = this.voxelModel.numVoxels();
+    const numVoxelsPerProc = Math.ceil(numVoxels / this.childProcesses.length);
+
+    // Tell each of the child processes which voxel indices they're responsible for
+    for (let i = 0; i < this.childProcesses.length; i++) {
+      const currChildProc = this.childProcesses[i];
+      currChildProc.send({type: VTRenderProc.TO_PROC_INIT, data: {voxelIndexRange: [i*numVoxelsPerProc, i*numVoxelsPerProc + numVoxelsPerProc - 1], gridSize: this.voxelModel.gridSize}});
+    }
+
+    this._updateChildRenderProcsFromScene(true);
+  }
+
 }
 
 export default VTScene;

@@ -94,10 +94,8 @@ class FireAudioVisScene extends SceneRenderer {
     }
   }
 
-  render(dt) {
-    if (!this._objectsBuilt) {
-      return;
-    }
+  async render(dt) {
+    if (!this._objectsBuilt) { return; }
 
     const {
       speedMultiplier, 
@@ -207,13 +205,15 @@ class FireAudioVisScene extends SceneRenderer {
           const intensityIdx = 0;//Math.round(lighting*15);
 
           const voxelColour = fireLookupFunc(intensityIdx, densityIdx, temperatureIdx);
-          const voxelMaterialColour = this.voxels[x][y][z].material.colour;
-          voxelMaterialColour.setRGB(voxelColour.a*voxelColour.r, voxelColour.a*voxelColour.g, voxelColour.a*voxelColour.b);
+          const voxel =  this.voxels[x][y][z];
+          const voxelMaterial = voxel.material;
+          voxelMaterial.colour.setRGB(voxelColour.a*voxelColour.r, voxelColour.a*voxelColour.g, voxelColour.a*voxelColour.b)
+          voxel.makeDirty();
         }
       }
     }
 
-    this.scene.render();
+    await this.scene.render();
   }
 
   updateAudioInfo(audioInfo) {

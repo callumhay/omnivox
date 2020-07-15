@@ -88,13 +88,14 @@ class VoxelModel {
   xSize() { return this.gridSize; }
   ySize() { return this.gridSize; }
   zSize() { return this.gridSize; }
+  numVoxels() { return this.xSize()*this.ySize()*this.zSize(); }
 
   setFramebuffer(idx=0) { this._framebufferIdx = idx; }
   get framebuffer() {
     return this._framebuffers[this._framebufferIdx];
   }
 
-  test() {
+  async test() {
     /*
     this.setFramebuffer(VoxelModel.CPU_FRAMEBUFFER_IDX_0);
     this.clear();
@@ -116,15 +117,18 @@ class VoxelModel {
     this.debugPrintVoxelTexture(false);
     */
 
-    const fireAnimator = this._animators[VoxelAnimator.VOXEL_ANIM_FIRE];
+    /*
     while (true) {
       this.setFramebuffer(VoxelModel.GPU_FRAMEBUFFER_IDX_0);
       this.clear();
-      //fireAnimator.render(0.0001);
       this.framebuffer.getCPUBuffer();
     }
-
-
+    */
+    /*
+    const scene = new VTSceneTest(this);
+    const sceneAnim = new SceneAnimator(this, scene);
+    await sceneAnim.render(0.001);
+    */
   }
 
   debugPrintVoxelTexture(isCPU) {
@@ -177,93 +181,70 @@ class VoxelModel {
     let dt = 0;
     let dtSinceLastRender = 0;
     let skipFrameNumber = 1;
-    let catchupTimeInSecs = 0;
-    const allowableEventLoopBackupSize = 2;
-    const allowablePollingMsBackupSize = allowableEventLoopBackupSize * DEFAULT_POLLING_INTERVAL_MS;
-    const allowablePollingSecBackupSize = allowablePollingMsBackupSize / 1000;
+    let renderLoopTimerId = -1;
 
-    console.log("Allowable max render time per frame set to " + allowablePollingMsBackupSize.toFixed(2) + "ms");
-
-    setInterval(function() {
+    const renderLoop = async function() {
       self.currFrameTime = Date.now();
       dt = (self.currFrameTime - lastFrameTime) / 1000;
       dtSinceLastRender += dt;
 
-      // If we need to catchup with the interval timer then we need to keep track of
-      // how long it's been and skip rendering until we've caught up
-      /*
-      if (catchupTimeInSecs > 0) {
-        catchupTimeInSecs = Math.max(0, catchupTimeInSecs - dt);
-      }
-      else {
-        catchupTimeInSecs = Math.max(0, dt - allowablePollingSecBackupSize);
-      }
-      */
-      
-      if (catchupTimeInSecs <= 0) {
-        // Simulate the model based on the current animation...
-        this.blendMode = BLEND_MODE_OVERWRITE;
+      // Simulate the model based on the current animation...
+      this.blendMode = BLEND_MODE_OVERWRITE;
 
-        // Deal with crossfading between animators
-        if (self.prevAnimator) {
-          // Adjust the animator alphas as a percentage of the crossfade time and continue counting the total time until the crossfade is complete
-          const percentFade = clamp(self.crossfadeCounter / self.totalCrossfadeTime, 0, 1);
-          const prevAnimator = self.prevAnimator;
+      // Deal with crossfading between animators
+      if (self.prevAnimator) {
+        // Adjust the animator alphas as a percentage of the crossfade time and continue counting the total time until the crossfade is complete
+        const percentFade = clamp(self.crossfadeCounter / self.totalCrossfadeTime, 0, 1);
+        const prevAnimator = self.prevAnimator;
 
-          if (self.crossfadeCounter < self.totalCrossfadeTime) {
-            self.crossfadeCounter += dtSinceLastRender;
-          }
-          else {
-            // no longer crossfading, reset to just showing the current scene
-            self.crossfadeCounter = Infinity;
-            self.prevAnimator.stop();
-            self.prevAnimator = null;
-          }
-
-          // Blend the currentAnimtor with the previous one via framebuffer - we need to do this so that we
-          // aren't just overwriting the voxel framebuffer despite the crossfade amounts for each animation
-          const prevAnimatorFBIdx = prevAnimator.rendersToCPUOnly() ? VoxelModel.CPU_FRAMEBUFFER_IDX_0 : VoxelModel.GPU_FRAMEBUFFER_IDX_0;
-          self.setFramebuffer(prevAnimatorFBIdx);
-          self.clear();
-          prevAnimator.render(dtSinceLastRender);
-          //console.log("Previous:");
-          //self.debugPrintVoxelTexture();
-
-          const currAnimatorFBIdx = self.currentAnimator.rendersToCPUOnly() ? VoxelModel.CPU_FRAMEBUFFER_IDX_1 : VoxelModel.GPU_FRAMEBUFFER_IDX_1;
-          self.setFramebuffer(currAnimatorFBIdx);
-          self.clear();
-          self.currentAnimator.render(dtSinceLastRender);
-          //console.log("CPU:");
-          //self.debugPrintVoxelTexture();
-
-          self.setFramebuffer(VoxelModel.GPU_FRAMEBUFFER_IDX_0);
-          self.drawCombinedFramebuffers(currAnimatorFBIdx, prevAnimatorFBIdx, {mode: VoxelModel.FB1_ALPHA_FB2_ONE_MINUS_ALPHA, alpha: percentFade});
-          //console.log("GPU:");
-          //self.debugPrintVoxelTexture();
+        if (self.crossfadeCounter < self.totalCrossfadeTime) {
+          self.crossfadeCounter += dtSinceLastRender;
         }
         else {
-          // No crossfade, just render the current animation
-          const currFBIdx = self.currentAnimator.rendersToCPUOnly() ? VoxelModel.CPU_FRAMEBUFFER_IDX_0 : VoxelModel.GPU_FRAMEBUFFER_IDX_0;
-          self.setFramebuffer(currFBIdx);
-          self.clear();
-          self.currentAnimator.render(dtSinceLastRender);
+          // no longer crossfading, reset to just showing the current scene
+          self.crossfadeCounter = Infinity;
+          self.prevAnimator.stop();
+          self.prevAnimator = null;
         }
 
-        dtSinceLastRender = 0;
-        skipFrameNumber = 1;
+        // Blend the currentAnimtor with the previous one via framebuffer - we need to do this so that we
+        // aren't just overwriting the voxel framebuffer despite the crossfade amounts for each animation
+        const prevAnimatorFBIdx = prevAnimator.rendersToCPUOnly() ? VoxelModel.CPU_FRAMEBUFFER_IDX_0 : VoxelModel.GPU_FRAMEBUFFER_IDX_0;
+        self.setFramebuffer(prevAnimatorFBIdx);
+        self.clear();
+        await prevAnimator.render(dtSinceLastRender);
 
-        // Let the server know to broadcast the new voxel data to all clients
-        voxelServer.setVoxelData(self.framebuffer.getCPUBuffer(), self.frameCounter);
-        self.frameCounter++;
+        const currAnimatorFBIdx = self.currentAnimator.rendersToCPUOnly() ? VoxelModel.CPU_FRAMEBUFFER_IDX_1 : VoxelModel.GPU_FRAMEBUFFER_IDX_1;
+        self.setFramebuffer(currAnimatorFBIdx);
+        self.clear();
+        await self.currentAnimator.render(dtSinceLastRender);
+
+        self.setFramebuffer(VoxelModel.GPU_FRAMEBUFFER_IDX_0);
+        self.drawCombinedFramebuffers(currAnimatorFBIdx, prevAnimatorFBIdx, {mode: VoxelModel.FB1_ALPHA_FB2_ONE_MINUS_ALPHA, alpha: percentFade});
       }
       else {
-        console.log("Skipping Frame: " + self.frameCounter + " (+" + skipFrameNumber + "), catch-up required: " + (catchupTimeInSecs*1000).toFixed(0) + "ms");
-        skipFrameNumber++;
+        // No crossfade, just render the current animation
+        const currFBIdx = self.currentAnimator.rendersToCPUOnly() ? VoxelModel.CPU_FRAMEBUFFER_IDX_0 : VoxelModel.GPU_FRAMEBUFFER_IDX_0;
+        self.setFramebuffer(currFBIdx);
+        self.clear();
+        await self.currentAnimator.render(dtSinceLastRender);
       }
 
+      dtSinceLastRender = 0;
+      skipFrameNumber = 1;
+
+      // Let the server know to broadcast the new voxel data to all clients
+      voxelServer.setVoxelData(self.framebuffer.getCPUBuffer(), self.frameCounter);
+      self.frameCounter++;
+
       lastFrameTime = self.currFrameTime;
-      
-    }, DEFAULT_POLLING_INTERVAL_MS);
+
+      // Make sure we're keeping up with the set framerate, accounting for the time it took to execute the current frame
+      const currTotalFrameTime = Date.now() - self.currFrameTime;
+      renderLoopTimerId = setTimeout(renderLoop, Math.max(0, DEFAULT_POLLING_INTERVAL_MS-currTotalFrameTime));
+    };
+
+    renderLoopTimerId = setTimeout(renderLoop, DEFAULT_POLLING_INTERVAL_MS);
   }
  
   /**
@@ -296,6 +277,9 @@ class VoxelModel {
 
   static voxelIdStr(voxelPt) {
     return voxelPt.x.toFixed(0) + "_" + voxelPt.y.toFixed(0) + "_" + voxelPt.z.toFixed(0);
+  }
+  static voxelFlatIdx(voxelPt, gridSize) {
+    return voxelPt.x*gridSize*gridSize + voxelPt.y*gridSize + voxelPt.z;
   }
 
   static calcVoxelBoundingBox(voxelPt) {

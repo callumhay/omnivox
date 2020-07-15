@@ -81,34 +81,6 @@ class FireAnimator extends VoxelAnimator {
     // Update the voxels...
     const gpuFramebuffer = this.voxelModel.framebuffer;
     gpuFramebuffer.drawFire(this.fireLookup, this.fluidModel.T, [startX, startY, startZ]);
-
-    /*
-    const tempColour = new THREE.Color();
-    const voxelArray = this.voxelModel.voxels;
-    const voxelPos = new THREE.Vector3();
-    for (let x = 0; x < voxelArray.length; x++) {
-      for (let y = 0; y < voxelArray[x].length; y++) {
-        for (let z = 0; z < voxelArray[x][y].length; z++) {
-
-          // Start by looking up the temperature and density of the flame, both are constrained in [0,1]
-          const idx = this.fluidModel._I(x+startX,y+startY,z+startZ);
-          const temperature = this.fluidModel.T[idx];
-          const density = this.fluidModel.d[idx];
-          const lighting = 0.6;
-
-          // Use the temp and density to look up the expected colour of the flame at the current voxel
-          const temperatureIdx = Math.min(FIRE_SPECTRUM_WIDTH-1, Math.max(0, Math.round(temperature*(FIRE_SPECTRUM_WIDTH-1))));
-          const densityIdx = Math.min(15, Math.max(0, Math.round(density*15)));
-          const intensityIdx = Math.round(lighting*15);
-
-          const voxelColour = this.fireTexture[intensityIdx][densityIdx][temperatureIdx];
-          
-          tempColour.setRGB(voxelColour.a*voxelColour.r, voxelColour.a*voxelColour.g, voxelColour.a*voxelColour.b);
-          this.voxelModel.setVoxel(voxelPos.set(x,y,z), tempColour);
-        }
-      }
-    }
-    */
   }
 
   reset() {

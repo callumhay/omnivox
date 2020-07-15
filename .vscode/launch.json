@@ -5,13 +5,30 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "node",
-      "request": "launch",
-      "name": "Launch Program",
+      "name": "Attach",
+      "port": 9229,
+      "request": "attach",
       "skipFiles": [
         "<node_internals>/**"
       ],
-      "program": "${workspaceFolder}\\dist\\server.js"
+      "type": "pwa-node",
+    },
+
+
+
+
+    {
+      "name": "Debug Node",
+      "request": "launch",
+      "runtimeArgs": [
+        "run",
+        "start_debug"
+      ],
+      "runtimeExecutable": "npm",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "type": "pwa-node"
     }
   ]
 }

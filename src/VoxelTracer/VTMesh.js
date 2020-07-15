@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import {computeBoundsTree, disposeBoundsTree, acceleratedRaycast, MeshBVH, SAH} from 'three-mesh-bvh';
 import {SQRT2PI, SQRT3} from '../MathUtils';
 import VoxelModel from '../Server/VoxelModel';
+import VTRenderable from './VTRenderable';
+import VTMaterialFactory from './VTMaterialFactory';
 
 // Add the extension functions for calculating bounding volumes for THREE.Mesh/THREE.Geometry
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -22,21 +24,34 @@ class VTTriSample {
       falloff: 1,
     };
   }
+
+  static build(jsonData) {
+    const {triangle, indices, sqrDist, worldSpaceClosestPt, sample} = jsonData;
+    const result = new VTTriSample(triangle, indices, sqrDist, new THREE.Vector3(worldSpaceClosestPt.x, worldSpaceClosestPt.y, worldSpaceClosestPt.z));
+
+    const {normal, uv, falloff} = sample;
+    result.sample.normal.set(normal.x, normal.y, normal.z);
+    result.sample.uv.set(uv.x, uv.y);
+    result.sample.falloff = falloff;
+
+    return result;
+  }
 }
 
-class VTMesh {
+class VTMesh extends VTRenderable {
   // NOTE: All geometry MUST be buffer geometry!
   constructor(geometry, material) {
-    this.geometry = geometry;
-    this.geometry.computeBoundingBox();
-    this.geometry.boundsTree = new MeshBVH(this.geometry, {strategy: SAH});
+    super(VTRenderable.MESH_TYPE);
+    
+    if (geometry) {
+      this.geometry = geometry;
+      this.geometry.computeBoundingBox();
+      this.geometry.boundsTree = new MeshBVH(this.geometry, {strategy: SAH});
+      this.threeMesh = new THREE.Mesh(this.geometry);
+    }
     this.material = material;
-    this._threeMesh = new THREE.Mesh(this.geometry);
 
-    // Memoization for voxel collisions and sampling
-    this.voxelIdxToTriSamples = {}; 
-
-    // Temporary variables
+    // Temporary variables for use when calculating cached/memoized samples
     this._closestPt     = new THREE.Vector3(0,0,0);
     this._voxelCenterPt = new THREE.Vector3(0,0,0);
     this._baryCoord     = new THREE.Vector3(0,0,0);
@@ -47,25 +62,66 @@ class VTMesh {
     this._uv1 = new THREE.Vector2(0,0);
     this._uv2 = new THREE.Vector2(0,0);
     this._tempVec3 = new THREE.Vector3();
+
+
+    // Memoization for voxel collisions and sampling
+    this.voxelIdxToTriSamples = {};
+    this.makeDirty();
+  }
+
+  static build(jsonData) {
+    const {id, threeMesh, material} = jsonData;
+
+    const result = new VTMesh(null, VTMaterialFactory.build(material));
+    result.id = id;
+    
+    const loader = new THREE.ObjectLoader();
+    const loadedMesh = loader.parse(threeMesh);
+    loadedMesh.geometry.computeBoundingBox();
+    loadedMesh.geometry.boundsTree = new MeshBVH(loadedMesh.geometry, {strategy: SAH});
+    loadedMesh.updateMatrixWorld();
+    
+    result.geometry = loadedMesh.geometry;
+    result.threeMesh = loadedMesh;
+    
+    return result;
+  }
+  toJSON() {
+    const {id, type, threeMesh, material} = this;
+    return {id, type, threeMesh, material};
   }
 
   dispose() {
     this.geometry.disposeBoundsTree();
     this.geometry.dispose();
     this.material.dispose();
-    this.dirty();
+    this.makeDirty();
   }
 
-  dirty() {
-    this.voxelIdxToTriSamples = {}; 
+  isDirty() {
+    return this._isDirty;
   }
+  makeDirty() {
+    this._isDirty = true;
+  }
+  unDirty(scene) {
+    if (this._isDirty) {
+      this.updateMatrixWorld();
+      this.voxelIdxToTriSamples = {};
+      this._isDirty = false;
+      return true;
+    }
+    return false;
+  }
+
+  isShadowCaster() { return true; }
 
   // Transform methods
   setPosition(x,y,z) { 
-    this._threeMesh.position.set(x,y,z);
-    this.dirty();
+    this.threeMesh.position.set(x,y,z);
+    this.makeDirty();
   }
-  updateMatrixWorld() { this._threeMesh.updateMatrixWorld(); }
+  updateMatrixWorld() { this.threeMesh.updateMatrixWorld(); }
 
   calculateShadow(raycaster) {
     return {
@@ -74,16 +130,15 @@ class VTMesh {
     };
   }
 
-  preRender(voxelIdxPt) {
+  _preRender(voxelIdxPt, voxelId) {
     let vtTriSamples = null;
-    const voxelIdxLookup = VoxelModel.voxelIdStr(voxelIdxPt);
 
     // Have we memoized the current voxel index point yet?
-    if (voxelIdxLookup in this.voxelIdxToTriSamples) {
+    if (voxelId in this.voxelIdxToTriSamples) {
       // Just use the memoized values...
-      vtTriSamples = this.voxelIdxToTriSamples[voxelIdxLookup];
+      vtTriSamples = this.voxelIdxToTriSamples[voxelId];
     }
-    else {
+    else if (this.threeMesh.geometry.boundsTree) {
       // We need to build a set of new triangle samples for the given voxel
       const voxelBoundingBox = VoxelModel.calcVoxelBoundingBox(voxelIdxPt);
       voxelBoundingBox.getCenter(this._voxelCenterPt);
@@ -92,15 +147,15 @@ class VTMesh {
   
       // Start by finding all triangles in this mesh that may intersect with the given voxel
       vtTriSamples = [];
-      this._threeMesh.geometry.boundsTree.shapecast(
-        this._threeMesh,
+      this.threeMesh.geometry.boundsTree.shapecast(
+        this.threeMesh,
         box => {
           const worldSpaceBox = box.clone();
-          worldSpaceBox.applyMatrix4(this._threeMesh.matrixWorld);
+          worldSpaceBox.applyMatrix4(this.threeMesh.matrixWorld);
           return voxelBoundingBox.intersectsBox(worldSpaceBox);
         },
         (tri, a, b, c) => {
-          const {matrixWorld} = this._threeMesh;
+          const {matrixWorld} = this.threeMesh;
           const worldSpaceTri = tri.clone();
           worldSpaceTri.a.applyMatrix4(matrixWorld);
           worldSpaceTri.b.applyMatrix4(matrixWorld);
@@ -134,7 +189,7 @@ class VTMesh {
           this._n2.multiplyScalar(baryCoord.z);
           this._n0.add(this._n1.add(this._n2));
           this._n0.normalize();
-          this._n0.transformDirection(this._threeMesh.matrixWorld);
+          this._n0.transformDirection(this.threeMesh.matrixWorld);
   
           target.copy(this._n0);
         };
@@ -181,13 +236,14 @@ class VTMesh {
         }
       }
 
-      this.voxelIdxToTriSamples[voxelIdxLookup] = vtTriSamples;
+      this.voxelIdxToTriSamples[voxelId] = vtTriSamples;
     }
 
     return vtTriSamples;
   }
 
   calculateVoxelColour(voxelIdxPt, scene) {
+    const voxelId = VoxelModel.voxelFlatIdx(voxelIdxPt, scene.gridSize);
     let finalColour = new THREE.Color(0,0,0);
 
     // Fast-out if we can't even see this mesh
@@ -196,25 +252,27 @@ class VTMesh {
     }
     
     // Grab a list of all the samples
-    const vtTriSamples = this.preRender(voxelIdxPt);
-    const samples = vtTriSamples.map(triSample => triSample.sample);
-    finalColour.add(scene.calculateLightingSamples(samples, this.material));
-  
+    const vtTriSamples = this._preRender(voxelIdxPt, voxelId);
+    if (vtTriSamples.length > 0) {
+      const samples = vtTriSamples.map(triSample => triSample.sample);
+      finalColour.add(scene.calculateLightingSamples(samples, this.material));
+    }
+    
     return finalColour;
   }
 
   intersectsBox(box) {
-    return this.geometry.boundsTree.intersectsBox(this._threeMesh, box, new THREE.Matrix4());
+    return this.geometry.boundsTree.intersectsBox(this.threeMesh, box, new THREE.Matrix4());
   }
 
   intersectsRay(raycaster) {
-    //return this.geometry.boundsTree.raycastFirst(this._threeMesh, raycaster, raycaster.ray) !== null;
+    //return this.geometry.boundsTree.raycastFirst(this.threeMesh, raycaster, raycaster.ray) !== null;
     raycaster.firstHitOnly = true;
-    return raycaster.intersectObjects([this._threeMesh]).length > 0;
+    return raycaster.intersectObjects([this.threeMesh]).length > 0;
   }
 
   getCollidingVoxels(voxelGridBoundingBox) {
-    const worldSpaceBB = this.geometry.boundingBox.clone().applyMatrix4(this._threeMesh.matrixWorld);
+    const worldSpaceBB = this.geometry.boundingBox.clone().applyMatrix4(this.threeMesh.matrixWorld);
     return VoxelModel.voxelBoxList(worldSpaceBB.min, worldSpaceBB.max, true, voxelGridBoundingBox);
   }
 }

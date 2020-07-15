@@ -56,7 +56,7 @@ class FogScene extends SceneRenderer {
     this.scene.addFog(this.fog);
   }
 
-  render(dt) {
+  async render(dt) {
     if (!this._objectsBuilt) {
       return;
     }
@@ -68,11 +68,11 @@ class FogScene extends SceneRenderer {
 
     const t = this.timeCounter*Math.PI;
 
-    this.ptLight.position.set(lightMovementRadius*Math.cos(t) + halfXSize, halfYSize, lightMovementRadius*Math.sin(t) + halfZSize);
-
-    this.scene.render();
+    this.ptLight.setPosition(this.ptLight.position.set(lightMovementRadius*Math.cos(t) + halfXSize, halfYSize, lightMovementRadius*Math.sin(t) + halfZSize));
 
     this.timeCounter += dt;
+
+    await this.scene.render();
   }
 }
 

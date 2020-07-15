@@ -1111,12 +1111,6 @@ class ControlPanel {
             this.soundVizAnimatorConfig.sceneConfig.colourInterpolationType = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
           }).setValue(vizTypeOptions.colourInterpolationType);
-        
-          this.audioVizSettingsFolder.add(vizTypeOptions, 'colourGamma', 1, 5, 0.1).onChange((value) => {
-            this.soundVizAnimatorConfig.sceneConfig.colourGamma = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SOUND_VIZ, this.soundVizAnimatorConfig);
-          }).setValue(vizTypeOptions.colourGamma);
-          
 
           break;
 

@@ -1,15 +1,30 @@
 import * as THREE from 'three';
+
+import VTMaterial from './VTMaterial';
+import VTTexture from './VTTexture';
 import {clamp} from '../MathUtils';
 
-class VTLambertMaterial {
+class VTLambertMaterial extends VTMaterial {
   constructor(colour, alpha=1, texture=null, reflect=false) {
-    this.colour = colour;
+    super(VTMaterial.LAMBERT_TYPE);
+    this.colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
     this.alpha = alpha;
     this.texture = texture;
     this.reflect = reflect;
   }
 
+  static build(jsonData) {
+    const {colour, alpha, texture, reflect} = jsonData;
+    const threeColour = (new THREE.Color()).setHex(colour);
+    return new VTLambertMaterial(threeColour, alpha, VTTexture.build(texture), reflect);
+  }
+
   dispose() {}
+
+  toJSON() {
+    const {type, colour, alpha, texture, reflect} = this;
+    return {type, colour, alpha, texture, reflect};
+  }
 
   isVisible() {
     return Math.round(this.alpha*255) >= 1;

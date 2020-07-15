@@ -1,14 +1,29 @@
 import * as THREE from 'three';
+
+import VTMaterial from './VTMaterial';
+import VTTexture from './VTTexture';
 import {clamp} from '../MathUtils';
 
-class VTEmissionMaterial {
+class VTEmissionMaterial extends VTMaterial {
   constructor(colour, alpha=1, texture=null) {
-    this.colour = colour;
+    super(VTMaterial.EMISSION_TYPE);
+    this.colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
     this.alpha = alpha;
     this.texture = texture;
   }
 
+  static build(jsonData) {
+    const {colour, alpha, texture} = jsonData;
+    const threeColour = (new THREE.Color()).setHex(colour);
+    return new VTEmissionMaterial(threeColour, alpha, VTTexture.build(texture));
+  }
+
   dispose() {}
+
+  toJSON() {
+    const {type, colour, alpha, texture} = this;
+    return {type, colour, alpha, texture};
+  }
 
   emission(uv) {
     return this.albedo(uv);

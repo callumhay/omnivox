@@ -61,7 +61,6 @@ export const fireAudioVisDefaultConfig = {
   colourMode: LOW_HIGH_TEMP_COLOUR_MODE,
   lowTempColour:  new THREE.Color(0.2, 0, 1),
   highTempColour: new THREE.Color(1, 0, 0.7),
-  colourGamma: 1.7,
   randomColourHoldTime: 5,
   randomColourTransitionTime: 2,
   temperatureMin: 100,

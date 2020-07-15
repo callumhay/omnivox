@@ -65,7 +65,7 @@ class AudioVisualizerAnimator extends VoxelAnimator {
 
   rendersToCPUOnly() { return this._prevSceneConfig === null; }
 
-  render(dt) {
+  async render(dt) {
     if (this.currAudioInfo) {
       this.audioVisualizer.updateAudioInfo(this.currAudioInfo);
 
@@ -92,7 +92,7 @@ class AudioVisualizerAnimator extends VoxelAnimator {
 
       this.voxelModel.setFramebuffer(prevSceneFBIdx);
       this.voxelModel.clear();
-      prevScene.render(dt);
+      await prevScene.render(dt);
 
       if (this._crossfadeCounter < this._totalCrossfadeTime) {
         this._crossfadeCounter += dt;
@@ -108,7 +108,7 @@ class AudioVisualizerAnimator extends VoxelAnimator {
 
       this.voxelModel.setFramebuffer(currSceneFBIdx);
       this.voxelModel.clear();
-      this.audioVisualizer.render(dt);
+      await this.audioVisualizer.render(dt);
 
       // Now we set the default render framebuffer for the animator and we combine the two scene framebuffers into it
       this.voxelModel.setFramebuffer(VoxelModel.GPU_FRAMEBUFFER_IDX_0);
@@ -118,7 +118,7 @@ class AudioVisualizerAnimator extends VoxelAnimator {
       );
     }
     else {
-      this.audioVisualizer.render(dt);
+      await this.audioVisualizer.render(dt);
     }
   }
 

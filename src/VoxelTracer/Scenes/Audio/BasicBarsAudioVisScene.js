@@ -132,13 +132,10 @@ class BasicBarsAudioVisScene extends SceneRenderer {
     }
   }
 
-  render(dt) {
-    if (!this._objectsBuilt) {
-      return;
-    }
-    
-    this.scene.render();
+  async render(dt) {
+    if (!this._objectsBuilt) { return; }
     this.timeCounter += dt;
+    await this.scene.render();
   }
 
   updateAudioInfo(audioInfo) {
@@ -213,7 +210,9 @@ class BasicBarsAudioVisScene extends SceneRenderer {
       for (let k = 0; k < lvlMeshes.length; k++) {
         const alpha = k < cutoffLvl ? 1 : 0;
         const mesh = lvlMeshes[k];
-        mesh.material.alpha = clamp(mesh.material.alpha * fadeFactorAdjusted + alpha * (1.0 - fadeFactorAdjusted), 0, 1);
+        const {material} = mesh;
+        material.alpha = clamp(material.alpha * fadeFactorAdjusted + alpha * (1.0 - fadeFactorAdjusted), 0, 1);
+        mesh.setMaterial(material);
       }
     };
 

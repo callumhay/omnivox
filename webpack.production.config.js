@@ -12,6 +12,11 @@ const commonConfig = {
   node: {
     fs: 'empty',
   },
+  plugins: [
+    new webpack.DefinePlugin({
+      DEBUG: false,
+    }),
+  ],
 };
 
 const webClientConfig = {...commonConfig,
@@ -35,4 +40,16 @@ const serverConfig = {...commonConfig,
   },
 };
 
-module.exports = [webClientConfig, serverConfig];
+const renderChildConfig = {...commonConfig,
+  target: 'node',
+  externals: [nodeExternals()],
+  entry: {
+    vtrenderproc: './src/VoxelTracer/RenderProc/vtrenderprocess.js',
+  },
+  output: {
+    filename: 'vtrenderproc.js',
+    path: distPath,
+  },
+};
+
+module.exports = [webClientConfig, serverConfig, renderChildConfig];

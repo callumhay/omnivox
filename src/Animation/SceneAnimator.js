@@ -4,7 +4,6 @@ import VoxelAnimator, {DEFAULT_CROSSFADE_TIME_SECS} from './VoxelAnimator';
 import {sceneAnimatorDefaultConfig, SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG} from './SceneAnimatorDefaultConfigs';
 
 import {clamp} from '../MathUtils';
-
 import VoxelModel, {BLEND_MODE_ADDITIVE, BLEND_MODE_OVERWRITE} from '../Server/VoxelModel';
 
 import SimpleScene from '../VoxelTracer/Scenes/SimpleScene';
@@ -56,9 +55,9 @@ class SceneAnimator extends VoxelAnimator {
     }
   }
 
-  rendersToCPUOnly() { return this._prevSceneConfig === null; }
+  rendersToCPUOnly() { return true; }
 
-  render(dt) {
+  async render(dt) {
     const currScene = this._sceneMap[this.config.sceneType];
 
     // Crossfade between scenes
@@ -74,7 +73,7 @@ class SceneAnimator extends VoxelAnimator {
       prevScene.rebuild(this._prevSceneConfig.sceneOptions);
       this.voxelModel.setFramebuffer(prevSceneFBIdx);
       this.voxelModel.clear();
-      prevScene.render(dt);
+      await prevScene.render(dt);
 
       if (this._crossfadeCounter < this._totalCrossfadeTime) {
         this._crossfadeCounter += dt;
@@ -89,7 +88,7 @@ class SceneAnimator extends VoxelAnimator {
       currScene.rebuild(this.config.sceneOptions);
       this.voxelModel.setFramebuffer(currSceneFBIdx);
       this.voxelModel.clear();
-      currScene.render(dt);
+      await currScene.render(dt);
 
       // Now we set the default render framebuffer for the animator and we combine
       // the two scene framebuffers into it
@@ -100,7 +99,7 @@ class SceneAnimator extends VoxelAnimator {
       );
     }
     else {
-      currScene.render(dt);
+      await currScene.render(dt);
     }
   }
 
