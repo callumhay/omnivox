@@ -98,8 +98,7 @@ class VTScene {
           resolve();
         }
         else {
-          setTimeout(() => poll(resolve), 1);
-          //setImmediate(() => poll(resolve));
+          setImmediate(() => poll(resolve));
         }
       }
       return new Promise(poll);
@@ -188,7 +187,7 @@ class VTScene {
     // are ready to be sent to the child render processes
     for (let i = 0; i < dirty.length; i++) {
       const dirtyObj = dirty[i];
-      dirtyObj.unDirty(this);
+      dirtyObj.unDirty();
     }
     
     const boundingBox = this.getVoxelGridBoundingBox();
@@ -212,7 +211,7 @@ class VTScene {
 
   static calcNumChildProcesses() {
     //return (VTSceneTest.debugInspectIsOn()) ? 1 : os.cpus().length;
-    return 1;//os.cpus().length;
+    return os.cpus().length;
   }
 
   _killChildProcesses() {

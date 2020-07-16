@@ -1,5 +1,4 @@
 import VTRPScene from "./VTRPScene";
-import VTRenderable from "../VTRenderable";
 import VoxelModel from "../../Server/VoxelModel";
 
 class VTRenderProc {

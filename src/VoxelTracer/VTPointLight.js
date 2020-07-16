@@ -1,15 +1,16 @@
 import * as THREE from 'three';
 import VoxelModel from '../Server/VoxelModel';
-import VTRenderable from './VTRenderable';
+
+import VTObject from './VTObject';
 
 export const defaultAttenuation = {
   quadratic:0, 
   linear:1, 
 };
 
-class VTPointLight extends VTRenderable {
+class VTPointLight extends VTObject {
   constructor(position, colour, attenuation=defaultAttenuation) {
-    super(VTRenderable.POINT_LIGHT_TYPE);
+    super(VTObject.POINT_LIGHT_TYPE);
 
     this._position = position;
     this._colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
@@ -38,7 +39,7 @@ class VTPointLight extends VTRenderable {
 
   isDirty() { return this._isDirty; }
   makeDirty() { this._isDirty = true; }
-  unDirty(scene=null) {
+  unDirty() {
     if (this._isDirty) {
       this._isDirty = false;
       return true;

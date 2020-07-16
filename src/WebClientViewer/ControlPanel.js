@@ -1123,7 +1123,6 @@ class ControlPanel {
 
     }).setValue(soundVizSettings.sceneType);
 
-
     folder.open();
 
     return folder;

@@ -1,6 +1,6 @@
 import VTConstants from './VTConstants';
 
-class VTRenderable {
+class VTObject {
   
   static get MESH_TYPE() { return 'm'; }
   static get AMBIENT_LIGHT_TYPE() { return 'a'; }
@@ -9,15 +9,22 @@ class VTRenderable {
   static get FOG_TYPE() { return 'f'; }
   
   constructor(type) {
+    if (this.constructor === VTObject) {
+      throw new Error("VTObject is an abstract class.");
+    }
     this.id = VTConstants.INVALID_RENDERABLE_ID;
     this.type = type;
   }
 
-  dispose() { console.error("dispose unimplemented abstract method called."); }
   isDirty()  { console.error("isDirty unimplemented abstract method called."); return false; }
-  unDirty(scene=null) { console.error("unDirty unimplemented abstract method called."); return true; }
+  unDirty() { console.error("unDirty unimplemented abstract method called."); return true; }
+
+  dispose() { console.error("dispose unimplemented abstract method called."); }
   isShadowCaster() { console.error("isShadowCaster unimplemented abstract method called."); return false; }
   getCollidingVoxels(voxelGridBoundingBox=null) { console.error("getCollidingVoxels unimplemented abstract method called."); return []; }
+
+  calculateShadow(raycaster=null) { console.error("calculateShadow unimplemented abstract method called."); return null; }
+  calculateVoxelColour(voxelIdxPt, scene) { console.error("calculateVoxelColour unimplemented abstract method called."); return null; }
 }
 
-export default VTRenderable;
+export default VTObject;

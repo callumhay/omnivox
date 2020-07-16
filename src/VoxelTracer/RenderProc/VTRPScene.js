@@ -1,16 +1,17 @@
 import * as THREE from 'three';
 import {VOXEL_EPSILON, clamp} from '../../MathUtils';
 
-import VTAmbientLight from '../VTAmbientLight';
-import VTRenderable from '../VTRenderable';
-import VTMesh from '../VTMesh';
-import VTPointLight from '../VTPointLight';
-import VTFog from '../VTFog';
-import VTVoxel from '../VTVoxel';
 import VTRenderProc from './VTRenderProc';
+import VTRPMesh from './VTRPMesh';
+import VTRPFog from './VTRPFog';
+import VTRPVoxel from './VTRPVoxel';
+
+import VTObject from '../VTObject';
+import VTAmbientLight from '../VTAmbientLight';
+import VTPointLight from '../VTPointLight';
+
 
 class VTRPScene {
-
   constructor() {
     this.gridSize = 0;
     this.clear();
@@ -106,7 +107,7 @@ class VTRPScene {
       }
 
       switch (obj.type) {
-        case VTRenderable.POINT_LIGHT_TYPE:
+        case VTObject.POINT_LIGHT_TYPE:
           this.renderables[id] = obj;
           this.lights[id] = obj;
           break;
@@ -128,21 +129,21 @@ class VTRPScene {
 
     let buildFunc = null;
     switch (type) {
-      case VTRenderable.MESH_TYPE:
-        buildFunc = VTMesh.build;
+      case VTObject.MESH_TYPE:
+        buildFunc = VTRPMesh.build;
         break;
-      case VTRenderable.POINT_LIGHT_TYPE:
+      case VTObject.POINT_LIGHT_TYPE:
         buildFunc = VTPointLight.build;
         break;
-      case VTRenderable.VOXEL_TYPE:
-        buildFunc = VTVoxel.build;
+      case VTObject.VOXEL_TYPE:
+        buildFunc = VTRPVoxel.build;
         break;
-      case VTRenderable.FOG_TYPE:
-        buildFunc = VTFog.build;
+      case VTObject.FOG_TYPE:
+        buildFunc = VTRPFog.build;
         break;
 
       default:
-        console.error(`Unknown VTRenderable object type found: ${type}`);
+        console.error(`Unknown VTObject renderable type found: ${type}`);
         return;
     }
 
@@ -157,16 +158,16 @@ class VTRPScene {
 
     let buildFunc = null;
     switch (type) {
-      case VTRenderable.POINT_LIGHT_TYPE:
+      case VTObject.POINT_LIGHT_TYPE:
         buildFunc = VTPointLight.build;
         break;
 
-      case VTRenderable.AMBIENT_LIGHT_TYPE:
+      case VTObject.AMBIENT_LIGHT_TYPE:
         this.ambientLight = VTAmbientLight.build(lightData);
         return;
 
       default:
-        console.error(`Unknown VTRenderable light type found: ${type}`);
+        console.error(`Unknown VTObject light type found: ${type}`);
         return;
     }
     updatedMap[id] = buildFunc(lightData);

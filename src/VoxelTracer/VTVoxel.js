@@ -2,13 +2,14 @@ import * as THREE from 'three';
 
 import VoxelModel from '../Server/VoxelModel';
 
-import VTRenderable from './VTRenderable';
-import VTMaterialFactory from './VTMaterialFactory';
+import VTObject from './VTObject';
 
-class VTVoxel extends VTRenderable  {
-
+export class VTVoxelAbstract extends VTObject {
   constructor(voxelIdxPt, material, options={}) {
-    super(VTRenderable.VOXEL_TYPE);
+    super(VTObject.VOXEL_TYPE);
+    if (this.constructor === VTVoxelAbstract) {
+      throw new Error("VTVoxelAbstract is an abstract class.");
+    }
 
     this._voxelIdxPt = voxelIdxPt;
     this._material = material;
@@ -19,49 +20,13 @@ class VTVoxel extends VTRenderable  {
     this._tempVec3 = new THREE.Vector3();
 
     this.computeBoundingBox();
-
-    this.makeDirty();
   }
-
-  static build(jsonData) {
-    const {id, _voxelIdxPt, _material, matrixArray, _receivesShadow} = jsonData;
-    const result = new VTVoxel(
-      new THREE.Vector3(_voxelIdxPt.x, _voxelIdxPt.y, _voxelIdxPt.z), 
-      VTMaterialFactory.build(_material), 
-      {receivesShadow: _receivesShadow, matrixWorld: (new THREE.Matrix4()).fromArray(matrixArray)}
-    );
-    result.id = id;
-    return result;
-  }
-
-  get material() { return this._material; }
-  setMaterial(m) { this._material = m; this.makeDirty(); }
-  setMatrixWorld(m) { this._matrixWorld = m; this.computeBoundingBox(); this.makeDirty(); }
-  setReceivesShadow(r) { this._receivesShadow = r; this.makeDirty(); }
 
   dispose() {
     this._material.dispose();
   }
 
-  isDirty() { return this._isDirty; }
-  
-  makeDirty() { this._isDirty = true; }
-
-  unDirty(scene=null) {
-    if (this._isDirty) {
-      this._isDirty = false;
-      return true;
-    }
-    return false;
-  }
-
   isShadowCaster() { return true; }
-
-  toJSON() {
-    const {id, type, _voxelIdxPt, _material, _matrixWorld, _receivesShadow} = this;
-    const matrixArray = _matrixWorld.toArray();
-    return {id, type, _voxelIdxPt, _material, matrixArray, _receivesShadow};
-  }
 
   _getWorldSpacePosition(target) {
     target.copy(this._voxelIdxPt);
@@ -74,33 +39,45 @@ class VTVoxel extends VTRenderable  {
     this._boundingBox = VoxelModel.calcVoxelBoundingBox(VoxelModel.closestVoxelIdxPt(this._tempVec3));
   }
 
-  calculateShadow(raycaster) {
-    return {
-      inShadow: this.intersectsRay(raycaster),
-      lightReduction: 1.0, // [0,1]: 1 => Completely black out the light if a voxel is in shadow from this object
-    };
-  }
-
-  calculateVoxelColour(voxelIdxPt=null, scene) {
-    // Fast-out if we can't even see this voxel
-    if (!this._material.isVisible()) {
-      return new THREE.Color(0,0,0);
-    }
-
-    this._getWorldSpacePosition(this._tempVec3);
-    return scene.calculateVoxelLighting(this._tempVec3, this._material, this._receivesShadow);
-  }
-
-  intersectsBox(box) {
-    return this._boundingBox.intersectsBox(box);
-  }
-
   intersectsRay(raycaster) {
     return raycaster.ray.intersectsBox(this._boundingBox, this._tempVec3) !== null;
   }
 
   getCollidingVoxels(voxelBoundingBox=null) {
     return [VoxelModel.closestVoxelIdxPt(this._voxelIdxPt)];
+  }
+}
+
+class VTVoxel extends VTVoxelAbstract  {
+
+  constructor(voxelIdxPt, material, options={}) {
+    super(voxelIdxPt, material, options);
+    this.makeDirty();
+  }
+
+  get material() { return this._material; }
+  setMaterial(m) { this._material = m; this.makeDirty(); }
+  setMatrixWorld(m) { this._matrixWorld = m; this.computeBoundingBox(); this.makeDirty(); }
+  setReceivesShadow(r) { this._receivesShadow = r; this.makeDirty(); }
+
+  isDirty() { return this._isDirty; }
+  makeDirty() { this._isDirty = true; }
+  unDirty() {
+    if (this._isDirty) {
+      this._isDirty = false;
+      return true;
+    }
+    return false;
+  }
+
+  toJSON() {
+    const {id, type, _voxelIdxPt, _material, _matrixWorld, _receivesShadow} = this;
+    const matrixArray = _matrixWorld.toArray();
+    return {id, type, _voxelIdxPt, _material, matrixArray, _receivesShadow};
+  }
+
+  intersectsBox(box) {
+    return this._boundingBox.intersectsBox(box);
   }
 }
 

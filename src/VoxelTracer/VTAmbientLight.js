@@ -1,10 +1,10 @@
 
 import * as THREE from 'three';
-import VTRenderable from './VTRenderable';
+import VTObject from './VTObject';
 
-class VTAmbientLight extends VTRenderable {
+class VTAmbientLight extends VTObject {
   constructor(colour=new THREE.Color(0,0,0)) {
-    super(VTRenderable.AMBIENT_LIGHT_TYPE);
+    super(VTObject.AMBIENT_LIGHT_TYPE);
     this._colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
     this.makeDirty();
   }
@@ -24,7 +24,7 @@ class VTAmbientLight extends VTRenderable {
 
   isDirty() { return this._isDirty; }
 
-  unDirty(scene=null) {
+  unDirty() {
     if (this._isDirty) {
       this._isDirty = false;
       return true;
