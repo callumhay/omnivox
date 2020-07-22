@@ -62,11 +62,12 @@ class VoxelServer {
       SerialPort.list().then(
         ports => {
           self.availableSerialPorts = ports;
-          //console.log("Available serial ports:");
-          //self.availableSerialPorts.forEach((availablePort) => {
-          //  console.log(availablePort);
-          //});
-          
+          /*
+          console.log("Available serial ports:");
+          self.availableSerialPorts.forEach((availablePort) => {
+            console.log(availablePort);
+          });
+          */
           // Attempt to connect to each of the serial ports that might be teensies...
           try {
             self.availableSerialPorts.forEach((availablePort) => {

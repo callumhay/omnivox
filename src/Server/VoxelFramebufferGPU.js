@@ -84,7 +84,8 @@ class VoxelFramebufferGPU extends VoxelFramebuffer {
   }
 
   drawFire(fireLookup, temperatureArr, offsetXYZ) {
-    this._bufferTexture = this.gpuKernelMgr.fireOverwrite(fireLookup, temperatureArr, offsetXYZ);
+    //this._bufferTexture = this.gpuKernelMgr.fireOverwrite(fireLookup, temperatureArr, offsetXYZ);
+    this._bufferTexture = this.gpuKernelMgr.fire3dArrOverwrite(fireLookup, temperatureArr, offsetXYZ);
   }
 
 }

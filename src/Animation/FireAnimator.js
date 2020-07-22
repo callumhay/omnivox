@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import VoxelAnimator from './VoxelAnimator';
 import {Randomizer} from './Randomizers';
 
-import Fluid, {_I} from '../Fluid';
+import FluidGPU from '../FluidGPU';
 import {generateSpectrum, ColourSystems, FIRE_SPECTRUM_WIDTH} from '../Spectrum';
 import {PI2} from '../MathUtils';
 
@@ -38,7 +38,7 @@ class FireAnimator extends VoxelAnimator {
     const {buoyancy, cooling, vorticityConfinement} = c;
 
     if (!this.fluidModel) {
-      this.fluidModel = new Fluid(this.voxelModel.gridSize);
+      this.fluidModel = new FluidGPU(this.voxelModel.gridSize, this.voxelModel.gpuKernelMgr.gpu);
     }
     this.fluidModel.diffusion = 0.0001;
     this.fluidModel.viscosity = 0;
@@ -66,14 +66,14 @@ class FireAnimator extends VoxelAnimator {
     const endZ = zSize+startZ;
     const startY = 1;
 
-    for (let x = startX; x < endX; x++) {
-      for (let z = startZ; z < endZ; z++) {
+    for (let z = startZ; z < endZ; z++) {
+      for (let x = startX; x < endX; x++) {
         let f = this.genFunc(x-startX, z-startZ, endX-startX, endZ-startZ, this.t, this.randomArray);
-        const idx = this.fluidModel._I(x, startY, z);
-        this.fluidModel.sd[idx] = 1.0;
-        this.fluidModel.sT[idx] = 1.0 + f*initialIntensityMultiplier;
+        this.fluidModel.sd[x][startY][z] = 1.0;
+        this.fluidModel.sT[x][startY][z] = 1.0 + f*initialIntensityMultiplier;
       }
     }
+    
     const speedDt = dt*speed;
     this.fluidModel.step(speedDt);
     this.t += speedDt;
@@ -92,10 +92,8 @@ class FireAnimator extends VoxelAnimator {
   genFireColourLookup() {
     const {spectrumTempMin, spectrumTempMax, colourSystem} = this.config;
     const spectrum = generateSpectrum(spectrumTempMin, spectrumTempMax, FIRE_SPECTRUM_WIDTH, ColourSystems[colourSystem]);
-
     const {gpuKernelMgr} = this.voxelModel; 
     this.fireLookup = gpuKernelMgr.fireLookupGen(spectrum);
-
   }
 
   genFunc(x, y, sx, sy, t, p) {

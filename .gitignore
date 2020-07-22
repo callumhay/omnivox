@@ -8,3 +8,4 @@ dist/server.js
 src/embedded/master/argon_firmware_*.bin
 src/embedded/master/target/
 dist/webclientviewer.js
+dist/vtrenderproc.js

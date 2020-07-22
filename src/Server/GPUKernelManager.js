@@ -186,6 +186,29 @@ class GPUKernelManager {
         FIRE_SPECTRUM_WIDTH: FIRE_SPECTRUM_WIDTH,
       }
     });
+
+    this.fire3dArrOverwrite = this.gpu.createKernel(function(fireLookup, temperatureArr, offsetXYZ) {
+      const temperature = temperatureArr[this.thread.z + offsetXYZ[2]][this.thread.y + offsetXYZ[1]][this.thread.x + offsetXYZ[0]];
+      const temperatureIdx = clampValue(Math.round(temperature*(this.constants.FIRE_SPECTRUM_WIDTH-1)), 0, this.constants.FIRE_SPECTRUM_WIDTH-1);
+      const voxelColour = fireLookup[temperatureIdx];
+      return [
+        clampValue(voxelColour[3]*voxelColour[0], 0, 1), 
+        clampValue(voxelColour[3]*voxelColour[1], 0, 1), 
+        clampValue(voxelColour[3]*voxelColour[2], 0, 1)
+      ];
+    }, 
+    {...this.pipelineFuncSettings, 
+      immutable: immutable,
+      argumentTypes: {
+        fireLookupTex: 'Array1D(4)', 
+        temperatureArr: 'Array', 
+        offsetXYZ: 'Array'
+      },
+      constants: {...this.pipelineFuncSettings.constants,
+        FIRE_SPECTRUM_WIDTH: FIRE_SPECTRUM_WIDTH,
+      }
+    });
+
   }
 }
 

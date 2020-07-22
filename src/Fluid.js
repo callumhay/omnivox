@@ -53,7 +53,7 @@ class Fluid {
     }
   }
 
-  diffuse(b, x0, x, diff, dt) {
+  diffuse(x0, x, diff, dt) {
     let a = dt * diff * this.N * this.N * this.N;
     for (let l = 0; l < 20; l++) {
       for (let k = 1; k <= this.N; k++) {
@@ -67,7 +67,6 @@ class Fluid {
           }
         }
       }
-      //this.set_bnd(b, x);
     }
   }
 
@@ -126,7 +125,6 @@ class Fluid {
         }
       }
     }
-    //this.set_bnd(b, this.d);
   }
 
   project() {
@@ -145,8 +143,6 @@ class Fluid {
         }
       }
     }
-    //this.set_bnd(0, div);
-    //this.set_bnd(0, p);
 
     for (let l = 0; l < 20; l++) {
       for (let k = 1; k <= this.N; k++) {
@@ -159,7 +155,6 @@ class Fluid {
           }
         }
       }
-      //this.set_bnd(0, p);
     }
 
     for (let k = 1; k <= this.N; k++) {
@@ -171,8 +166,6 @@ class Fluid {
         }
       }
     }
-    //this.set_bnd(1, this.u);
-    //this.set_bnd(2, this.v);
   }
 
   vorticityConfinement(dt) {
@@ -231,9 +224,9 @@ class Fluid {
       temp = this.u; this.u = this.u0; this.u0 = temp;
       temp = this.v; this.v = this.v0; this.v0 = temp;
       temp = this.w; this.w = this.w0; this.w0 = temp;
-      this.diffuse(1, this.u0, this.u, this.viscosity, dt);
-      this.diffuse(2, this.v0, this.v, this.viscosity, dt);
-      this.diffuse(3, this.w0, this.w, this.viscosity, dt);
+      this.diffuse(this.u0, this.u, this.viscosity, dt);
+      this.diffuse(this.v0, this.v, this.viscosity, dt);
+      this.diffuse(this.w0, this.w, this.viscosity, dt);
       this.project();
     }
 
@@ -248,26 +241,13 @@ class Fluid {
     }
   }
 
-  densStep(dt, diffuse = true, advect = true) {
-    this.addSource(this.sd, this.d, dt);
-    let temp = null;
-    if (diffuse) {
-      temp = this.d; this.d = this.d0; this.d0 = temp;
-      this.diffuse(0, this.d0, this.d, this.diffusion, dt);
-    }
-    if (advect) {
-      temp = this.d; this.d = this.d0; this.d0 = temp;
-      this.advect(0, this.d0, this.d, this.u, this.v, this.w, dt);
-    }
-  }
-
   densTempStep(dt) {
     this.addSource(this.sd, this.d, dt);
     this.addSource(this.sT, this.T, dt);
     
     let temp = null;
     temp = this.d; this.d = this.d0; this.d0 = temp;
-    this.diffuse(0, this.d0, this.d, this.diffusion, dt);
+    this.diffuse(this.d0, this.d, this.diffusion, dt);
     temp = this.d; this.d = this.d0; this.d0 = temp;
     temp = this.T; this.T = this.T0; this.T0 = temp;
     this.advectCool(0, this.d0, this.d, this.T0, this.T, this.u, this.v, this.w, dt);
