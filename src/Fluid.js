@@ -169,7 +169,10 @@ class Fluid {
   }
 
   vorticityConfinement(dt) {
-    const curlx = this.u0; const curly = this.v0; const curlz = this.w0; const curl = this.T0;
+    const curlx = this.u0;
+    const curly = this.v0; 
+    const curlz = this.w0;
+    const curl = this.T0;
     const dt0 = dt * this.vc_eps;
 
     for (let k = 1; k < this.N; k++) {

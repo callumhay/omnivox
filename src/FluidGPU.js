@@ -1,11 +1,11 @@
-const PER_FRAME_LOOPS = 20; 
+const DIFFUSE_PER_FRAME_LOOPS = 20; 
+const PROJECT_PER_FRAME_LOOPS = 20;
 
 class FluidGPU {
 
   constructor(gridSize, gpu) {
     this.N = gridSize;
     const NPLUS2 = this.N+2;
-    this.SIZE = Math.pow(NPLUS2,3);
 
     this.diffusion = 0;
     this.viscosity = 0;
@@ -24,10 +24,10 @@ class FluidGPU {
         ONEDIVN: 1.0/this.N,
       },
       immutable: true,
+      //tactic: 'balanced',
     };
     this.gpu.addFunction(function ijkLookup() {
       return [this.thread.z, this.thread.y, this.thread.x];
-      //return [this.thread.x, this.thread.y, this.thread.z];
     });
 
     const ARRAY3D_TYPE = 'Array';
@@ -35,9 +35,6 @@ class FluidGPU {
     this.initBufferFunc = this.gpu.createKernel(function(value) {
       return value;
     }, {...pipelineFuncSettings, argumentTypes: {value: 'Float'}});
-    this.initBuffer2Func = this.gpu.createKernel(function(x,y) {
-      return [x, y];
-    }, {...pipelineFuncSettings, returnType: 'Array(2)', argumentTypes: {x: 'Float', y: 'Float'}});
     this.initBuffer3Func = this.gpu.createKernel(function(x,y,z) {
       return [x, y, z];
     }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {x: 'Float', y: 'Float', z: 'Float'}});
@@ -66,7 +63,7 @@ class FluidGPU {
       if (i < 1 || j < 1 || k < 1 || i > this.constants.N || j > this.constants.N || k > this.constants.N) {
         return uvw[i][j][k];
       }
-      const divisor = 1+6*a;
+      const divisor = 1.0 + 6.0*a;
       const uvw0ijk = uvw0[i][j][k];
       const uvwiNeg = uvw[i-1][j][k];
       const uvwiPos = uvw[i+1][j][k];
@@ -149,11 +146,11 @@ class FluidGPU {
       const uvwkPos = uvw[i][j][k+1];
       const uvwkNeg = uvw[i][j][k-1];
       return [
-        uvw0ijk[0],
+        0,
         -this.constants.ONEDIVN * (uvwiPos[0] - uvwiNeg[0] + uvwjPos[1] - uvwjNeg[1] + uvwkPos[2] - uvwkNeg[2]) / 3.0,
         uvw0ijk[2]
       ];
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {div: ARRAY3D_TYPE, uvw: ARRAY3D_3_TYPE}});
+    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {uvw0: ARRAY3D_3_TYPE, uvw: ARRAY3D_3_TYPE}});
 
     this.projectStep2Func = this.gpu.createKernel(function(uvw0) {
       const [i,j,k] = ijkLookup();
@@ -256,50 +253,27 @@ class FluidGPU {
       ];
     }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {uvw: ARRAY3D_3_TYPE, Nxyz: ARRAY3D_3_TYPE, curlxyz: ARRAY3D_3_TYPE, dt0: 'Float'}});
 
-    const build3dBuffer = () => {
-      const result = new Array(NPLUS2);
-      for (let x = 0; x < NPLUS2; x++) {
-        const xArr = new Array(NPLUS2);
+    const build3dBuffer = (size) => {
+      const result = new Array(size);
+      for (let x = 0; x < size; x++) {
+        const xArr = new Array(size);
         result[x] = xArr;
-        for (let y = 0; y < NPLUS2; y++) {
-          const yArr = new Array(NPLUS2).fill(0);
+        for (let y = 0; y < size; y++) {
+          const yArr = new Array(size).fill(0);
           xArr[y] = yArr;
-        }
-      }
-      return result
-    }
-
-    const build3dBuffer2 = () => {
-      const result = new Array(NPLUS2);
-      for (let x = 0; x < NPLUS2; x++) {
-        const xArr = new Array(NPLUS2);
-        result[x] = xArr;
-        for (let y = 0; y < NPLUS2; y++) {
-          const yArr = new Array(NPLUS2);
-          xArr[y] = yArr;
-          for (let z = 0; z < NPLUS2; z++) {
-            yArr[z] = [0,0];
-          }
         }
       }
       return result
     }
 
     // Density and temperature source buffers
-    this.sd = build3dBuffer();
-    this.sT = build3dBuffer();
+    this.sd = build3dBuffer(NPLUS2);
+    this.sT = build3dBuffer(NPLUS2);
     // Density and temperature result buffers
-    this.d = this.initBufferFunc(0);   this.d0 = this.initBufferFunc(0);
-    this.T = this.initBufferFunc(0);   this.T0 = this.initBufferFunc(0);
-
-    /*
-    this.sdT = build3dBuffer2();
-    this.dT  = this.initBuffer2Func(0,0);
-    this.dT0 = this.initBuffer2Func(0,0);
-    */
-
+    this.d = this.initBufferFunc(0); this.d0 = this.initBufferFunc(0);
+    this.T = this.initBufferFunc(0); this.T0 = this.initBufferFunc(0);
     // xyz velocity buffers
-    this.uvw = this.initBuffer3Func(0, 0.5, 0);
+    this.uvw  = this.initBuffer3Func(0, 0.5, 0);
     this.uvw0 = this.initBuffer3Func(0, 0, 0);
   }
 
@@ -317,10 +291,10 @@ class FluidGPU {
   }
 
   diffuse3(dt) {
-    let temp = this.uvw;
+    let temp = null;
     let result = this.uvw;
     const a = dt * this.viscosity * this.N * this.N * this.N;
-    for (let l = 1; l < PER_FRAME_LOOPS; l++) {
+    for (let l = 0; l < DIFFUSE_PER_FRAME_LOOPS; l++) {
       temp = result;
       result = this.diffuseStep3Func(this.uvw0, result, a);
       temp.delete();
@@ -328,10 +302,10 @@ class FluidGPU {
     this.uvw = result;
   }
   diffuse(x0, x, diff, dt) {
-    let temp = x;
+    let temp = null;
     let result = x;
     const a = dt * diff * this.N * this.N * this.N;
-    for (let l = 1; l < PER_FRAME_LOOPS; l++) {
+    for (let l = 0; l < DIFFUSE_PER_FRAME_LOOPS; l++) {
       temp = result;
       result = this.diffuseStepFunc(x0, result, a);
       temp.delete();
@@ -368,7 +342,7 @@ class FluidGPU {
     this.uvw0 = this.projectStep1Func(this.uvw0, this.uvw);
     temp.delete();
 
-    for (let l = 0; l < PER_FRAME_LOOPS; l++) {
+    for (let l = 0; l < PROJECT_PER_FRAME_LOOPS; l++) {
       temp = this.uvw0;
       this.uvw0 = this.projectStep2Func(this.uvw0);
       temp.delete();

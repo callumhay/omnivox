@@ -95,42 +95,6 @@ class VoxelModel {
     return this._framebuffers[this._framebufferIdx];
   }
 
-  async test() {
-    /*
-    this.setFramebuffer(VoxelModel.CPU_FRAMEBUFFER_IDX_0);
-    this.clear();
-    for (let x = 0; x < this.xSize(); x++) {
-      for (let y = 0; y < this.ySize(); y++) {
-        for (let z = 0; z < this.zSize(); z++) {
-          this.drawPoint(new THREE.Vector3(x, y, z), new THREE.Color(x, y, z));
-        }
-      }
-    }
-    
-    console.log("CPU:");
-    this.debugPrintVoxelTexture(true);
-
-    this.setFramebuffer(VoxelModel.GPU_FRAMEBUFFER_IDX_0);
-    this.clear();
-    this.drawFramebuffer(VoxelModel.CPU_FRAMEBUFFER_IDX_0);
-    console.log("GPU:");
-    this.debugPrintVoxelTexture(false);
-    */
-
-    /*
-    while (true) {
-      this.setFramebuffer(VoxelModel.GPU_FRAMEBUFFER_IDX_0);
-      this.clear();
-      this.framebuffer.getCPUBuffer();
-    }
-    */
-    /*
-    const scene = new VTSceneTest(this);
-    const sceneAnim = new SceneAnimator(this, scene);
-    await sceneAnim.render(0.001);
-    */
-  }
-
   debugPrintVoxelTexture(isCPU) {
     const arr = this.framebuffer.getCPUBuffer();
     //console.log(arr);
@@ -179,13 +143,10 @@ class VoxelModel {
     let self = this;
     let lastFrameTime = Date.now();
     let dt = 0;
-    let dtSinceLastRender = 0;
-    let skipFrameNumber = 1;
 
     const renderLoop = async function() {
       self.currFrameTime = Date.now();
       dt = (self.currFrameTime - lastFrameTime) / 1000;
-      dtSinceLastRender += dt;
 
       // Simulate the model based on the current animation...
       this.blendMode = BLEND_MODE_OVERWRITE;
@@ -197,7 +158,7 @@ class VoxelModel {
         const prevAnimator = self.prevAnimator;
 
         if (self.crossfadeCounter < self.totalCrossfadeTime) {
-          self.crossfadeCounter += dtSinceLastRender;
+          self.crossfadeCounter += dt;
         }
         else {
           // no longer crossfading, reset to just showing the current scene
@@ -211,12 +172,12 @@ class VoxelModel {
         const prevAnimatorFBIdx = prevAnimator.rendersToCPUOnly() ? VoxelModel.CPU_FRAMEBUFFER_IDX_0 : VoxelModel.GPU_FRAMEBUFFER_IDX_0;
         self.setFramebuffer(prevAnimatorFBIdx);
         self.clear();
-        await prevAnimator.render(dtSinceLastRender);
+        await prevAnimator.render(dt);
 
         const currAnimatorFBIdx = self.currentAnimator.rendersToCPUOnly() ? VoxelModel.CPU_FRAMEBUFFER_IDX_1 : VoxelModel.GPU_FRAMEBUFFER_IDX_1;
         self.setFramebuffer(currAnimatorFBIdx);
         self.clear();
-        await self.currentAnimator.render(dtSinceLastRender);
+        await self.currentAnimator.render(dt);
 
         self.setFramebuffer(VoxelModel.GPU_FRAMEBUFFER_IDX_0);
         self.drawCombinedFramebuffers(currAnimatorFBIdx, prevAnimatorFBIdx, {mode: VoxelModel.FB1_ALPHA_FB2_ONE_MINUS_ALPHA, alpha: percentFade});
@@ -226,11 +187,8 @@ class VoxelModel {
         const currFBIdx = self.currentAnimator.rendersToCPUOnly() ? VoxelModel.CPU_FRAMEBUFFER_IDX_0 : VoxelModel.GPU_FRAMEBUFFER_IDX_0;
         self.setFramebuffer(currFBIdx);
         self.clear();
-        await self.currentAnimator.render(dtSinceLastRender);
+        await self.currentAnimator.render(dt);
       }
-
-      dtSinceLastRender = 0;
-      skipFrameNumber = 1;
 
       // Let the server know to broadcast the new voxel data to all clients
       voxelServer.setVoxelData(self.framebuffer.getCPUBuffer(), self.frameCounter);

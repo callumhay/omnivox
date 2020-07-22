@@ -68,7 +68,7 @@ class FireAnimator extends VoxelAnimator {
 
     for (let z = startZ; z < endZ; z++) {
       for (let x = startX; x < endX; x++) {
-        let f = this.genFunc(x-startX, z-startZ, endX-startX, endZ-startZ, this.t, this.randomArray);
+        let f = this.genFunc(x-startX, z-startZ, endX-startX, endZ-startZ, this.t);
         this.fluidModel.sd[x][startY][z] = 1.0;
         this.fluidModel.sT[x][startY][z] = 1.0 + f*initialIntensityMultiplier;
       }
@@ -87,6 +87,7 @@ class FireAnimator extends VoxelAnimator {
     super.reset();
     this.randomArray = Randomizer.getRandomFloats(FIRE_SPECTRUM_WIDTH);
     this.t = 0;
+    this.randIdx = 0;
   }
 
   genFireColourLookup() {
@@ -96,16 +97,21 @@ class FireAnimator extends VoxelAnimator {
     this.fireLookup = gpuKernelMgr.fireLookupGen(spectrum);
   }
 
-  genFunc(x, y, sx, sy, t, p) {
-    let pi = 0;
+  _randomValue() {
+    const result = this.randomArray[this.randIdx];
+    this.randIdx = (this.randIdx+1) % this.randomArray.length;
+    return result;
+  }
+
+  genFunc(x, y, sx, sy, t) {
     let f = 0;
     let i = 0;
 
     for (; i < 12; i++) {
       f += (1.0 +
-        Math.sin(x/sx*PI2*(p[pi++]+1)+p[pi++]*PI2 + p[pi++]*t) *
-        Math.sin(y/sy*PI2*(p[pi++]+1)+p[pi++]*PI2 + p[pi++]*t)) *
-        (1 + Math.sin((p[pi++]+0.5)*t + p[pi++]*PI2)) * 0.25;
+        Math.sin(x/sx*PI2*(this._randomValue()+1)+this._randomValue()*PI2 + this._randomValue()*t) *
+        Math.sin(y/sy*PI2*(this._randomValue()+1)+this._randomValue()*PI2 + this._randomValue()*t)) *
+        (1 + Math.sin((this._randomValue()+0.5)*t + this._randomValue()*PI2)) * 0.25;
     }
     f *= 1.0/i;
 

@@ -22,7 +22,6 @@ class GPUKernelManager {
       returnType: 'Array(3)',
       immutable: false,
     };
-    const immutable = false;
 
     // Setup the GPU/Compute kernels...
 
@@ -41,11 +40,11 @@ class GPUKernelManager {
       const fbAVoxel = framebufTexA[this.thread.z][this.thread.y][this.thread.x];
       const fbBVoxel = framebufTexB[this.thread.z][this.thread.y][this.thread.x];
       return [clampValue(fbAVoxel[0]+fbBVoxel[0], 0.0, 1.0), clampValue(fbAVoxel[1]+fbBVoxel[1], 0.0, 1.0), clampValue(fbAVoxel[2]+fbBVoxel[2], 0.0, 1.0)];
-    }, {...this.pipelineFuncSettings, immutable: immutable, argumentTypes: {framebufTexA: 'Array3D(3)', framebufTexB: 'Array3D(3)'}});
+    }, {...this.pipelineFuncSettings, argumentTypes: {framebufTexA: 'Array3D(3)', framebufTexB: 'Array3D(3)'}});
 
     this.copyFramebufferFunc = this.gpu.createKernel(function(framebufTex) {
       return framebufTex[this.thread.z][this.thread.y][this.thread.x];
-    }, {...this.pipelineFuncSettings, immutable: false, argumentTypes: {framebufTex: 'Array3D(3)'}});
+    }, {...this.pipelineFuncSettings, argumentTypes: {framebufTex: 'Array3D(3)'}});
     
     this.copyFramebufferFuncImmutable = this.gpu.createKernel(function(framebufTex) {
       return framebufTex[this.thread.z][this.thread.y][this.thread.x];
@@ -59,7 +58,7 @@ class GPUKernelManager {
         alpha*fb1Voxel[1] + oneMinusAlpha*fb2Voxel[1],
         alpha*fb1Voxel[2] + oneMinusAlpha*fb2Voxel[2]
       ];
-    }, {...this.pipelineFuncSettings, immutable: immutable, argumentTypes: {fb1Tex: 'Array3D(3)', fb2Tex: 'Array3D(3)', alpha: 'Float', oneMinusAlpha: 'Float'}});
+    }, {...this.pipelineFuncSettings, argumentTypes: {fb1Tex: 'Array3D(3)', fb2Tex: 'Array3D(3)', alpha: 'Float', oneMinusAlpha: 'Float'}});
 
     // Animation-specific Kernels
     /*
@@ -94,7 +93,6 @@ class GPUKernelManager {
     */
 
     const shapesDrawSettings = {...this.pipelineFuncSettings, 
-      immutable: immutable, 
       argumentTypes: {
         framebufTex: 'Array3D(3)', c: 'Array(3)', radiiSqr: 'Array', colours: 'Array1D(3)', brightness: 'Float', numSpheres: 'Integer'
       }
@@ -162,32 +160,6 @@ class GPUKernelManager {
     }, fireLookupSettings);
 
     this.fireOverwrite = this.gpu.createKernel(function(fireLookup, temperatureArr, offsetXYZ) {
-      const gridSizePlus2 = this.constants.gridSize + 2;
-      const index = (this.thread.z + offsetXYZ[2])*gridSizePlus2*gridSizePlus2 + (this.thread.y + offsetXYZ[1])*gridSizePlus2 + (this.thread.x + offsetXYZ[0]);
-
-      const temperature = temperatureArr[index];
-      const temperatureIdx = clampValue(Math.round(temperature*(this.constants.FIRE_SPECTRUM_WIDTH-1)), 0, this.constants.FIRE_SPECTRUM_WIDTH-1);
-
-      const voxelColour = fireLookup[temperatureIdx];
-      return [
-        clampValue(voxelColour[3]*voxelColour[0], 0, 1), 
-        clampValue(voxelColour[3]*voxelColour[1], 0, 1), 
-        clampValue(voxelColour[3]*voxelColour[2], 0, 1)
-      ];
-    }, 
-    {...this.pipelineFuncSettings, 
-      immutable: immutable,
-      argumentTypes: {
-        fireLookupTex: 'Array1D(4)', 
-        temperatureArr: 'Array', 
-        offsetXYZ: 'Array'
-      },
-      constants: {...this.pipelineFuncSettings.constants,
-        FIRE_SPECTRUM_WIDTH: FIRE_SPECTRUM_WIDTH,
-      }
-    });
-
-    this.fire3dArrOverwrite = this.gpu.createKernel(function(fireLookup, temperatureArr, offsetXYZ) {
       const temperature = temperatureArr[this.thread.z + offsetXYZ[2]][this.thread.y + offsetXYZ[1]][this.thread.x + offsetXYZ[0]];
       const temperatureIdx = clampValue(Math.round(temperature*(this.constants.FIRE_SPECTRUM_WIDTH-1)), 0, this.constants.FIRE_SPECTRUM_WIDTH-1);
       const voxelColour = fireLookup[temperatureIdx];
@@ -198,7 +170,6 @@ class GPUKernelManager {
       ];
     }, 
     {...this.pipelineFuncSettings, 
-      immutable: immutable,
       argumentTypes: {
         fireLookupTex: 'Array1D(4)', 
         temperatureArr: 'Array', 

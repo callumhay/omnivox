@@ -210,8 +210,8 @@ class VTScene {
   }
 
   static calcNumChildProcesses() {
-    //return (VTSceneTest.debugInspectIsOn()) ? 1 : os.cpus().length;
-    return os.cpus().length;
+    return (VTScene.debugInspectIsOn()) ? 1 : os.cpus().length;
+    //return os.cpus().length;
   }
 
   _killChildProcesses() {
