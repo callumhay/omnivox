@@ -1,5 +1,5 @@
-const DIFFUSE_PER_FRAME_LOOPS = 20; 
-const PROJECT_PER_FRAME_LOOPS = 20;
+const DIFFUSE_PER_FRAME_LOOPS = 16; 
+const PROJECT_PER_FRAME_LOOPS = 18;
 
 class FluidGPU {
 
@@ -24,7 +24,6 @@ class FluidGPU {
         ONEDIVN: 1.0/this.N,
       },
       immutable: true,
-      //tactic: 'balanced',
     };
     this.gpu.addFunction(function ijkLookup() {
       return [this.thread.z, this.thread.y, this.thread.x];
@@ -226,32 +225,26 @@ class FluidGPU {
       return Math.sqrt(x*x + y*y + z*z);
     }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {curl: ARRAY3D_TYPE, curlxyz: ARRAY3D_3_TYPE}});
   
-    this.vorticityConfinementStep2Func = this.gpu.createKernel(function(curl) {
-      const [i,j,k] = ijkLookup();
-      if (i < 1 || j < 1 || k < 1 ||  i > this.constants.N || j > this.constants.N || k > this.constants.N) {
-        return [0,0,0];
-      }
-      const Nx = (curl[i+1][j][k] - curl[i-1][j][k]) * 0.5;
-      const Ny = (curl[i][j+1][k] - curl[i][j-1][k]) * 0.5;
-      const Nz = (curl[i][j][k+1] - curl[i][j][k-1]) * 0.5;
-      const len1 = 1.0 / (Math.sqrt(Nx*Nx + Ny*Ny + Nz*Nz) + 0.0000001);
-      return [Nx*len1, Ny*len1, Nz*len1];
-    },  {...pipelineFuncSettings, returnType: 'Array(3)', arguementTypes: {curl: ARRAY3D_TYPE}});
-
-    this.vorticityConfinementStep3Func = this.gpu.createKernel(function(uvw, Nxyz, curlxyz, dt0) {
+    this.vorticityConfinementStep2Func = this.gpu.createKernel(function(uvw, T0, curlxyz, dt0) {
       const [i,j,k] = ijkLookup();
       const uvwVal  = uvw[i][j][k];
       if (i < 1 || j < 1 || k < 1 ||  i > this.constants.N || j > this.constants.N || k > this.constants.N) {
         return uvwVal;
       }
-      const NxyzVal = Nxyz[i][j][k];
+
+      let Nx = (T0[i+1][j][k] - T0[i-1][j][k]) * 0.5;
+      let Ny = (T0[i][j+1][k] - T0[i][j-1][k]) * 0.5;
+      let Nz = (T0[i][j][k+1] - T0[i][j][k-1]) * 0.5;
+      const len1 = 1.0 / (Math.sqrt(Nx*Nx + Ny*Ny + Nz*Nz) + 0.0000001);
+      Nx *= len1; Ny *= len1; Nz *= len1;
+
       const curlVal = curlxyz[i][j][k];
       return [
-        uvwVal[0] + (NxyzVal[1]*curlVal[2] - NxyzVal[2]*curlVal[1]) * dt0,
-        uvwVal[1] + (NxyzVal[2]*curlVal[0] - NxyzVal[0]*curlVal[2]) * dt0,
-        uvwVal[2] + (NxyzVal[0]*curlVal[1] - NxyzVal[1]*curlVal[0]) * dt0
+        uvwVal[0] + (Ny*curlVal[2] - Nz*curlVal[1]) * dt0,
+        uvwVal[1] + (Nz*curlVal[0] - Nx*curlVal[2]) * dt0,
+        uvwVal[2] + (Nx*curlVal[1] - Ny*curlVal[0]) * dt0
       ];
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {uvw: ARRAY3D_3_TYPE, Nxyz: ARRAY3D_3_TYPE, curlxyz: ARRAY3D_3_TYPE, dt0: 'Float'}});
+    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {uvw: ARRAY3D_3_TYPE, T0: ARRAY3D_TYPE, curlxyz: ARRAY3D_3_TYPE, dt0: 'Float'}});
 
     const build3dBuffer = (size) => {
       const result = new Array(size);
@@ -279,9 +272,9 @@ class FluidGPU {
 
   addSource(srcBuffer, dstBuffer, dt) {
     const temp = dstBuffer;
-    dstBuffer = this.addSourceFunc(srcBuffer, dstBuffer, dt);
+    const result = this.addSourceFunc(srcBuffer, dstBuffer, dt);
     temp.delete();
-    return dstBuffer;
+    return result;
   }
 
   addBuoyancy(dt) {
@@ -292,14 +285,12 @@ class FluidGPU {
 
   diffuse3(dt) {
     let temp = null;
-    let result = this.uvw;
     const a = dt * this.viscosity * this.N * this.N * this.N;
     for (let l = 0; l < DIFFUSE_PER_FRAME_LOOPS; l++) {
-      temp = result;
-      result = this.diffuseStep3Func(this.uvw0, result, a);
+      temp = this.uvw;
+      this.uvw = this.diffuseStep3Func(this.uvw0, this.uvw, a);
       temp.delete();
     }
-    this.uvw = result;
   }
   diffuse(x0, x, diff, dt) {
     let temp = null;
@@ -361,13 +352,11 @@ class FluidGPU {
     temp = this.T0;
     this.T0 = this.vorticityConfinementStep1Func(this.T0, this.uvw0);
     temp.delete();
-    
-    const Nxyz = this.vorticityConfinementStep2Func(this.T0);
+
     const dt0 = dt * this.vc_eps;
     temp = this.uvw;
-    this.uvw = this.vorticityConfinementStep3Func(this.uvw, Nxyz, this.uvw0, dt0);
+    this.uvw = this.vorticityConfinementStep2Func(this.uvw, this.T0, this.uvw0, dt0);
     temp.delete();
-    Nxyz.delete();
   }
 
   velStep(dt, diffuse = true, advect = true) {

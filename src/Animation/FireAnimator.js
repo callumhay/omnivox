@@ -7,6 +7,8 @@ import FluidGPU from '../FluidGPU';
 import {generateSpectrum, ColourSystems, FIRE_SPECTRUM_WIDTH} from '../Spectrum';
 import {PI2} from '../MathUtils';
 
+const REINIT_FLUID_TIME_SECS = 0.1;
+
 export const fireAnimatorDefaultConfig = {
   speed: 2.0,
   buoyancy:  1.2,
@@ -46,14 +48,19 @@ class FireAnimator extends VoxelAnimator {
     this.fluidModel.cooling   = cooling;
     this.fluidModel.vc_eps    = vorticityConfinement;
 
+    const {startX, endX, startY, startZ, endZ} = this._getFluidModelOffsets();
+    for (let z = startZ; z < endZ; z++) {
+      for (let x = startX; x < endX; x++) {
+        this.fluidModel.sd[x][startY][z] = 1.0;
+      }
+    }
+    
     if (regenFireLookup) {
       this.genFireColourLookup();
     }
   }
 
-  render(dt) {
-    const {speed, initialIntensityMultiplier} = this.config;
-
+  _getFluidModelOffsets() {
     const xSize = this.voxelModel.xSize();
     const zSize = this.voxelModel.zSize();
 
@@ -66,14 +73,29 @@ class FireAnimator extends VoxelAnimator {
     const endZ = zSize+startZ;
     const startY = 1;
 
-    for (let z = startZ; z < endZ; z++) {
-      for (let x = startX; x < endX; x++) {
-        let f = this.genFunc(x-startX, z-startZ, endX-startX, endZ-startZ, this.t);
-        this.fluidModel.sd[x][startY][z] = 1.0;
-        this.fluidModel.sT[x][startY][z] = 1.0 + f*initialIntensityMultiplier;
+    return {startX, endX, startY, startZ, endZ};
+  }
+
+  render(dt) {
+    const {speed, initialIntensityMultiplier} = this.config;
+
+    // Offsets are used because the fluid model has two extra values on either side of each buffer in all dimensions in order
+    // to properly calculate the derivatives within the grid. We need to get the values inside that margin and place them
+    // into our voxel grid.
+    const {startX, endX, startY, startZ, endZ} = this._getFluidModelOffsets();
+    if (this.timeCounterToReinitFluid >= REINIT_FLUID_TIME_SECS) {
+      for (let z = startZ; z < endZ; z++) {
+        for (let x = startX; x < endX; x++) {
+          let f = this.genFunc(x-startX, z-startZ, endX-startX, endZ-startZ, this.t);
+          this.fluidModel.sT[x][startY][z] = 1.0 + f*initialIntensityMultiplier;
+        }
       }
+      this.timeCounterToReinitFluid = 0;
     }
-    
+    else {
+      this.timeCounterToReinitFluid += dt;
+    }
+
     const speedDt = dt*speed;
     this.fluidModel.step(speedDt);
     this.t += speedDt;
@@ -87,6 +109,7 @@ class FireAnimator extends VoxelAnimator {
     super.reset();
     this.randomArray = Randomizer.getRandomFloats(FIRE_SPECTRUM_WIDTH);
     this.t = 0;
+    this.timeCounterToReinitFluid = Infinity;
     this.randIdx = 0;
   }
 
