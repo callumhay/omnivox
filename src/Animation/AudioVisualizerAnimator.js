@@ -1,14 +1,12 @@
-
 import * as THREE from 'three';
 
 import VoxelAnimator, {DEFAULT_CROSSFADE_TIME_SECS} from "./VoxelAnimator";
-import {soundVisDefaultConfig, SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE, SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE, SOUND_VIZ_FIRE_SCENE_TYPE} from './AudioVisAnimatorDefaultConfigs';
+import {soundVisDefaultConfig, SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE, SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE} from './AudioVisAnimatorDefaultConfigs';
 
 import {clamp} from '../MathUtils';
 
 import VoxelModel from '../Server/VoxelModel';
 
-import FireAudioVisScene from '../VoxelTracer/Scenes/Audio/FireAudioVisScene';
 import BasicBarsAudioVisScene from "../VoxelTracer/Scenes/Audio/BasicBarsAudioVisScene";
 import HistoryBarsAudioVisScene from "../VoxelTracer/Scenes/Audio/HistoryBarsAudioVisScene";
 
@@ -26,7 +24,6 @@ class AudioVisualizerAnimator extends VoxelAnimator {
     this._sceneMap = {
       [SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE]:  new BasicBarsAudioVisScene(vtScene, this.voxelModel),
       [SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE]: new HistoryBarsAudioVisScene(vtScene, this.voxelModel),
-      [SOUND_VIZ_FIRE_SCENE_TYPE]: new FireAudioVisScene(vtScene, this.voxelModel),
     };
 
     this.setConfig(config);

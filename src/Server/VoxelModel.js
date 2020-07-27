@@ -64,7 +64,7 @@ class VoxelModel {
     this._framebufferIdx = VoxelModel.GPU_FRAMEBUFFER_IDX_0;
 
     // Build a voxel tracer scene, which will be shared by all animators that use it
-    this.vtScene = new VTScene(this); //new VTSceneMultithreading(this);
+    this.vtScene = new VTScene(this);
     this._animators = {
       [VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR]       : new VoxelColourAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER]  : new StarShowerAnimator(this),

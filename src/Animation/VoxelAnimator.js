@@ -57,6 +57,8 @@ class VoxelAnimator {
     }
   }
 
+  setAudioInfo(audioInfo) { console.error("setAudioInfo unimplemented abstract method called."); }
+
   render(dt) {}
   rendersToCPUOnly() { return false; }
 

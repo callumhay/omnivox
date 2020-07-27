@@ -1,18 +1,17 @@
 import * as THREE from 'three';
 import chroma from 'chroma-js';
 
-import SceneRenderer from '../SceneRenderer';
-import AudioVisUtils from './AudioVisUtils';
+import SceneRenderer from '../src/VoxelTracer/Scenes/SceneRenderer';
+import AudioVisUtils from '../src/VoxelTracer/Scenes/Audio/AudioVisUtils';
 
-import VTVoxel from '../../VTVoxel';
-import VTEmissionMaterial from '../../VTEmissionMaterial';
-import Fluid, {_I} from '../../../Fluid';
-import {PI2, clamp} from '../../../MathUtils';
-import {FIRE_SPECTRUM_WIDTH} from '../../../Spectrum';
-import {Randomizer} from '../../../Animation/Randomizers';
+import VTVoxel from '../src/VoxelTracer/VTVoxel';
+import VTEmissionMaterial from '../src/VoxelTracer/VTEmissionMaterial';
+import Fluid, {_I} from '../src/Fluid';
+import {PI2, clamp} from '../src/MathUtils';
+import {FIRE_SPECTRUM_WIDTH} from '../src/Spectrum';
+import {Randomizer} from '../src/Animation/Randomizers';
 
-import {LOW_HIGH_TEMP_COLOUR_MODE, TEMPERATURE_COLOUR_MODE, RANDOM_COLOUR_MODE} from './AudioSceneDefaultConfigs';
-
+import {LOW_HIGH_TEMP_COLOUR_MODE, TEMPERATURE_COLOUR_MODE, RANDOM_COLOUR_MODE} from '../src/VoxelTracer/Scenes/Audio/AudioSceneDefaultConfigs';
 
 const FIRE_THRESHOLD = 7;
 const MAX_FIRE_ALPHA = 1.0;
@@ -31,6 +30,7 @@ class FireAudioVisScene extends SceneRenderer {
     this.fluidModel.cooling   = 1.3;
     this.fluidModel.vc_eps    = 8;
 
+    this.fireLookup = null;
     this.colourTransitionTimeCounter = 0;
     this.colourHoldTimeCounter = 0;
     this.currRandomColours = this._genRandomFireColours();
@@ -92,6 +92,9 @@ class FireAudioVisScene extends SceneRenderer {
         }
       }
     }
+
+
+    
   }
 
   async render(dt) {
@@ -117,9 +120,6 @@ class FireAudioVisScene extends SceneRenderer {
     const endZ = zSize+1;
     const startY = 1;
 
-    //const fluidTemperatures = new Array((endX-startX)*(endZ-startZ));
-    //let idxCount = 0;
-
     for (let x = startX; x < endX; x++) {
       for (let z = startZ; z < endZ; z++) {
         let f = this._genFunc(x-startX, z-startZ, endX-startX, endZ-startZ, this.t, this.initArray);
@@ -128,20 +128,7 @@ class FireAudioVisScene extends SceneRenderer {
         this.fluidModel.sT[idx] = (1.0 + f*initialIntensityMultiplier);
       }
     }
-    /*
-    // Sort the fluid model starting points by highest to lowest from the center spiraling outward
-    fluidTemperatures.sort((a,b) => b-a);
-    idxCount = 0;
-    for (let i = 0; i < this.spiralIndices.length; i++) {
-      const sIdx = this.spiralIndices[i];
-      const x = sIdx[0];
-      const z = sIdx[1];
-      if (x >= startX && x < endX && z >= startZ && z < endZ) {
-        const fIdx = this.fluidModel._I(x, startY, z);
-        this.fluidModel.sT[fIdx] = fluidTemperatures[idxCount++];
-      }
-    }
-    */
+
     const currSpeed = 2 + speedMultiplier * (1 + clamp(THREE.MathUtils.smootherstep(this.avgBeatsPerSec, 0, 80), 0, 0.75));
     const speedDt = dt*currSpeed;
     this.fluidModel.step(speedDt);

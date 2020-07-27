@@ -3,12 +3,10 @@ import {DEFAULT_NUM_FFT_SAMPLES, DEFAULT_FFT_BUFFER_SIZE} from '../WebClientView
 
 export const SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE    = "Basic Bars";
 export const SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE  = "History Bars";
-export const SOUND_VIZ_FIRE_SCENE_TYPE                = "Fire";
 
 export const SOUND_VIZ_TYPES = [
   SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE,
   SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE,
-  SOUND_VIZ_FIRE_SCENE_TYPE,
 ];
 
 export const soundVisDefaultConfig = {
