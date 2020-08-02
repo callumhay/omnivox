@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import chroma from 'chroma-js'
-import { VOXEL_EPSILON } from '../MathUtils';
+import chroma from 'chroma-js';
+
+import VoxelConstants from '../VoxelConstants';
 
 export class Randomizer {
   constructor() {
@@ -119,7 +120,7 @@ export class Vector3DirectionRandomizer extends Randomizer {
     const result = new THREE.Vector3(x, y, z);
 
     // If the spherical cap is centered around the north pole, we're done
-    if (this.baseDirection.distanceToSquared(zVec) < VOXEL_EPSILON) {
+    if (this.baseDirection.distanceToSquared(zVec) < VoxelConstants.VOXEL_EPSILON) {
       return result;
     }
 

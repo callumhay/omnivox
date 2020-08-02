@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import chroma from 'chroma-js';
 
 import VoxelAnimator, {REPEAT_INFINITE_TIMES} from './VoxelAnimator';
-import VoxelModel from '../Server/VoxelModel';
 import {COLOUR_INTERPOLATION_RGB} from '../Spectrum';
 
 export const INTERPOLATION_LERP     = 'lerp';

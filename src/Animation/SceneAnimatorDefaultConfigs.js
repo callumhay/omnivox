@@ -1,4 +1,4 @@
-import {shadowSceneDefaultOptions, fogSceneDefaultOptions, simpleSceneDefaultOptions} from '../VoxelTracer/Scenes/SceneDefaultConfigs';
+import {simpleSceneDefaultOptions} from '../VoxelTracer/Scenes/SceneDefaultConfigs';
 
 export const SCENE_TYPE_SIMPLE  = "Simple";
 export const SCENE_TYPE_SHADOW  = "Shadow (Basic)";

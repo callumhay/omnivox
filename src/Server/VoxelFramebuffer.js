@@ -20,6 +20,7 @@ class VoxelFramebuffer {
   // Implemented in child classes
   setVoxel(pt, colour) { console.error("setVoxel abstract method call."); } 
   addToVoxel(pt, colour) { console.error("addToVoxel abstract method call."); }
+  addToVoxelFast(pt, colour) { console.error("addToVoxelFast abstract method call."); }
 
   clear(colour) { console.error("clear abstract method call."); }
 

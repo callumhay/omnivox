@@ -11,6 +11,8 @@ class VoxelFramebufferGPU extends VoxelFramebuffer {
 
   getType() { return VoxelFramebuffer.VOXEL_FRAMEBUFFER_GPU_TYPE; }
 
+  setBufferTexture(bufferTex) { this._bufferTexture = bufferTex; }
+
   getBuffer() { return this._bufferTexture; }
   getCPUBuffer() { return this._bufferTexture.toArray(); }
   getGPUBuffer() { return this._bufferTexture; }
@@ -20,6 +22,9 @@ class VoxelFramebufferGPU extends VoxelFramebuffer {
   } 
   addToVoxel(pt, colour) {
     console.error("addToVoxel called on GPU Framebuffer.");
+  }
+  addToVoxelFast(pt, colour) {
+    console.error("addToVoxelFast called on GPU Framebuffer.");
   }
 
   clear(colour) {

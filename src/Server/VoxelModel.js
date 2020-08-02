@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
-import {clamp, VOXEL_ERR_UNITS} from '../MathUtils';
+import {clamp} from '../MathUtils';
+import VoxelConstants from '../VoxelConstants';
 
 import VoxelAnimator, {DEFAULT_CROSSFADE_TIME_SECS} from '../Animation/VoxelAnimator';
 import VoxelColourAnimator from '../Animation/VoxelColourAnimator';
@@ -8,15 +9,13 @@ import StarShowerAnimator from '../Animation/StarShowerAnimator';
 import ShapeWaveAnimator from '../Animation/ShapeWaveAnimator';
 import FireAnimator from '../Animation/FireAnimator';
 import SceneAnimator from '../Animation/SceneAnimator';
-import AudioVisualizerAnimator from '../Animation/AudioVisualizerAnimator';
+import BarVisualizerAnimator from '../Animation/BarVisualizerAnimator';
 
 import VTScene from '../VoxelTracer/VTScene';
 import VoxelFramebufferCPU from './VoxelFramebufferCPU';
 import VoxelFramebufferGPU from './VoxelFramebufferGPU';
 import GPUKernelManager from './GPUKernelManager';
 
-export const VOXEL_SIZE = 1.0;
-export const HALF_VOXEL_SIZE = VOXEL_SIZE / 2.0;
 
 export const BLEND_MODE_OVERWRITE = 0;
 export const BLEND_MODE_ADDITIVE  = 1;
@@ -71,7 +70,7 @@ class VoxelModel {
       [VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES]  : new ShapeWaveAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_FIRE]              : new FireAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_SCENE]             : new SceneAnimator(this, this.vtScene),
-      [VoxelAnimator.VOXEL_ANIM_SOUND_VIZ]         : new AudioVisualizerAnimator(this, this.vtScene),
+      [VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER]    : new BarVisualizerAnimator(this),
     };
 
     this.currentAnimator = this._animators[VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR];
@@ -136,7 +135,6 @@ class VoxelModel {
   setCrossfadeTime(t) {
     this.totalCrossfadeTime = Math.max(0, t);
     this._animators[VoxelAnimator.VOXEL_ANIM_SCENE].setCrossfadeTime(this.totalCrossfadeTime);
-    this._animators[VoxelAnimator.VOXEL_ANIM_SOUND_VIZ].setCrossfadeTime(this.totalCrossfadeTime);
   }
 
   run(voxelServer) {
@@ -237,6 +235,9 @@ class VoxelModel {
   addToVoxel(pt=new THREE.Vector3(0,0,0), colour=new THREE.Color(0,0,0)) {
     this.framebuffer.addToVoxel([pt.x, pt.y, pt.z], [colour.r, colour.g, colour.b]);
   }
+  addToVoxelFast(pt, colour) {
+    this.framebuffer.addToVoxelFast([pt.x, pt.y, pt.z], [colour.r, colour.g, colour.b]);
+  }
 
   static voxelIdStr(voxelPt) {
     return voxelPt.x.toFixed(0) + "_" + voxelPt.y.toFixed(0) + "_" + voxelPt.z.toFixed(0);
@@ -252,7 +253,7 @@ class VoxelModel {
 
     return new THREE.Box3(
       new THREE.Vector3(adjustedX, adjustedY, adjustedZ), 
-      new THREE.Vector3(adjustedX + VOXEL_SIZE, adjustedY + VOXEL_SIZE, adjustedZ + VOXEL_SIZE)
+      new THREE.Vector3(adjustedX + VoxelConstants.VOXEL_UNIT_SIZE, adjustedY + VoxelConstants.VOXEL_UNIT_SIZE, adjustedZ + VoxelConstants.VOXEL_UNIT_SIZE)
     );
   }
 
@@ -318,12 +319,12 @@ class VoxelModel {
           const currPt = new THREE.Vector3(x,y,z);
           const distToCurrPt = sphereBounds.distanceToPoint(currPt);
           if (fill) {
-            if (distToCurrPt < VOXEL_ERR_UNITS) {
+            if (distToCurrPt < VoxelConstants.VOXEL_ERR_UNITS) {
               voxelPts.push(currPt);
             }
           }
           else {
-            if (Math.abs(distToCurrPt) < VOXEL_ERR_UNITS) {
+            if (Math.abs(distToCurrPt) < VoxelConstants.VOXEL_ERR_UNITS) {
               voxelPts.push(currPt);
             }
           }

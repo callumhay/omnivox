@@ -1,5 +1,22 @@
-import {DEFAULT_LEVEL_MAX, DEFAULT_GAMMA, DEFAULT_FADE_FACTOR, basicBarsAudioVisDefaultConfig} from '../VoxelTracer/Scenes/Audio/AudioSceneDefaultConfigs';
+import * as THREE from 'three';
 import {DEFAULT_NUM_FFT_SAMPLES, DEFAULT_FFT_BUFFER_SIZE} from '../WebClientViewer/SoundController';
+import {COLOUR_INTERPOLATION_RGB} from '../Spectrum';
+
+const DEFAULT_LEVEL_MAX = 1.75;
+const DEFAULT_GAMMA = 1.6;
+const DEFAULT_FADE_FACTOR = 0.02;
+const DEFAULT_LOW_COLOUR  = new THREE.Color("#99FC20");
+const DEFAULT_HIGH_COLOUR = new THREE.Color("#FD1999"); 
+const DEFAULT_CENTER_SORTED = false;
+const DEFAULT_SPLIT_LEVELS  = false;
+
+const basicBarsAudioVisDefaultConfig = {
+  lowColour:    DEFAULT_LOW_COLOUR,
+  highColour:   DEFAULT_HIGH_COLOUR,
+  colourInterpolationType: COLOUR_INTERPOLATION_RGB,
+  centerSorted: DEFAULT_CENTER_SORTED,
+  splitLevels:  DEFAULT_SPLIT_LEVELS,
+};
 
 export const SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE    = "Basic Bars";
 export const SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE  = "History Bars";

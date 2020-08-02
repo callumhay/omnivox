@@ -1,134 +1,142 @@
-import * as THREE from 'three';
-
-import VoxelAnimator, {DEFAULT_CROSSFADE_TIME_SECS} from "./VoxelAnimator";
-import {soundVisDefaultConfig, SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE, SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE} from './AudioVisAnimatorDefaultConfigs';
+import VoxelAnimator from "./VoxelAnimator";
+import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 
 import {clamp} from '../MathUtils';
 
-import VoxelModel from '../Server/VoxelModel';
-
-import BasicBarsAudioVisScene from "../VoxelTracer/Scenes/Audio/BasicBarsAudioVisScene";
-import HistoryBarsAudioVisScene from "../VoxelTracer/Scenes/Audio/HistoryBarsAudioVisScene";
+const MAX_AVG_BEATS_PER_SEC = 120;
 
 class AudioVisualizerAnimator extends VoxelAnimator {
-  constructor(voxelModel, vtScene, config={...soundVisDefaultConfig}) {
+  constructor(voxelModel, config={...soundVisDefaultConfig}) {
     super(voxelModel, config);
-
-    // Cross-fading variables
-    this._totalCrossfadeTime = DEFAULT_CROSSFADE_TIME_SECS;
-    this._crossfadeCounter = Infinity;
-    this._prevSceneConfig = null;
-
-    this.currAudioInfo = null;
-    this._scene = vtScene;
-    this._sceneMap = {
-      [SOUND_VIZ_BASIC_BARS_LEVEL_SCENE_TYPE]:  new BasicBarsAudioVisScene(vtScene, this.voxelModel),
-      [SOUND_VIZ_HISTORY_BARS_LEVEL_SCENE_TYPE]: new HistoryBarsAudioVisScene(vtScene, this.voxelModel),
-    };
-
-    this.setConfig(config);
-  }
-
-  getType() { return VoxelAnimator.VOXEL_ANIM_SOUND_VIZ; }
-
-  setConfig(c) {
-    // Check whether the scene type has changed
-    if (this.config.sceneType !== c.sceneType) {
-      if (this.config.sceneType) {
-        // Crossfade between the previous scene and the new scene
-        this._prevSceneConfig = this.config;
-        this._crossfadeCounter = 0;
-      }
-    }
-
-    super.setConfig(c);
-    
-    if (this._sceneMap) {
-      const {sceneType} = c;
-      this.audioVisualizer = this._sceneMap[sceneType];
-      if (this.audioVisualizer) {
-        this.audioVisualizer.rebuild(c);
-      }
-      else {
-        this.audioVisualizer = null;
-        console.error("Invalid audio scene type: " + sceneType);
-      }
-    }
   }
 
   setAudioInfo(audioInfo) {
-    this.currAudioInfo = audioInfo;
-  }
+    const {rms} = audioInfo;
 
-  rendersToCPUOnly() { return this._prevSceneConfig === null; }
+    this.currAudioFrameTime = Date.now();
+    this.dtAudioFrame=  Math.max(0.000001, (this.currAudioFrameTime - this.lastAudioFrameTime) / 1000);
+    this.lastAudioFrameTime = this.currAudioFrameTime;
 
-  async render(dt) {
-    if (this.currAudioInfo) {
-      this.audioVisualizer.updateAudioInfo(this.currAudioInfo);
+    const denoisedRMS = rms < 0.01 ? 0 : rms;
+    this.avgRMS = (this.avgRMS + denoisedRMS) / 2.0;
 
-      // When crossfading we need to update both scenes
-      if (this._prevSceneConfig) {
-        const prevScene = this._sceneMap[this._prevSceneConfig.sceneType];
-        prevScene.updateAudioInfo(this.currAudioInfo);
-      }
-
-      this.currAudioInfo = null;
-    }
-
-    // Crossfade between scenes
-    if (this._prevSceneConfig) {
-      const prevScene = this._sceneMap[this._prevSceneConfig.sceneType];
-
-      // Adjust the scene alphas as a percentage of the crossfade time and continue counting the total time until the crossfade is complete
-      const percentFade = clamp(this._crossfadeCounter / this._totalCrossfadeTime, 0, 1);
-      const prevSceneFBIdx = VoxelModel.CPU_FRAMEBUFFER_IDX_0;
-      const currSceneFBIdx = VoxelModel.CPU_FRAMEBUFFER_IDX_1;
-
-      this._scene.clear();
-      prevScene.build(this._prevSceneConfig);
-
-      this.voxelModel.setFramebuffer(prevSceneFBIdx);
-      this.voxelModel.clear();
-      await prevScene.render(dt);
-
-      if (this._crossfadeCounter < this._totalCrossfadeTime) {
-        this._crossfadeCounter += dt;
-      }
-      else {
-        // No longer crossfading, just showing the current visualizer
-        this._crossfadeCounter = Infinity;
-        this._prevSceneConfig = null;
-      }
-
-      this._scene.clear();
-      this.audioVisualizer.build(this.config);
-
-      this.voxelModel.setFramebuffer(currSceneFBIdx);
-      this.voxelModel.clear();
-      await this.audioVisualizer.render(dt);
-
-      // Now we set the default render framebuffer for the animator and we combine the two scene framebuffers into it
-      this.voxelModel.setFramebuffer(VoxelModel.GPU_FRAMEBUFFER_IDX_0);
-      this.voxelModel.drawCombinedFramebuffers(
-        currSceneFBIdx, prevSceneFBIdx, 
-        {mode: VoxelModel.FB1_ALPHA_FB2_ONE_MINUS_ALPHA, alpha: percentFade}
-      );
+    this.dRMSAvg = (this.dRMSAvg + (denoisedRMS - this.lastRMS) / this.dtAudioFrame) / 2.0;
+    if (this.timeSinceLastBeat > 0.001 && (this.dRMSAvg < 0 && this.lastdRMS > 0) || (this.dRMSAvg > 0 && this.lastdRMS < 0)) {
+      // We crossed zero, count the beat
+      this.avgBeatsPerSec = clamp((this.avgBeatsPerSec + 1.0 / this.timeSinceLastBeat) / 2.0, 0, MAX_AVG_BEATS_PER_SEC);
+      this.timeSinceLastBeat = 0;
     }
     else {
-      await this.audioVisualizer.render(dt);
+      this.timeSinceLastBeat += this.dtAudioFrame;
+      if (this.timeSinceLastBeat > 1) {
+        this.avgBeatsPerSec = clamp((this.avgBeatsPerSec + 0.01) / 2.0, 0, MAX_AVG_BEATS_PER_SEC);
+      }
     }
+    
+    this.lastRMS  = denoisedRMS;
+    this.lastdRMS = this.dRMSAvg;
   }
 
   reset() {
     super.reset();
-    //this.audioVisualizer.clear();
-    //this.currAudioInfo = null;
+
+    this.avgRMS = 0;
+    this.dtAudioFrame = 0;
+    this.lastAudioFrameTime = Date.now();
+    this.currAudioFrameTime = this.lastAudioFrameTime;
+    this.dRMSAvg = 0;
+    this.avgBeatsPerSec = 0;
+    this.lastdRMS = 0;
+    this.lastRMS = 0;
+    this.avgBeatsPerSec = 0;
+    this.timeSinceLastBeat = 1;
   }
 
-  setCrossfadeTime(t) {
-    this._totalCrossfadeTime = t;
+  static buildBinIndexLookup(numFreqs, numBins, gamma) {
+    const binIndexLookup = {};
+    for (let i = 0; i < numFreqs; i++) {
+      let binIndex = Math.round(Math.pow(i/numFreqs, 1.0/gamma) * (numBins-1));
+      if (binIndex in binIndexLookup) {
+        binIndexLookup[binIndex].push(i);
+      }
+      else {
+        binIndexLookup[binIndex] = [i];
+      }
+    }
+
+    // Find gaps in the lookup and just have those gaps reference the previous (or next) bin's frequency(ies)
+    for (let i = 0; i < numBins; i++) {
+      if (i in binIndexLookup) {
+        continue;
+      }
+
+      // Is there a previous bin?
+      if (i-1 in binIndexLookup) {
+        binIndexLookup[i] = binIndexLookup[i-1];
+      }
+      // Is there a next bin?
+      else if (i+1 in binIndexLookup) {
+        binIndexLookup[i] = binIndexLookup[i+1];
+      }
+      else {
+        // This really shouldn't happen, it means there's a huge gap
+        console.error("Big gap in the number of frequencies to available bins, please find me and write code to fix this issue.");
+      }
+    }
+
+    return binIndexLookup;
   }
 
+  static calcFFTBinLevelSum(binIndices, fft) {
+    let binLevel = 0;
+    for (let i = 0; i < binIndices.length; i++) {
+      binLevel += fft[binIndices[i]];
+    }
+    return binLevel;
+  }
+  static calcFFTBinLevelMax(binIndices, fft) {
+    let binLevel = 0;
+    for (let i = 0; i < binIndices.length; i++) {
+      binLevel = Math.max(binLevel, fft[binIndices[i]]);
+    }
+    return binLevel;
+  }
+
+  static buildSpiralIndices(xSize, ySize) {
+    const allIndices = {};
+    for (let x = 0; x < xSize; x++) {
+      for (let y = 0; y < ySize; y++) {
+        allIndices[x+"_"+y] = true;
+      }
+    }
+
+    let r = 1;
+
+    const gridSize = xSize*ySize;
+    const startX = Math.floor(xSize/2);
+    const startY = Math.floor(ySize/2);
+    const result = [];
+
+    while (result.length < gridSize) {
+      const rSqr = r*r;
+      for (let x = 0; x < xSize; x++) {
+        for (let y = 0; y < ySize; y++) {
+          const idx = x+"_"+y;
+          if (allIndices[idx]) {
+            let xDiff = x - startX;
+            let yDiff = y - startY;
+            if (xDiff*xDiff + yDiff*yDiff <= rSqr) {
+              result.push([x,y]);
+              allIndices[idx] = false;
+            }
+          }
+        }
+      }
+      r++;
+    }
+    
+    return result;
+  }
 }
 
 export default AudioVisualizerAnimator;

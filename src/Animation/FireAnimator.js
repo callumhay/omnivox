@@ -1,11 +1,9 @@
 import * as THREE from 'three';
 import chroma from 'chroma-js';
 
-import VoxelAnimator from './VoxelAnimator';
+import AudioVisualizerAnimator from './AudioVisualizerAnimator';
 import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 import {Randomizer} from './Randomizers';
-
-import AudioVisUtils from '../VoxelTracer/Scenes/Audio/AudioVisUtils';
 
 import FluidGPU from '../FluidGPU';
 import {generateSpectrum, ColourSystems, FIRE_SPECTRUM_WIDTH, COLOUR_INTERPOLATION_RGB} from '../Spectrum';
@@ -56,7 +54,9 @@ export const fireAnimatorDefaultConfig = {
   audioNoiseAddition: 0.25,
 };
 
-class FireAnimator extends VoxelAnimator {
+const INTENSITY_ARRAY_SIZE = 64;
+
+class FireAnimator extends AudioVisualizerAnimator {
   constructor(voxelModel, config=fireAnimatorDefaultConfig) {
     super(voxelModel, config);
     this.reset();
@@ -68,11 +68,12 @@ class FireAnimator extends VoxelAnimator {
     super.setConfig(c);
 
     const {audioVisualizationOn, audioNoiseAddition, buoyancy, cooling, vorticityConfinement} = c;
-    this.audioIntensitiesArray = Randomizer.getRandomFloats(FIRE_SPECTRUM_WIDTH);
-    this.randomArray = Randomizer.getRandomFloats(FIRE_SPECTRUM_WIDTH, 0, audioVisualizationOn ? audioNoiseAddition : 1);
+    const INTENSITY_ARRAY_SIZE = Math.min(128, Math.pow(this.voxelModel.gridSize,2));
+    this.audioIntensitiesArray = new Array(INTENSITY_ARRAY_SIZE).fill(0);
+    this.randomArray = Randomizer.getRandomFloats(INTENSITY_ARRAY_SIZE, 0, audioVisualizationOn ? audioNoiseAddition : 1);
 
     if (!this.fluidModel) {
-      this.fluidModel = new FluidGPU(this.voxelModel.gridSize, this.voxelModel.gpuKernelMgr.gpu);
+      this.fluidModel = new FluidGPU(this.voxelModel.gridSize, this.voxelModel.gpuKernelMgr);
     }
     this.fluidModel.diffusion = 0.0001;
     this.fluidModel.viscosity = 0;
@@ -182,47 +183,35 @@ class FireAnimator extends VoxelAnimator {
     this.currRandomColours = this._genRandomFireColours();
     this.nextRandomColours = this._genRandomFireColours(this.currRandomColours);
 
-    this._resetAudioVars();
-  }
-  _resetAudioVars() {
     this.avgSpectralCentroid = 0;
     this.avgNormalizedSpectralCentroid = 0;
-    this.avgRMS = 0;
-    this.lastAudioFrameTime = Date.now();
-    this.currAudioFrameTime = this.lastAudioFrameTime;
-    this.dRMSAvg = 0;
-    this.avgBeatsPerSec = 0;
-    this.lastdRMS = 0;
-    this.lastRMS = 0;
-    this.avgBeatsPerSec = 0;
-    this.timeSinceLastBeat = 1;
+    this.avgAudioIntensity = 0;
   }
 
   setAudioInfo(audioInfo) {
     if (!this.config.audioVisualizationOn) {
       return;
     }
+    super.setAudioInfo(audioInfo);
 
     const {gamma, levelMax, audioBuoyancyMultiplier, audioCoolingMultiplier, audioTurbulenceMultiplier, buoyancy, cooling, vorticityConfinement} = this.config;
-    const {fft, rms, spectralCentroid} = audioInfo;
+    const {fft, spectralCentroid} = audioInfo;
 
     // Use the FFT array to populate the initialization array for the fire
     let numFreqs = Math.floor(fft.length/(gamma+1.8));
 
     // Build a distribution of what bins (i.e., meshes) to throw each frequency in
     if (!this.binIndexLookup || numFreqs !== this.binIndexLookup.length) {
-      this.binIndexLookup = AudioVisUtils.buildBinIndexLookup(numFreqs, this.audioIntensitiesArray.length, gamma);
+      this.binIndexLookup = AudioVisualizerAnimator.buildBinIndexLookup(numFreqs, this.audioIntensitiesArray.length, gamma);
     }
 
     for (let i = 0; i < this.audioIntensitiesArray.length; i++) {
       const fftIndices = this.binIndexLookup[i];
-      const binLevel = AudioVisUtils.calcFFTBinLevelMax(fftIndices, fft);
+      const binLevel = AudioVisualizerAnimator.calcFFTBinLevelMax(fftIndices, fft);
       this.audioIntensitiesArray[i] = clamp(Math.log10(binLevel)/levelMax, 0, 1);
     }
 
     // Update the fluid model levers based on the current audio
-    const denoisedRMS = rms < 0.01 ? 0 : rms;
-    this.avgRMS = (this.avgRMS + denoisedRMS) / 2.0;
     this.avgSpectralCentroid = (this.avgSpectralCentroid + spectralCentroid) / 2.0;
     this.avgNormalizedSpectralCentroid = clamp(this.avgSpectralCentroid / (fft.length / 2), 0, 1);
     const buoyancyVal = buoyancy + clamp(this.avgNormalizedSpectralCentroid * 10, 0, 3);
@@ -231,25 +220,11 @@ class FireAnimator extends VoxelAnimator {
     this.fluidModel.cooling  = cooling + clamp((1.0 - this.avgRMS) * audioCoolingMultiplier, 0, 2); // Values range from [0.1, 2] where lower values make the fire brighter/bigger
     this.fluidModel.vc_eps   = vorticityConfinement + (this.avgRMS * 30 * audioTurbulenceMultiplier);
 
-    this.currAudioFrameTime = Date.now();
-    const dt =  Math.max(0.000001, (this.currAudioFrameTime - this.lastAudioFrameTime) / 1000);
-    this.lastAudioFrameTime = this.currAudioFrameTime;
-
-    this.dRMSAvg = (this.dRMSAvg + (denoisedRMS - this.lastRMS) / dt) / 2.0;
-    if (this.timeSinceLastBeat > 0.001 && (this.dRMSAvg < 0 && this.lastdRMS > 0) || (this.dRMSAvg > 0 && this.lastdRMS < 0)) {
-      // We crossed zero, count the beat
-      this.avgBeatsPerSec = clamp((this.avgBeatsPerSec + 1.0 / this.timeSinceLastBeat) / 2.0, 0, MAX_AVG_BEATS_PER_SEC);
-      this.timeSinceLastBeat = 0;
+    this.avgAudioIntensity = 0;
+    for (let j = 0; j < this.audioIntensitiesArray.length; j++) {
+      this.avgAudioIntensity += this.audioIntensitiesArray[j];
     }
-    else {
-      this.timeSinceLastBeat += dt;
-      if (this.timeSinceLastBeat > 1) {
-        this.avgBeatsPerSec = clamp((this.avgBeatsPerSec + 0.01) / 2.0, 0, MAX_AVG_BEATS_PER_SEC);
-      }
-    }
-    
-    this.lastRMS  = denoisedRMS;
-    this.lastdRMS = this.dRMSAvg;
+    this.avgAudioIntensity /= this.audioIntensitiesArray.length;
   }
 
   _genHighLowColourSpectrum(highColour, lowColour) {
@@ -386,11 +361,6 @@ class FireAnimator extends VoxelAnimator {
   }
   _genAudioTemperatureFunc(x, y, sx, sy, t) {
     const {audioNoiseAddition} = this.config;
-    let avgAudio = 0;
-    for (let j = 0; j < this.audioIntensitiesArray.length; j++) {
-      avgAudio += this.audioIntensitiesArray[j];
-    }
-    avgAudio /= this.audioIntensitiesArray.length;
 
     let f = 0;
     let i = 0;
@@ -400,7 +370,7 @@ class FireAnimator extends VoxelAnimator {
       this.randIdx = (this.randIdx+1) % this.audioIntensitiesArray.length;
       return result;
     };
-    const multiplier = 2*Math.max(avgAudio, audioNoiseAddition/8);
+    const multiplier = 2*Math.max(this.avgAudioIntensity, audioNoiseAddition/8);
     for (; i < 12; i++) {
       f += (1.0 +
         Math.sin(x/sx*PI2*(_randomValue()+1)+(_randomValue())*PI2 + (_randomValue())*t) *

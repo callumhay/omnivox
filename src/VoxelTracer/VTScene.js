@@ -117,7 +117,7 @@ class VTScene {
         voxelPt.set(pt.x, pt.y, pt.z);
         voxelColour.setHex(colour);
 
-        this.voxelModel.addToVoxel(voxelPt, voxelColour);
+        this.voxelModel.addToVoxelFast(voxelPt, voxelColour);
       }
     }
     this._renderCount++;
@@ -211,7 +211,6 @@ class VTScene {
 
   static calcNumChildProcesses() {
     return (VTScene.debugInspectIsOn()) ? 1 : os.cpus().length;
-    //return os.cpus().length;
   }
 
   _killChildProcesses() {

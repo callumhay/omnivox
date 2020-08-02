@@ -5,16 +5,16 @@ import chroma from 'chroma-js';
 import {
   DEFAULT_LOW_COLOUR, DEFAULT_HIGH_COLOUR, DEFAULT_GAMMA, DEFAULT_FADE_FACTOR, DEFAULT_SPEED, DEFAULT_DIR,
   POS_X_DIR, NEG_X_DIR, POS_Z_DIR, NEG_Z_DIR
-} from './AudioSceneDefaultConfigs';
+} from '../src/VoxelTracer/Scenes/Audio/AudioSceneDefaultConfigs';
 
-import SceneRenderer from '../SceneRenderer';
+import SceneRenderer from '../src/VoxelTracer/Scenes/SceneRenderer';
 
-import VTVoxel from '../../VTVoxel';
-import VTLambertMaterial from '../../VTLambertMaterial';
-import VTAmbientLight from '../../VTAmbientLight';
-import {clamp} from '../../../MathUtils';
-import AudioVisUtils from './AudioVisUtils';
-import VTPointLight from '../../VTPointLight';
+import VTVoxel from '../src/VoxelTracer/VTVoxel';
+import VTLambertMaterial from '../src/VoxelTracer/VTLambertMaterial';
+import VTAmbientLight from '../src/VoxelTracer/VTAmbientLight';
+import {clamp} from '../src/MathUtils';
+import AudioVisUtils from '../src/VoxelTracer/Scenes/Audio/AudioVisUtils';
+import VTPointLight from '../src/VoxelTracer/VTPointLight';
 
 const ptLightDistFromFront = 10;
 

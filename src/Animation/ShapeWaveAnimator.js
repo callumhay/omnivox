@@ -1,10 +1,9 @@
 import * as THREE from 'three';
 
+import VoxelConstants from '../VoxelConstants';
+
 import VoxelAnimator from './VoxelAnimator';
 import {Randomizer} from './Randomizers';
-import {VOXEL_EPSILON} from '../MathUtils';
-
-import {BLEND_MODE_OVERWRITE} from '../Server/VoxelModel';
 
 const EIGHTIES_MAGENTA_HEX    = 0xF00078;
 const EIGHTIES_YELLOW_HEX     = 0xFFC70E;
@@ -54,7 +53,7 @@ export const COLOUR_SELECTION_TYPES = [
 
 export const shapeWaveAnimatorDefaultConfig = {
   waveShape: WAVE_SHAPE_SPHERE,
-  center: {x: 3.5, y: 3.5, z: 3.5},
+  center: {x: VoxelConstants.VOXEL_HALF_GRID_IDX, y: VoxelConstants.VOXEL_HALF_GRID_IDX, z: VoxelConstants.VOXEL_HALF_GRID_IDX},
   waveSpeed: 3, // units / second
   waveGap: 1, // space between waves
   colourPalette: EIGHTIES_COLOUR_PALETTE,
@@ -98,8 +97,8 @@ class WaveShape {
     return this.center.clone().addScalar(r);
   }
   isInsideVoxels() {
-    const voxelGridSize = this.voxelModel.gridSize + 1 + VOXEL_EPSILON;
-    const minValue = -(1+VOXEL_EPSILON);
+    const voxelGridSize = this.voxelModel.gridSize + 1 + VoxelConstants.VOXEL_EPSILON;
+    const minValue = -(1 + VoxelConstants.VOXEL_EPSILON);
     const minBoundsPt = new THREE.Vector3(minValue, minValue, minValue);
     const maxBoundsPt = new THREE.Vector3(voxelGridSize, voxelGridSize, voxelGridSize);
 
@@ -108,7 +107,7 @@ class WaveShape {
         const boundingBox = new THREE.Box3(this.getMinPt(this.radius-1), this.getMaxPt(this.radius-1));
         return !(boundingBox.containsPoint(minBoundsPt) && boundingBox.containsPoint(maxBoundsPt));
       case WAVE_SHAPE_SPHERE:
-        const boundingSphere = new THREE.Sphere(this.center, this.radius - VOXEL_EPSILON);
+        const boundingSphere = new THREE.Sphere(this.center, this.radius - VoxelConstants.VOXEL_EPSILON);
         return !(boundingSphere.containsPoint(minBoundsPt) && boundingSphere.containsPoint(maxBoundsPt));
       default:
         return false;

@@ -1,23 +1,21 @@
 import * as THREE from 'three';
 import chroma from 'chroma-js';
 
-import AudioVisUtils from './AudioVisUtils';
+import AudioVisUtils from '../src/VoxelTracer/Scenes/Audio/AudioVisUtils';
 
-import SceneRenderer from '../SceneRenderer';
+import SceneRenderer from '../src/VoxelTracer/Scenes/SceneRenderer';
 
-import VTVoxel from '../../VTVoxel';
-import VTLambertMaterial from '../../VTLambertMaterial';
-import VTAmbientLight from '../../VTAmbientLight';
-import {clamp} from '../../../MathUtils';
+import VTVoxel from '../src/VoxelTracer/VTVoxel';
+import VTLambertMaterial from '../src/VoxelTracer/VTLambertMaterial';
+import VTAmbientLight from '../src/VoxelTracer/VTAmbientLight';
+import {clamp} from '../src/MathUtils';
 
-import {DEFAULT_SPLIT_LEVELS, DEFAULT_LOW_COLOUR, DEFAULT_HIGH_COLOUR, DEFAULT_LEVEL_MAX, DEFAULT_GAMMA} from './AudioSceneDefaultConfigs';
+import {DEFAULT_SPLIT_LEVELS, DEFAULT_LOW_COLOUR, DEFAULT_HIGH_COLOUR, DEFAULT_LEVEL_MAX, DEFAULT_GAMMA} from '../src/VoxelTracer/Scenes/Audio/AudioSceneDefaultConfigs';
 
 class BasicBarsAudioVisScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
     this._objectsBuilt = false;
-
-    this.timeCounter = 0;
 
     this.lastAudioFrameTime = Date.now();
     this.currAudioFrameTime = 0;
@@ -96,7 +94,6 @@ class BasicBarsAudioVisScene extends SceneRenderer {
       }
 
       this._buildSpiralMeshIndices();
-      this.timeCounter = 0;
       this._objectsBuilt = true;
     }
 
@@ -134,7 +131,6 @@ class BasicBarsAudioVisScene extends SceneRenderer {
 
   async render(dt) {
     if (!this._objectsBuilt) { return; }
-    this.timeCounter += dt;
     await this.scene.render();
   }
 

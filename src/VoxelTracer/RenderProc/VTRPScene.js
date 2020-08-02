@@ -1,15 +1,16 @@
 import * as THREE from 'three';
-import {VOXEL_EPSILON, clamp} from '../../MathUtils';
 
-import VTRenderProc from './VTRenderProc';
-import VTRPMesh from './VTRPMesh';
-import VTRPFog from './VTRPFog';
-import VTRPVoxel from './VTRPVoxel';
+import VoxelConstants from '../../VoxelConstants';
+import {clamp} from '../../MathUtils';
 
 import VTObject from '../VTObject';
 import VTAmbientLight from '../VTAmbientLight';
 import VTPointLight from '../VTPointLight';
 
+import VTRenderProc from './VTRenderProc';
+import VTRPMesh from './VTRPMesh';
+import VTRPFog from './VTRPFog';
+import VTRPVoxel from './VTRPVoxel';
 
 class VTRPScene {
   constructor() {
@@ -188,7 +189,7 @@ class VTRPScene {
 
         nVoxelToLightVec.set(light.position.x, light.position.y, light.position.z);
         nVoxelToLightVec.sub(point);
-        const distanceToLight = Math.max(VOXEL_EPSILON, nVoxelToLightVec.length());
+        const distanceToLight = Math.max(VoxelConstants.VOXEL_EPSILON, nVoxelToLightVec.length());
         nVoxelToLightVec.divideScalar(distanceToLight);
 
         let lightMultiplier = 1.0;
@@ -197,7 +198,7 @@ class VTRPScene {
           // Check to see if the voxel is in shadow
           // NOTE: We currently only use point lights so there's only umbra shadow (no soft shadows/sampling)
           raycaster.set(point, nVoxelToLightVec); 
-          raycaster.near = VOXEL_EPSILON;
+          raycaster.near = VoxelConstants.VOXEL_EPSILON;
           raycaster.far  = distanceToLight;
 
           for (let k = 0; k < this.shadowCasters.length; k++) {
@@ -239,7 +240,7 @@ class VTRPScene {
 
         nFogToLightVec.set(light.position.x, light.position.y, light.position.z);
         nFogToLightVec.sub(point);
-        const distanceToLight = Math.max(VOXEL_EPSILON, nFogToLightVec.length());
+        const distanceToLight = Math.max(VoxelConstants.VOXEL_EPSILON, nFogToLightVec.length());
         const lightEmission = light.emission(distanceToLight);
         finalColour.add(lightEmission);
       }
@@ -271,7 +272,7 @@ class VTRPScene {
 
         nObjToLightVec.set(light.position.x, light.position.y, light.position.z);
         nObjToLightVec.sub(point);
-        const distanceToLight = Math.max(VOXEL_EPSILON, nObjToLightVec.length());
+        const distanceToLight = Math.max(VoxelConstants.VOXEL_EPSILON, nObjToLightVec.length());
         nObjToLightVec.divideScalar(distanceToLight);
 
         // Early out - is the light vector in the same hemisphere as the normal?
@@ -282,7 +283,7 @@ class VTRPScene {
         // Check to see if the surface is in shadow
         // NOTE: We currently only use point lights so there's only umbra shadow (no soft shadows/sampling)
         raycaster.set(point, nObjToLightVec); 
-        raycaster.near = VOXEL_EPSILON;
+        raycaster.near = VoxelConstants.VOXEL_EPSILON;
         raycaster.far  = distanceToLight;
 
         let lightMultiplier = 1.0;

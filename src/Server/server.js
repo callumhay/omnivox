@@ -6,6 +6,7 @@ import reload from 'reload';
 
 import VoxelServer from './VoxelServer';
 import VoxelModel from './VoxelModel';
+import VoxelConstants from '../VoxelConstants';
 
 const LOCALHOST_WEB_PORT = 4000;
 const DISTRIBUTION_DIRNAME = "dist";
@@ -46,8 +47,7 @@ reload(app).then((reloadReturned) => {
 
 // Create the voxel model - this maintains all of the voxel states and provides the data
 // that we send to various clients
-const VOXEL_GRID_SIZE = 16;
-const voxelModel = new VoxelModel(VOXEL_GRID_SIZE);
+const voxelModel = new VoxelModel(VoxelConstants.VOXEL_GRID_SIZE);
 //voxelModel.test();
 
 // Create the voxel server - this will handle discovery and transmission of voxel data to both

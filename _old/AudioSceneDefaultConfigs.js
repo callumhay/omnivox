@@ -1,13 +1,8 @@
 import * as THREE from 'three';
-import {COLOUR_INTERPOLATION_RGB, COLOUR_INTERPOLATION_HSL} from '../../../Spectrum';
+import {COLOUR_INTERPOLATION_RGB, COLOUR_INTERPOLATION_HSL} from '../src/Spectrum';
 
-export const DEFAULT_LEVEL_MAX = 1.75;
-export const DEFAULT_GAMMA = 1.6;
-export const DEFAULT_FADE_FACTOR = 0.02;
-export const DEFAULT_LOW_COLOUR  = new THREE.Color("#99FC20");
-export const DEFAULT_HIGH_COLOUR = new THREE.Color("#FD1999"); 
-export const DEFAULT_CENTER_SORTED = false;
-export const DEFAULT_SPLIT_LEVELS  = false;
+
+
 
 export const POS_X_DIR = "+x";
 export const NEG_X_DIR = "-x";
@@ -44,13 +39,7 @@ export const historyBarsAudioVisDefaultConfig = {
   direction:        DEFAULT_DIR,
 };
 
-export const basicBarsAudioVisDefaultConfig = {
-  lowColour:    DEFAULT_LOW_COLOUR,
-  highColour:   DEFAULT_HIGH_COLOUR,
-  colourInterpolationType: COLOUR_INTERPOLATION_RGB,
-  centerSorted: DEFAULT_CENTER_SORTED,
-  splitLevels:  DEFAULT_SPLIT_LEVELS,
-};
+
 
 export const fireAudioVisDefaultConfig = {
   initialIntensityMultiplier: 8,

@@ -67,6 +67,7 @@ class VoxelFramebufferCPU extends VoxelFramebuffer {
       this._addToVoxelNoCheck([adjustedX, adjustedY, adjustedZ], colour);
     } 
   }
+  addToVoxelFast(pt, colour) { this._addToVoxelNoCheck(pt, colour); }
 
   clear(colour) {
     for (let x = 0; x < this.gridSize; x++) {

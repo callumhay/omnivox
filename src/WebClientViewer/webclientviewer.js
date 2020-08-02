@@ -59,7 +59,7 @@ function onWindowResize(event) {
 let frameCount = 0;
 let lastFrameTime = Date.now();
 let sampleAudioTime = 0;
-const TIME_BETWEEN_AUDIO_SAMPLES = 1.0 / 60; // 60Hz
+const TIME_BETWEEN_AUDIO_SAMPLES = 1.0 / 30; // 30Hz
 
 const render = function () {
   let currFrameTime = Date.now();

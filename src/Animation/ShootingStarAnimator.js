@@ -3,11 +3,11 @@ import * as THREE from 'three';
 import VoxelAnimator, {REPEAT_INFINITE_TIMES} from './VoxelAnimator';
 import VoxelColourAnimator, {INTERPOLATION_SMOOTHER} from './VoxelColourAnimator';
 import {COLOUR_INTERPOLATION_LRGB} from '../Spectrum';
-import {VOXEL_EPSILON, VOXEL_ERR_UNITS} from '../MathUtils';
+import VoxelConstants from '../VoxelConstants';
 
 export const shootingStarAnimatorDefaultConfig = {
   colour: {r:1, g:1, b:1},
-  startPosition: {x:0, y:0, z:7},
+  startPosition: {x:0, y:0, z:VoxelConstants.VOXEL_GRID_MAX_IDX},
   velocity: {x:5, y:0, z:0},
   fadeTimeSecs: 0.75,
   repeat: -1,
@@ -46,7 +46,7 @@ class ShootingStarAnimator extends VoxelAnimator {
 
     // Check to see if the current position has an animator yet...
     for (let i = 0; i < this.currAnimatorMap.length; i++) {
-      if (this.currAnimatorMap[i].voxelPosition.distanceToSquared(pos) < VOXEL_EPSILON) {
+      if (this.currAnimatorMap[i].voxelPosition.distanceToSquared(pos) < VoxelConstants.VOXEL_EPSILON) {
         return false;
       }
     }
@@ -117,7 +117,7 @@ class ShootingStarAnimator extends VoxelAnimator {
       }
     }
 
-    const sampleStepSize = VOXEL_ERR_UNITS; // Sample at a reasonable enough rate
+    const sampleStepSize = VoxelConstants.VOXEL_ERR_UNITS; // Sample at a reasonable enough rate
     const sqSampleStepSize = sampleStepSize * sampleStepSize;
     const incVelocity = this.velocity.clone().multiplyScalar(dt);
     const sqLenIncVel = incVelocity.lengthSq();

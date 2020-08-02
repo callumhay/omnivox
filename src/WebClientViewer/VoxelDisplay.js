@@ -1,11 +1,8 @@
 import * as THREE from 'three';
-import {VOXEL_ERR_UNITS} from '../MathUtils';
 
-const voxelUnitSize = 1.0; // THIS MUST ALWAYS BE 1!!!
-const halfVoxelUnitSize = voxelUnitSize / 2.0;
+import VoxelConstants from '../VoxelConstants';
 
-const DEFAULT_VOXEL_GRID_SIZE = 8;
-const DEFAULT_LED_POINT_SIZE = voxelUnitSize*1.5;
+const DEFAULT_LED_POINT_SIZE = VoxelConstants.VOXEL_UNIT_SIZE * 1.33;
 
 const POINTS_VERTEX_SHADER = `
   attribute float size;
@@ -44,7 +41,7 @@ class VoxelDisplay {
     this.outlinesEnabled = false;
     this.orbitModeEnabled = false;
 
-    this.rebuild(DEFAULT_VOXEL_GRID_SIZE);
+    this.rebuild(VoxelConstants.VOXEL_GRID_SIZE);
   }
 
   removeVoxels() {
@@ -62,7 +59,7 @@ class VoxelDisplay {
     // Clean up any previous voxel grid
     this.removeVoxels();
 
-    const halfTranslationUnits = (gridSize*voxelUnitSize)/2.0;
+    const halfTranslationUnits = (gridSize*VoxelConstants.VOXEL_UNIT_SIZE)/2.0;
     const worldTranslation = new THREE.Vector3(-halfTranslationUnits, -halfTranslationUnits, -halfTranslationUnits);
 
     this.gridSize = gridSize;
@@ -78,9 +75,9 @@ class VoxelDisplay {
         for (let z = 0; z < gridSize; z++) {
 
           const currTranslation = new THREE.Vector3(
-            x*voxelUnitSize + halfVoxelUnitSize,
-            y*voxelUnitSize + halfVoxelUnitSize,
-            z*voxelUnitSize + halfVoxelUnitSize
+            x*VoxelConstants.VOXEL_UNIT_SIZE + VoxelConstants.VOXEL_UNIT_SIZE,
+            y*VoxelConstants.VOXEL_UNIT_SIZE + VoxelConstants.VOXEL_HALF_UNIT_SIZE,
+            z*VoxelConstants.VOXEL_UNIT_SIZE + VoxelConstants.VOXEL_HALF_UNIT_SIZE
           );
           currTranslation.add(worldTranslation);
           
@@ -121,6 +118,7 @@ class VoxelDisplay {
     let wfVertices = new Float32Array(Math.pow((this.gridSize + 1),3)*3*3*2);
     let lineTranslation = halfTranslationUnits;
     let idx = 0;
+    const voxelUnitSize = VoxelConstants.VOXEL_UNIT_SIZE;
     for (let x = 0; x <= this.gridSize; x++) {
       for (let y = 0; y <= this.gridSize; y++) {
         for (let z = 0; z <= this.gridSize; z++) {
@@ -321,12 +319,12 @@ class VoxelDisplay {
           const currPt = new THREE.Vector3(x,y,z);
           const distToCurrPt = sphereBounds.distanceToPoint(currPt);
           if (fill) {
-            if (distToCurrPt < VOXEL_ERR_UNITS) {
+            if (distToCurrPt < VoxelConstants.VOXEL_ERR_UNITS) {
               voxelPts.push(currPt);
             }
           }
           else {
-            if (Math.abs(distToCurrPt) < VOXEL_ERR_UNITS) {
+            if (Math.abs(distToCurrPt) < VoxelConstants.VOXEL_ERR_UNITS) {
               voxelPts.push(currPt);
             }
           }

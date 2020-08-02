@@ -1,17 +1,20 @@
 import * as THREE from 'three';
 
+import VoxelConstants from '../VoxelConstants';
+
 import VoxelAnimator from './VoxelAnimator';
 import ShootingStarAnimator from './ShootingStarAnimator';
 import {UniformVector3Randomizer, Vector3DirectionRandomizer, UniformFloatRandomizer, ColourRandomizer} from './Randomizers';
 
-import VoxelModel from '../Server/VoxelModel';
-
 export const starShowerDefaultConfig = {
-  positionRandomizer: new UniformVector3Randomizer(new THREE.Vector3(0,0,7), new THREE.Vector3(7,7,7)),
+  positionRandomizer: new UniformVector3Randomizer(
+    new THREE.Vector3(0,0,VoxelConstants.VOXEL_GRID_MAX_IDX), 
+    new THREE.Vector3(VoxelConstants.VOXEL_GRID_MAX_IDX, VoxelConstants.VOXEL_GRID_MAX_IDX, VoxelConstants.VOXEL_GRID_MAX_IDX)
+  ),
   directionRandomizer: new Vector3DirectionRandomizer(new THREE.Vector3(0,0,-1), 0),
   speedRandomizer: new UniformFloatRandomizer(3.0, 8.0), // Speed of a spawned stars in units / second
   colourRandomizer: new ColourRandomizer(new THREE.Color(0,1,0), new THREE.Color(0,1,1)),
-  spawnRate: 10.0, // Spawn rate in stars / second
+  spawnRate: 10.0*Math.pow(VoxelConstants.VOXEL_GRID_SIZE/8, 2), // Spawn rate in stars / second
 };
 
 /**

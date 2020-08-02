@@ -1,6 +1,8 @@
 
 import * as THREE from 'three';
-import {VOXEL_EPSILON, clamp} from '../../MathUtils';
+
+import VoxelConstants from '../../VoxelConstants';
+import {clamp} from '../../MathUtils';
 import VoxelModel from '../../Server/VoxelModel';
 
 import VTObject from '../VTObject';
@@ -61,7 +63,7 @@ class VTRPFog extends VTObject {
         // from the inside of the box near the first collision point 
         const insideBoxRay = ray.clone();
         insideBoxRay.origin.set(this._temp1Vec3.x, this._temp1Vec3.y, this._temp1Vec3.z);
-        insideBoxRay.origin.add(insideBoxRay.direction.clone().multiplyScalar(VOXEL_EPSILON));
+        insideBoxRay.origin.add(insideBoxRay.direction.clone().multiplyScalar(VoxelConstants.VOXEL_EPSILON));
         result.inShadow = (insideBoxRay.intersectBox(this._boundingBox, this._temp2Vec3) !== null);
       }
     }
