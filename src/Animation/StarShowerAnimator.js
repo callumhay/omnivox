@@ -4,7 +4,7 @@ import VoxelConstants from '../VoxelConstants';
 
 import VoxelAnimator from './VoxelAnimator';
 import ShootingStarAnimator from './ShootingStarAnimator';
-import {UniformVector3Randomizer, Vector3DirectionRandomizer, UniformFloatRandomizer, ColourRandomizer} from './Randomizers';
+import {UniformVector3Randomizer, Vector3DirectionRandomizer, UniformFloatRandomizer, ColourRandomizer} from '../Randomizers';
 
 export const starShowerDefaultConfig = {
   positionRandomizer: new UniformVector3Randomizer(

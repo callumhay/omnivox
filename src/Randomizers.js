@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import chroma from 'chroma-js';
 
-import VoxelConstants from '../VoxelConstants';
+import VoxelConstants from './VoxelConstants';
 
 export class Randomizer {
   constructor() {

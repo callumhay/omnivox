@@ -1,27 +1,20 @@
 import * as THREE from 'three';
-import chroma from 'chroma-js';
 
-import AudioVisualizerAnimator from './AudioVisualizerAnimator';
+import AudioVisualizerAnimator, {RandomHighLowColourCycler} from './AudioVisualizerAnimator';
 import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
-import {Randomizer} from './Randomizers';
+import {Randomizer} from '../Randomizers';
 
 import FluidGPU from '../FluidGPU';
-import {generateSpectrum, ColourSystems, FIRE_SPECTRUM_WIDTH, COLOUR_INTERPOLATION_RGB} from '../Spectrum';
+import Spectrum, {ColourSystems, FIRE_SPECTRUM_WIDTH, COLOUR_INTERPOLATION_RGB} from '../Spectrum';
 import {PI2, clamp} from '../MathUtils';
 
 const REINIT_FLUID_TIME_SECS = 0.1;
 const MAX_AVG_BEATS_PER_SEC = 120;
 
 // Fire colour types
-export const LOW_HIGH_TEMP_COLOUR_MODE = "Low/High Temp";
-export const TEMPERATURE_COLOUR_MODE   = "Temperature";
-export const RANDOM_COLOUR_MODE        = "Random";
-
-export const COLOUR_MODES = [
-  LOW_HIGH_TEMP_COLOUR_MODE,
-  TEMPERATURE_COLOUR_MODE,
-  RANDOM_COLOUR_MODE,
-];
+const LOW_HIGH_TEMP_COLOUR_MODE = "Low/High Temp";
+const TEMPERATURE_COLOUR_MODE   = "Temperature";
+const RANDOM_COLOUR_MODE        = "Random";
 
 export const fireAnimatorDefaultConfig = {
   speed: 2.0,
@@ -41,22 +34,31 @@ export const fireAnimatorDefaultConfig = {
   lowTempColour:  new THREE.Color(0.2, 0, 1),
   highTempColour: new THREE.Color(1, 0, 0.7),
   // Random Colour Mode
-  randomColourHoldTime: 5,
-  randomColourTransitionTime: 2,
+  ...RandomHighLowColourCycler.randomColourCyclerDefaultConfig,
 
   ...soundVisDefaultConfig,
-  levelMax: 1.3,
+  levelMax: 1.25,
   audioVisualizationOn: false,
-  audioSpeedMultiplier: 0,
+  audioSpeedMultiplier: 0.1,
   audioCoolingMultiplier: 0.1,
   audioBuoyancyMultiplier: 1,
   audioTurbulenceMultiplier: 1,
-  audioNoiseAddition: 0.25,
+  audioNoiseAddition: 0.2,
 };
 
-const INTENSITY_ARRAY_SIZE = 64;
-
 class FireAnimator extends AudioVisualizerAnimator {
+  static get LOW_HIGH_TEMP_COLOUR_MODE() { return LOW_HIGH_TEMP_COLOUR_MODE; }
+  static get TEMPERATURE_COLOUR_MODE() { return TEMPERATURE_COLOUR_MODE; }
+  static get RANDOM_COLOUR_MODE() { return RANDOM_COLOUR_MODE; }
+  static get COLOUR_MODES() {
+    return [
+      LOW_HIGH_TEMP_COLOUR_MODE,
+      TEMPERATURE_COLOUR_MODE,
+      RANDOM_COLOUR_MODE,
+    ];
+  }
+
+
   constructor(voxelModel, config=fireAnimatorDefaultConfig) {
     super(voxelModel, config);
     this.reset();
@@ -66,6 +68,12 @@ class FireAnimator extends AudioVisualizerAnimator {
 
   setConfig(c) {
     super.setConfig(c);
+
+    const {randomColourHoldTime, randomColourTransitionTime} = c;
+    if (!this.randomColourCycler) {
+      this.randomColourCycler = new RandomHighLowColourCycler();
+    }
+    this.randomColourCycler.setConfig({randomColourHoldTime, randomColourTransitionTime});
 
     const {audioVisualizationOn, audioNoiseAddition, buoyancy, cooling, vorticityConfinement} = c;
     const INTENSITY_ARRAY_SIZE = Math.min(128, Math.pow(this.voxelModel.gridSize,2));
@@ -89,6 +97,20 @@ class FireAnimator extends AudioVisualizerAnimator {
     }
     
     this.genFireColourLookup();
+  }
+
+  reset() {
+    super.reset();
+
+    this.randomColourCycler.reset();
+    
+    this.t = 0;
+    this.timeCounterToReinitFluid = Infinity;
+    this.randIdx = 0;
+
+    this.avgSpectralCentroid = 0;
+    this.avgNormalizedSpectralCentroid = 0;
+    this.avgAudioIntensity = 0;
   }
 
   _getFluidModelOffsets() {
@@ -129,63 +151,16 @@ class FireAnimator extends AudioVisualizerAnimator {
 
     // In random colour mode we're animating the colour over time, check to see if it has changed and update it accordingly
     if (colourMode === RANDOM_COLOUR_MODE) {
-      const {colourInterpolationType, randomColourHoldTime, randomColourTransitionTime} = this.config;
-
-      if (this.colourHoldTimeCounter >= randomColourHoldTime) {
-        // We're transitioning between random colours, interpolate from the previous to the next
-        const interpolationVal = this.colourTransitionTimeCounter / randomColourTransitionTime;
-
-        const {lowTempColour:currLowTC, highTempColour:currHighTC} = this.currRandomColours;
-        const {lowTempColour:nextLowTC, highTempColour:nextHighTC} = this.nextRandomColours;
-
-        const tempLowTempColour = chroma.mix(
-          chroma.gl([currLowTC.r, currLowTC.g, currLowTC.b, 1]), 
-          chroma.gl([nextLowTC.r, nextLowTC.g, nextLowTC.b, 1]), 
-          interpolationVal, colourInterpolationType
-        ).gl();
-        const tempHighTempColour = chroma.mix(
-          chroma.gl([currHighTC.r, currHighTC.g, currHighTC.b, 1]), 
-          chroma.gl([nextHighTC.r, nextHighTC.g, nextHighTC.b, 1]), 
-          interpolationVal, colourInterpolationType
-        ).gl();
-        
-        const finalLowTempColour = new THREE.Color(tempLowTempColour[0], tempLowTempColour[1], tempLowTempColour[2]);
-        const finalHighTempColour = new THREE.Color(tempHighTempColour[0], tempHighTempColour[1], tempHighTempColour[2]);
-        this.fireLookup = FireAnimator._adjustSpectrumAlpha(this._genHighLowColourSpectrum(finalHighTempColour, finalLowTempColour));
-        
-        this.colourTransitionTimeCounter += dt;
-        if (this.colourTransitionTimeCounter >= randomColourTransitionTime) {
-          this.currRandomColours = this.nextRandomColours;
-          this.nextRandomColours = this._genRandomFireColours(this.currRandomColours);
-          this.colourTransitionTimeCounter -= randomColourTransitionTime;
-          this.colourHoldTimeCounter -= randomColourHoldTime;
-        }
-      }
-      else {
-        this.colourHoldTimeCounter += dt;
+      const {colourInterpolationType} = this.config;
+      const currColours = this.randomColourCycler.tick(dt, colourInterpolationType);
+      if (this.randomColourCycler.isTransitioning()) {
+        this.fireLookup = FireAnimator._adjustSpectrumAlpha(Spectrum.genHighLowColourSpectrum(currColours.highTempColour, currColours.lowTempColour, colourInterpolationType));
       }
     }
 
     // Update the voxels...
     const gpuFramebuffer = this.voxelModel.framebuffer;
     gpuFramebuffer.drawFire(this.fireLookup, this.fluidModel.T, [startX, startY, startZ]);
-  }
-
-  reset() {
-    super.reset();
-    
-    this.t = 0;
-    this.timeCounterToReinitFluid = Infinity;
-    this.randIdx = 0;
-
-    this.colourTransitionTimeCounter = 0;
-    this.colourHoldTimeCounter = 0;
-    this.currRandomColours = this._genRandomFireColours();
-    this.nextRandomColours = this._genRandomFireColours(this.currRandomColours);
-
-    this.avgSpectralCentroid = 0;
-    this.avgNormalizedSpectralCentroid = 0;
-    this.avgAudioIntensity = 0;
   }
 
   setAudioInfo(audioInfo) {
@@ -227,16 +202,6 @@ class FireAnimator extends AudioVisualizerAnimator {
     this.avgAudioIntensity /= this.audioIntensitiesArray.length;
   }
 
-  _genHighLowColourSpectrum(highColour, lowColour) {
-    const {colourInterpolationType} = this.config;
-    const lowTempColourWithAlpha  = chroma.gl([lowColour.r, lowColour.g, lowColour.b, 1]);
-    const highTempColourWithAlpha = chroma.gl([highColour.r, highColour.g, highColour.b, 1]);
-    const spectrum = new Array(FIRE_SPECTRUM_WIDTH);
-    for (let i = 0; i < FIRE_SPECTRUM_WIDTH; i++) {
-      spectrum[i] = chroma.mix(lowTempColourWithAlpha, highTempColourWithAlpha, i / (FIRE_SPECTRUM_WIDTH - 1), colourInterpolationType).gl();
-    }
-    return spectrum;
-  }
   static _adjustSpectrumAlpha(spectrum) {
     const FIRE_THRESHOLD = 7;
     const MAX_FIRE_ALPHA = 1.0;
@@ -253,22 +218,22 @@ class FireAnimator extends AudioVisualizerAnimator {
   }
 
   genFireColourLookup() {
-    const {colourMode, spectrumTempMin, spectrumTempMax, colourSystem} = this.config;
+    const {colourMode, spectrumTempMin, spectrumTempMax, colourSystem, colourInterpolationType} = this.config;
 
     let spectrum = null;
     switch (colourMode) {
       case LOW_HIGH_TEMP_COLOUR_MODE: {
         const {highTempColour, lowTempColour} = this.config;
-        spectrum = this._genHighLowColourSpectrum(highTempColour, lowTempColour);
+        spectrum = Spectrum.genHighLowColourSpectrum(highTempColour, lowTempColour, colourInterpolationType);
         break;
       }
       case TEMPERATURE_COLOUR_MODE:
-        spectrum = generateSpectrum(spectrumTempMin, spectrumTempMax, FIRE_SPECTRUM_WIDTH, ColourSystems[colourSystem]);
+        spectrum = Spectrum.generateSpectrum(spectrumTempMin, spectrumTempMax, FIRE_SPECTRUM_WIDTH, ColourSystems[colourSystem]);
         break;
       case RANDOM_COLOUR_MODE: {
-        const {highTempColour, lowTempColour} = this.currRandomColours;
+        const {highTempColour, lowTempColour} = this.randomColourCycler.currRandomColours;
         this.colourHoldTimeCounter = 0;
-        spectrum = this._genHighLowColourSpectrum(highTempColour, lowTempColour);
+        spectrum = Spectrum.genHighLowColourSpectrum(highTempColour, lowTempColour, colourInterpolationType);
         break;
       }
 
@@ -280,54 +245,6 @@ class FireAnimator extends AudioVisualizerAnimator {
 
     spectrum = FireAnimator._adjustSpectrumAlpha(spectrum);
     this.fireLookup = spectrum;
-  }
-
-  _genRandomFireColours(currRandomColours=null) {
-    const BRIGHTEN_FACTOR = [0, 1];
-    const LOW_TEMP_SATURATION = [0.75, 1.0];
-    const LOW_TEMP_INTENSITY  = [0.33, 0.66];
-    const HUE_DISTANCE_FROM_LOW_TEMP = [90,270];
-
-    let nextHighTempColour = null;
-    let nextLowTempColour  = null;
-
-    const brightenFactor = Randomizer.getRandomFloat(BRIGHTEN_FACTOR[0], BRIGHTEN_FACTOR[1]);
-
-    if (currRandomColours) {
-      // Use the existing random colours as a jump-off point to make sure we don't repeat them consecutively
-      const {lowTempColour} = currRandomColours;
-      const lowTempChromaGl  = chroma.gl([lowTempColour.r, lowTempColour.g, lowTempColour.b, 1]);
-      const lowTempChromaHsi = chroma(lowTempChromaGl).hsi();
-
-      lowTempChromaHsi[0] = (lowTempChromaHsi[0] === NaN) ? Randomizer.getRandomFloat(0,360) : (lowTempChromaHsi[0] + Randomizer.getRandomFloat(60,300)) % 360;
-      lowTempChromaHsi[1] = Randomizer.getRandomFloat(LOW_TEMP_SATURATION[0], LOW_TEMP_SATURATION[1]);
-      lowTempChromaHsi[2] = Randomizer.getRandomFloat(LOW_TEMP_INTENSITY[0], LOW_TEMP_INTENSITY[1]);
-
-      const highTempHue = (lowTempChromaHsi[0] + Randomizer.getRandomFloat(HUE_DISTANCE_FROM_LOW_TEMP[0], HUE_DISTANCE_FROM_LOW_TEMP[1])) % 360;
-      const highTempChromaHsi = [highTempHue, 1, lowTempChromaHsi[2]];
-      nextLowTempColour = chroma(lowTempChromaHsi, 'hsi').gl();
-      nextLowTempColour = new THREE.Color(nextLowTempColour[0], nextLowTempColour[1], nextLowTempColour[2]);
-      nextHighTempColour = chroma(highTempChromaHsi, 'hsi').brighten(brightenFactor).gl();
-      nextHighTempColour = new THREE.Color(nextHighTempColour[0], nextHighTempColour[1], nextHighTempColour[2]);
-    }
-    else {
-      // First time generation, pick some good random colours
-      const lowTempChroma = chroma(
-        Randomizer.getRandomFloat(0,360),
-        Randomizer.getRandomFloat(LOW_TEMP_SATURATION[0], LOW_TEMP_SATURATION[1]),
-        Randomizer.getRandomFloat(LOW_TEMP_INTENSITY[0], LOW_TEMP_INTENSITY[1]), 'hsi');
-      const lowTempChromaGl = lowTempChroma.gl();
-      nextLowTempColour = new THREE.Color(lowTempChromaGl[0], lowTempChromaGl[1], lowTempChromaGl[2]);
-
-      const lowTempHsi = lowTempChroma.hsi();
-      const highTempChromaGl = chroma((lowTempHsi[0] + 180) % 360, 1, lowTempHsi[2], 'hsi').brighten(brightenFactor).gl();
-      nextHighTempColour = new THREE.Color(highTempChromaGl[0], highTempChromaGl[1], highTempChromaGl[2]);
-    }
-
-    return {
-      highTempColour: nextHighTempColour,
-      lowTempColour: nextLowTempColour
-    };
   }
 
   _genRandomTemperatureFunc(x, y, sx, sy, t) {

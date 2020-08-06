@@ -5,9 +5,9 @@ import VoxelAnimator, {DEFAULT_CROSSFADE_TIME_SECS} from '../Animation/VoxelAnim
 import {voxelColourAnimatorDefaultConfig, INTERPOLATION_TYPES} from '../Animation/VoxelColourAnimator';
 import {starShowerDefaultConfig} from '../Animation/StarShowerAnimator';
 import {shapeWaveAnimatorDefaultConfig, WAVE_SHAPE_TYPES} from '../Animation/ShapeWaveAnimator';
-import {fireAnimatorDefaultConfig, COLOUR_MODES, LOW_HIGH_TEMP_COLOUR_MODE, TEMPERATURE_COLOUR_MODE, RANDOM_COLOUR_MODE} from '../Animation/FireAnimator';
+import FireAnimator, {fireAnimatorDefaultConfig} from '../Animation/FireAnimator';
 import {sceneAnimatorDefaultConfig, SCENE_TYPES, SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG} from '../Animation/SceneAnimatorDefaultConfigs';
-import {barVisualizerAnimatorDefaultConfig, DISPLAY_MODE_TYPES, STATIC_BARS_DISPLAY_TYPE, MOVING_HISTORY_BARS_DISPLAY_TYPE, DIRECTION_TYPES} from '../Animation/BarVisualizerAnimator';
+import BarVisualizerAnimator, {barVisualizerAnimatorDefaultConfig} from '../Animation/BarVisualizerAnimator';
 
 import {ColourSystems, COLOUR_INTERPOLATION_TYPES} from '../Spectrum';
 import {simpleSceneDefaultOptions, shadowSceneDefaultOptions, fogSceneDefaultOptions} from '../VoxelTracer/Scenes/SceneDefaultConfigs';
@@ -55,10 +55,10 @@ class ControlPanel {
     this.currFolder = null;
     this.shapeSettingsFolder = null;
     this.sceneSettingsFolder = null;
-    this.audioVizSettingsFolder = null;
     this.fireColourModeFolder = null;
     this.fireAudioVisFolder = null;
-    this.barVisSettingsFolder = null;
+    this.barVisDisplayTypeFolder = null;
+    this.barVisColourModeFolder = null;
 
     this.animatorTypeController = this.gui.add(this.settings, 'animatorType', [
       VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR,
@@ -77,9 +77,8 @@ class ControlPanel {
         this.sceneSettingsFolder = null;
         this.fireColourModeFolder = null;
         this.fireAudioVisFolder = null;
-        this.barVisSettingsFolder = null;
-        this.audioVizSettingsFolder = null;
-        this.audioVizTypeFolder = null;
+        this.barVisDisplayTypeFolder = null;
+        this.barVisColourModeFolder = null;
       }
 
       this.soundController.enabled = false;
@@ -683,7 +682,7 @@ class ControlPanel {
     }).setValue(fireSettings.initialIntensityMultiplier);
 
 
-    folder.add(fireSettings, 'colourMode', COLOUR_MODES).onChange((value) => {
+    folder.add(fireSettings, 'colourMode', FireAnimator.COLOUR_MODES).onChange((value) => {
       if (this.fireColourModeFolder) {
         folder.removeFolder(this.fireColourModeFolder);
         this.fireColourModeFolder = null;
@@ -694,7 +693,7 @@ class ControlPanel {
 
       switch (value) {
         default:
-        case TEMPERATURE_COLOUR_MODE:
+        case FireAnimator.TEMPERATURE_COLOUR_MODE:
           this.fireColourModeFolder.add(fireSettings, 'spectrumTempMin', 0, 10000, 100).onChange((value) => {
             this.fireAnimatorConfig.spectrumTempMin = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
@@ -711,7 +710,7 @@ class ControlPanel {
           }).setValue(fireSettings.colourSystem);
           break;
 
-        case LOW_HIGH_TEMP_COLOUR_MODE:
+        case FireAnimator.LOW_HIGH_TEMP_COLOUR_MODE:
           this.fireColourModeFolder.addColor(fireSettings, 'lowTempColour').onChange((value) => {
             this.fireAnimatorConfig.lowTempColour = GuiColorToRGBObj(value);
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
@@ -726,15 +725,8 @@ class ControlPanel {
           }).setValue(fireSettings.colourInterpolationType);
           break;
   
-        case RANDOM_COLOUR_MODE:
-          this.fireColourModeFolder.add(fireSettings, 'randomColourHoldTime', 0.1, 60, 0.1).onChange((value) => {
-            this.fireAnimatorConfig.randomColourHoldTime = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
-          }).setValue(fireSettings.randomColourHoldTime);
-          this.fireColourModeFolder.add(fireSettings, 'randomColourTransitionTime', 0.1, 60, 0.1).onChange((value) => {
-            this.fireAnimatorConfig.randomColourTransitionTime = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
-          }).setValue(fireSettings.randomColourTransitionTime);
+        case FireAnimator.RANDOM_COLOUR_MODE:
+          this.buildBasicRandomColourControls(this.fireColourModeFolder, fireSettings, VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
           this.fireColourModeFolder.add(fireSettings, 'colourInterpolationType', COLOUR_INTERPOLATION_TYPES).onChange((value) => {
             this.fireAnimatorConfig.colourInterpolationType = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
@@ -742,6 +734,7 @@ class ControlPanel {
           break;
       }
 
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
       this.fireColourModeFolder.open();
     }).setValue(fireSettings.colourMode);
 
@@ -791,7 +784,7 @@ class ControlPanel {
 
     return folder;
   }
-
+  
   buildSceneAnimatorControls() {
     
     const {sceneSettings} = this.settings;
@@ -989,6 +982,17 @@ class ControlPanel {
     return folder;
   }
 
+  buildBasicRandomColourControls(folder, settings, animatorType, config) {
+    folder.add(settings, 'randomColourHoldTime', 0.1, 60, 0.1).onChange((value) => {
+      config.randomColourHoldTime = value;
+      this.voxelClient.sendAnimatorChangeCommand(animatorType, config);
+    }).setValue(settings.randomColourHoldTime);
+    folder.add(settings, 'randomColourTransitionTime', 0.1, 60, 0.1).onChange((value) => {
+      config.randomColourTransitionTime = value;
+      this.voxelClient.sendAnimatorChangeCommand(animatorType, config);
+    }).setValue(settings.randomColourTransitionTime);
+  }
+
   buildBasicSoundVisControls(folder, settings, animatorType, config, hasFadeFactor=true) {
     folder.add(settings, 'levelMax', 0.1, 10, 0.01).onChange((value) => {
       config.levelMax = value;
@@ -1014,38 +1018,38 @@ class ControlPanel {
 
     this.buildBasicSoundVisControls(folder, barVisSettings, VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER, this.barVisAnimatorConfig);
 
-    folder.add(barVisSettings, 'displayMode', DISPLAY_MODE_TYPES).onChange((value) => {
+    folder.add(barVisSettings, 'displayMode', BarVisualizerAnimator.DISPLAY_MODE_TYPES).onChange((value) => {
 
-      if (this.barVisSettingsFolder) {
-        folder.removeFolder(this.barVisSettingsFolder);
-        this.barVisSettingsFolder = null;
+      if (this.barVisDisplayTypeFolder) {
+        folder.removeFolder(this.barVisDisplayTypeFolder);
+        this.barVisDisplayTypeFolder = null;
       }
-      this.barVisSettingsFolder = folder.addFolder(value + " Settings");
+      this.barVisDisplayTypeFolder = folder.addFolder(value + " Settings");
       this.barVisAnimatorConfig.displayMode = value;
       switch (value) {
-        case MOVING_HISTORY_BARS_DISPLAY_TYPE:
-          this.barVisSettingsFolder.add(barVisSettings, 'speed', 1, 20, 0.1).onChange((value) => {
+        case BarVisualizerAnimator.MOVING_HISTORY_BARS_DISPLAY_TYPE:
+          this.barVisDisplayTypeFolder.add(barVisSettings, 'speed', 1, 20, 0.1).onChange((value) => {
             this.barVisAnimatorConfig.speed = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER, this.barVisAnimatorConfig);
           }).setValue(barVisSettings.speed);
-          this.barVisSettingsFolder.add(barVisSettings, 'tempoMultiplier', 1, 100, 1).onChange((value) => {
+          this.barVisDisplayTypeFolder.add(barVisSettings, 'tempoMultiplier', 1, 100, 1).onChange((value) => {
             this.barVisAnimatorConfig.tempoMultiplier = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER, this.barVisAnimatorConfig);
           }).setValue(barVisSettings.tempoMultiplier);
-          this.barVisSettingsFolder.add(barVisSettings, 'direction', DIRECTION_TYPES).onChange((value) => {
+          this.barVisDisplayTypeFolder.add(barVisSettings, 'direction', BarVisualizerAnimator.DIRECTION_TYPES).onChange((value) => {
             this.barVisAnimatorConfig.direction = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER, this.barVisAnimatorConfig);
           }).setValue(barVisSettings.direction);
 
           break;
 
-        case STATIC_BARS_DISPLAY_TYPE:
+        case BarVisualizerAnimator.STATIC_BARS_DISPLAY_TYPE:
         default:
-          this.barVisSettingsFolder.add(barVisSettings, 'splitLevels').onChange((value) => {
+          this.barVisDisplayTypeFolder.add(barVisSettings, 'splitLevels').onChange((value) => {
             this.barVisAnimatorConfig.splitLevels = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER, this.barVisAnimatorConfig);
           }).setValue(barVisSettings.splitLevels);
-          this.barVisSettingsFolder.add(barVisSettings, 'centerSorted').onChange((value) => {
+          this.barVisDisplayTypeFolder.add(barVisSettings, 'centerSorted').onChange((value) => {
             this.barVisAnimatorConfig.centerSorted = value;
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER, this.barVisAnimatorConfig);
           }).setValue(barVisSettings.centerSorted);
@@ -1053,21 +1057,44 @@ class ControlPanel {
       }
 
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER, this.barVisAnimatorConfig);
-      this.barVisSettingsFolder.open();
+      this.barVisDisplayTypeFolder.open();
     }).setValue(barVisSettings.displayMode);
 
-    folder.addColor(barVisSettings, 'lowColour').onChange((value) => {
-      this.barVisAnimatorConfig.lowColour = GuiColorToRGBObj(value);
+    folder.add(barVisSettings, 'colourMode', BarVisualizerAnimator.COLOUR_MODES).onChange((value) => {
+      if (this.barVisColourModeFolder) {
+        folder.removeFolder(this.barVisColourModeFolder);
+        this.barVisColourModeFolder = null;
+      }
+
+      this.barVisColourModeFolder = folder.addFolder(value + " Settings");
+      this.barVisAnimatorConfig.colourMode = value;
+
+      switch (value) {
+        case BarVisualizerAnimator.RANDOM_COLOUR_MODE:
+          this.buildBasicRandomColourControls(this.barVisColourModeFolder, barVisSettings, VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER, this.barVisAnimatorConfig);
+          break;
+
+        case BarVisualizerAnimator.LOW_HIGH_COLOUR_MODE:
+        default:
+          this.barVisColourModeFolder.addColor(barVisSettings, 'lowColour').onChange((value) => {
+            this.barVisAnimatorConfig.lowColour = GuiColorToRGBObj(value);
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER, this.barVisAnimatorConfig);
+          }).setValue(barVisSettings.lowColour);
+          this.barVisColourModeFolder.addColor(barVisSettings, 'highColour').onChange((value) => {
+            this.barVisAnimatorConfig.highColour = GuiColorToRGBObj(value);
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER, this.barVisAnimatorConfig);
+          }).setValue(barVisSettings.highColour);
+          break;
+      }
+
+      this.barVisColourModeFolder.add(barVisSettings, 'colourInterpolationType', COLOUR_INTERPOLATION_TYPES).onChange((value) => {
+        this.barVisAnimatorConfig.colourInterpolationType = value;
+        this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER, this.barVisAnimatorConfig);
+      }).setValue(barVisSettings.colourInterpolationType);
+
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER, this.barVisAnimatorConfig);
-    }).setValue(barVisSettings.lowColour);
-    folder.addColor(barVisSettings, 'highColour').onChange((value) => {
-      this.barVisAnimatorConfig.highColour = GuiColorToRGBObj(value);
-      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER, this.barVisAnimatorConfig);
-    }).setValue(barVisSettings.highColour);
-    folder.add(barVisSettings, 'colourInterpolationType', COLOUR_INTERPOLATION_TYPES).onChange((value) => {
-      this.barVisAnimatorConfig.colourInterpolationType = value;
-      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER, this.barVisAnimatorConfig);
-    }).setValue(barVisSettings.colourInterpolationType);
+      this.barVisColourModeFolder.open();
+    }).setValue(barVisSettings.colourMode);
 
     folder.open();
     return folder;

@@ -485,7 +485,7 @@ class GPUKernelManager {
       const isVisible = yIdx < clampedCutoff ? 1.0 : 0.0;
 
       // Allow bars to fade over time, make especially high intensity bars glow white
-      const alpha = (prevVoxelRGBA[3] * fadeFactorAdjusted + isVisible * ((glowMultiplier*Math.max(cutoff-cutoffClampSize, 0) + 1) - fadeFactorAdjusted));
+      const alpha = (prevVoxelRGBA[3] * fadeFactorAdjusted + isVisible * (prevVoxelRGBA[3]*glowMultiplier*Math.max(cutoff-cutoffClampSize, 0) + 1 - fadeFactorAdjusted));
       return [
         levelColours[yIdx][0],
         levelColours[yIdx][1],

@@ -1,39 +1,36 @@
 import * as THREE from 'three';
 import chroma from 'chroma-js';
 
-import AudioVisualizerAnimator from './AudioVisualizerAnimator';
+import AudioVisualizerAnimator, {RandomHighLowColourCycler} from './AudioVisualizerAnimator';
 import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 
-import {COLOUR_INTERPOLATION_RGB} from '../Spectrum';
+import Spectrum, {COLOUR_INTERPOLATION_RGB} from '../Spectrum';
 import {clamp} from '../MathUtils';
 
-export const STATIC_BARS_DISPLAY_TYPE         = "Static";
-export const MOVING_HISTORY_BARS_DISPLAY_TYPE = "Moving History";
+const STATIC_BARS_DISPLAY_TYPE         = "Static";
+const MOVING_HISTORY_BARS_DISPLAY_TYPE = "Moving History";
 
-export const DISPLAY_MODE_TYPES = [
-  STATIC_BARS_DISPLAY_TYPE,
-  MOVING_HISTORY_BARS_DISPLAY_TYPE,
-];
+const POS_X_DIR = "+x";
+const NEG_X_DIR = "-x";
+const POS_Z_DIR = "+z";
+const NEG_Z_DIR = "-z";
 
-export const POS_X_DIR = "+x";
-export const NEG_X_DIR = "-x";
-export const POS_Z_DIR = "+z";
-export const NEG_Z_DIR = "-z";
-
-export const DIRECTION_TYPES = [
-  POS_X_DIR,
-  NEG_X_DIR,
-  POS_Z_DIR,
-  NEG_Z_DIR,
-];
+const LOW_HIGH_COLOUR_MODE = "Low/High Colour";
+const RANDOM_COLOUR_MODE = "Random";
 
 export const barVisualizerAnimatorDefaultConfig = {
   ...soundVisDefaultConfig,
 
+  colourMode: LOW_HIGH_COLOUR_MODE,
+  // Low/High colour mode (static)
   lowColour:   new THREE.Color("#99FC20"),
   highColour:  new THREE.Color("#FD1999"),
+  // Random colour mode
+  ...RandomHighLowColourCycler.randomColourCyclerDefaultConfig,
+  
   colourInterpolationType: COLOUR_INTERPOLATION_RGB,
   
+
   displayMode: STATIC_BARS_DISPLAY_TYPE,
 
   // Static bar display options
@@ -47,6 +44,28 @@ export const barVisualizerAnimatorDefaultConfig = {
 };
 
 class BarVisualizerAnimator extends AudioVisualizerAnimator {
+  static get STATIC_BARS_DISPLAY_TYPE() { return STATIC_BARS_DISPLAY_TYPE; }
+  static get MOVING_HISTORY_BARS_DISPLAY_TYPE() { return MOVING_HISTORY_BARS_DISPLAY_TYPE; }
+  static get DISPLAY_MODE_TYPES() {
+    return [
+      STATIC_BARS_DISPLAY_TYPE,
+      MOVING_HISTORY_BARS_DISPLAY_TYPE,
+    ];
+  }
+
+  static get DIRECTION_TYPES() {
+    return [POS_X_DIR, NEG_X_DIR, POS_Z_DIR, NEG_Z_DIR];
+  }
+
+  static get LOW_HIGH_COLOUR_MODE() { return LOW_HIGH_COLOUR_MODE; }
+  static get RANDOM_COLOUR_MODE() { return RANDOM_COLOUR_MODE; }
+  static get COLOUR_MODES() {
+    return [
+      LOW_HIGH_COLOUR_MODE,
+      RANDOM_COLOUR_MODE,
+    ];
+  }
+
   constructor(voxelModel, config=barVisualizerAnimatorDefaultConfig) {
     super(voxelModel, config);
     this.reset();
@@ -56,8 +75,13 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
 
   setConfig(c) {
     super.setConfig(c);
-    const {displayMode, lowColour, highColour, colourInterpolationType, splitLevels, direction} = c;
+    const {displayMode, colourMode, colourInterpolationType, direction, randomColourHoldTime, randomColourTransitionTime} = c;
     const {gridSize, gpuKernelMgr} = this.voxelModel;
+
+    if (!this.randomColourCycler) {
+      this.randomColourCycler = new RandomHighLowColourCycler();
+    }
+    this.randomColourCycler.setConfig({randomColourHoldTime, randomColourTransitionTime});
 
     const halfGridSize = (gridSize/2);
     const STATIC_INTENSITY_ARRAY_SIZE = Math.max(64, halfGridSize*halfGridSize); // This should always be a square number! We use these number to make the bars into 2x2 columns within the grid
@@ -91,17 +115,16 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
         break;
     }
 
-    const lowColourGL  = chroma.gl([lowColour.r || 0, lowColour.g || 0, lowColour.b || 0, 1]);
-    const highColourGL = chroma.gl([highColour.r || 0, highColour.g || 0, highColour.b || 0, 1]);
-
-    const ySize = this.voxelModel.ySize();
-    const numColours = splitLevels ? Math.floor(ySize/2) : ySize;
-
-    this.levelColours = new Array(numColours);
-    for (let y = 0; y < numColours; y++) {
-      const t = y / (numColours-1);
-      const temp = chroma.mix(lowColourGL, highColourGL, t, colourInterpolationType).gl();
-      this.levelColours[y] = [temp[0], temp[1], temp[2]];
+    switch (colourMode) {
+      case LOW_HIGH_COLOUR_MODE:
+      default:
+        const {lowColour, highColour} = c;
+        this.levelColours = Spectrum.genHighLowColourSpectrum(highColour, lowColour, colourInterpolationType, this._numLevelColours());
+        break;
+      case RANDOM_COLOUR_MODE:
+        const {lowTempColour, highTempColour} = this.randomColourCycler.currRandomColours;
+        this.levelColours = Spectrum.genHighLowColourSpectrum(highTempColour, lowTempColour, colourInterpolationType, this._numLevelColours());
+        break;
     }
 
     // Build the GPU kernels for rendering the various configurations of the bar visualizer
@@ -111,9 +134,30 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
     }
   }
 
+  _numLevelColours() {
+    const {splitLevels} = this.config;
+    const ySize = this.voxelModel.ySize();
+    return splitLevels ? Math.floor(ySize/2) : ySize;
+  }
+
+  reset() {
+    super.reset();
+    this.timeCounter = 0;
+    this.randomColourCycler.reset();
+  }
+
   render(dt) {
-    const {displayMode, levelMax, fadeFactor} = this.config;
+    const {displayMode, levelMax, fadeFactor, colourMode} = this.config;
     const {gpuKernelMgr, framebuffer} = this.voxelModel;
+
+    // In random colour mode we're animating the colour over time, check to see if it has changed and update it accordingly
+    if (colourMode === RANDOM_COLOUR_MODE) {
+      const {colourInterpolationType} = this.config;
+      const currColours = this.randomColourCycler.tick(dt, colourInterpolationType);
+      if (this.randomColourCycler.isTransitioning()) {
+        this.levelColours = Spectrum.genHighLowColourSpectrum(currColours.highTempColour, currColours.lowTempColour, colourInterpolationType, this._numLevelColours());
+      }
+    }
 
     let temp = this.prevVisTex;
     switch (displayMode) {
@@ -137,11 +181,6 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
     temp.delete();
 
     framebuffer.setBufferTexture(gpuKernelMgr.renderBarVisualizerAlphaFunc(this.prevVisTex));
-  }
-
-  reset() {
-    super.reset();
-    this.timeCounter = 0;
   }
 
   setAudioInfo(audioInfo) {

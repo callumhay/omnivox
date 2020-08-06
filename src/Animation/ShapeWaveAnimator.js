@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 
 import VoxelConstants from '../VoxelConstants';
+import {Randomizer} from '../Randomizers';
 
 import VoxelAnimator from './VoxelAnimator';
-import {Randomizer} from './Randomizers';
 
 const EIGHTIES_MAGENTA_HEX    = 0xF00078;
 const EIGHTIES_YELLOW_HEX     = 0xFFC70E;

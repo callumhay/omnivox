@@ -1,6 +1,10 @@
+import * as THREE from 'three';
+import chroma from 'chroma-js';
+
 import VoxelAnimator from "./VoxelAnimator";
 import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 
+import Spectrum from '../Spectrum';
 import {clamp} from '../MathUtils';
 
 const MAX_AVG_BEATS_PER_SEC = 120;
@@ -101,42 +105,71 @@ class AudioVisualizerAnimator extends VoxelAnimator {
     }
     return binLevel;
   }
-
-  static buildSpiralIndices(xSize, ySize) {
-    const allIndices = {};
-    for (let x = 0; x < xSize; x++) {
-      for (let y = 0; y < ySize; y++) {
-        allIndices[x+"_"+y] = true;
-      }
-    }
-
-    let r = 1;
-
-    const gridSize = xSize*ySize;
-    const startX = Math.floor(xSize/2);
-    const startY = Math.floor(ySize/2);
-    const result = [];
-
-    while (result.length < gridSize) {
-      const rSqr = r*r;
-      for (let x = 0; x < xSize; x++) {
-        for (let y = 0; y < ySize; y++) {
-          const idx = x+"_"+y;
-          if (allIndices[idx]) {
-            let xDiff = x - startX;
-            let yDiff = y - startY;
-            if (xDiff*xDiff + yDiff*yDiff <= rSqr) {
-              result.push([x,y]);
-              allIndices[idx] = false;
-            }
-          }
-        }
-      }
-      r++;
-    }
-    
-    return result;
-  }
 }
 
 export default AudioVisualizerAnimator;
+
+export class RandomHighLowColourCycler {
+  constructor(config=RandomHighLowColourCycler.randomColourCyclerDefaultConfig) {
+    this.reset();
+    this.setConfig(config);
+  }
+
+  static get randomColourCyclerDefaultConfig() {
+    return {
+      randomColourHoldTime: 5,
+      randomColourTransitionTime: 2,
+    };
+  }
+
+  setConfig(c) {
+    this.config = c;
+  }
+  reset() {
+    this.colourTransitionTimeCounter = 0;
+    this.colourHoldTimeCounter = 0;
+    this.currRandomColours = Spectrum.genRandomHighLowColours();
+    this.nextRandomColours = Spectrum.genRandomHighLowColours(this.currRandomColours);
+  }
+
+  isTransitioning() {
+    const {randomColourHoldTime} = this.config;
+    return this.colourHoldTimeCounter >= randomColourHoldTime;
+  }
+
+  tick(dt, colourInterpolationType) {
+    const {randomColourTransitionTime} = this.config;
+
+    if (this.isTransitioning()) {
+      // We're transitioning between random colours, interpolate from the previous to the next
+      const interpolationVal = clamp(this.colourTransitionTimeCounter / randomColourTransitionTime, 0, 1);
+
+      const {lowTempColour:currLowTC, highTempColour:currHighTC} = this.currRandomColours;
+      const {lowTempColour:nextLowTC, highTempColour:nextHighTC} = this.nextRandomColours;
+
+      const tempLowTempColour = chroma.mix(chroma.gl([currLowTC.r, currLowTC.g, currLowTC.b, 1]), chroma.gl([nextLowTC.r, nextLowTC.g, nextLowTC.b, 1]), interpolationVal, colourInterpolationType).gl();
+      const tempHighTempColour = chroma.mix(chroma.gl([currHighTC.r, currHighTC.g, currHighTC.b, 1]), chroma.gl([nextHighTC.r, nextHighTC.g, nextHighTC.b, 1]), interpolationVal, colourInterpolationType).gl();
+      
+      const finalLowTempColour = new THREE.Color(tempLowTempColour[0], tempLowTempColour[1], tempLowTempColour[2]);
+      const finalHighTempColour = new THREE.Color(tempHighTempColour[0], tempHighTempColour[1], tempHighTempColour[2]);
+
+      this.colourTransitionTimeCounter += dt;
+      if (this.colourTransitionTimeCounter >= randomColourTransitionTime) {
+        this.currRandomColours = {lowTempColour: finalLowTempColour, highTempColour: finalHighTempColour};
+        this.nextRandomColours = Spectrum.genRandomHighLowColours(this.currRandomColours);
+        this.colourTransitionTimeCounter = 0;
+        this.colourHoldTimeCounter = 0;
+      }
+
+      return {
+        lowTempColour: finalLowTempColour,
+        highTempColour: finalHighTempColour
+      };
+    }
+    else {
+      this.colourHoldTimeCounter += dt;
+    }
+
+    return this.currRandomColours;
+  }
+}

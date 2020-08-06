@@ -1,3 +1,7 @@
+import * as THREE from 'three';
+import chroma from 'chroma-js';
+
+import {Randomizer} from './Randomizers';
 
 export const COLOUR_INTERPOLATION_RGB  = 'rgb';
 export const COLOUR_INTERPOLATION_HSL  = 'hsl';
@@ -13,7 +17,6 @@ export const COLOUR_INTERPOLATION_TYPES = [
 ];
 
 export const FIRE_SPECTRUM_WIDTH = 256;
-
 
 const cie_colour_match = [
   [0.0014,0.0000,0.0065], [0.0022,0.0001,0.0105], [0.0042,0.0001,0.0201],
@@ -48,7 +51,6 @@ const cie_colour_match = [
 const IlluminantC   = [0.3101, 0.3162]; /* For NTSC television */   	    	
 const IlluminantD65 = [0.3127, 0.3291];	/* For EBU and SMPTE */
 const IlluminantE 	= [0.33333333, 0.33333333];  /* CIE equal-energy illuminant */
-
 const GAMMA_REC709 = 0;
 
 export const NTSCsystem   = { name: "NTSC",            xRed: 0.67,   yRed: 0.33,   xGreen: 0.21,   yGreen: 0.71,   xBlue: 0.14,   yBlue: 0.08,   xWhite: IlluminantC[0],   yWhite: IlluminantC[1],   gamma: GAMMA_REC709 };
@@ -57,7 +59,6 @@ export const SMPTEsystem  = { name: "SMPTE",           xRed: 0.630,  yRed: 0.340
 export const HDTVsystem   = { name: "HDTV",            xRed: 0.670,  yRed: 0.330,  xGreen: 0.210,  yGreen: 0.710,  xBlue: 0.150,  yBlue: 0.060,  xWhite: IlluminantD65[0], yWhite: IlluminantD65[1], gamma: GAMMA_REC709 };
 export const CIEsystem    = { name: "CIE",             xRed: 0.7355, yRed: 0.2645, xGreen: 0.2658, yGreen: 0.7243, xBlue: 0.1669, yBlue: 0.0085, xWhite: IlluminantE[0],   yWhite: IlluminantE[1],   gamma: GAMMA_REC709 };
 export const Rec709system = { name: "CIE REC 709",     xRed: 0.64,   yRed: 0.33,   xGreen: 0.30,   yGreen: 0.60,   xBlue: 0.15,   yBlue: 0.06,   xWhite: IlluminantD65[0], yWhite: IlluminantD65[1], gamma: GAMMA_REC709 };
-
 export const ColourSystems = {
   'NTSCsystem'  : NTSCsystem,
   'EBUsystem'   : EBUsystem,
@@ -67,139 +68,206 @@ export const ColourSystems = {
   'Rec709system': Rec709system
 };
 
-const bb_spectrum = (wavelength, blackbodyTemp) => {
-  let wlm = wavelength * 1e-9;
-  return (3.74183e-16 * Math.pow(wlm, -5)) / (Math.exp(1.4388e-2 / (wlm * blackbodyTemp)) - 1.0);
-}
-
-const spectrumToXyz = (specFunc, blackbodyTemp) => {
-  let X = 0; let Y = 0; let Z = 0;
-  for (let i = 0, lambda = 380; lambda < 780.1; i++, lambda += 5) {
-    let Me = specFunc(lambda, blackbodyTemp);
-    X += Me * cie_colour_match[i][0];
-    Y += Me * cie_colour_match[i][1];
-    Z += Me * cie_colour_match[i][2];
-  }
-
-  const XYZ = X+Y+Z;
-  return {
-    x: X / XYZ,
-    y: Y / XYZ,
-    z: Z / XYZ
-  };
-}
-
-const xyzToLms = (x, y, z) => {
-  return {
-    l: 0.3897*x + 0.6890*y - 0.0787*z,
-    m: -0.2298*x + 1.1834*y + 0.0464*z,
-    s: z
-  };
-}
-const lmsToXyz = (l, m, s) => {
-  return {
-    x: 1.9102*l - 1.1121*m + 0.2019*s,
-    y: 0.3709*l + 0.6290*m + 0.0000*s,
-    z: s
-  };
-}
-const xyzToRgb = (cs, xc, yc, zc) => {
-  let xr, yr, zr, xg, yg, zg, xb, yb, zb;
-  let xw, yw, zw;
-  let rx, ry, rz, gx, gy, gz, bx, by, bz;
-  let rw, gw, bw;
-
-  xr = cs.xRed;    yr = cs.yRed;    zr = 1 - (xr + yr);
-  xg = cs.xGreen;  yg = cs.yGreen;  zg = 1 - (xg + yg);
-  xb = cs.xBlue;   yb = cs.yBlue;   zb = 1 - (xb + yb);
-
-  xw = cs.xWhite;  yw = cs.yWhite;  zw = 1 - (xw + yw);
-
-  /* xyz . rgb matrix, before scaling to white. */
-  
-  rx = (yg * zb) - (yb * zg);  ry = (xb * zg) - (xg * zb);  rz = (xg * yb) - (xb * yg);
-  gx = (yb * zr) - (yr * zb);  gy = (xr * zb) - (xb * zr);  gz = (xb * yr) - (xr * yb);
-  bx = (yr * zg) - (yg * zr);  by = (xg * zr) - (xr * zg);  bz = (xr * yg) - (xg * yr);
-
-  /* White scaling factors.
-     Dividing by yw scales the white luminance to unity, as conventional. */
-     
-  rw = ((rx * xw) + (ry * yw) + (rz * zw)) / yw;
-  gw = ((gx * xw) + (gy * yw) + (gz * zw)) / yw;
-  bw = ((bx * xw) + (by * yw) + (bz * zw)) / yw;
-
-  /* xyz => rgb matrix, correctly scaled to white. */
-  
-  rx = rx / rw;  ry = ry / rw;  rz = rz / rw;
-  gx = gx / gw;  gy = gy / gw;  gz = gz / gw;
-  bx = bx / bw;  by = by / bw;  bz = bz / bw;
-
-  /* rgb of the desired point */
-  return {
-    r: (rx * xc) + (ry * yc) + (rz * zc),
-    g: (gx * xc) + (gy * yc) + (gz * zc),
-    b: (bx * xc) + (by * yc) + (bz * zc)
-  };
-}
-
-const constrainRgb = (r, g, b) => {
-  /* Amount of white needed is w = - min(0, *r, *g, *b) */
-  let w = (0 < r) ? 0 : r;
-  w = (w < g) ? w : g;
-  w = (w < b) ? w : b;
-  w = -w;
-
-  /* Add just enough white to make r, g, b all positive. */
-  if (w > 0) {
-    return { r: r+w, g: g+w, b: b+w }; /* Colour modified to fit RGB gamut */
-  }
-  return { r: r, g: g, b: b };
-}
-const normalizeRgb = (r, g, b) => {
-  let greatest = Math.max(r, Math.max(g, b));
-  let rgb = {r: r, g: g, b: b};
-
-  if (greatest > 0) {
-    rgb.r /= greatest;
-    rgb.g /= greatest;
-    rgb.b /= greatest;
-  }
-
-  return rgb;
-}
-
-
-export const generateSpectrum = (t1, t2, N, colourSystem=CIEsystem) => {
-  let j = 0; let dj = 1;
-
-  if (t1 < t2) {
-    let t = t1;
-    t1 = t2;
-    t2 = t;
-    j = N-1; dj = -1;
-  }
-
-  let Lw = 0, Mw = 0, Sw = 0;
-  let result = new Array(N);
-  for (let i = 0; i < N; i++) {
-    let blackbodyTemp = t1 + (t2-t1)/N*i;
-    let xyz = spectrumToXyz(bb_spectrum, blackbodyTemp);
-    let lms = xyzToLms(xyz.x, xyz.y, xyz.z);
-    if (i === 0) {
-      Lw = 1/lms.l; Mw = 1/lms.m; Sw = 1/lms.s;
+class Spectrum {
+  static genHighLowColourSpectrum(highColour, lowColour, colourInterpolationType, size=FIRE_SPECTRUM_WIDTH) {
+    const lowColourGL  = chroma.gl(lowColour.r, lowColour.g, lowColour.b, 1);
+    const highColourGL = chroma.gl(highColour.r, highColour.g, highColour.b, 1);
+    const spectrum = new Array(size);
+    for (let i = 0; i < size; i++) {
+      spectrum[i] = chroma.mix(lowColourGL, highColourGL, i / (size - 1), colourInterpolationType).gl();
     }
-    lms.l *= Lw; lms.m *= Mw; lms.s *= Sw;
-    xyz = lmsToXyz(lms.l, lms.m, lms.s);
-
-    // Convert to RGB
-    let rgb = xyzToRgb(colourSystem, xyz.x, xyz.y, xyz.z);
-    rgb = constrainRgb(rgb.r, rgb.g, rgb.b);
-    rgb = normalizeRgb(rgb.r, rgb.g, rgb.b);
-    
-    result[j] = [rgb.r, rgb.g, rgb.b, (rgb.b>0.1)? rgb.b : 0];
-    
-		j += dj;
+    return spectrum;
   }
 
-  return result;
-} 
+  static genRandomHighLowColours(currRandomColours=null) {
+
+    const LOW_TEMP_SATURATION = [0.75, 1.0];
+    const LOW_TEMP_INTENSITY  = [0.33, 0.66];
+    const HUE_DISTANCE_FROM_LOW_TEMP = [90,270];
+
+    let nextHighTempColour = null;
+    let nextLowTempColour  = null;
+
+    if (currRandomColours) {
+      // Use the existing random colours as a jump-off point to make sure we don't repeat them consecutively
+      const {lowTempColour} = currRandomColours;
+      const lowTempChromaHsl = chroma(chroma.gl(lowTempColour.r, lowTempColour.g, lowTempColour.b, 1)).hsl();
+
+      lowTempChromaHsl[0] = (lowTempChromaHsl[0] + Randomizer.getRandomFloat(60,300)) % 360;
+      lowTempChromaHsl[1] = Randomizer.getRandomFloat(LOW_TEMP_SATURATION[0], LOW_TEMP_SATURATION[1]);
+      lowTempChromaHsl[2] = Randomizer.getRandomFloat(LOW_TEMP_INTENSITY[0], LOW_TEMP_INTENSITY[1]);
+
+      const highTempHue = (lowTempChromaHsl[0] + Randomizer.getRandomFloat(HUE_DISTANCE_FROM_LOW_TEMP[0], HUE_DISTANCE_FROM_LOW_TEMP[1])) % 360;
+      const highTempChromaHsl = [highTempHue, 1, lowTempChromaHsl[2]];
+      nextLowTempColour = chroma(lowTempChromaHsl, 'hsl').gl();
+      nextLowTempColour = new THREE.Color(nextLowTempColour[0], nextLowTempColour[1], nextLowTempColour[2]);
+      nextHighTempColour = chroma(highTempChromaHsl, 'hsl').gl();
+      nextHighTempColour = new THREE.Color(nextHighTempColour[0], nextHighTempColour[1], nextHighTempColour[2]);
+    }
+    else {
+      // First time generation, pick some good random colours
+      const lowTempChroma = chroma(
+        Randomizer.getRandomFloat(0,360),
+        Randomizer.getRandomFloat(LOW_TEMP_SATURATION[0], LOW_TEMP_SATURATION[1]),
+        Randomizer.getRandomFloat(LOW_TEMP_INTENSITY[0], LOW_TEMP_INTENSITY[1]), 'hsl');
+      const lowTempChromaGl = lowTempChroma.gl();
+      nextLowTempColour = new THREE.Color(lowTempChromaGl[0], lowTempChromaGl[1], lowTempChromaGl[2]);
+
+      const lowTempHsl = lowTempChroma.hsl();
+      const highTempChromaGl = chroma((lowTempHsl[0] + 180) % 360, 1, lowTempHsl[2], 'hsl').gl();
+      nextHighTempColour = new THREE.Color(highTempChromaGl[0], highTempChromaGl[1], highTempChromaGl[2]);
+    }
+
+    return {
+      highTempColour: nextHighTempColour,
+      lowTempColour: nextLowTempColour
+    };
+  }
+
+
+  static bb_spectrum(wavelength, blackbodyTemp) {
+    let wlm = wavelength * 1e-9;
+    return (3.74183e-16 * Math.pow(wlm, -5)) / (Math.exp(1.4388e-2 / (wlm * blackbodyTemp)) - 1.0);
+  }
+  
+  static spectrumToXyz(specFunc, blackbodyTemp) {
+    let X = 0; let Y = 0; let Z = 0;
+    for (let i = 0, lambda = 380; lambda < 780.1; i++, lambda += 5) {
+      let Me = specFunc(lambda, blackbodyTemp);
+      X += Me * cie_colour_match[i][0];
+      Y += Me * cie_colour_match[i][1];
+      Z += Me * cie_colour_match[i][2];
+    }
+  
+    const XYZ = X+Y+Z;
+    return {
+      x: X / XYZ,
+      y: Y / XYZ,
+      z: Z / XYZ
+    };
+  }
+  
+  static xyzToLms(x, y, z) {
+    return {
+      l: 0.3897*x + 0.6890*y - 0.0787*z,
+      m: -0.2298*x + 1.1834*y + 0.0464*z,
+      s: z
+    };
+  }
+  static lmsToXyz(l, m, s) {
+    return {
+      x: 1.9102*l - 1.1121*m + 0.2019*s,
+      y: 0.3709*l + 0.6290*m + 0.0000*s,
+      z: s
+    };
+  }
+  static xyzToRgb(cs, xc, yc, zc) {
+    let xr, yr, zr, xg, yg, zg, xb, yb, zb;
+    let xw, yw, zw;
+    let rx, ry, rz, gx, gy, gz, bx, by, bz;
+    let rw, gw, bw;
+  
+    xr = cs.xRed;    yr = cs.yRed;    zr = 1 - (xr + yr);
+    xg = cs.xGreen;  yg = cs.yGreen;  zg = 1 - (xg + yg);
+    xb = cs.xBlue;   yb = cs.yBlue;   zb = 1 - (xb + yb);
+  
+    xw = cs.xWhite;  yw = cs.yWhite;  zw = 1 - (xw + yw);
+  
+    /* xyz . rgb matrix, before scaling to white. */
+    
+    rx = (yg * zb) - (yb * zg);  ry = (xb * zg) - (xg * zb);  rz = (xg * yb) - (xb * yg);
+    gx = (yb * zr) - (yr * zb);  gy = (xr * zb) - (xb * zr);  gz = (xb * yr) - (xr * yb);
+    bx = (yr * zg) - (yg * zr);  by = (xg * zr) - (xr * zg);  bz = (xr * yg) - (xg * yr);
+  
+    /* White scaling factors.
+       Dividing by yw scales the white luminance to unity, as conventional. */
+       
+    rw = ((rx * xw) + (ry * yw) + (rz * zw)) / yw;
+    gw = ((gx * xw) + (gy * yw) + (gz * zw)) / yw;
+    bw = ((bx * xw) + (by * yw) + (bz * zw)) / yw;
+  
+    /* xyz => rgb matrix, correctly scaled to white. */
+    
+    rx = rx / rw;  ry = ry / rw;  rz = rz / rw;
+    gx = gx / gw;  gy = gy / gw;  gz = gz / gw;
+    bx = bx / bw;  by = by / bw;  bz = bz / bw;
+  
+    /* rgb of the desired point */
+    return {
+      r: (rx * xc) + (ry * yc) + (rz * zc),
+      g: (gx * xc) + (gy * yc) + (gz * zc),
+      b: (bx * xc) + (by * yc) + (bz * zc)
+    };
+  }
+  
+  static constrainRgb(r, g, b) {
+    /* Amount of white needed is w = - min(0, *r, *g, *b) */
+    let w = (0 < r) ? 0 : r;
+    w = (w < g) ? w : g;
+    w = (w < b) ? w : b;
+    w = -w;
+  
+    /* Add just enough white to make r, g, b all positive. */
+    if (w > 0) {
+      return { r: r+w, g: g+w, b: b+w }; /* Colour modified to fit RGB gamut */
+    }
+    return { r: r, g: g, b: b };
+  }
+  static normalizeRgb(r, g, b) {
+    let greatest = Math.max(r, Math.max(g, b));
+    let rgb = {r: r, g: g, b: b};
+  
+    if (greatest > 0) {
+      rgb.r /= greatest;
+      rgb.g /= greatest;
+      rgb.b /= greatest;
+    }
+  
+    return rgb;
+  }
+
+  static generateSpectrum(t1, t2, N, colourSystem=CIEsystem) {
+    let j = 0; let dj = 1;
+  
+    if (t1 < t2) {
+      let t = t1;
+      t1 = t2;
+      t2 = t;
+      j = N-1; dj = -1;
+    }
+  
+    let Lw = 0, Mw = 0, Sw = 0;
+    let result = new Array(N);
+    for (let i = 0; i < N; i++) {
+      let blackbodyTemp = t1 + (t2-t1)/N*i;
+      let xyz = Spectrum.spectrumToXyz(Spectrum.bb_spectrum, blackbodyTemp);
+      let lms = Spectrum.xyzToLms(xyz.x, xyz.y, xyz.z);
+      if (i === 0) {
+        Lw = 1/lms.l; Mw = 1/lms.m; Sw = 1/lms.s;
+      }
+      lms.l *= Lw; lms.m *= Mw; lms.s *= Sw;
+      xyz = Spectrum.lmsToXyz(lms.l, lms.m, lms.s);
+  
+      // Convert to RGB
+      let rgb = Spectrum.xyzToRgb(colourSystem, xyz.x, xyz.y, xyz.z);
+      rgb = Spectrum.constrainRgb(rgb.r, rgb.g, rgb.b);
+      rgb = Spectrum.normalizeRgb(rgb.r, rgb.g, rgb.b);
+      
+      result[j] = [rgb.r, rgb.g, rgb.b, (rgb.b>0.1)? rgb.b : 0];
+      
+      j += dj;
+    }
+    return result;
+  } 
+
+
+
+};
+export default Spectrum;
+
+
+
+
+
+
+
