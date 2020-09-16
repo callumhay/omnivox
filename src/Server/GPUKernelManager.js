@@ -5,7 +5,7 @@ import {FIRE_SPECTRUM_WIDTH} from '../Spectrum';
 
 class GPUKernelManager {
   constructor(gridSize) {
-    this.gpu = new GPU({mode: 'headlessgl'});;
+    this.gpu = new GPU({mode: 'headlessgl'});
 
     this.gpu.addFunction(function clampValue(value, min, max) {
       return Math.min(max, Math.max(min, value));
@@ -182,7 +182,7 @@ class GPUKernelManager {
 
   }
 
-  initFluidKernels(N) {
+  initFireKernels(N) {
     if (this._fluidKernelsInit) { return; }
 
     const NPLUS2 = N+2;
@@ -191,8 +191,9 @@ class GPUKernelManager {
       pipeline: true,
       constants: {
         N: N,
-        NPLUSONEHALF: N+0.5,
+        NPLUSAHALF: N+0.5,
         ONEDIVN: 1.0/N,
+        BOUNDARY: 0.9,
       },
       immutable: true,
     };
@@ -220,44 +221,63 @@ class GPUKernelManager {
       return [uvwVec[0], uvwVec[1]  + T[i][j][k] * dtBuoy, uvwVec[2]];
     }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {T: ARRAY3D_TYPE, uvw: ARRAY3D_3_TYPE, dtBuoy: 'Float'}});
 
-    this.diffuseStepFunc = this.gpu.createKernel(function(x0, x, a) {
+    this.diffuseStepFunc = this.gpu.createKernel(function (x0, x, a, boundaryBuf) {
       const [i,j,k] = ijkLookup();
       if (i < 1 || j < 1 || k < 1 || i > this.constants.N || j > this.constants.N || k > this.constants.N) {
         return x[i][j][k];
       }
-      return (x0[i][j][k] + a*(x[i-1][j][k] + x[i+1][j][k] + x[i][j-1][k] + x[i][j+1][k] + x[i][j][k-1] + x[i][j][k+1])) / (1+6*a);
-    }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {x0: ARRAY3D_TYPE, x: ARRAY3D_TYPE, a: 'Float'}});
+      const xiNeg = boundaryBuf[i-1][j][k] > this.constants.BOUNDARY ? x[i][j][k] : x[i-1][j][k];
+      const xiPos = boundaryBuf[i+1][j][k] > this.constants.BOUNDARY ? x[i][j][k] : x[i+1][j][k];
+      const xjNeg = boundaryBuf[i][j-1][k] > this.constants.BOUNDARY ? x[i][j][k] : x[i][j-1][k];
+      const xjPos = boundaryBuf[i][j+1][k] > this.constants.BOUNDARY ? x[i][j][k] : x[i][j+1][k];
+      const xkNeg = boundaryBuf[i][j][k-1] > this.constants.BOUNDARY ? x[i][j][k] : x[i][j][k-1];
+      const xkPos = boundaryBuf[i][j][k+1] > this.constants.BOUNDARY ? x[i][j][k] : x[i][j][k+1];
 
-    this.diffuseStep3Func = this.gpu.createKernel(function(uvw0, uvw, a) {
+      return (x0[i][j][k] + a * (xiNeg + xiPos + xjNeg + xjPos + xkNeg + xkPos)) / (1+6*a);
+    }, {...pipelineFuncSettings, returnType: 'Float', 
+      argumentTypes: {
+        x0: ARRAY3D_TYPE, x: ARRAY3D_TYPE, a: 'Float', boundaryBuf: ARRAY3D_TYPE
+      }
+    });
+
+    this.diffuseStep3Func = this.gpu.createKernel(function (uvw0, uvw, a, boundaryBuf) {
       const [i,j,k] = ijkLookup();
+      const uvwijk = uvw[i][j][k];
       if (i < 1 || j < 1 || k < 1 || i > this.constants.N || j > this.constants.N || k > this.constants.N) {
-        return uvw[i][j][k];
+        return uvwijk;
       }
       const divisor = 1.0 + 6.0*a;
       const uvw0ijk = uvw0[i][j][k];
-      const uvwiNeg = uvw[i-1][j][k];
-      const uvwiPos = uvw[i+1][j][k];
-      const uvwjNeg = uvw[i][j-1][k];
-      const uvwjPos = uvw[i][j+1][k];
-      const uvwkNeg = uvw[i][j][k-1];
-      const uvwkPos = uvw[i][j][k+1];
+      const uvwiNeg = boundaryBuf[i-1][j][k] > this.constants.BOUNDARY ? uvwijk : uvw[i-1][j][k];
+      const uvwiPos = boundaryBuf[i+1][j][k] > this.constants.BOUNDARY ? uvwijk : uvw[i+1][j][k];
+      const uvwjNeg = boundaryBuf[i][j-1][k] > this.constants.BOUNDARY ? uvwijk : uvw[i][j-1][k];
+      const uvwjPos = boundaryBuf[i][j+1][k] > this.constants.BOUNDARY ? uvwijk : uvw[i][j+1][k];
+      const uvwkNeg = boundaryBuf[i][j][k-1] > this.constants.BOUNDARY ? uvwijk : uvw[i][j][k-1];
+      const uvwkPos = boundaryBuf[i][j][k+1] > this.constants.BOUNDARY ? uvwijk : uvw[i][j][k+1];
 
       return [
         (uvw0ijk[0] + a*(uvwiNeg[0] + uvwiPos[0] + uvwjNeg[0] + uvwjPos[0] + uvwkNeg[0] + uvwkPos[0])) / divisor,
         (uvw0ijk[1] + a*(uvwiNeg[1] + uvwiPos[1] + uvwjNeg[1] + uvwjPos[1] + uvwkNeg[1] + uvwkPos[1])) / divisor,
         (uvw0ijk[2] + a*(uvwiNeg[2] + uvwiPos[2] + uvwjNeg[2] + uvwjPos[2] + uvwkNeg[2] + uvwkPos[2])) / divisor
       ];
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {uvw0: ARRAY3D_3_TYPE, uvw: ARRAY3D_3_TYPE, a: 'Float'}});
+    }, {...pipelineFuncSettings, returnType: 'Array(3)', 
+      argumentTypes: {
+        uvw0: ARRAY3D_3_TYPE, uvw: ARRAY3D_3_TYPE, a: 'Float', boundaryBuf: ARRAY3D_TYPE
+      }
+    });
     
-    this.advectCoolFunc = this.gpu.createKernel(function(x0, x, uuvvww, dt0, c0) {
+    this.advectCoolFunc = this.gpu.createKernel(function (x0, x, uuvvww, dt0, c0, boundaryBuf) {
       const [i,j,k] = ijkLookup();
+      if (boundaryBuf[i][j][k] > this.constants.BOUNDARY) {
+        return 0;
+      }
       if (i < 1 || j < 1 || k < 1 ||  i > this.constants.N || j > this.constants.N || k > this.constants.N) {
         return x[i][j][k];
       }
       const uvwijk = uuvvww[i][j][k];
-      let xx = clampValue(i-dt0*uvwijk[0], 0.5, this.constants.NPLUSONEHALF);
-      let yy = clampValue(j-dt0*uvwijk[1], 0.5, this.constants.NPLUSONEHALF);
-      let zz = clampValue(k-dt0*uvwijk[2], 0.5, this.constants.NPLUSONEHALF);
+      let xx = clampValue(i-dt0*uvwijk[0], 0.5, this.constants.NPLUSAHALF);
+      let yy = clampValue(j-dt0*uvwijk[1], 0.5, this.constants.NPLUSAHALF);
+      let zz = clampValue(k-dt0*uvwijk[2], 0.5, this.constants.NPLUSAHALF);
       let i0 = Math.floor(xx); let i1 = i0 + 1;
       let j0 = Math.floor(yy); let j1 = j0 + 1;
       let k0 = Math.floor(zz); let k1 = k0 + 1;
@@ -267,17 +287,26 @@ class GPUKernelManager {
       let v0 = sx0*(sy0*x0[i0][j0][k0] + sy1*x0[i0][j1][k0]) + sx1*(sy0*x0[i1][j0][k0] + sy1*x0[i1][j1][k0]);
       let v1 = sx0*(sy0*x0[i0][j0][k1] + sy1*x0[i0][j1][k1]) + sx1*(sy0*x0[i1][j0][k1] + sy1*x0[i1][j1][k1]);
       return (sz0*v0 + sz1*v1)*c0;
-    }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {x0: ARRAY3D_TYPE, x: ARRAY3D_TYPE, uuvvww: ARRAY3D_3_TYPE, dt0: 'Float', c0: 'Float'}});
+    }, {...pipelineFuncSettings, returnType: 'Float', 
+        argumentTypes: { 
+          x0: ARRAY3D_TYPE, x: ARRAY3D_TYPE, uuvvww: ARRAY3D_3_TYPE, 
+          dt0: 'Float', c0: 'Float', boundaryBuf: ARRAY3D_TYPE
+        }
+    });
 
-    this.advectCool3Func = this.gpu.createKernel(function(uvw0, uvw, dt0) {
+    this.advectCool3Func = this.gpu.createKernel(function(uvw0, uvw, dt0, boundaryBuf) {
       const [i,j,k] = ijkLookup();
+      if (boundaryBuf[i][j][k] > this.constants.BOUNDARY) {
+        return [0,0,0];
+      }
       if (i < 1 || j < 1 || k < 1 ||  i > this.constants.N || j > this.constants.N || k > this.constants.N) {
         return uvw[i][j][k];
       }
+
       const uvw0ijk = uvw0[i][j][k];
-      const xx = clampValue(i-dt0*uvw0ijk[0], 0.5, this.constants.NPLUSONEHALF);
-      const yy = clampValue(j-dt0*uvw0ijk[1], 0.5, this.constants.NPLUSONEHALF);
-      const zz = clampValue(k-dt0*uvw0ijk[2], 0.5, this.constants.NPLUSONEHALF);
+      const xx = clampValue(i-dt0*uvw0ijk[0], 0.5, this.constants.NPLUSAHALF);
+      const yy = clampValue(j-dt0*uvw0ijk[1], 0.5, this.constants.NPLUSAHALF);
+      const zz = clampValue(k-dt0*uvw0ijk[2], 0.5, this.constants.NPLUSAHALF);
       const i0 = Math.floor(xx); const i1 = i0 + 1;
       const j0 = Math.floor(yy); let j1 = j0 + 1;
       const k0 = Math.floor(zz); let k1 = k0 + 1;
@@ -301,7 +330,8 @@ class GPUKernelManager {
         result[i] = sz0*v0 + sz1*v1;
       }
       return result;
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {uvw0: ARRAY3D_3_TYPE, uvw: ARRAY3D_3_TYPE, dt0: 'Float'}});
+    }, {...pipelineFuncSettings, returnType: 'Array(3)', 
+        argumentTypes: { uvw0: ARRAY3D_3_TYPE, uvw: ARRAY3D_3_TYPE, dt0: 'Float', boundaryBuf: ARRAY3D_TYPE}});
 
     this.projectStep1Func = this.gpu.createKernel(function(uvw0, uvw) {
       const [i,j,k] = ijkLookup();
@@ -343,26 +373,52 @@ class GPUKernelManager {
       ];
     }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {uvw0: ARRAY3D_3_TYPE}});
 
-    this.projectStep3Func = this.gpu.createKernel(function(uvw, uvw0) {
+    this.projectStep3Func = this.gpu.createKernel(function(uvw, uvw0, boundaryBuf) {
       const [i,j,k] = ijkLookup();
       const uvwijk = uvw[i][j][k];
-      if (i < 1 || j < 1 || k < 1 ||  i > this.constants.N || j > this.constants.N || k > this.constants.N) {
-        return uvwijk;
-      }
+      const obstVel = [0,0,0];
+      const velMask = [1,1,1];
 
-      const uvw0iNeg = uvw0[i-1][j][k];
-      const uvw0iPos = uvw0[i+1][j][k];
-      const uvw0jNeg = uvw0[i][j-1][k];
-      const uvw0jPos = uvw0[i][j+1][k];
-      const uvw0kNeg = uvw0[i][j][k-1];
-      const uvw0kPos = uvw0[i][j][k+1];
+      let uvw0iNeg = [0,0,0];
+      if (i < 1 || boundaryBuf[i-1][j][k] > this.constants.BOUNDARY) {uvw0iNeg = uvwijk; obstVel[0] = 0; velMask[0] = 0;} 
+      else { uvw0iNeg = uvw0[i-1][j][k]; }
 
-      return [
+      let uvw0iPos = [0,0,0];
+      if (i > this.constants.N || boundaryBuf[i+1][j][k] > this.constants.BOUNDARY) {uvw0iPos = uvwijk; obstVel[0] = 0; velMask[0] = 0;}
+      else {uvw0iPos = uvw0[i+1][j][k];}
+
+      let uvw0jNeg = [0,0,0];
+      if (j < 1 || boundaryBuf[i][j-1][k] > this.constants.BOUNDARY) {uvw0jNeg = uvwijk; obstVel[1] = 0; velMask[1] = 0;}
+      else {uvw0jNeg = uvw0[i][j-1][k];}
+
+      let uvw0jPos = [0,0,0];
+      if (j > this.constants.N || boundaryBuf[i][j+1][k] > this.constants.BOUNDARY) {uvw0jPos = uvwijk; obstVel[1] = 0; velMask[1] = 0;}
+      else { uvw0jPos = uvw0[i][j+1][k]; }
+
+      let uvw0kNeg = [0,0,0];
+      if (k < 1 || boundaryBuf[i][j][k-1] > this.constants.BOUNDARY) {uvw0kNeg = uvwijk; obstVel[2] = 0; velMask[2] = 0;}
+      else {uvw0kNeg = uvw0[i][j][k-1];}
+
+      let uvw0kPos = [0,0,0];
+      if (k > this.constants.N || boundaryBuf[i][j][k+1] > this.constants.BOUNDARY) {uvw0kPos = uvwijk; obstVel[2] = 0; velMask[2] = 0;}
+      else {uvw0kPos = uvw0[i][j][k+1];}
+
+      const vNew = [
         uvwijk[0] - (uvw0iPos[0] - uvw0iNeg[0]) / 3.0 / this.constants.ONEDIVN,
         uvwijk[1] - (uvw0jPos[0] - uvw0jNeg[0]) / 3.0 / this.constants.ONEDIVN,
         uvwijk[2] - (uvw0kPos[0] - uvw0kNeg[0]) / 3.0 / this.constants.ONEDIVN
       ];
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {uvw: ARRAY3D_3_TYPE, uvw0: ARRAY3D_3_TYPE}});
+
+      return [
+        (velMask[0] * vNew[0]) + obstVel[0],
+        (velMask[1] * vNew[1]) + obstVel[1],
+        (velMask[2] * vNew[2]) + obstVel[2],
+      ];
+    }, {...pipelineFuncSettings, returnType: 'Array(3)', 
+      argumentTypes: {
+        uvw: ARRAY3D_3_TYPE, uvw0: ARRAY3D_3_TYPE, boundaryBuf: ARRAY3D_TYPE
+      }
+    });
 
     this.curlFunc = this.gpu.createKernel(function(curlxyz, uvw) {
       const [i,j,k] = ijkLookup();

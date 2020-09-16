@@ -681,6 +681,30 @@ class ControlPanel {
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
     }).setValue(fireSettings.initialIntensityMultiplier);
 
+    const voxelGridSizeX = this.voxelClient.voxelDisplay.xSize();
+    const voxelGridSizeY = this.voxelClient.voxelDisplay.ySize();
+    const voxelGridSizeZ = this.voxelClient.voxelDisplay.zSize();
+    folder.add(fireSettings, 'wallPosX', -1, voxelGridSizeX/2, 1).onChange((value) => {
+      this.fireAnimatorConfig.wallPosX = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+    }).setValue(fireSettings.wallPosX);
+    folder.add(fireSettings, 'wallNegX', -1, voxelGridSizeX/2, 1).onChange((value) => {
+      this.fireAnimatorConfig.wallNegX = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+    }).setValue(fireSettings.wallNegX);
+    folder.add(fireSettings, 'wallPosY', -1, voxelGridSizeY-1, 1).onChange((value) => {
+      this.fireAnimatorConfig.wallPosY = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+    }).setValue(fireSettings.wallPosY);
+    folder.add(fireSettings, 'wallPosZ', -1, voxelGridSizeZ/2, 1).onChange((value) => {
+      this.fireAnimatorConfig.wallPosZ = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+    }).setValue(fireSettings.wallPosZ);
+    folder.add(fireSettings, 'wallNegZ', -1, voxelGridSizeZ/2, 1).onChange((value) => {
+      this.fireAnimatorConfig.wallNegZ = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+    }).setValue(fireSettings.wallNegZ);
+
 
     folder.add(fireSettings, 'colourMode', FireAnimator.COLOUR_MODES).onChange((value) => {
       if (this.fireColourModeFolder) {

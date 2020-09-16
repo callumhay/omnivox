@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 
+import VoxelAnimator from './VoxelAnimator';
 import AudioVisualizerAnimator, {RandomHighLowColourCycler} from './AudioVisualizerAnimator';
 import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 import {Randomizer} from '../Randomizers';
 
-import FluidGPU from '../FluidGPU';
+import FireGPU from '../FireGPU';
 import Spectrum, {ColourSystems, FIRE_SPECTRUM_WIDTH, COLOUR_INTERPOLATION_RGB} from '../Spectrum';
 import {PI2, clamp} from '../MathUtils';
 
@@ -19,7 +20,7 @@ const RANDOM_COLOUR_MODE        = "Random";
 export const fireAnimatorDefaultConfig = {
   speed: 2.0,
   buoyancy: 1.2,
-  cooling: 1,
+  cooling: 0.5,
   initialIntensityMultiplier: 8,
   vorticityConfinement: 8.0,
 
@@ -44,6 +45,12 @@ export const fireAnimatorDefaultConfig = {
   audioBuoyancyMultiplier: 1,
   audioTurbulenceMultiplier: 1,
   audioNoiseAddition: 0.2,
+
+  wallPosX: -1,
+  wallNegX: -1,
+  wallPosY: -1,
+  wallPosZ: -1,
+  wallNegZ: -1,
 };
 
 class FireAnimator extends AudioVisualizerAnimator {
@@ -57,7 +64,6 @@ class FireAnimator extends AudioVisualizerAnimator {
       RANDOM_COLOUR_MODE,
     ];
   }
-
 
   constructor(voxelModel, config=fireAnimatorDefaultConfig) {
     super(voxelModel, config);
@@ -75,19 +81,27 @@ class FireAnimator extends AudioVisualizerAnimator {
     }
     this.randomColourCycler.setConfig({randomColourHoldTime, randomColourTransitionTime});
 
-    const {audioVisualizationOn, audioNoiseAddition, buoyancy, cooling, vorticityConfinement} = c;
+    const {
+      audioVisualizationOn, audioNoiseAddition, buoyancy, cooling, vorticityConfinement,
+      wallPosX, wallNegX, wallPosY, wallNegY, wallPosZ, wallNegZ,
+    } = c;
     const INTENSITY_ARRAY_SIZE = Math.min(128, Math.pow(this.voxelModel.gridSize,2));
     this.audioIntensitiesArray = new Array(INTENSITY_ARRAY_SIZE).fill(0);
     this.randomArray = Randomizer.getRandomFloats(INTENSITY_ARRAY_SIZE, 0, audioVisualizationOn ? audioNoiseAddition : 1);
 
     if (!this.fluidModel) {
-      this.fluidModel = new FluidGPU(this.voxelModel.gridSize, this.voxelModel.gpuKernelMgr);
+      this.fluidModel = new FireGPU(this.voxelModel.gridSize, this.voxelModel.gpuKernelMgr);
     }
     this.fluidModel.diffusion = 0.0001;
     this.fluidModel.viscosity = 0;
     this.fluidModel.buoyancy  = buoyancy;
     this.fluidModel.cooling   = cooling;
     this.fluidModel.vc_eps    = vorticityConfinement;
+    this.fluidModel.setBoundary({
+      posXOffset:wallPosX, negXOffset:wallNegX, 
+      posYOffset:wallPosY, negYOffset:-1,
+      posZOffset:wallPosZ, negZOffset:wallNegZ
+    });
 
     const {startX, endX, startY, startZ, endZ} = this._getFluidModelOffsets();
     for (let z = startZ; z < endZ; z++) {
