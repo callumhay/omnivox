@@ -1,13 +1,12 @@
+import FluidGPU from './FluidGPU';
+
 const DIFFUSE_PER_FRAME_LOOPS = 12; 
 const PROJECT_PER_FRAME_LOOPS = 16;
 
-const DEFAULT_BOUNDARY_CONFIG = {
-  posXOffset:-1,negXOffset:-1,posYOffset:-1,negYOffset:-1,posZOffset:-1,negZOffset:-1
-};
-
-class FireGPU {
+class FireGPU extends FluidGPU {
   constructor(gridSize, gpuManager, initVel=[0,0.5,0]) {
-    this.N = gridSize;
+    super(gridSize, gpuManager);
+
     const NPLUS2 = this.N+2;
 
     this.diffusion = 0;
@@ -16,11 +15,10 @@ class FireGPU {
     this.buoyancy = 0;
     this.vc_eps = 0;
 
-    this.gpuManager = gpuManager;
     this.gpuManager.initFireKernels(this.N);
 
     // Density source buffer
-    this.sd = FireGPU.build3dBuffer(NPLUS2);
+    this.sd = FluidGPU.build3dBuffer(NPLUS2);
     // Density result buffers
     this.d = this.gpuManager.initFluidBufferFunc(0);
     this.d0 = this.gpuManager.initFluidBufferFunc(0);
@@ -29,64 +27,12 @@ class FireGPU {
     this.uvw0 = this.gpuManager.initFluidBuffer3Func(0, 0, 0);
 
     // Temperature source buffer
-    this.sT = FireGPU.build3dBuffer(NPLUS2);
+    this.sT = FluidGPU.build3dBuffer(NPLUS2);
     // Temperature result buffers
     this.T = this.gpuManager.initFluidBufferFunc(0);
     this.T0 = this.gpuManager.initFluidBufferFunc(0);
-
-    // Boundary buffer (non-zero where there are solid obstacles)
-    // For now this is just outside of the box (not visible)
-    this.setBoundary();
-    //this.boundaryBuf = FireGPU.build3dBuffer(NPLUS2);
   }
 
-  static build3dBoundaryBuffer(size, config=DEFAULT_BOUNDARY_CONFIG) {
-
-    const {posXOffset,negXOffset,posYOffset,negYOffset,posZOffset,negZOffset} = config;
-    const result = FireGPU.build3dBuffer(size);
-    const 
-      bStartX = Math.max(0,negXOffset), bEndX = size-1-Math.max(0,posXOffset),
-      bStartY = Math.max(0,negYOffset), bEndY = size-1-Math.max(0,posYOffset),
-      bStartZ = Math.max(0,negZOffset), bEndZ = size-1-Math.max(0,negZOffset);
-
-    for (let y = 0; y < size; y++) {
-      for (let z = 0; z < size; z++) {
-        if (negXOffset >= 0) { for (let x = 0; x <= bStartX; x++) { result[x][y][z] = 1; }}
-        if (posXOffset >= 0) { for (let x = size-1; x >= bEndX; x--) { result[x][y][z] = 1; }}
-      }
-    }
-    for (let x = 0; x < size; x++) {
-      for (let z = 0; z < size; z++) {
-        if (negYOffset >= 0) { for (let y = 0; y <= bStartY; y++) { result[x][y][z] = 1; }}
-        if (posYOffset >= 0) { for (let y = size-1; y >= bEndY; y--) { result[x][y][z] = 1; }}
-      }
-    }
-    for (let x = 0; x < size; x++) {
-      for (let y = 0; y < size; y++) {
-        if (negZOffset >= 0) { for (let z = 0; z <= bStartZ; z++) { result[x][y][z] = 1; }}
-        if (posZOffset >= 0) { for (let z = size-1; z >= bEndZ; z--) { result[x][y][z] = 1; }}
-      }
-    }
-    return result;
-  }
-
-  static build3dBuffer(size) {
-    const result = new Array(size);
-    for (let x = 0; x < size; x++) {
-      const xArr = new Array(size);
-      result[x] = xArr;
-      for (let y = 0; y < size; y++) {
-        const yArr = new Array(size).fill(0);
-        xArr[y] = yArr;
-      }
-    }
-    return result
-  }
-
-  setBoundary(config=DEFAULT_BOUNDARY_CONFIG) {
-    this.boundaryBuf = FireGPU.build3dBoundaryBuffer(this.N+2, config);
-  }
-  
   addSource(srcBuffer, dstBuffer, dt) {
     const temp = dstBuffer;
     const result = this.gpuManager.addFluidSourceFunc(srcBuffer, dstBuffer, dt);

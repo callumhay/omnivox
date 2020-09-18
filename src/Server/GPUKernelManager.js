@@ -170,20 +170,45 @@ class GPUKernelManager {
       ];
     }, 
     {...this.pipelineFuncSettings, 
-      argumentTypes: {
-        fireLookupTex: 'Array1D(4)', 
-        temperatureArr: 'Array', 
-        offsetXYZ: 'Array'
-      },
-      constants: {...this.pipelineFuncSettings.constants,
-        FIRE_SPECTRUM_WIDTH: FIRE_SPECTRUM_WIDTH,
-      }
+      argumentTypes: { fireLookupTex: 'Array1D(4)', temperatureArr: 'Array', offsetXYZ: 'Array'},
+      constants: {...this.pipelineFuncSettings.constants, FIRE_SPECTRUM_WIDTH: FIRE_SPECTRUM_WIDTH}
     });
 
+    this.waterOverwrite = this.gpu.createKernel(function(waterLookup, levelSet, levelEpsilon, offsetXYZ) {
+      // The water level is negative if in water, 0 at boundary, and positive outside of the water
+      const waterLevel = levelSet[this.thread.z + offsetXYZ[2]][this.thread.y + offsetXYZ[1]][this.thread.x + offsetXYZ[0]];
+
+      if (waterLevel >= levelEpsilon) { return [0,0,0]; }
+      const voxelColour = waterLookup[Math.floor(Math.abs(waterLevel))];
+      return [voxelColour[0], voxelColour[1], voxelColour[2]];
+
+    }, {...this.pipelineFuncSettings,
+      argumentTypes: { waterLookup: 'Array1D(4)', levelSet: 'Array', levelEpsilon: 'Float', offsetXYZ: 'Array'},
+    });
+  }
+
+  initFluidKernels(N) {
+    if (this._fluidKernelsInit) { return; }
+
+    const NPLUS2 = N+2;
+    const pipelineFuncSettings = {
+      output: [NPLUS2, NPLUS2, NPLUS2],
+      pipeline: true,
+      constants: {N: N},
+      immutable: true,
+    };
+    this.initFluidBufferFunc = this.gpu.createKernel(function(value) {
+      return value;
+    }, {...pipelineFuncSettings, argumentTypes: {value: 'Float'}});
+    this.initFluidBuffer3Func = this.gpu.createKernel(function(x,y,z) {
+      return [x, y, z];
+    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {x: 'Float', y: 'Float', z: 'Float'}});
+    
+    this._fluidKernelsInit = true;
   }
 
   initFireKernels(N) {
-    if (this._fluidKernelsInit) { return; }
+    if (this._fireKernelsInit) { return; }
 
     const NPLUS2 = N+2;
     const pipelineFuncSettings = {
@@ -203,13 +228,7 @@ class GPUKernelManager {
 
     const ARRAY3D_TYPE = 'Array';
     const ARRAY3D_3_TYPE = 'Array3D(3)';
-    this.initFluidBufferFunc = this.gpu.createKernel(function(value) {
-      return value;
-    }, {...pipelineFuncSettings, argumentTypes: {value: 'Float'}});
-    this.initFluidBuffer3Func = this.gpu.createKernel(function(x,y,z) {
-      return [x, y, z];
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {x: 'Float', y: 'Float', z: 'Float'}});
-
+    
     this.addFluidSourceFunc = this.gpu.createKernel(function(srcBuffer, dstBuffer, dt) {
       const [i,j,k] = ijkLookup();
       return dstBuffer[i][j][k] + srcBuffer[i][j][k] * dt;
@@ -366,6 +385,7 @@ class GPUKernelManager {
       const uvw0kNeg = uvw0[i][j][k-1];
       const uvw0kPos = uvw0[i][j][k+1];
 
+      // NOTE: uvw0ijk[1] contains the value calculated in step 1
       return [
         (uvw0ijk[1] + uvw0iNeg[0] + uvw0iPos[0] + uvw0jNeg[0] + uvw0jPos[0] + uvw0kNeg[0] + uvw0kPos[0]) / 6.0,
         uvw0ijk[1],
@@ -470,7 +490,271 @@ class GPUKernelManager {
       ];
     }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {uvw: ARRAY3D_3_TYPE, T0: ARRAY3D_TYPE, curlxyz: ARRAY3D_3_TYPE, dt0: 'Float'}});
 
-    this._fluidKernelsInit = true;
+    this._fireKernelsInit = true;
+  }
+
+  initLiquidKernels(N) {
+    if (this._liquidKernelsInit) { return; }
+
+    const NPLUS2 = N+2;
+    const pipelineFuncSettings = {
+      output: [NPLUS2, NPLUS2, NPLUS2],
+      pipeline: true,
+      constants: { N: N, NPLUS1: N+1, NPLUSAHALF: N+0.5, ONEDIVN: 1.0/N, BOUNDARY: 0.9 },
+      immutable: true,
+    };
+    this.gpu.addFunction(function xyzLookup() {
+      return [this.thread.z, this.thread.y, this.thread.x];
+    });
+    this.gpu.addFunction(function clampm1(c) {
+      return Math.max(c-1, 0);
+    });
+    this.gpu.addFunction(function clampp1(c) {
+      return Math.min(c+1, this.constants.NPLUS1);
+    })
+    this.gpu.addFunction(function length3(vec) {
+      return Math.sqrt(vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2]);
+    });
+    this.gpu.addFunction(function normalize3(vec) {
+      const len = length3(vec) + 0.0001;
+      return [vec[0]/len, vec[1]/len, vec[2]/len];
+    });
+    this.gpu.addFunction(function lerp(x, x0, x1, y0, y1) {
+      return y0 + (x-x0) * ((y1-y0) / (x1 - x0 + 0.00001));
+    });
+
+    this.injectLiquidSphere = this.gpu.createKernel(function(center, radius, levelSet, boundaryBuf) {
+      const [x,y,z] = xyzLookup();
+
+      // Nothing can be injected into the boundaries!
+      if (boundaryBuf[x][y][z] > this.constants.BOUNDARY || x < 1 || y < 1 || z < 1 || 
+          x > this.constants.N || y > this.constants.N || z > this.constants.N) {
+        return 0;
+      }
+
+      const centerToLookup = [x-center[0], y-center[1], z-center[2]];
+      const lsVal = length3(centerToLookup) - radius;
+      const lsxyz = levelSet[x][y][z];
+      return Math.abs(lsxyz) < Math.abs(lsVal) ? lsxyz : lsVal; // Output the level set value (negative in liquid, positive outside)
+    }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
+      center: 'Array', radius: 'Float', levelSet: 'Array', boundaryBuf: 'Array'
+    }});
+
+    this.avectLiquidLevelSet = this.gpu.createKernel(function(dt, vel, levelSet, boundaryBuf, decay) {
+      const [x,y,z] = xyzLookup();
+      if (boundaryBuf[x][y][z] > this.constants.BOUNDARY) {
+        return 0;
+      }
+
+      // Interpolate the new level set value bilinearly in the grid using the current cell's velocity
+      // to backtrack to where we need to sample the levelset value
+      const velxyz = vel[x][y][z];
+      const dt0 = dt*this.constants.N;
+      const xx = clampValue(x-dt0*velxyz[0], 0.5, this.constants.NPLUSAHALF);
+      const yy = clampValue(y-dt0*velxyz[1], 0.5, this.constants.NPLUSAHALF);
+      const zz = clampValue(z-dt0*velxyz[2], 0.5, this.constants.NPLUSAHALF);
+      const i0 = Math.floor(xx), i1 = i0 + 1;
+      const j0 = Math.floor(yy), j1 = j0 + 1;
+      const k0 = Math.floor(zz), k1 = k0 + 1;
+      const sx1 = xx-i0, sx0 = 1-sx1;
+      const sy1 = yy-j0, sy0 = 1-sy1;
+      const sz1 = zz-k0, sz0 = 1-sz1;
+      const ls0 = sx0*(sy0*levelSet[i0][j0][k0] + sy1*levelSet[i0][j1][k0]) + sx1*(sy0*levelSet[i1][j0][k0] + sy1*levelSet[i1][j1][k0]);
+      const ls1 = sx0*(sy0*levelSet[i0][j0][k1] + sy1*levelSet[i0][j1][k1]) + sx1*(sy0*levelSet[i1][j0][k1] + sy1*levelSet[i1][j1][k1]);
+      return (sz0*ls0 + sz1*ls1) * decay;
+    }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
+      dt: 'Float', vel: 'Array3D(3)', levelSet: 'Array', boundaryBuf: 'Array', decay: 'Float'
+    }});
+
+    this.avectLiquidVelocity = this.gpu.createKernel(function(dt, vel0, boundaryBuf) {
+      const [x,y,z] = xyzLookup();
+      //if (boundaryBuf[x][y][z] > this.constants.BOUNDARY) {
+      //  return [0,0,0];
+      //}
+
+      // Back-step the velocity to the sample point that the current cell value came from
+      // then bilinearly interpolate that from the grid cells
+      const vel0xyz = vel0[x][y][z];
+      const dt0 = dt*this.constants.N;
+      
+      const xx = clampValue(x-dt0*vel0xyz[0], 0.5, this.constants.NPLUSAHALF);
+      const yy = clampValue(y-dt0*vel0xyz[1], 0.5, this.constants.NPLUSAHALF);
+      const zz = clampValue(z-dt0*vel0xyz[2], 0.5, this.constants.NPLUSAHALF);
+      const i0 = Math.floor(xx), i1 = i0 + 1;
+      const j0 = Math.floor(yy), j1 = j0 + 1;
+      const k0 = Math.floor(zz), k1 = k0 + 1;
+      const sx1 = xx-i0, sx0 = 1-sx1;
+      const sy1 = yy-j0, sy0 = 1-sy1;
+      const sz1 = zz-k0, sz0 = 1-sz1;
+
+      const vel0i0j0k0 = vel0[i0][j0][k0];
+      const vel0i0j1k0 = vel0[i0][j1][k0];
+      const vel0i1j0k0 = vel0[i1][j0][k0];
+      const vel0i1j1k0 = vel0[i1][j1][k0];
+      const vel0i0j0k1 = vel0[i0][j0][k1];
+      const vel0i0j1k1 = vel0[i0][j1][k1];
+      const vel0i1j0k1 = vel0[i1][j0][k1];
+      const vel0i1j1k1 = vel0[i1][j1][k1];
+
+      const result = [0,0,0];
+      for (let i = 0; i < 3; i++) {
+        const v0 = sx0*(sy0*vel0i0j0k0[i] + sy1*vel0i0j1k0[i]) + sx1*(sy0*vel0i1j0k0[i] + sy1*vel0i1j1k0[i]);
+        const v1 = sx0*(sy0*vel0i0j0k1[i] + sy1*vel0i0j1k1[i]) + sx1*(sy0*vel0i1j0k1[i] + sy1*vel0i1j1k1[i]);
+        result[i] = sz0*v0 + sz1*v1;
+      }
+      return result;
+    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {
+      dt: 'Float', vel0: 'Array3D(3)', boundaryBuf: 'Array'
+    }});
+
+    this.applyLiquidVorticity = this.gpu.createKernel(function(vel) {
+      const [x,y,z] = xyzLookup();
+      const L = vel[clampm1(x)][y][z]; const R = vel[clampp1(x)][y][z];
+      const B = vel[x][clampm1(y)][z]; const T = vel[x][clampp1(y)][z];
+      const D = vel[x][y][clampm1(z)]; const U = vel[x][y][clampp1(z)];
+      return [
+        0.5 * ((T[2] - B[2]) - (U[1] - D[1])),
+        0.5 * ((U[0] - D[0]) - (R[2] - L[2])),
+        0.5 * ((R[1] - L[1]) - (T[0] - B[0]))
+      ];
+    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes:{vel: 'Array3D(3)'}});
+
+    this.applyLiquidConfinement = this.gpu.createKernel(function(dt, epsilon, tempVec3, vel) {
+      const [x,y,z] = xyzLookup();
+      
+      const omega  = tempVec3[x][y][z];
+      const omegaL = length3(tempVec3[clampm1(x)][y][z]);
+      const omegaR = length3(tempVec3[clampp1(x)][y][z]);
+      const omegaB = length3(tempVec3[x][clampm1(y)][z]);
+      const omegaT = length3(tempVec3[x][clampp1(y)][z]);
+      const omegaD = length3(tempVec3[x][y][clampm1(z)]);
+      const omegaU = length3(tempVec3[x][y][clampp1(z)]);
+
+      const eta = normalize3([0.5 * (omegaR - omegaL), 0.5 * (omegaT - omegaB), 0.5 * (omegaU - omegaD)]);
+
+      const velxyz = vel[x][y][z];
+      const dtEpsilon = dt*epsilon;
+      return [
+        velxyz[0] + dtEpsilon * (eta[1]*omega[2] - eta[2]*omega[1]),
+        velxyz[1] + dtEpsilon * (eta[2]*omega[0] - eta[0]*omega[2]),
+        velxyz[2] + dtEpsilon * (eta[0]*omega[1] - eta[1]*omega[0])
+      ];
+    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes:{
+      dt: 'Float', epsilon: 'Float', tempVec3: 'Array3D(3)', vel: 'Array3D(3)'
+    }});
+
+    this.computeLiquidVelDiv = this.gpu.createKernel(function(vel, boundaryBuf) {
+      const [x,y,z] = xyzLookup();
+      const xm1 = clampm1(x); const xp1 = clampp1(x);
+      const ym1 = clampm1(y); const yp1 = clampp1(y);
+      const zm1 = clampm1(z); const zp1 = clampp1(z);
+
+      // NOTE: If the boundary has a velocity then change [0,0,0] to that velocity!
+      const fieldL = (boundaryBuf[xm1][y][z] > this.constants.BOUNDARY) ? [0,0,0] : vel[xm1][y][z];
+      const fieldR = (boundaryBuf[xp1][y][z] > this.constants.BOUNDARY) ? [0,0,0] : vel[xp1][y][z];
+      const fieldB = (boundaryBuf[x][ym1][z] > this.constants.BOUNDARY) ? [0,0,0] : vel[x][ym1][z];
+      const fieldT = (boundaryBuf[x][yp1][z] > this.constants.BOUNDARY) ? [0,0,0] : vel[x][yp1][z];
+      const fieldD = (boundaryBuf[x][y][zm1] > this.constants.BOUNDARY) ? [0,0,0] : vel[x][y][zm1];
+      const fieldU = (boundaryBuf[x][y][zp1] > this.constants.BOUNDARY) ? [0,0,0] : vel[x][y][zp1];
+
+      return 0.5 * ((fieldR[0]-fieldL[0]) + (fieldT[1]-fieldB[1]) + (fieldU[2]-fieldD[2]));
+    }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes:{vel:'Array3D(3)', boundaryBuf:'Array'}});
+
+    this.applyExternalForcesToLiquid = this.gpu.createKernel(function(dt, mass, force, vel, levelSet, levelEpsilon, boundaryBuf) {
+      const [x,y,z] = xyzLookup();
+      const currVel = vel[x][y][z];
+      
+      // Only apply force to the liquid!
+      if (boundaryBuf[x][y][z] > this.constants.BOUNDARY || levelSet[x][y][z] > levelEpsilon) {
+        return currVel;
+      }
+
+      const dtDivMass = dt/mass;
+      const newVel = [
+        currVel[0] + force[0]*dtDivMass,
+        currVel[1] + force[1]*dtDivMass,
+        currVel[2] + force[2]*dtDivMass
+      ];
+      return newVel;
+      //const newVelMag = length3(newVel);
+      //const adjustedVelMag = Math.min(10, newVelMag);
+      //const adjustedMul = adjustedVelMag / (newVelMag + 0.0001);
+      //return [adjustedMul*newVel[0], adjustedMul*newVel[1], adjustedMul*newVel[2]];
+    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {
+      dt: 'Float', mass: 'Float', force: 'Array', vel: 'Array3D(3)', levelSet: 'Array', 
+      levelEpsilon: 'Float', boundaryBuf: 'Array'
+    }});
+
+    this.liquidLevelSetPressure = this.gpu.createKernel(function(pressure, levelSet) {
+      const [x,y,z] = xyzLookup();
+      return (levelSet[x][y][z] >= 0) ? 0.0 : pressure[x][y][z];
+
+
+
+    }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
+      pressure: 'Array', levelSet: 'Array'
+    }});
+
+    this.jacobiLiquid = this.gpu.createKernel(function(pressure, tempScalar, boundaryBuf, levelSet) {
+      const [x,y,z] = xyzLookup();
+      const pCenter = pressure[x][y][z];
+
+      // Don't modify the pressure when the current cell is not in liquid
+      if (levelSet[x][y][z] >= 0) { return pCenter; }
+
+      const xm1 = clampm1(x); const xp1 = clampp1(x);
+      const ym1 = clampm1(y); const yp1 = clampp1(y);
+      const zm1 = clampm1(z); const zp1 = clampp1(z);
+
+      const bC = tempScalar[x][y][z]; // Contains the 'divergence' calculated previously
+      const pL = (boundaryBuf[xm1][y][z] > this.constants.BOUNDARY) ? pCenter : pressure[xm1][y][z];
+      const pR = (boundaryBuf[xp1][y][z] > this.constants.BOUNDARY) ? pCenter : pressure[xp1][y][z];
+      const pB = (boundaryBuf[x][ym1][z] > this.constants.BOUNDARY) ? pCenter : pressure[x][ym1][z];
+      const pT = (boundaryBuf[x][yp1][z] > this.constants.BOUNDARY) ? pCenter : pressure[x][yp1][z];
+      const pD = (boundaryBuf[x][y][zm1] > this.constants.BOUNDARY) ? pCenter : pressure[x][y][zm1];
+      const pU = (boundaryBuf[x][y][zp1] > this.constants.BOUNDARY) ? pCenter : pressure[x][y][zp1];
+
+      return (pL + pR + pB + pT + pU + pD - bC) / 6.0;
+    }, {...pipelineFuncSettings, returnType:'Float', argumentTypes: {
+      pressure: 'Array', tempScalar: 'Array', boundaryBuf: 'Array', levelSet: 'Array'
+    }});
+
+    this.projectLiquid = this.gpu.createKernel(function(pressure, vel, boundaryBuf) {
+      const [x,y,z] = xyzLookup();
+      if (boundaryBuf[x][y][z] > this.constants.BOUNDARY) {
+        return [0,0,0]; // NOTE: If the boundary has a velocity, return it here!
+      }
+
+      const xm1 = clampm1(x); const xp1 = clampp1(x);
+      const ym1 = clampm1(y); const yp1 = clampp1(y);
+      const zm1 = clampm1(z); const zp1 = clampp1(z);
+
+      const pCenter = pressure[x][y][z];
+      let pL = pressure[xm1][y][z]; let pR = pressure[xp1][y][z];
+      let pB = pressure[x][ym1][z]; let pT = pressure[x][yp1][z];
+      let pD = pressure[x][y][zm1]; let pU = pressure[x][y][zp1];
+      // NOTE: This requires augmentation if the boundaries have velocity!
+      const obstV = [0,0,0];
+      const vMask = [1,1,1];
+      if (boundaryBuf[xm1][y][z] > this.constants.BOUNDARY) { pL = pCenter; obstV[0] = 0; vMask[0] = 0; }
+      if (boundaryBuf[xp1][y][z] > this.constants.BOUNDARY) { pR = pCenter; obstV[0] = 0; vMask[0] = 0; }
+      if (boundaryBuf[x][ym1][z] > this.constants.BOUNDARY) { pB = pCenter; obstV[1] = 0; vMask[1] = 0; }
+      if (boundaryBuf[x][yp1][z] > this.constants.BOUNDARY) { pT = pCenter; obstV[1] = 0; vMask[1] = 0; }
+      if (boundaryBuf[x][y][zm1] > this.constants.BOUNDARY) { pD = pCenter; obstV[2] = 0; vMask[2] = 0; }
+      if (boundaryBuf[x][y][zp1] > this.constants.BOUNDARY) { pU = pCenter; obstV[2] = 0; vMask[2] = 0; }
+
+      const velxyz = vel[x][y][z];
+      const v = [
+        velxyz[0] - 0.5 * (pR - pL), 
+        velxyz[1] - 0.5 * (pT - pB), 
+        velxyz[2] - 0.5 * (pU - pD)
+      ];
+      return [vMask[0]*v[0]+obstV[0], vMask[1]*v[1]+obstV[1], vMask[2]*v[2]+obstV[2]];
+    }, {...pipelineFuncSettings, returnType:'Array(3)', argumentTypes: {
+      pressure:'Array', vel:'Array3D(3)', boundaryBuf:'Array'
+    }});
+
+    this._liquidKernelsInit = true;
   }
 
   initBarVisualizerKernels(gridSize, numStaticAudioLevels) {

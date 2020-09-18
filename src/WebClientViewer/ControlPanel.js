@@ -6,11 +6,13 @@ import {voxelColourAnimatorDefaultConfig, INTERPOLATION_TYPES} from '../Animatio
 import {starShowerDefaultConfig} from '../Animation/StarShowerAnimator';
 import {shapeWaveAnimatorDefaultConfig, WAVE_SHAPE_TYPES} from '../Animation/ShapeWaveAnimator';
 import FireAnimator, {fireAnimatorDefaultConfig} from '../Animation/FireAnimator';
+import { waterAnimatorDefaultConfig } from '../Animation/WaterAnimator';
 import {sceneAnimatorDefaultConfig, SCENE_TYPES, SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG} from '../Animation/SceneAnimatorDefaultConfigs';
 import BarVisualizerAnimator, {barVisualizerAnimatorDefaultConfig} from '../Animation/BarVisualizerAnimator';
 
 import {ColourSystems, COLOUR_INTERPOLATION_TYPES} from '../Spectrum';
 import {simpleSceneDefaultOptions, shadowSceneDefaultOptions, fogSceneDefaultOptions} from '../VoxelTracer/Scenes/SceneDefaultConfigs';
+
 
 const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
 const VOXEL_COLOUR_SHAPE_TYPE_SPHERE = "Sphere";
@@ -45,6 +47,7 @@ class ControlPanel {
     this.starShowerAnimatorConfig = {...starShowerDefaultConfig};
     this.shapeWaveAnimatorConfig = {...shapeWaveAnimatorDefaultConfig};
     this.fireAnimatorConfig = {...fireAnimatorDefaultConfig};
+    this.waterAnimatorConfig = {...waterAnimatorDefaultConfig};
     this.sceneAnimatorConfig = {...sceneAnimatorDefaultConfig};
     this.sceneAnimatorConfig.sceneOptions = {...sceneAnimatorDefaultConfig.sceneOptions};
     this.barVisAnimatorConfig = {...barVisualizerAnimatorDefaultConfig};
@@ -65,6 +68,7 @@ class ControlPanel {
       VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER,
       VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES,
       VoxelAnimator.VOXEL_ANIM_FIRE,
+      VoxelAnimator.VOXEL_ANIM_WATER,
       VoxelAnimator.VOXEL_ANIM_SCENE,
       VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER,
     ]).onChange((value) => {
@@ -101,6 +105,12 @@ class ControlPanel {
         case VoxelAnimator.VOXEL_ANIM_FIRE:
           this.currFolder = this.buildFireAnimatorControls();
           this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
+          this.soundController.enabled = true;
+          break;
+        
+        case VoxelAnimator.VOXEL_ANIM_WATER:
+          this.currFolder = this.buildWaterAnimatorControls();
+          this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
           this.soundController.enabled = true;
           break;
         
@@ -202,6 +212,14 @@ class ControlPanel {
     };
     this.gui.remember(this.settings.fireSettings);
   }
+  reloadWaterSettings() {
+    this.settings.waterSettings = {...this.waterAnimatorConfig,
+      shallowColour: THREEColorToGuiColor(this.waterAnimatorConfig.shallowColour),
+      deepColour: THREEColorToGuiColor(this.waterAnimatorConfig.deepColour),
+      reset: this.resetDisplay.bind(this),
+    };
+    this.gui.remember(this.settings.waterSettings);
+  }
   reloadSceneSettings() {
     this.settings.sceneSettings = {
       sceneType: this.sceneAnimatorConfig.sceneType,
@@ -250,6 +268,7 @@ class ControlPanel {
     this.reloadStarShowerSettings();
     this.reloadShapeWavesSettings();
     this.reloadFireSettings();
+    this.reloadWaterSettings();
     this.reloadSceneSettings();
     this.reloadBarVisSettings();
 
@@ -275,6 +294,10 @@ class ControlPanel {
       case VoxelAnimator.VOXEL_ANIM_FIRE:
         this.fireAnimatorConfig = config;
         this.reloadFireSettings();
+        break;
+      case VoxelAnimator.VOXEL_ANIM_WATER:
+        this.waterAnimatorConfig = config;
+        this.reloadWaterSettings();
         break;
       case VoxelAnimator.VOXEL_ANIM_SCENE:
         this.sceneAnimatorConfig = config;
@@ -804,6 +827,35 @@ class ControlPanel {
     this.fireAudioVisFolder.open();
 
     folder.add(fireSettings, 'reset');
+    folder.open();
+
+    return folder;
+  }
+
+  buildWaterAnimatorControls() {
+    const {waterSettings} = this.settings;
+    const folder = this.gui.addFolder("Water Controls");
+    
+    folder.add(waterSettings, 'speed', 0.1, 5.0, 0.1).onChange((value) => {
+      this.waterAnimatorConfig.speed = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
+    }).setValue(waterSettings.speed);
+    folder.add(waterSettings, 'gravity', 0, 10, 0.1).onChange((value) => {
+      this.waterAnimatorConfig.gravity = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
+    }).setValue(waterSettings.gravity);
+
+    folder.addColor(waterSettings, 'shallowColour').onChange((value) => {
+      this.waterAnimatorConfig.shallowColour = GuiColorToRGBObj(value);
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
+    }).setValue(waterSettings.shallowColour);
+    folder.addColor(waterSettings, 'deepColour').onChange((value) => {
+      this.waterAnimatorConfig.deepColour = GuiColorToRGBObj(value);
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
+    }).setValue(waterSettings.deepColour);
+
+
+    folder.add(waterSettings, 'reset');
     folder.open();
 
     return folder;
