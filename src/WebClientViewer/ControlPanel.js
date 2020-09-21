@@ -840,7 +840,7 @@ class ControlPanel {
       this.waterAnimatorConfig.speed = value;
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
     }).setValue(waterSettings.speed);
-    folder.add(waterSettings, 'gravity', 0, 10, 0.1).onChange((value) => {
+    folder.add(waterSettings, 'gravity', -10, 10, 0.5).onChange((value) => {
       this.waterAnimatorConfig.gravity = value;
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
     }).setValue(waterSettings.gravity);

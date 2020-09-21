@@ -52,7 +52,7 @@ class FireGPU extends FluidGPU {
     temp.delete();
 
     temp = this.T0;
-    this.T0 = this.gpuManager.vorticityConfinementStep1Func(this.T0, this.uvw0);
+    this.T0 = this.gpuManager.vorticityConfinementStep1Func(this.uvw0);
     temp.delete();
 
     const dt0 = dt * this.vc_eps;
@@ -99,7 +99,7 @@ class FireGPU extends FluidGPU {
   advect3(dt) {
     const dt0 = dt*this.N;
     let temp = this.uvw;
-    this.uvw = this.gpuManager.advectCool3Func(this.uvw0, this.uvw, dt0, this.boundaryBuf);
+    this.uvw = this.gpuManager.advect3Func(this.uvw0, this.uvw, dt0, this.boundaryBuf);
     temp.delete();
   }
 

@@ -10,7 +10,7 @@ import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 export const waterAnimatorDefaultConfig = {
   speed: 1.0,
   mass: 1.0,
-  gravity: 5,
+  gravity: 2,
   confinementScale: 0.12,
   waterLevelEpsilon: 0.1,
 
@@ -37,7 +37,7 @@ class WaterAnimator extends AudioVisualizerAnimator {
 
     if (!this.fluidModel) {
       this.fluidModel = new LiquidGPU(this.voxelModel.gridSize, this.voxelModel.gpuKernelMgr);
-      const B_OFFSET = -1;
+      const B_OFFSET = 0;
       this.fluidModel.setBoundary({
         posXOffset:B_OFFSET, negXOffset:B_OFFSET, 
         posYOffset:B_OFFSET, negYOffset:B_OFFSET, 
