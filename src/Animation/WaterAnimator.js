@@ -81,7 +81,7 @@ class WaterAnimator extends AudioVisualizerAnimator {
     // The water colour is dependant on the depth of the water from the surface
     const {deepColour, shallowColour, colourInterpolationType} = this.config;
     const {gridSize} = this.voxelModel;
-    this.waterLookup = Spectrum.genHighLowColourSpectrum(
+    this.waterLookup = Spectrum.genLowToHighColourSpectrum(
       deepColour, shallowColour, colourInterpolationType, gridSize
     );
   }
