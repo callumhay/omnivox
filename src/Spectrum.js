@@ -69,7 +69,7 @@ export const ColourSystems = {
 };
 
 class Spectrum {
-  static genHighLowColourSpectrum(highColour, lowColour, colourInterpolationType, size=FIRE_SPECTRUM_WIDTH) {
+  static genLowToHighColourSpectrum(lowColour, highColour, colourInterpolationType, size=FIRE_SPECTRUM_WIDTH) {
     const lowColourGL  = chroma.gl(lowColour.r, lowColour.g, lowColour.b, 1);
     const highColourGL = chroma.gl(highColour.r, highColour.g, highColour.b, 1);
     const spectrum = new Array(size);

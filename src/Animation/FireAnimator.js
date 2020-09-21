@@ -154,7 +154,7 @@ class FireAnimator extends AudioVisualizerAnimator {
       const {colourInterpolationType} = this.config;
       const currColours = this.randomColourCycler.tick(dt, colourInterpolationType);
       if (this.randomColourCycler.isTransitioning()) {
-        this.fireLookup = FireAnimator._adjustSpectrumAlpha(Spectrum.genHighLowColourSpectrum(currColours.highTempColour, currColours.lowTempColour, colourInterpolationType));
+        this.fireLookup = FireAnimator._adjustSpectrumAlpha(Spectrum.genLowToHighColourSpectrum(currColours.lowTempColour, currColours.highTempColour, colourInterpolationType));
       }
     }
 
@@ -224,7 +224,7 @@ class FireAnimator extends AudioVisualizerAnimator {
     switch (colourMode) {
       case LOW_HIGH_TEMP_COLOUR_MODE: {
         const {highTempColour, lowTempColour} = this.config;
-        spectrum = Spectrum.genHighLowColourSpectrum(highTempColour, lowTempColour, colourInterpolationType);
+        spectrum = Spectrum.genLowToHighColourSpectrum(lowTempColour, highTempColour, colourInterpolationType);
         break;
       }
       case TEMPERATURE_COLOUR_MODE:
@@ -233,7 +233,7 @@ class FireAnimator extends AudioVisualizerAnimator {
       case RANDOM_COLOUR_MODE: {
         const {highTempColour, lowTempColour} = this.randomColourCycler.currRandomColours;
         this.colourHoldTimeCounter = 0;
-        spectrum = Spectrum.genHighLowColourSpectrum(highTempColour, lowTempColour, colourInterpolationType);
+        spectrum = Spectrum.genLowToHighColourSpectrum(lowTempColour, highTempColour, colourInterpolationType);
         break;
       }
 

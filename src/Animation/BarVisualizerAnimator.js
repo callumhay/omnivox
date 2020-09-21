@@ -119,11 +119,11 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
       case LOW_HIGH_COLOUR_MODE:
       default:
         const {lowColour, highColour} = c;
-        this.levelColours = Spectrum.genHighLowColourSpectrum(highColour, lowColour, colourInterpolationType, this._numLevelColours());
+        this.levelColours = Spectrum.genLowToHighColourSpectrum(lowColour, highColour, colourInterpolationType, this._numLevelColours());
         break;
       case RANDOM_COLOUR_MODE:
         const {lowTempColour, highTempColour} = this.randomColourCycler.currRandomColours;
-        this.levelColours = Spectrum.genHighLowColourSpectrum(highTempColour, lowTempColour, colourInterpolationType, this._numLevelColours());
+        this.levelColours = Spectrum.genLowToHighColourSpectrum(lowTempColour, highTempColour, colourInterpolationType, this._numLevelColours());
         break;
     }
 
@@ -155,7 +155,7 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
       const {colourInterpolationType} = this.config;
       const currColours = this.randomColourCycler.tick(dt, colourInterpolationType);
       if (this.randomColourCycler.isTransitioning()) {
-        this.levelColours = Spectrum.genHighLowColourSpectrum(currColours.highTempColour, currColours.lowTempColour, colourInterpolationType, this._numLevelColours());
+        this.levelColours = Spectrum.genLowToHighColourSpectrum(currColours.lowTempColour, currColours.highTempColour, colourInterpolationType, this._numLevelColours());
       }
     }
 
