@@ -9,8 +9,7 @@ import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 
 export const waterAnimatorDefaultConfig = {
   speed: 1.0,
-  mass: 1.0,
-  gravity: 2,
+  gravity: 9.81,
   confinementScale: 0.12,
   waterLevelEpsilon: 1e-6,
 
@@ -33,7 +32,7 @@ class WaterAnimator extends AudioVisualizerAnimator {
   setConfig(c) {
     super.setConfig(c);
 
-    const {gravity, mass, confinementScale, waterLevelEpsilon} = c;
+    const {gravity, confinementScale, waterLevelEpsilon} = c;
 
     if (!this.fluidModel) {
       this.fluidModel = new LiquidGPU(this.voxelModel.gridSize, this.voxelModel.gpuKernelMgr);
@@ -47,7 +46,6 @@ class WaterAnimator extends AudioVisualizerAnimator {
       this.fluidModel.injectSphere();
     }
     this.fluidModel.gravity = gravity;
-    this.fluidModel.mass = mass;
     this.fluidModel.confinementScale = confinementScale;
     this.fluidModel.levelEpsilon = waterLevelEpsilon;
 

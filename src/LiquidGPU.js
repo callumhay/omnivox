@@ -1,18 +1,18 @@
 import FluidGPU from "./FluidGPU";
 
-const REINIT_PER_FRAME_LOOPS   = 5;
-const PRESSURE_PER_FRAME_LOOPS = 25;
+const REINIT_PER_FRAME_LOOPS   = 1;
+const PRESSURE_PER_FRAME_LOOPS = 20;
 
 class LiquidGPU extends FluidGPU {
   constructor(gridSize, gpuManager) {
     super(gridSize, gpuManager);
     const NPLUS2 = this.N+2;
 
-    this.mass = 1; // Mass per cell unit
-    this.gravity = 9.81; // Force of gravity, continuously applied to the liquid
+    this.gravity = 9; // Force of gravity, continuously applied to the liquid
     this.confinementScale = 0.12;
     this.levelEpsilon = 0.1;
     this.decay = 1;
+    this.advectionDamping = 0.0;
 
     this.gpuManager.initLiquidKernels(this.N);
 
@@ -45,7 +45,9 @@ class LiquidGPU extends FluidGPU {
     temp.delete();
 
     temp = this.levelSet;
-    this.levelSet = this.gpuManager.advectLevelSetBFECC(dt, this.vel0, this.tempScalarBuf1, tempScalarBuf2, this.boundaryBuf, this.decay)
+    this.levelSet = this.gpuManager.advectLevelSetBFECC(
+      dt, this.vel0, this.tempScalarBuf1, tempScalarBuf2, this.boundaryBuf, this.decay, this.advectionDamping
+    );
     temp.delete();
     tempScalarBuf2.delete();
   }
@@ -55,8 +57,27 @@ class LiquidGPU extends FluidGPU {
     this.levelSet = this.gpuManager.advectLiquidLevelSet(dt, this.vel0, this.levelSet, this.boundaryBuf, 1, this.decay);
     temp.delete();
   }
-
+  _rkReinitLevelSet(dt, levelSet0, levelSetN) {
+    const levelSetNPlus1 = this.gpuManager.reinitLevelSet(dt, levelSet0, levelSetN, this.boundaryBuf);
+    let temp = levelSetNPlus1;
+    const levelSetNPlus2 = this.gpuManager.reinitLevelSet(dt, levelSet0, levelSetNPlus1, this.boundaryBuf);
+    temp.delete();
+    const rkLevelSet = this.gpuManager.rungeKuttaLevelSet(levelSetN, levelSetNPlus2);
+    levelSetNPlus2.delete();
+    return rkLevelSet;
+  }
   reinitLevelSet(dt, numIter=REINIT_PER_FRAME_LOOPS) {
+    const levelSet0 = this.levelSet;
+    let levelSetN = this._rkReinitLevelSet(dt, levelSet0, levelSet0);
+    let temp = null;
+    for (let i = 0; i < numIter-1; i++) {
+      temp = levelSetN;
+      levelSetN = this._rkReinitLevelSet(dt, levelSet0, levelSetN);
+      temp.delete();
+    }
+    this.levelSet = levelSetN;
+    levelSet0.delete();
+    /*
     const levelSet0 = this.levelSet;
     let levelSetN = this.gpuManager.reinitLevelSet(dt, levelSet0, levelSet0, this.boundaryBuf);
     let temp = null;
@@ -67,6 +88,7 @@ class LiquidGPU extends FluidGPU {
     }
     this.levelSet = levelSetN;
     levelSet0.delete();
+    */
   }
 
   advectVelocity(dt) {
@@ -90,7 +112,7 @@ class LiquidGPU extends FluidGPU {
     const force = [0,-this.gravity,0];
     let temp = this.vel;
     this.vel = this.gpuManager.applyExternalForcesToLiquid(
-      dt, this.mass, force, this.vel, this.levelSet, this.levelEpsilon, this.boundaryBuf
+      dt, force, this.vel, this.levelSet, this.levelEpsilon, this.boundaryBuf
     );
     temp.delete();
   }
@@ -104,7 +126,7 @@ class LiquidGPU extends FluidGPU {
   computePressure(numIter=PRESSURE_PER_FRAME_LOOPS) {
     // Set the pressure outside the liquid to zero
     let temp = this.pressure;
-    this.pressure = this.gpuManager.liquidLevelSetPressure(this.pressure, this.levelSet);
+    this.pressure = this.gpuManager.liquidLevelSetPressure(this.pressure, this.levelSet, this.boundaryBuf);
     temp.delete();
 
     for (let i = 0; i < numIter; i++) {
@@ -121,11 +143,10 @@ class LiquidGPU extends FluidGPU {
   }
 
   step(dt) {
-    dt = Math.min(dt, 0.09);
+    dt = Math.min(dt, 0.1);
 
-    //this.advectLevelSet(dt);
-    this.advectLevelSetBFECC(dt);
     this.reinitLevelSet(dt);
+    this.advectLevelSetBFECC(dt);
     this.advectVelocity(dt);
     this.applyVorticityConfinement(dt);
     this.applyExternalForces(dt);

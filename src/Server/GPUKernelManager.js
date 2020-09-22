@@ -546,7 +546,7 @@ class GPUKernelManager {
         )
       );
     });
-    this.gpu.addFunction(function bilinearLookup(x,y,z,tex) {
+    this.gpu.addFunction(function trilinearLookup(x,y,z,tex) {
       const xx = clampValue(x, 0.5, this.constants.NPLUSAHALF);
       const yy = clampValue(y, 0.5, this.constants.NPLUSAHALF);
       const zz = clampValue(z, 0.5, this.constants.NPLUSAHALF);
@@ -561,9 +561,11 @@ class GPUKernelManager {
       return (sz0*ls0 + sz1*ls1);
     });
 
-
     this.injectLiquidSphere = this.gpu.createKernel(function(center, radius, levelSet, boundaryBuf) {
       const [x,y,z] = xyzLookup();
+      if (boundaryBuf[x][y][z] > this.constants.BOUNDARY) {
+        return 0;
+      }
       const centerToLookup = [x-center[0], y-center[1], z-center[2]];
       const lsVal = length3(centerToLookup) - radius;
       const lsxyz = levelSet[x][y][z];
@@ -572,15 +574,15 @@ class GPUKernelManager {
       center: 'Array', radius: 'Float', levelSet: 'Array', boundaryBuf: 'Array'
     }});
 
-    this.advectLevelSetBFECC = this.gpu.createKernel(function(dt, vel, barPhi, phiN, boundaryBuf, decay) {
+    this.advectLevelSetBFECC = this.gpu.createKernel(function(dt, vel, barPhi, phiN, boundaryBuf, decay, damping) {
       const [x,y,z] = xyzLookup();
       if (boundaryBuf[x][y][z] > this.constants.BOUNDARY) {
         return 0;
       }
 
       const u = vel[x][y][z];
-      const nPos = [x-u[0]*dt, y-u[1]*dt, z-u[2]*dt];
-
+      const dt0 = Math.min(dt, 0.3*Math.min(1/Math.abs(u[0]), Math.min(1/Math.abs(u[1]), 1/Math.abs(u[2]))));
+      const nPos = [x-u[0]*dt0, y-u[1]*dt0, z-u[2]*dt0];
       const diff = [
         Math.abs(this.constants.NDIV2 - x),
         Math.abs(this.constants.NDIV2 - y),
@@ -591,16 +593,16 @@ class GPUKernelManager {
       const diffBoundaryMax = this.constants.NDIV2-4;
       let result = 0;
       if(diff[0] > diffBoundaryMax || diff[1] > diffBoundaryMax || diff[2] > diffBoundaryMax) {
-        result = bilinearLookup(nPos[0], nPos[1], nPos[2], phiN);
+        result = trilinearLookup(nPos[0], nPos[1], nPos[2], phiN);
       }
       else {
-        result = 1.5 * bilinearLookup(nPos[0], nPos[1], nPos[2], phiN) - 
-                 0.5 * bilinearLookup(nPos[0], nPos[1], nPos[2], barPhi);
+        result = 1.5 * trilinearLookup(nPos[0], nPos[1], nPos[2], phiN) - 
+                 0.5 * trilinearLookup(nPos[0], nPos[1], nPos[2], barPhi);
       }
 
-      return result * decay;
+      return (damping*phiN[x][y][z] + (1-damping) * result) * decay;
     }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
-      dt: 'Float', vel: 'Array3D(3)', barPhi: 'Array', phiN: 'Array', boundaryBuf: 'Array', decay: 'Float'
+      dt: 'Float', vel: 'Array3D(3)', barPhi: 'Array', phiN: 'Array', boundaryBuf: 'Array', decay: 'Float', damping: 'Float'
     }});
 
     this.advectLiquidLevelSet = this.gpu.createKernel(function(dt, vel, levelSet, boundaryBuf, forward, decay) {
@@ -609,36 +611,56 @@ class GPUKernelManager {
         return 0;
       }
 
-      // Interpolate the new level set value bilinearly in the grid using the current cell's velocity
+      // Interpolate the new level set value in the grid using the current cell's velocity
       // to backtrack to where we need to sample the levelset value
-      //const dt0 = dt * this.constants.N;
       const u = vel[x][y][z];
-      const du = [u[0]*dt*forward, u[1]*dt*forward,u[2]*dt*forward];
-      return bilinearLookup(x-du[0], y-du[1], z-du[2], levelSet) * decay;
+      const dt0 = Math.min(dt, 0.3*Math.min(1/Math.abs(u[0]), Math.min(1/Math.abs(u[1]), 1/Math.abs(u[2]))));
+      const du = [u[0]*dt0*forward, u[1]*dt0*forward,u[2]*dt0*forward];
+      return trilinearLookup(x-du[0], y-du[1], z-du[2], levelSet) * decay;
+
     }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
       dt: 'Float', vel: 'Array3D(3)', levelSet: 'Array', boundaryBuf: 'Array', forward: 'Float', decay: 'Float'
+    }});
+
+    this.rungeKuttaLevelSet = this.gpu.createKernel(function(levelSetN, levelSetNPlus2) {
+      const [x,y,z] = xyzLookup();
+      return 0.5*(levelSetN[x][y][z] + levelSetNPlus2[x][y][z]);
+    }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
+      levelSetN: 'Array', levelSetNPlus2: 'Array'
     }});
 
     this.reinitLevelSet = this.gpu.createKernel(function(dt, levelSet0, levelSetN, boundaryBuf) {
       const [x,y,z] = xyzLookup();
 
+      if (boundaryBuf[x][y][z] > this.constants.BOUNDARY) {
+        return 0;
+      }
+
+      const lsNC = levelSetN[x][y][z];
       const ls0C = levelSet0[x][y][z];
-      //if (boundaryBuf[x][y][z] > this.constants.BOUNDARY) {
-      //  return ls0C;
-      //}
 
       const xm1 = clampm1(x), xm2 = clampm2(x), xp1 = clampp1(x), xp2 = clampp2(x);
       const ym1 = clampm1(y), ym2 = clampm2(y), yp1 = clampp1(y), yp2 = clampp2(y);
       const zm1 = clampm1(z), zm2 = clampm2(z), zp1 = clampp1(z), zp2 = clampp2(z);
 
+      // If we are neighbouring a boundary then if the level set is negative (in liquid) it becomes -dx
+      /*
+      if (lsNC < 0 &&
+         (boundaryBuf[xm1][y][z] > this.constants.BOUNDARY || boundaryBuf[x][yp1][z] > this.constants.BOUNDARY ||
+          boundaryBuf[x][ym1][z] > this.constants.BOUNDARY || boundaryBuf[x][y][zp1] > this.constants.BOUNDARY ||
+          boundaryBuf[x][y][zm1] > this.constants.BOUNDARY || boundaryBuf[x][y][zp1] > this.constants.BOUNDARY)) {
+        return -1;
+      }
+      */
+
       // Calculate the Sign(levelSet0(x,y,z))
       const dx = 1, dy = 1, dz = 1;
       const dxSqr = dx*dx, dySqr = dy*dy, dzSqr = dz*dz;
-      const sgnPhi0 = ls0C / Math.sqrt(ls0C*ls0C + dx*dx);
+      const sgnPhi0 = ls0C / Math.sqrt(ls0C*ls0C + dxSqr);
 
       // Calculate the gradient function for moving towards a steady-state where the signed distance
       // is properly reinitialized
-      const lsNC = levelSetN[x][y][z];
+      
       const lsNL = levelSetN[xm1][y][z], lsNR = levelSetN[xp1][y][z];
       const lsNB = levelSetN[x][ym1][z], lsNT = levelSetN[x][yp1][z];
       const lsND = levelSetN[x][y][zm1], lsNU = levelSetN[x][y][zp1];
@@ -653,6 +675,13 @@ class GPUKernelManager {
       const DzzPhiPos = ((lsNC - lsNU*2 + levelSetN[x][y][zp2]) / dzSqr);
       const DzzPhiNeg = ((levelSetN[x][y][zm2] - lsND*2 + lsNC) / dzSqr);
       
+      //const diff = [
+      //  Math.abs(this.constants.NDIV2 - x),
+      //  Math.abs(this.constants.NDIV2 - y),
+      //  Math.abs(this.constants.NDIV2 - z),
+      //];
+      //const diffBoundaryMax = this.constants.NDIV2-4;
+
       const bCondPosX = ls0C*levelSet0[xp1][y][z];
       const bCondNegX = ls0C*levelSet0[xm1][y][z];
       const bCondPosY = ls0C*levelSet0[x][yp1][z];
@@ -660,126 +689,127 @@ class GPUKernelManager {
       const bCondPosZ = ls0C*levelSet0[x][y][zp1];
       const bCondNegZ = ls0C*levelSet0[x][y][zm1];
 
-      const bEpsilon = 1e-6;
+      const bEpsilon = 1e-10;
       let DxPosPhi = 0, DxNegPhi = 0, DyPosPhi = 0, DyNegPhi = 0, DzPosPhi = 0, DzNegPhi = 0;
 
       // Boundary conditions - TODO: Move this into its own routine and save as buffers for reuse with this routine!
+      let dxPos = dx;
       if (bCondPosX < 0) {
         const phiXX0Pos = minmod(
           levelSet0[xm1][y][z] - 2*ls0C + levelSet0[xp1][y][z],
           ls0C - 2*levelSet0[xp1][y][z] + levelSet0[xp2][y][z]
         );
-        let dxPos = dx;
         if (Math.abs(phiXX0Pos) > bEpsilon) {
-          const discrimXPos = Math.pow(0.5*phiXX0Pos - ls0C - levelSet0[xp1][y][z], 2) - 4*ls0C*levelSet0[xp1][y][z];
+          const discrimXPos = Math.max(0, Math.pow((0.5*phiXX0Pos - ls0C - levelSet0[xp1][y][z]), 2) - 4*ls0C*levelSet0[xp1][y][z]);
           dxPos = dx*(0.5 + (ls0C-levelSet0[xp1][y][z]-Math.sign(ls0C-levelSet0[xp1][y][z])*Math.sqrt(discrimXPos))/phiXX0Pos);
         }
         else {
           dxPos = dx*(ls0C/(ls0C-levelSet0[xp1][y][z]+1e-6));
         }
-        DxPosPhi = ((0 - lsNC)/dxPos) - 0.5*dxPos*minmod(DxxPhi, DxxPhiPos);
+        DxPosPhi = ((0 - lsNC)/(dxPos+1e-6)) - 0.5*dxPos*minmod(DxxPhi, DxxPhiPos);
       }
       else {
         DxPosPhi = ((lsNR - lsNC)/dx) - 0.5*dx*minmod(DxxPhi, DxxPhiPos);
       }
 
+      let dxNeg = dx;
       if (bCondNegX < 0) {
         const phiXX0Neg = minmod(
           levelSet0[xm1][y][z] - 2*ls0C + levelSet0[xp1][y][z],
           ls0C - 2*levelSet0[xm1][y][z] + levelSet0[xm2][y][z]
         );
-        let dxNeg = dx;
         if (Math.abs(phiXX0Neg) > bEpsilon) {
-          const discrimXNeg = Math.pow(0.5*phiXX0Neg - ls0C - levelSet0[xm1][y][z], 2) - 4*ls0C*levelSet0[xm1][y][z];
+          const discrimXNeg = Math.max(0, Math.pow(0.5*phiXX0Neg - ls0C - levelSet0[xm1][y][z], 2) - 4*ls0C*levelSet0[xm1][y][z]);
           dxNeg = dx*(0.5 + (ls0C-levelSet0[xm1][y][z]-Math.sign(ls0C-levelSet0[xm1][y][z])*Math.sqrt(discrimXNeg))/phiXX0Neg);
         }
         else {
           dxNeg = dx*(ls0C/(ls0C-levelSet0[xm1][y][z]+1e-6));
         }
-        DxNegPhi = ((lsNC - 0)/dxNeg) + 0.5*dxNeg*minmod(DxxPhi, DxxPhiNeg);
+        DxNegPhi = ((lsNC - 0)/(dxNeg+1e-6)) + 0.5*dxNeg*minmod(DxxPhi, DxxPhiNeg);
       }
       else {
         DxNegPhi = ((lsNC - lsNL)/dx) + 0.5*dx*minmod(DxxPhi, DxxPhiNeg);
       }
      
+      let dyPos = dy;
       if (bCondPosY < 0) {
         const phiYY0Pos = minmod(
           levelSet0[x][ym1][z] - 2*ls0C + levelSet0[x][yp1][z],
           ls0C - 2*levelSet0[x][yp1][z] + levelSet0[x][yp2][z]
         );
-        let dyPos = dy;
         if (Math.abs(phiYY0Pos) > bEpsilon) {
-          const discrimYPos = Math.pow(0.5*phiYY0Pos - ls0C - levelSet0[x][yp1][z], 2) - 4*ls0C*levelSet0[x][yp1][z];
+          const discrimYPos = Math.max(0, Math.pow(0.5*phiYY0Pos - ls0C - levelSet0[x][yp1][z], 2) - 4*ls0C*levelSet0[x][yp1][z]);
           dyPos = dy*(0.5 + (ls0C-levelSet0[x][yp1][z]-Math.sign(ls0C-levelSet0[x][yp1][z])*Math.sqrt(discrimYPos))/phiYY0Pos);
         }
         else {
           dyPos = dy*(ls0C/(ls0C-levelSet0[x][yp1][z]+1e-6));
         }
-        DyPosPhi = ((0 - lsNC)/dyPos) - 0.5*dyPos*minmod(DyyPhi, DyyPhiPos);
+        DyPosPhi = ((0 - lsNC)/(dyPos+1e-6)) - 0.5*dyPos*minmod(DyyPhi, DyyPhiPos);
       }
       else {
         DyPosPhi = ((lsNT - lsNC)/dy) - 0.5*dy*minmod(DyyPhi, DyyPhiPos);
       }
 
+      let dyNeg = dy;
       if (bCondNegY < 0) {
         const phiYY0Neg = minmod(
           levelSet0[x][ym1][z] - 2*ls0C + levelSet0[x][yp1][z],
           ls0C - 2*levelSet0[x][ym1][z] + levelSet0[x][ym2][z]
         );
-        let dyNeg = dy
         if (Math.abs(phiYY0Neg) > bEpsilon) {
-          const discrimYNeg = Math.pow(0.5*phiYY0Neg - ls0C - levelSet0[x][ym1][z], 2) - 4*ls0C*levelSet0[x][ym1][z];
+          const discrimYNeg = Math.max(0, Math.pow(0.5*phiYY0Neg - ls0C - levelSet0[x][ym1][z], 2) - 4*ls0C*levelSet0[x][ym1][z]);
           dyNeg = dy*(0.5 + (ls0C-levelSet0[x][ym1][z]-Math.sign(ls0C-levelSet0[x][ym1][z])*Math.sqrt(discrimYNeg))/phiYY0Neg);
         }
         else {
           dyNeg = dy*(ls0C/(ls0C-levelSet0[x][ym1][z]+1e-6));
         }
-        DyNegPhi = ((lsNC - 0)/dyNeg) + 0.5*dyNeg*minmod(DyyPhi, DyyPhiNeg);
+        DyNegPhi = ((lsNC - 0)/(dyNeg+1e-6)) + 0.5*dyNeg*minmod(DyyPhi, DyyPhiNeg);
       }
       else {
         DyNegPhi = ((lsNC - lsNB)/dy) + 0.5*dy*minmod(DyyPhi, DyyPhiNeg);
       }
 
+      let dzPos = dz;
       if (bCondPosZ < 0) {
         const phiZZ0Pos = minmod(
           levelSet0[x][y][zm1] - 2*ls0C + levelSet0[x][y][zp1],
           ls0C - 2*levelSet0[x][y][zp1] + levelSet0[x][y][zp2]
         );
-        let dzPos = dz;
         if (Math.abs(phiZZ0Pos) > bEpsilon) {
-          const discrimZPos = Math.pow(0.5*phiZZ0Pos - ls0C - levelSet0[x][y][zp1], 2) - 4*ls0C*levelSet0[x][y][zp1];
+          const discrimZPos = Math.max(0, Math.pow(0.5*phiZZ0Pos - ls0C - levelSet0[x][y][zp1], 2) - 4*ls0C*levelSet0[x][y][zp1]);
           dzPos = dz*(0.5 + (ls0C-levelSet0[x][y][zp1]-Math.sign(ls0C-levelSet0[x][y][zp1])*Math.sqrt(discrimZPos))/phiZZ0Pos);
         }
         else {
           dzPos = dz*(ls0C/(ls0C-levelSet0[x][y][zp1]+1e-6));
         }
-        DzPosPhi = ((0 - lsNC)/dzPos) - 0.5*dzPos*minmod(DzzPhi, DzzPhiPos);
+        DzPosPhi = ((0 - lsNC)/(dzPos+1e-6)) - 0.5*dzPos*minmod(DzzPhi, DzzPhiPos);
       }
       else {
         DzPosPhi = ((lsNU - lsNC)/dz) - 0.5*dz*minmod(DzzPhi, DzzPhiPos);
       }
 
+      let dzNeg = dz;
       if (bCondNegZ < 0) {
         const phiZZ0Neg = minmod(
           levelSet0[x][y][zm1] - 2*ls0C + levelSet0[x][y][zp1],
           ls0C - 2*levelSet0[x][y][zm1] + levelSet0[x][y][zm2]
         );
-        let dzNeg = dz;
         if (Math.abs(phiZZ0Neg) > bEpsilon) {
-          const discrimZNeg = Math.pow(0.5*phiZZ0Neg - ls0C - levelSet0[x][y][zm1], 2) - 4*ls0C*levelSet0[x][y][zm1];
+          const discrimZNeg = Math.max(0, Math.pow(0.5*phiZZ0Neg - ls0C - levelSet0[x][y][zm1], 2) - 4*ls0C*levelSet0[x][y][zm1]);
           dzNeg = dz*(0.5 + (ls0C-levelSet0[x][y][zm1]-Math.sign(ls0C-levelSet0[x][y][zm1])*Math.sqrt(discrimZNeg))/phiZZ0Neg);
         }
         else {
           dzNeg = dz*(ls0C/(ls0C-levelSet0[x][y][zm1]+1e-6));
         }  
-        DzNegPhi = ((lsNC - 0)/dzNeg) + 0.5*dzNeg*minmod(DzzPhi, DzzPhiNeg);
+        DzNegPhi = ((lsNC - 0)/(dzNeg+1e-6)) + 0.5*dzNeg*minmod(DzzPhi, DzzPhiNeg);
       }
       else {
         DzNegPhi = ((lsNC - lsND)/dz) + 0.5*dz*minmod(DzzPhi, DzzPhiNeg);
       }
-      
+
+      const dt0 = Math.min(dt, 0.3*Math.min(dxPos, Math.min(dxNeg, Math.min(dyPos, Math.min(dyNeg, Math.min(dzPos, dzNeg))))));
       const GPhi = godunovH(sgnPhi0, DxPosPhi, DxNegPhi, DyPosPhi, DyNegPhi, DzPosPhi, DzNegPhi);
-      return lsNC - dt*sgnPhi0*(GPhi-1.0);
+      return lsNC - dt0*sgnPhi0*(GPhi-1.0);
 
     }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
       dt: 'Float', levelSet0: 'Array', levelSetN: 'Array', boundaryBuf: 'Array'
@@ -793,12 +823,11 @@ class GPUKernelManager {
 
       // Back-step the velocity to the sample point that the current cell value came from
       // then bilinearly interpolate that from the grid cells
-      const vel0xyz = vel0[x][y][z];
-      const dt0 = dt;//*this.constants.N;
-      
-      const xx = clampValue(x-dt0*vel0xyz[0], 0.5, this.constants.NPLUSAHALF);
-      const yy = clampValue(y-dt0*vel0xyz[1], 0.5, this.constants.NPLUSAHALF);
-      const zz = clampValue(z-dt0*vel0xyz[2], 0.5, this.constants.NPLUSAHALF);
+      const u = vel0[x][y][z];
+      const dt0 = Math.min(dt, 0.3*Math.min(1/Math.abs(u[0]), Math.min(1/Math.abs(u[1]), 1/Math.abs(u[2]))));
+      const xx = clampValue(x-dt0*u[0], 0.5, this.constants.NPLUSAHALF);
+      const yy = clampValue(y-dt0*u[1], 0.5, this.constants.NPLUSAHALF);
+      const zz = clampValue(z-dt0*u[2], 0.5, this.constants.NPLUSAHALF);
       const i0 = Math.floor(xx), i1 = i0 + 1;
       const j0 = Math.floor(yy), j1 = j0 + 1;
       const k0 = Math.floor(zz), k1 = k0 + 1;
@@ -881,50 +910,68 @@ class GPUKernelManager {
       return 0.5 * ((fieldR[0]-fieldL[0]) + (fieldT[1]-fieldB[1]) + (fieldU[2]-fieldD[2]));
     }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes:{vel:'Array3D(3)', boundaryBuf:'Array'}});
 
-    this.applyExternalForcesToLiquid = this.gpu.createKernel(function(dt, mass, force, vel, levelSet, levelEpsilon, boundaryBuf) {
+    this.applyExternalForcesToLiquid = this.gpu.createKernel(function(dt, force, vel, levelSet, levelEpsilon, boundaryBuf) {
       const [x,y,z] = xyzLookup();
-      if (boundaryBuf[x][y][z] > this.constants.BOUNDARY){
-        return [0,0,0];
-      }
-      const currVel = vel[x][y][z];
-      if (levelSet[x][y][z] > 0) {
-        return currVel;
-      }
+      if (boundaryBuf[x][y][z] > this.constants.BOUNDARY ){ return [0,0,0]; }
+      const u = vel[x][y][z];
+      if (levelSet[x][y][z] >= 0) { return u; }
 
-      const dtDivMass = dt/mass;
-      const du = [dtDivMass * force[0], dtDivMass * force[1], dtDivMass * force[2]];
-      const newVel = [currVel[0] + du[0], currVel[1] + du[1], currVel[2] + du[2]];
+      const dt0 = Math.min(dt, 0.3*Math.min(1/Math.abs(u[0]), Math.min(1/Math.abs(u[1]), 1/Math.abs(u[2]))));
+      const du = [dt0 * force[0], dt0 * force[1], dt0 * force[2]];
+      const newVel = [u[0] + du[0], u[1] + du[1], u[2] + du[2]];
       return newVel;
 
     }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {
-      dt: 'Float', mass: 'Float', force: 'Array', vel: 'Array3D(3)', levelSet: 'Array', 
+      dt: 'Float', force: 'Array', vel: 'Array3D(3)', levelSet: 'Array', 
       levelEpsilon: 'Float', boundaryBuf: 'Array'
     }});
 
-    this.liquidLevelSetPressure = this.gpu.createKernel(function(pressure, levelSet) {
+    this.liquidLevelSetPressure = this.gpu.createKernel(function(pressure, levelSet, boundaryBuf) {
       const [x,y,z] = xyzLookup();
       // There should be no pressure outside the liquid boundaries
-      return (levelSet[x][y][z] > 0) ? 0.0 : pressure[x][y][z];
+      return 0;
+      //return (levelSet[x][y][z] >= 0 || boundaryBuf[x][y][z] > this.constants.BOUNDARY) ? 0.0 : pressure[x][y][z];
     }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
-      pressure: 'Array', levelSet: 'Array'
+      pressure: 'Array', levelSet: 'Array', boundaryBuf: 'Array'
     }});
 
     this.jacobiLiquid = this.gpu.createKernel(function(pressure, tempScalar, boundaryBuf, levelSet) {
       const [x,y,z] = xyzLookup();
 
+      //if (levelSet[x][y][z] > 0) { return 0; } // All of these levelSet ifs cause the water to disappear
+
       const pCenter = pressure[x][y][z];
+      //if (levelSet[x][y][z] > 0) { return pCenter; }
       const bC = tempScalar[x][y][z]; // Contains the 'divergence' calculated previously
 
       const xm1 = clampm1(x); const xp1 = clampp1(x);
       const ym1 = clampm1(y); const yp1 = clampp1(y);
       const zm1 = clampm1(z); const zp1 = clampp1(z);
     
-      const pL = (boundaryBuf[xm1][y][z] > this.constants.BOUNDARY) ? pCenter : pressure[xm1][y][z];
-      const pR = (boundaryBuf[xp1][y][z] > this.constants.BOUNDARY) ? pCenter : pressure[xp1][y][z];
-      const pB = (boundaryBuf[x][ym1][z] > this.constants.BOUNDARY) ? pCenter : pressure[x][ym1][z];
-      const pT = (boundaryBuf[x][yp1][z] > this.constants.BOUNDARY) ? pCenter : pressure[x][yp1][z];
-      const pD = (boundaryBuf[x][y][zm1] > this.constants.BOUNDARY) ? pCenter : pressure[x][y][zm1];
-      const pU = (boundaryBuf[x][y][zp1] > this.constants.BOUNDARY) ? pCenter : pressure[x][y][zp1];
+      let pL = pressure[xm1][y][z];
+      if (boundaryBuf[xm1][y][z] > this.constants.BOUNDARY) { pL = pCenter; }
+      //if (levelSet[xm1][y][z] >= 0) { pL = pCenter; }
+
+      let pR = pressure[xp1][y][z];
+      if (boundaryBuf[xp1][y][z] > this.constants.BOUNDARY) { pR = pCenter; }
+      //if (levelSet[xp1][y][z] >= 0) { pR = pCenter; }
+
+      let pB = pressure[x][ym1][z];
+      if (boundaryBuf[x][ym1][z] > this.constants.BOUNDARY) { pB = pCenter; }
+      //if (levelSet[x][ym1][z] >= 0) { pB = pCenter; }
+
+      let pT = pressure[x][yp1][z];
+      if (boundaryBuf[x][yp1][z] > this.constants.BOUNDARY) { pT = pCenter; }
+      //if (levelSet[x][yp1][z] >= 0) { pT = pCenter; }
+
+      let pD = pressure[x][y][zm1];
+      if (boundaryBuf[x][y][zm1] > this.constants.BOUNDARY) { pD = pCenter; }
+      //if (levelSet[x][y][zm1] >= 0) { pD = pCenter; }
+
+      let pU = pressure[x][y][zp1];
+      if (boundaryBuf[x][y][zp1] > this.constants.BOUNDARY) { pU = pCenter; }
+      //if (levelSet[x][y][zp1] >= 0) { pU = pCenter; }
+
       return (pL + pR + pB + pT + pU + pD - bC) / 6.0;
       
     }, {...pipelineFuncSettings, returnType:'Float', argumentTypes: {
@@ -937,7 +984,7 @@ class GPUKernelManager {
       if (boundaryBuf[x][y][z] > this.constants.BOUNDARY) {
         return [0,0,0]; // NOTE: If the boundary has a velocity, return it here!
       }
-
+ 
       const xm1 = clampm1(x); const xp1 = clampp1(x);
       const ym1 = clampm1(y); const yp1 = clampp1(y);
       const zm1 = clampm1(z); const zp1 = clampp1(z);
@@ -958,36 +1005,28 @@ class GPUKernelManager {
 
       let finalpL = pL;
       if (boundaryBuf[xm1][y][z] > this.constants.BOUNDARY) { finalpL = pCenter; obstV[0] = 0; vMask[0] = 0; }
-      if (lsL > 0) { finalpL = 0; }
+      if (lsL >= 0) { finalpL = 0; }
       
-      //else if (lsL*lsR < 0) { finalpL = lsL < 0 ? pL : lsL/Math.min(1e-6, lsR)*pR; }
-
       let finalpR = pR;
       if (boundaryBuf[xp1][y][z] > this.constants.BOUNDARY) { finalpR = pCenter; obstV[0] = 0; vMask[0] = 0; }
-      if (lsR > 0) { finalpR = 0; }
-     
-      //else if (lsL*lsR < 0) {  finalpR = lsR < 0 ? pR : lsR/Math.min(1e-6, lsL)*pL; }
-
+      if (lsR >= 0) { finalpR = 0; }
+ 
       let finalpB = pB;
       if (boundaryBuf[x][ym1][z] > this.constants.BOUNDARY) { finalpB = pCenter; obstV[1] = 0; vMask[1] = 0; }
-      if (lsB > 0) { finalpB = 0; }
-      //else if (lsB*lsT < 0) { finalpB = lsB < 0 ? pB : lsB/Math.min(1e-6, lsT)*pT; }
+      if (lsB >= 0) { finalpB = 0; }
 
       let finalpT = pT;
       if (boundaryBuf[x][yp1][z] > this.constants.BOUNDARY) { finalpT = pCenter; obstV[1] = 0; vMask[1] = 0; }
-      if (lsT > 0) { finalpT = 0; }
-      //else if (lsB*lsT < 0) { finalpT = lsT < 0 ? pT : lsT/Math.min(1e-6, lsB)*pB; }
+      if (lsT >= 0) { finalpT = 0; }
 
       let finalpD = pD;
       if (boundaryBuf[x][y][zm1] > this.constants.BOUNDARY) { finalpD = pCenter; obstV[2] = 0; vMask[2] = 0; }
-      if (lsD > 0) { finalpD = 0; }
-      //else if (lsD*lsU < 0) { finalpD = lsD < 0 ? pD : lsD/Math.min(1e-6, lsU)*pU; }
+      if (lsD >= 0) { finalpD = 0; }
 
       let finalpU = pU;
       if (boundaryBuf[x][y][zp1] > this.constants.BOUNDARY) { finalpU = pCenter; obstV[2] = 0; vMask[2] = 0; }
-      if (lsU > 0) { finalpU = 0; }
-      //else if (lsD*lsU < 0) { finalpU = lsU < 0 ? pU : lsU/Math.min(1e-6, lsD)*pD; }
-
+      if (lsU >= 0) { finalpU = 0; }
+ 
       const vNew = [
         velxyz[0] - 0.5 * (finalpR - finalpL), 
         velxyz[1] - 0.5 * (finalpT - finalpB), 
