@@ -17,6 +17,7 @@ class GPUKernelManager {
       constants: {
         VOXEL_ERR_UNITS_SQR: VoxelConstants.VOXEL_ERR_UNITS*VoxelConstants.VOXEL_ERR_UNITS,
         gridSize: gridSize,
+        gridSizex2: 2*gridSize,
         halfGridSize: gridSize/2,
       },
       returnType: 'Array(3)',
@@ -104,7 +105,7 @@ class GPUKernelManager {
       const sqrDist = Math.pow(currVoxelPos[0]-c[0],2) + Math.pow(currVoxelPos[1]-c[1],2) + Math.pow(currVoxelPos[2]-c[2],2);
       
       // Check each radius to see which one the voxel is inside last
-      for (let i = 0; i < this.constants.gridSize; i++) {
+      for (let i = 0; i < this.constants.gridSizex2; i++) {
         if (sqrDist <= (radiiSqr[i] + this.constants.VOXEL_ERR_UNITS_SQR)) {
           const currColour = colours[i];
           return [brightness*currColour[0], brightness*currColour[1], brightness*currColour[2]];
@@ -174,16 +175,15 @@ class GPUKernelManager {
       constants: {...this.pipelineFuncSettings.constants, FIRE_SPECTRUM_WIDTH: FIRE_SPECTRUM_WIDTH}
     });
 
-    this.waterOverwrite = this.gpu.createKernel(function(waterLookup, levelSet, levelEpsilon, offsetXYZ) {
+    this.waterOverwrite = this.gpu.createKernel(function(waterLookup, airLookup, levelSet, levelEpsilon, offsetXYZ) {
       // The water level is negative if in water, 0 at boundary, and positive outside of the water
       const waterLevel = levelSet[this.thread.z + offsetXYZ[2]][this.thread.y + offsetXYZ[1]][this.thread.x + offsetXYZ[0]];
-
-      if (waterLevel >= 0) { return [0,0,0]; }
-      const voxelColour = waterLookup[Math.floor(Math.abs(waterLevel))];
+      const idx = clampValue(Math.floor(Math.abs(waterLevel)), 0, this.constants.halfGridSize);
+      const voxelColour =  waterLevel > levelEpsilon ? airLookup[idx] : waterLookup[idx];
       return [voxelColour[0], voxelColour[1], voxelColour[2]];
 
     }, {...this.pipelineFuncSettings,
-      argumentTypes: { waterLookup: 'Array1D(4)', levelSet: 'Array', levelEpsilon: 'Float', offsetXYZ: 'Array'},
+      argumentTypes: { waterLookup: 'Array1D(4)', airLookup: 'Array1D(4)', levelSet: 'Array', levelEpsilon: 'Float', offsetXYZ: 'Array'},
     });
   }
 
@@ -623,9 +623,9 @@ class GPUKernelManager {
       const [x,y,z] = xyzLookup();
 
       const ls0C = levelSet0[x][y][z];
-      if (boundaryBuf[x][y][z] > this.constants.BOUNDARY) {
-        return ls0C;
-      }
+      //if (boundaryBuf[x][y][z] > this.constants.BOUNDARY) {
+      //  return ls0C;
+      //}
 
       const xm1 = clampm1(x), xm2 = clampm2(x), xp1 = clampp1(x), xp2 = clampp2(x);
       const ym1 = clampm1(y), ym2 = clampm2(y), yp1 = clampp1(y), yp2 = clampp2(y);
@@ -634,24 +634,22 @@ class GPUKernelManager {
       // Calculate the Sign(levelSet0(x,y,z))
       const dx = 1, dy = 1, dz = 1;
       const dxSqr = dx*dx, dySqr = dy*dy, dzSqr = dz*dz;
-      
       const sgnPhi0 = ls0C / Math.sqrt(ls0C*ls0C + dx*dx);
 
       // Calculate the gradient function for moving towards a steady-state where the signed distance
       // is properly reinitialized
       const lsNC = levelSetN[x][y][z];
-      const lsNCx2 = 2*lsNC;
       const lsNL = levelSetN[xm1][y][z], lsNR = levelSetN[xp1][y][z];
       const lsNB = levelSetN[x][ym1][z], lsNT = levelSetN[x][yp1][z];
       const lsND = levelSetN[x][y][zm1], lsNU = levelSetN[x][y][zp1];
 
-      const DxxPhi    = ((lsNL - lsNCx2 + lsNR) / dxSqr);
+      const DxxPhi    = ((lsNL - lsNC*2 + lsNR) / dxSqr);
       const DxxPhiPos = ((lsNC - lsNR*2 + levelSetN[xp2][y][z]) / dxSqr);
       const DxxPhiNeg = ((levelSetN[xm2][y][z] - lsNL*2 + lsNC) / dxSqr);
-      const DyyPhi    = ((lsNB - lsNCx2 + lsNT) / dySqr);
+      const DyyPhi    = ((lsNB - lsNC*2 + lsNT) / dySqr);
       const DyyPhiPos = ((lsNC - lsNT*2 + levelSetN[x][yp2][z]) / dySqr);
       const DyyPhiNeg = ((levelSetN[x][ym2][z] - lsNB*2 + lsNC) / dySqr);
-      const DzzPhi    = ((lsND - lsNCx2 + lsNU) / dzSqr);
+      const DzzPhi    = ((lsND - lsNC*2 + lsNU) / dzSqr);
       const DzzPhiPos = ((lsNC - lsNU*2 + levelSetN[x][y][zp2]) / dzSqr);
       const DzzPhiNeg = ((levelSetN[x][y][zm2] - lsND*2 + lsNC) / dzSqr);
       
@@ -662,96 +660,124 @@ class GPUKernelManager {
       const bCondPosZ = ls0C*levelSet0[x][y][zp1];
       const bCondNegZ = ls0C*levelSet0[x][y][zm1];
 
-      //let DxPosPhi
+      const bEpsilon = 1e-6;
+      let DxPosPhi = 0, DxNegPhi = 0, DyPosPhi = 0, DyNegPhi = 0, DzPosPhi = 0, DzNegPhi = 0;
 
-
-      // Boundary conditions - TODO: Move this into its own routine and save as buffers for reuse
-      // with this routine!
-      const bEpsilon = 1e-10;
-      const phiXX0Pos = minmod(
-        levelSet0[xm1][y][z] - 2*ls0C + levelSet0[xp1][y][z],
-        ls0C - 2*levelSet0[xp1][y][z] + levelSet0[xp2][y][z]
-      );
-      let dxPos = dx;
-      if (Math.abs(phiXX0Pos) > bEpsilon) {
-        const discrimXPos = Math.pow(0.5*phiXX0Pos - ls0C - levelSet0[xp1][y][z], 2) - 4*ls0C*levelSet0[xp1][y][z];
-        dxPos = dx*(0.5 + (ls0C-levelSet0[xp1][y][z]-Math.sign(ls0C-levelSet0[xp1][y][z])*Math.sqrt(discrimXPos))/phiXX0Pos);
+      // Boundary conditions - TODO: Move this into its own routine and save as buffers for reuse with this routine!
+      if (bCondPosX < 0) {
+        const phiXX0Pos = minmod(
+          levelSet0[xm1][y][z] - 2*ls0C + levelSet0[xp1][y][z],
+          ls0C - 2*levelSet0[xp1][y][z] + levelSet0[xp2][y][z]
+        );
+        let dxPos = dx;
+        if (Math.abs(phiXX0Pos) > bEpsilon) {
+          const discrimXPos = Math.pow(0.5*phiXX0Pos - ls0C - levelSet0[xp1][y][z], 2) - 4*ls0C*levelSet0[xp1][y][z];
+          dxPos = dx*(0.5 + (ls0C-levelSet0[xp1][y][z]-Math.sign(ls0C-levelSet0[xp1][y][z])*Math.sqrt(discrimXPos))/phiXX0Pos);
+        }
+        else {
+          dxPos = dx*(ls0C/(ls0C-levelSet0[xp1][y][z]+1e-6));
+        }
+        DxPosPhi = ((0 - lsNC)/dxPos) - 0.5*dxPos*minmod(DxxPhi, DxxPhiPos);
       }
       else {
-        dxPos = dx*(ls0C/(ls0C-levelSet0[xp1][y][z]));
-      }
-      const phiXX0Neg = minmod(
-        levelSet0[xm1][y][z] - 2*ls0C + levelSet0[xp1][y][z],
-        ls0C - 2*levelSet0[xm1][y][z] + levelSet0[xm2][y][z]
-      );
-      let dxNeg = dx;
-      if (Math.abs(phiXX0Neg) > bEpsilon) {
-        const discrimXNeg = Math.pow(0.5*phiXX0Neg - ls0C - levelSet0[xm1][y][z], 2) - 4*ls0C*levelSet0[xm1][y][z];
-        dxNeg = dx*(0.5 + (ls0C-levelSet0[xm1][y][z]-Math.sign(ls0C-levelSet0[xm1][y][z])*Math.sqrt(discrimXNeg))/phiXX0Neg);
-      }
-      else {
-        dxNeg = dx*(ls0C/(ls0C-levelSet0[xm1][y][z]));
+        DxPosPhi = ((lsNR - lsNC)/dx) - 0.5*dx*minmod(DxxPhi, DxxPhiPos);
       }
 
-      const phiYY0Pos = minmod(
-        levelSet0[x][ym1][z] - 2*ls0C + levelSet0[x][yp1][z],
-        ls0C - 2*levelSet0[x][yp1][z] + levelSet0[x][yp2][z]
-      );
-      let dyPos = dy;
-      if (Math.abs(phiYY0Pos) > bEpsilon) {
-        const discrimYPos = Math.pow(0.5*phiYY0Pos - ls0C - levelSet0[x][yp1][z], 2) - 4*ls0C*levelSet0[x][yp1][z];
-        dyPos = dy*(0.5 + (ls0C-levelSet0[x][yp1][z]-Math.sign(ls0C-levelSet0[x][yp1][z])*Math.sqrt(discrimYPos))/phiYY0Pos);
+      if (bCondNegX < 0) {
+        const phiXX0Neg = minmod(
+          levelSet0[xm1][y][z] - 2*ls0C + levelSet0[xp1][y][z],
+          ls0C - 2*levelSet0[xm1][y][z] + levelSet0[xm2][y][z]
+        );
+        let dxNeg = dx;
+        if (Math.abs(phiXX0Neg) > bEpsilon) {
+          const discrimXNeg = Math.pow(0.5*phiXX0Neg - ls0C - levelSet0[xm1][y][z], 2) - 4*ls0C*levelSet0[xm1][y][z];
+          dxNeg = dx*(0.5 + (ls0C-levelSet0[xm1][y][z]-Math.sign(ls0C-levelSet0[xm1][y][z])*Math.sqrt(discrimXNeg))/phiXX0Neg);
+        }
+        else {
+          dxNeg = dx*(ls0C/(ls0C-levelSet0[xm1][y][z]+1e-6));
+        }
+        DxNegPhi = ((lsNC - 0)/dxNeg) + 0.5*dxNeg*minmod(DxxPhi, DxxPhiNeg);
       }
       else {
-        dyPos = dy*(ls0C/(ls0C-levelSet0[x][yp1][z]));
-        
+        DxNegPhi = ((lsNC - lsNL)/dx) + 0.5*dx*minmod(DxxPhi, DxxPhiNeg);
       }
-      const phiYY0Neg = minmod(
-        levelSet0[x][ym1][z] - 2*ls0C + levelSet0[x][yp1][z],
-        ls0C - 2*levelSet0[x][ym1][z] + levelSet0[x][ym2][z]
-      );
-      let dyNeg = dy
-      if (Math.abs(phiYY0Neg) > bEpsilon) {
-        const discrimYNeg = Math.pow(0.5*phiYY0Neg - ls0C - levelSet0[x][ym1][z], 2) - 4*ls0C*levelSet0[x][ym1][z];
-        dyNeg = dy*(0.5 + (ls0C-levelSet0[x][ym1][z]-Math.sign(ls0C-levelSet0[x][ym1][z])*Math.sqrt(discrimYNeg))/phiYY0Neg);
+     
+      if (bCondPosY < 0) {
+        const phiYY0Pos = minmod(
+          levelSet0[x][ym1][z] - 2*ls0C + levelSet0[x][yp1][z],
+          ls0C - 2*levelSet0[x][yp1][z] + levelSet0[x][yp2][z]
+        );
+        let dyPos = dy;
+        if (Math.abs(phiYY0Pos) > bEpsilon) {
+          const discrimYPos = Math.pow(0.5*phiYY0Pos - ls0C - levelSet0[x][yp1][z], 2) - 4*ls0C*levelSet0[x][yp1][z];
+          dyPos = dy*(0.5 + (ls0C-levelSet0[x][yp1][z]-Math.sign(ls0C-levelSet0[x][yp1][z])*Math.sqrt(discrimYPos))/phiYY0Pos);
+        }
+        else {
+          dyPos = dy*(ls0C/(ls0C-levelSet0[x][yp1][z]+1e-6));
+        }
+        DyPosPhi = ((0 - lsNC)/dyPos) - 0.5*dyPos*minmod(DyyPhi, DyyPhiPos);
       }
       else {
-        dyNeg = dy*(ls0C/(ls0C-levelSet0[x][ym1][z]));
+        DyPosPhi = ((lsNT - lsNC)/dy) - 0.5*dy*minmod(DyyPhi, DyyPhiPos);
       }
 
-      const phiZZ0Pos = minmod(
-        levelSet0[x][y][zm1] - 2*ls0C + levelSet0[x][y][zp1],
-        ls0C - 2*levelSet0[x][y][zp1] + levelSet0[x][y][zp2]
-      );
-      let dzPos = dz;
-      if (Math.abs(phiZZ0Pos) > bEpsilon) {
-        const discrimZPos = Math.pow(0.5*phiZZ0Pos - ls0C - levelSet0[x][y][zp1], 2) - 4*ls0C*levelSet0[x][y][zp1];
-        dzPos = dz*(0.5 + (ls0C-levelSet0[x][y][zp1]-Math.sign(ls0C-levelSet0[x][y][zp1])*Math.sqrt(discrimZPos))/phiZZ0Pos);
+      if (bCondNegY < 0) {
+        const phiYY0Neg = minmod(
+          levelSet0[x][ym1][z] - 2*ls0C + levelSet0[x][yp1][z],
+          ls0C - 2*levelSet0[x][ym1][z] + levelSet0[x][ym2][z]
+        );
+        let dyNeg = dy
+        if (Math.abs(phiYY0Neg) > bEpsilon) {
+          const discrimYNeg = Math.pow(0.5*phiYY0Neg - ls0C - levelSet0[x][ym1][z], 2) - 4*ls0C*levelSet0[x][ym1][z];
+          dyNeg = dy*(0.5 + (ls0C-levelSet0[x][ym1][z]-Math.sign(ls0C-levelSet0[x][ym1][z])*Math.sqrt(discrimYNeg))/phiYY0Neg);
+        }
+        else {
+          dyNeg = dy*(ls0C/(ls0C-levelSet0[x][ym1][z]+1e-6));
+        }
+        DyNegPhi = ((lsNC - 0)/dyNeg) + 0.5*dyNeg*minmod(DyyPhi, DyyPhiNeg);
       }
       else {
-        dzPos = dz*(ls0C/(ls0C-levelSet0[x][y][zp1]));
+        DyNegPhi = ((lsNC - lsNB)/dy) + 0.5*dy*minmod(DyyPhi, DyyPhiNeg);
       }
-      let dzNeg = dz;
-      const phiZZ0Neg = minmod(
-        levelSet0[x][y][zm1] - 2*ls0C + levelSet0[x][y][zp1],
-        ls0C - 2*levelSet0[x][y][zm1] + levelSet0[x][y][zm2]
-      );
-      if (Math.abs(phiZZ0Neg) > bEpsilon) {
-        const discrimZNeg = Math.pow(0.5*phiZZ0Neg - ls0C - levelSet0[x][y][zm1], 2) - 4*ls0C*levelSet0[x][y][zm1];
-        dzNeg = dz*(0.5 + (ls0C-levelSet0[x][y][zm1]-Math.sign(ls0C-levelSet0[x][y][zm1])*Math.sqrt(discrimZNeg))/phiZZ0Neg);
+
+      if (bCondPosZ < 0) {
+        const phiZZ0Pos = minmod(
+          levelSet0[x][y][zm1] - 2*ls0C + levelSet0[x][y][zp1],
+          ls0C - 2*levelSet0[x][y][zp1] + levelSet0[x][y][zp2]
+        );
+        let dzPos = dz;
+        if (Math.abs(phiZZ0Pos) > bEpsilon) {
+          const discrimZPos = Math.pow(0.5*phiZZ0Pos - ls0C - levelSet0[x][y][zp1], 2) - 4*ls0C*levelSet0[x][y][zp1];
+          dzPos = dz*(0.5 + (ls0C-levelSet0[x][y][zp1]-Math.sign(ls0C-levelSet0[x][y][zp1])*Math.sqrt(discrimZPos))/phiZZ0Pos);
+        }
+        else {
+          dzPos = dz*(ls0C/(ls0C-levelSet0[x][y][zp1]+1e-6));
+        }
+        DzPosPhi = ((0 - lsNC)/dzPos) - 0.5*dzPos*minmod(DzzPhi, DzzPhiPos);
       }
       else {
-        dzNeg = dz*(ls0C/(ls0C-levelSet0[x][y][zm1]));
+        DzPosPhi = ((lsNU - lsNC)/dz) - 0.5*dz*minmod(DzzPhi, DzzPhiPos);
       }
 
-
+      if (bCondNegZ < 0) {
+        const phiZZ0Neg = minmod(
+          levelSet0[x][y][zm1] - 2*ls0C + levelSet0[x][y][zp1],
+          ls0C - 2*levelSet0[x][y][zm1] + levelSet0[x][y][zm2]
+        );
+        let dzNeg = dz;
+        if (Math.abs(phiZZ0Neg) > bEpsilon) {
+          const discrimZNeg = Math.pow(0.5*phiZZ0Neg - ls0C - levelSet0[x][y][zm1], 2) - 4*ls0C*levelSet0[x][y][zm1];
+          dzNeg = dz*(0.5 + (ls0C-levelSet0[x][y][zm1]-Math.sign(ls0C-levelSet0[x][y][zm1])*Math.sqrt(discrimZNeg))/phiZZ0Neg);
+        }
+        else {
+          dzNeg = dz*(ls0C/(ls0C-levelSet0[x][y][zm1]+1e-6));
+        }  
+        DzNegPhi = ((lsNC - 0)/dzNeg) + 0.5*dzNeg*minmod(DzzPhi, DzzPhiNeg);
+      }
+      else {
+        DzNegPhi = ((lsNC - lsND)/dz) + 0.5*dz*minmod(DzzPhi, DzzPhiNeg);
+      }
       
-      const DxPosPhi = bCondPosX < 0 ? ((0 - lsNC)/dxPos) - 0.5*dxPos*minmod(DxxPhi, DxxPhiPos) : ((lsNR - lsNC)/dx) - 0.5*dx*minmod(DxxPhi, DxxPhiPos);
-      const DxNegPhi = bCondNegX < 0 ? ((lsNC - 0)/dxNeg) + 0.5*dxNeg*minmod(DxxPhi, DxxPhiNeg) : ((lsNC - lsNL)/dx) + 0.5*dx*minmod(DxxPhi, DxxPhiNeg);
-      const DyPosPhi = bCondPosY < 0 ? ((0 - lsNC)/dyPos) - 0.5*dyPos*minmod(DyyPhi, DyyPhiPos) : ((lsNT - lsNC)/dy) - 0.5*dy*minmod(DyyPhi, DyyPhiPos);
-      const DyNegPhi = bCondNegY < 0 ? ((lsNC - 0)/dyNeg) + 0.5*dyNeg*minmod(DyyPhi, DyyPhiNeg) : ((lsNC - lsNB)/dy) + 0.5*dy*minmod(DyyPhi, DyyPhiNeg);
-      const DzPosPhi = bCondPosZ < 0 ? ((0 - lsNC)/dzPos) - 0.5*dzPos*minmod(DzzPhi, DzzPhiPos) : ((lsNU - lsNC)/dz) - 0.5*dz*minmod(DzzPhi, DzzPhiPos);
-      const DzNegPhi = bCondNegZ < 0 ? ((lsNC - 0)/dzNeg) + 0.5*dzNeg*minmod(DzzPhi, DzzPhiNeg) : ((lsNC - lsND)/dz) + 0.5*dz*minmod(DzzPhi, DzzPhiNeg);
       const GPhi = godunovH(sgnPhi0, DxPosPhi, DxNegPhi, DyPosPhi, DyNegPhi, DzPosPhi, DzNegPhi);
       return lsNC - dt*sgnPhi0*(GPhi-1.0);
 
@@ -866,17 +892,10 @@ class GPUKernelManager {
       }
 
       const dtDivMass = dt/mass;
-      const du = [
-        dtDivMass * force[0],
-        dtDivMass * force[1],
-        dtDivMass * force[2]
-      ];
-      const newVel = [
-        currVel[0] + du[0],
-        currVel[1] + du[1],
-        currVel[2] + du[2]
-      ];
+      const du = [dtDivMass * force[0], dtDivMass * force[1], dtDivMass * force[2]];
+      const newVel = [currVel[0] + du[0], currVel[1] + du[1], currVel[2] + du[2]];
       return newVel;
+
     }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {
       dt: 'Float', mass: 'Float', force: 'Array', vel: 'Array3D(3)', levelSet: 'Array', 
       levelEpsilon: 'Float', boundaryBuf: 'Array'
@@ -938,39 +957,35 @@ class GPUKernelManager {
       const vMask = [1,1,1];
 
       let finalpL = pL;
+      if (boundaryBuf[xm1][y][z] > this.constants.BOUNDARY) { finalpL = pCenter; obstV[0] = 0; vMask[0] = 0; }
       if (lsL > 0) { finalpL = 0; }
-      else if (boundaryBuf[xm1][y][z] > this.constants.BOUNDARY) { finalpL = pCenter; obstV[0] = 0; vMask[0] = 0; }
       
       //else if (lsL*lsR < 0) { finalpL = lsL < 0 ? pL : lsL/Math.min(1e-6, lsR)*pR; }
 
       let finalpR = pR;
+      if (boundaryBuf[xp1][y][z] > this.constants.BOUNDARY) { finalpR = pCenter; obstV[0] = 0; vMask[0] = 0; }
       if (lsR > 0) { finalpR = 0; }
-      else if (boundaryBuf[xp1][y][z] > this.constants.BOUNDARY) { finalpR = pCenter; obstV[0] = 0; vMask[0] = 0; }
      
       //else if (lsL*lsR < 0) {  finalpR = lsR < 0 ? pR : lsR/Math.min(1e-6, lsL)*pL; }
 
       let finalpB = pB;
+      if (boundaryBuf[x][ym1][z] > this.constants.BOUNDARY) { finalpB = pCenter; obstV[1] = 0; vMask[1] = 0; }
       if (lsB > 0) { finalpB = 0; }
-      else if (boundaryBuf[x][ym1][z] > this.constants.BOUNDARY) { finalpB = pCenter; obstV[1] = 0; vMask[1] = 0; }
-      
       //else if (lsB*lsT < 0) { finalpB = lsB < 0 ? pB : lsB/Math.min(1e-6, lsT)*pT; }
 
       let finalpT = pT;
+      if (boundaryBuf[x][yp1][z] > this.constants.BOUNDARY) { finalpT = pCenter; obstV[1] = 0; vMask[1] = 0; }
       if (lsT > 0) { finalpT = 0; }
-      else if (boundaryBuf[x][yp1][z] > this.constants.BOUNDARY) { finalpT = pCenter; obstV[1] = 0; vMask[1] = 0; }
-      
       //else if (lsB*lsT < 0) { finalpT = lsT < 0 ? pT : lsT/Math.min(1e-6, lsB)*pB; }
 
       let finalpD = pD;
+      if (boundaryBuf[x][y][zm1] > this.constants.BOUNDARY) { finalpD = pCenter; obstV[2] = 0; vMask[2] = 0; }
       if (lsD > 0) { finalpD = 0; }
-      else if (boundaryBuf[x][y][zm1] > this.constants.BOUNDARY) { finalpD = pCenter; obstV[2] = 0; vMask[2] = 0; }
-      
       //else if (lsD*lsU < 0) { finalpD = lsD < 0 ? pD : lsD/Math.min(1e-6, lsU)*pU; }
 
       let finalpU = pU;
+      if (boundaryBuf[x][y][zp1] > this.constants.BOUNDARY) { finalpU = pCenter; obstV[2] = 0; vMask[2] = 0; }
       if (lsU > 0) { finalpU = 0; }
-      else if (boundaryBuf[x][y][zp1] > this.constants.BOUNDARY) { finalpU = pCenter; obstV[2] = 0; vMask[2] = 0; }
-      
       //else if (lsD*lsU < 0) { finalpU = lsU < 0 ? pU : lsU/Math.min(1e-6, lsD)*pD; }
 
       const vNew = [

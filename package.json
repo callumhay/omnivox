@@ -38,6 +38,7 @@
     "three": "^0.113.2",
     "three-mesh-bvh": "^0.2.0",
     "utf-8-validate": "^5.0.2",
+    "websocket": "^1.0.32",
     "ws": "^7.3.0"
   },
   "devDependencies": {

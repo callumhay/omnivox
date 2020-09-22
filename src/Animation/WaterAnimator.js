@@ -12,7 +12,7 @@ export const waterAnimatorDefaultConfig = {
   mass: 1.0,
   gravity: 2,
   confinementScale: 0.12,
-  waterLevelEpsilon: 0.1,
+  waterLevelEpsilon: 1e-6,
 
   colourInterpolationType: COLOUR_INTERPOLATION_RGB,
   shallowColour:  new THREE.Color(0.4,1,1),
@@ -51,7 +51,7 @@ class WaterAnimator extends AudioVisualizerAnimator {
     this.fluidModel.confinementScale = confinementScale;
     this.fluidModel.levelEpsilon = waterLevelEpsilon;
 
-    this.genWaterColourLookup();
+    this.genColourLookup();
   }
 
   reset() {
@@ -66,7 +66,7 @@ class WaterAnimator extends AudioVisualizerAnimator {
 
     // Update the voxels...
     const gpuFramebuffer = this.voxelModel.framebuffer;
-    gpuFramebuffer.drawWater(this.waterLookup, this.fluidModel.levelSet, this.fluidModel.levelEpsilon, [1, 1, 1]);
+    gpuFramebuffer.drawWater(this.waterLookup, this.airLookup, this.fluidModel.levelSet, this.fluidModel.levelEpsilon, [1, 1, 1]);
   }
 
   setAudioInfo(audioInfo) {
@@ -77,12 +77,15 @@ class WaterAnimator extends AudioVisualizerAnimator {
     // TODO
   }
 
-  genWaterColourLookup() {
+  genColourLookup() {
     // The water colour is dependant on the depth of the water from the surface
     const {deepColour, shallowColour, colourInterpolationType} = this.config;
     const {gridSize} = this.voxelModel;
     this.waterLookup = Spectrum.genLowToHighColourSpectrum(
-      deepColour, shallowColour, colourInterpolationType, gridSize
+      shallowColour, deepColour, colourInterpolationType, gridSize/2
+    );
+    this.airLookup = Spectrum.genLowToHighColourSpectrum(
+      new THREE.Color(0,0,0), new THREE.Color(0,0,0), colourInterpolationType, gridSize/2
     );
   }
 

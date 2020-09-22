@@ -1,6 +1,6 @@
 import FluidGPU from "./FluidGPU";
 
-const REINIT_PER_FRAME_LOOPS   = 2;
+const REINIT_PER_FRAME_LOOPS   = 5;
 const PRESSURE_PER_FRAME_LOOPS = 25;
 
 class LiquidGPU extends FluidGPU {

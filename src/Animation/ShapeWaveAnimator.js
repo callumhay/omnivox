@@ -63,10 +63,13 @@ export const shapeWaveAnimatorDefaultConfig = {
 };
 
 class WaveShape {
-  constructor(voxelModel, center, shape, colour) {
+  constructor(voxelModel, colour, config) {
+    const {center, waveShape, waveGap} = config;
+
     this.voxelModel = voxelModel;
     this.center = new THREE.Vector3(center.x, center.y, center.z);
-    this.shape  = shape;
+    this.shape  = waveShape;
+    this.gap = waveGap;
     this.colour = colour;
     this.radius = 0;
     this.lastDrawRadius = 0;
@@ -97,10 +100,11 @@ class WaveShape {
     return this.center.clone().addScalar(r);
   }
   isInsideVoxels() {
-    const voxelGridSize = this.voxelModel.gridSize + 1 + VoxelConstants.VOXEL_EPSILON;
-    const minValue = -(1 + VoxelConstants.VOXEL_EPSILON);
+    const diagGap = Math.sqrt(2*this.gap*this.gap);
+    const maxValue = this.voxelModel.gridSize + diagGap + VoxelConstants.VOXEL_EPSILON;
+    const minValue = -(diagGap + VoxelConstants.VOXEL_EPSILON);
     const minBoundsPt = new THREE.Vector3(minValue, minValue, minValue);
-    const maxBoundsPt = new THREE.Vector3(voxelGridSize, voxelGridSize, voxelGridSize);
+    const maxBoundsPt = new THREE.Vector3(maxValue, maxValue, maxValue);
 
     switch (this.shape) {
       case WAVE_SHAPE_CUBE:
@@ -174,9 +178,8 @@ class ShapeWaveAnimator extends VoxelAnimator {
     };
 
     this.buildWaveShapeAnimator = () => {
-      const {center, waveShape} = this.config;
       const currColour = this.getNextColour();
-      return new WaveShape(voxels, center, waveShape, currColour);
+      return new WaveShape(voxels, currColour, this.config);
     };
   }
 
@@ -214,11 +217,11 @@ class ShapeWaveAnimator extends VoxelAnimator {
 
     // Fill the reamining elements (or remove extra elements) in the arrays up to the grid size 
     // (this is needed to make the array the same size everytime for the GPU)
-    for (let i = radii.length; i < this.voxelModel.gridSize; i++) {
+    for (let i = radii.length; i < 2*this.voxelModel.gridSize; i++) {
       radii.push(0);
       colours.push([0,0,0]);
     }
-    for (let i = radii.length; i > this.voxelModel.gridSize; i--) {
+    for (let i = radii.length; i > 2*this.voxelModel.gridSize; i--) {
       radii.pop();
       colours.pop();
     }
