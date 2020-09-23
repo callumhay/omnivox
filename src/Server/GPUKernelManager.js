@@ -560,6 +560,16 @@ class GPUKernelManager {
       const ls1 = sx0*(sy0*tex[i0][j0][k1] + sy1*tex[i0][j1][k1]) + sx1*(sy0*tex[i1][j0][k1] + sy1*tex[i1][j1][k1]);
       return (sz0*ls0 + sz1*ls1);
     });
+    this.gpu.addFunction(function heavisideP(lsC, pC, levelEpsilon) {
+      if (lsC > levelEpsilon) {
+        // There should be no pressure outside the liquid boundaries
+        return 0;
+      }
+      if (lsC < -levelEpsilon) {
+        return pC;
+      }
+      return pC * ((lsC+levelEpsilon)/(2*levelEpsilon) + Math.sin(Math.PI*lsC/levelEpsilon)/(2*Math.PI));
+    });
 
     this.injectLiquidSphere = this.gpu.createKernel(function(center, radius, levelSet, boundaryBuf) {
       const [x,y,z] = xyzLookup();
@@ -583,24 +593,9 @@ class GPUKernelManager {
       const u = vel[x][y][z];
       const dt0 = Math.min(dt, 0.3*Math.min(1/Math.abs(u[0]), Math.min(1/Math.abs(u[1]), 1/Math.abs(u[2]))));
       const nPos = [x-u[0]*dt0, y-u[1]*dt0, z-u[2]*dt0];
-      const diff = [
-        Math.abs(this.constants.NDIV2 - x),
-        Math.abs(this.constants.NDIV2 - y),
-        Math.abs(this.constants.NDIV2 - z),
-      ];
-
-      // Must use regular semi-Lagrangian advection instead of BFECC at the volume boundaries
-      const diffBoundaryMax = this.constants.NDIV2-4;
-      let result = 0;
-      if(diff[0] > diffBoundaryMax || diff[1] > diffBoundaryMax || diff[2] > diffBoundaryMax) {
-        result = trilinearLookup(nPos[0], nPos[1], nPos[2], phiN);
-      }
-      else {
-        result = 1.5 * trilinearLookup(nPos[0], nPos[1], nPos[2], phiN) - 
-                 0.5 * trilinearLookup(nPos[0], nPos[1], nPos[2], barPhi);
-      }
-
+      const result = 1.5 * trilinearLookup(nPos[0], nPos[1], nPos[2], phiN) - 0.5 * trilinearLookup(nPos[0], nPos[1], nPos[2], barPhi);
       return (damping*phiN[x][y][z] + (1-damping) * result) * decay;
+
     }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
       dt: 'Float', vel: 'Array3D(3)', barPhi: 'Array', phiN: 'Array', boundaryBuf: 'Array', decay: 'Float', damping: 'Float'
     }});
@@ -629,7 +624,7 @@ class GPUKernelManager {
       levelSetN: 'Array', levelSetNPlus2: 'Array'
     }});
 
-    this.reinitLevelSet = this.gpu.createKernel(function(dt, levelSet0, levelSetN, boundaryBuf) {
+    this.reinitLevelSet = this.gpu.createKernel(function(dt, levelSet0, levelSetN, boundaryBuf, damping) {
       const [x,y,z] = xyzLookup();
 
       if (boundaryBuf[x][y][z] > this.constants.BOUNDARY) {
@@ -809,10 +804,10 @@ class GPUKernelManager {
 
       const dt0 = Math.min(dt, 0.3*Math.min(dxPos, Math.min(dxNeg, Math.min(dyPos, Math.min(dyNeg, Math.min(dzPos, dzNeg))))));
       const GPhi = godunovH(sgnPhi0, DxPosPhi, DxNegPhi, DyPosPhi, DyNegPhi, DzPosPhi, DzNegPhi);
-      return lsNC - dt0*sgnPhi0*(GPhi-1.0);
+      return lsNC*damping + (1-damping)*(lsNC - dt0*sgnPhi0*(GPhi-1.0));
 
     }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
-      dt: 'Float', levelSet0: 'Array', levelSetN: 'Array', boundaryBuf: 'Array'
+      dt: 'Float', levelSet0: 'Array', levelSetN: 'Array', boundaryBuf: 'Array', damping: 'Float'
     }});
 
     this.avectLiquidVelocity = this.gpu.createKernel(function(dt, vel0, boundaryBuf) {
@@ -926,19 +921,20 @@ class GPUKernelManager {
       levelEpsilon: 'Float', boundaryBuf: 'Array'
     }});
 
-    this.liquidLevelSetPressure = this.gpu.createKernel(function(pressure, levelSet, boundaryBuf) {
+    this.liquidLevelSetPressure = this.gpu.createKernel(function(pressure, levelSet, levelEpsilon, boundaryBuf) {
       const [x,y,z] = xyzLookup();
-      // There should be no pressure outside the liquid boundaries
-      return 0;
-      //return (levelSet[x][y][z] >= 0 || boundaryBuf[x][y][z] > this.constants.BOUNDARY) ? 0.0 : pressure[x][y][z];
+      const lsC = levelSet[x][y][z];
+      const pC = pressure[x][y][z];
+      // Heaviside function is used for the boundary between air and liquid
+      return heavisideP(lsC, pC, levelEpsilon);
     }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
-      pressure: 'Array', levelSet: 'Array', boundaryBuf: 'Array'
+      pressure: 'Array', levelSet: 'Array', levelEpsilon: 'Float', boundaryBuf: 'Array'
     }});
 
     this.jacobiLiquid = this.gpu.createKernel(function(pressure, tempScalar, boundaryBuf, levelSet) {
       const [x,y,z] = xyzLookup();
 
-      //if (levelSet[x][y][z] > 0) { return 0; } // All of these levelSet ifs cause the water to disappear
+      //if (levelSet[x][y][z] > 0) { return 0; } // All of these levelSet ifs (and/or heaviside ops) cause the water to disappear
 
       const pCenter = pressure[x][y][z];
       //if (levelSet[x][y][z] > 0) { return pCenter; }
@@ -951,26 +947,32 @@ class GPUKernelManager {
       let pL = pressure[xm1][y][z];
       if (boundaryBuf[xm1][y][z] > this.constants.BOUNDARY) { pL = pCenter; }
       //if (levelSet[xm1][y][z] >= 0) { pL = pCenter; }
+      //pL = heavisideP(levelSet[xm1][y][z], pL, 0.5);
 
       let pR = pressure[xp1][y][z];
       if (boundaryBuf[xp1][y][z] > this.constants.BOUNDARY) { pR = pCenter; }
       //if (levelSet[xp1][y][z] >= 0) { pR = pCenter; }
+      //pR = heavisideP(levelSet[xp1][y][z], pR, 0.5);
 
       let pB = pressure[x][ym1][z];
       if (boundaryBuf[x][ym1][z] > this.constants.BOUNDARY) { pB = pCenter; }
       //if (levelSet[x][ym1][z] >= 0) { pB = pCenter; }
+      //pB = heavisideP(levelSet[x][ym1][z], pB, 0.5);
 
       let pT = pressure[x][yp1][z];
       if (boundaryBuf[x][yp1][z] > this.constants.BOUNDARY) { pT = pCenter; }
       //if (levelSet[x][yp1][z] >= 0) { pT = pCenter; }
+      //pT = heavisideP(levelSet[x][yp1][z], pT, 0.5);
 
       let pD = pressure[x][y][zm1];
       if (boundaryBuf[x][y][zm1] > this.constants.BOUNDARY) { pD = pCenter; }
       //if (levelSet[x][y][zm1] >= 0) { pD = pCenter; }
+      //pD = heavisideP(levelSet[x][y][zm1], pD, 0.5);
 
       let pU = pressure[x][y][zp1];
       if (boundaryBuf[x][y][zp1] > this.constants.BOUNDARY) { pU = pCenter; }
       //if (levelSet[x][y][zp1] >= 0) { pU = pCenter; }
+      //pU = heavisideP(levelSet[x][y][zp1], pU, 0.5);
 
       return (pL + pR + pB + pT + pU + pD - bC) / 6.0;
       
@@ -978,7 +980,7 @@ class GPUKernelManager {
       pressure: 'Array', tempScalar: 'Array', boundaryBuf: 'Array', levelSet: 'Array'
     }});
 
-    this.projectLiquidVelocity = this.gpu.createKernel(function(pressure, vel, boundaryBuf, levelSet) {
+    this.projectLiquidVelocity = this.gpu.createKernel(function(pressure, vel, boundaryBuf, levelSet, levelEpsilon, damping) {
       const [x,y,z] = xyzLookup();
       const velxyz = vel[x][y][z];
       if (boundaryBuf[x][y][z] > this.constants.BOUNDARY) {
@@ -1005,37 +1007,43 @@ class GPUKernelManager {
 
       let finalpL = pL;
       if (boundaryBuf[xm1][y][z] > this.constants.BOUNDARY) { finalpL = pCenter; obstV[0] = 0; vMask[0] = 0; }
-      if (lsL >= 0) { finalpL = 0; }
+      //if (lsL >= 0) { finalpL = 0; }
+      finalpL = heavisideP(lsL, finalpL, levelEpsilon);
       
       let finalpR = pR;
       if (boundaryBuf[xp1][y][z] > this.constants.BOUNDARY) { finalpR = pCenter; obstV[0] = 0; vMask[0] = 0; }
-      if (lsR >= 0) { finalpR = 0; }
+      //if (lsR >= 0) { finalpR = 0; }
+      finalpR = heavisideP(lsR, finalpR, levelEpsilon);
  
       let finalpB = pB;
       if (boundaryBuf[x][ym1][z] > this.constants.BOUNDARY) { finalpB = pCenter; obstV[1] = 0; vMask[1] = 0; }
-      if (lsB >= 0) { finalpB = 0; }
+      //if (lsB >= 0) { finalpB = 0; }
+      finalpB = heavisideP(lsB, finalpB, levelEpsilon);
 
       let finalpT = pT;
       if (boundaryBuf[x][yp1][z] > this.constants.BOUNDARY) { finalpT = pCenter; obstV[1] = 0; vMask[1] = 0; }
-      if (lsT >= 0) { finalpT = 0; }
+      //if (lsT >= 0) { finalpT = 0; }
+      finalpT = heavisideP(lsT, finalpT, levelEpsilon);
 
       let finalpD = pD;
       if (boundaryBuf[x][y][zm1] > this.constants.BOUNDARY) { finalpD = pCenter; obstV[2] = 0; vMask[2] = 0; }
-      if (lsD >= 0) { finalpD = 0; }
+      //if (lsD >= 0) { finalpD = 0; }
+      finalpD = heavisideP(lsD, finalpD, levelEpsilon);
 
       let finalpU = pU;
       if (boundaryBuf[x][y][zp1] > this.constants.BOUNDARY) { finalpU = pCenter; obstV[2] = 0; vMask[2] = 0; }
-      if (lsU >= 0) { finalpU = 0; }
+      //if (lsU >= 0) { finalpU = 0; }
+      finalpU = heavisideP(lsU, finalpU, levelEpsilon);
  
       const vNew = [
-        velxyz[0] - 0.5 * (finalpR - finalpL), 
-        velxyz[1] - 0.5 * (finalpT - finalpB), 
-        velxyz[2] - 0.5 * (finalpU - finalpD)
+        damping*velxyz[0] + (1-damping)*(velxyz[0] - 0.5 * (finalpR - finalpL)), 
+        damping*velxyz[1] + (1-damping)*(velxyz[1] - 0.5 * (finalpT - finalpB)), 
+        damping*velxyz[2] + (1-damping)*(velxyz[2] - 0.5 * (finalpU - finalpD))
       ];
       return [vMask[0]*vNew[0]+obstV[0], vMask[1]*vNew[1]+obstV[1], vMask[2]*vNew[2]+obstV[2]];
 
     }, {...pipelineFuncSettings, returnType:'Array(3)', argumentTypes: {
-      pressure:'Array', vel:'Array3D(3)', boundaryBuf:'Array', levelSet: 'Array'
+      pressure:'Array', vel:'Array3D(3)', boundaryBuf:'Array', levelSet: 'Array', levelEpsilon: 'Float', damping: 'Float'
     }});
 
     this._liquidKernelsInit = true;

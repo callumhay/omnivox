@@ -1,7 +1,7 @@
 import FluidGPU from "./FluidGPU";
 
 const REINIT_PER_FRAME_LOOPS   = 1;
-const PRESSURE_PER_FRAME_LOOPS = 20;
+const PRESSURE_PER_FRAME_LOOPS = 25;
 
 class LiquidGPU extends FluidGPU {
   constructor(gridSize, gpuManager) {
@@ -10,9 +10,11 @@ class LiquidGPU extends FluidGPU {
 
     this.gravity = 9; // Force of gravity, continuously applied to the liquid
     this.confinementScale = 0.12;
-    this.levelEpsilon = 0.1;
+    this.levelEpsilon = 0.01;
     this.decay = 1;
-    this.advectionDamping = 0.0;
+    this.advectionDamping = 0.1;
+    this.levelSetDamping = 0.25;
+    this.pressureDamping = 0;
 
     this.gpuManager.initLiquidKernels(this.N);
 
@@ -58,10 +60,9 @@ class LiquidGPU extends FluidGPU {
     temp.delete();
   }
   _rkReinitLevelSet(dt, levelSet0, levelSetN) {
-    const levelSetNPlus1 = this.gpuManager.reinitLevelSet(dt, levelSet0, levelSetN, this.boundaryBuf);
-    let temp = levelSetNPlus1;
-    const levelSetNPlus2 = this.gpuManager.reinitLevelSet(dt, levelSet0, levelSetNPlus1, this.boundaryBuf);
-    temp.delete();
+    const levelSetNPlus1 = this.gpuManager.reinitLevelSet(dt, levelSet0, levelSetN, this.boundaryBuf, this.levelSetDamping);
+    const levelSetNPlus2 = this.gpuManager.reinitLevelSet(dt, levelSet0, levelSetNPlus1, this.boundaryBuf, this.levelSetDamping);
+    levelSetNPlus1.delete();
     const rkLevelSet = this.gpuManager.rungeKuttaLevelSet(levelSetN, levelSetNPlus2);
     levelSetNPlus2.delete();
     return rkLevelSet;
@@ -126,7 +127,7 @@ class LiquidGPU extends FluidGPU {
   computePressure(numIter=PRESSURE_PER_FRAME_LOOPS) {
     // Set the pressure outside the liquid to zero
     let temp = this.pressure;
-    this.pressure = this.gpuManager.liquidLevelSetPressure(this.pressure, this.levelSet, this.boundaryBuf);
+    this.pressure = this.gpuManager.liquidLevelSetPressure(this.pressure, this.levelSet, this.levelEpsilon, this.boundaryBuf);
     temp.delete();
 
     for (let i = 0; i < numIter; i++) {
@@ -138,7 +139,7 @@ class LiquidGPU extends FluidGPU {
 
   projectVelocity() {
     let temp = this.vel0;
-    this.vel0 = this.gpuManager.projectLiquidVelocity(this.pressure, this.vel, this.boundaryBuf, this.levelSet);
+    this.vel0 = this.gpuManager.projectLiquidVelocity(this.pressure, this.vel, this.boundaryBuf, this.levelSet, this.levelEpsilon, this.pressureDamping);
     temp.delete();
   }
 
