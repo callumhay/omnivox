@@ -91,8 +91,8 @@ class VoxelFramebufferGPU extends VoxelFramebuffer {
   drawFire(fireLookup, temperatureArr, offsetXYZ) {
     this._bufferTexture = this.gpuKernelMgr.fireOverwrite(fireLookup, temperatureArr, offsetXYZ);
   }
-  drawWater(waterLookup, airLookup, levelSetArr, levelEpsilon, offsetXYZ) {
-    this._bufferTexture = this.gpuKernelMgr.waterOverwrite(waterLookup, airLookup, levelSetArr, levelEpsilon, offsetXYZ);
+  drawWater(waterLookup, airLookup, levelSetArr, boundaryBuf, levelEpsilon, offsetXYZ) {
+    this._bufferTexture = this.gpuKernelMgr.waterOverwrite(waterLookup, airLookup, levelSetArr, boundaryBuf, levelEpsilon, offsetXYZ);
   }
 }
 

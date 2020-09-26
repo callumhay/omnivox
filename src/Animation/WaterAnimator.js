@@ -9,9 +9,8 @@ import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 
 export const waterAnimatorDefaultConfig = {
   speed: 1.0,
-  gravity: 9.81,
+  gravity: 10,
   confinementScale: 0.12,
-  waterLevelEpsilon: 1e-6,
   levelSetDamping: 0,
   velAdvectionDamping: 0,
   pressureModulation: 1,
@@ -38,23 +37,21 @@ class WaterAnimator extends AudioVisualizerAnimator {
     const {gravity, confinementScale, waterLevelEpsilon, 
       levelSetDamping, velAdvectionDamping, pressureModulation} = c;
 
-    if (!this.fluidModel) {
-      this.fluidModel = new LiquidGPU(this.voxelModel.gridSize, this.voxelModel.gpuKernelMgr);
-      const B_OFFSET = 0;
-      this.fluidModel.setBoundary({
-        posXOffset:B_OFFSET, negXOffset:B_OFFSET, 
-        posYOffset:B_OFFSET, negYOffset:B_OFFSET, 
-        posZOffset:B_OFFSET, negZOffset:B_OFFSET
-      });
-      // Start by injecting a sphere of liquid
-      const {gridSize} = this.voxelModel;
-      const halfGridSize = (gridSize+2)/2;
-      this.fluidModel.injectSphere([halfGridSize-8, halfGridSize-8, halfGridSize-8], 4);
-      this.fluidModel.injectSphere([halfGridSize+8, halfGridSize+8, halfGridSize+8], 4);
-    }
+    this.fluidModel = new LiquidGPU(this.voxelModel.gridSize, this.voxelModel.gpuKernelMgr);
+    const B_OFFSET = 0;
+    this.fluidModel.setBoundary({
+      posXOffset:B_OFFSET, negXOffset:B_OFFSET, 
+      posYOffset:B_OFFSET, negYOffset:B_OFFSET, 
+      posZOffset:B_OFFSET, negZOffset:B_OFFSET
+    });
+    // Start by injecting a sphere of liquid
+    const {gridSize} = this.voxelModel;
+    const halfGridSize = (gridSize+2)/2;
+    this.fluidModel.injectSphere([halfGridSize-8, halfGridSize-8, halfGridSize-8], 4);
+    this.fluidModel.injectSphere([halfGridSize+8, halfGridSize+8, halfGridSize+8], 4);
+
     this.fluidModel.gravity = gravity;
     this.fluidModel.confinementScale = confinementScale;
-    this.fluidModel.levelEpsilon = waterLevelEpsilon;
     this.fluidModel.levelSetDamping = levelSetDamping;
     this.fluidModel.velAdvectionDamping = velAdvectionDamping;
     this.fluidModel.pressureModulation = pressureModulation;
@@ -85,7 +82,8 @@ class WaterAnimator extends AudioVisualizerAnimator {
 
     // Update the voxels...
     const gpuFramebuffer = this.voxelModel.framebuffer;
-    gpuFramebuffer.drawWater(this.waterLookup, this.airLookup, this.fluidModel.levelSet, this.fluidModel.levelEpsilon, [1, 1, 1]);
+    const {levelSet, boundaryBuf, levelEpsilon} = this.fluidModel;
+    gpuFramebuffer.drawWater(this.waterLookup, this.airLookup, levelSet, boundaryBuf, levelEpsilon, [1, 1, 1]);
   }
 
   setAudioInfo(audioInfo) {

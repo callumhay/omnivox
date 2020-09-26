@@ -1,7 +1,7 @@
 import FluidGPU from "./FluidGPU";
 
 const REINIT_PER_FRAME_LOOPS   = 3;
-const PRESSURE_PER_FRAME_LOOPS = 20;
+const PRESSURE_PER_FRAME_LOOPS = 30;
 
 class LiquidGPU extends FluidGPU {
   constructor(gridSize, gpuManager) {
@@ -10,7 +10,7 @@ class LiquidGPU extends FluidGPU {
 
     this.gravity = 9; // Force of gravity, continuously applied to the liquid
     this.confinementScale = 0.12;
-    this.levelEpsilon = 0.1; // The interface band between liquid and air/gas
+    this.levelEpsilon = 0.9; // The interface band between liquid and air/gas
     this.decay = 1;
     this.velAdvectionDamping = 0.0;
     this.lsAdvectionDamping = 0.0;
@@ -169,13 +169,13 @@ class LiquidGPU extends FluidGPU {
       for (let y = 0; y < pDiffArr[x].length; y++) {
         for (let z = 0; z < pDiffArr[x][y].length; z++) {
           if (this.boundaryBuf[x][y][z]) { continue; }
-          avg += pDiffArr[x][y][z];
+          avg += Math.abs(pDiffArr[x][y][z]);
           count++;
         }
       }
     }
     avg /= count;
-    if (Math.abs(avg) < 1e-6) {
+    if (avg < 1e-6) {
       this.pressureSlowdownTime += dt;
       this.lsAdvectionDamping = Math.min(1, this.lsAdvectionDamping + dt*0.01);
       //console.log("SLOWING DOWN... " + this.pressureSlowdownTime);
