@@ -31,7 +31,7 @@ class VoxelServer {
       self.webClientSockets.push(socket);
 
       socket.on('message', function(data) {
-        //console.log("Websocket message received.");
+        //console.log("Websocket message received: " + data);
         VoxelProtocol.readClientPacketStr(data, voxelModel, socket);
       });
 
@@ -186,7 +186,9 @@ class VoxelServer {
     // Send voxel data to websocket clients
     const voxelDataPacketBuf = VoxelProtocol.buildVoxelDataPacket(voxelData);
     this.webClientSockets.forEach(function(socket) {
-      socket.send(voxelDataPacketBuf);
+      if (socket.bufferedAmount === 0) {
+        socket.send(voxelDataPacketBuf);
+      }
     });
   }
 

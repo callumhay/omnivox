@@ -840,10 +840,23 @@ class ControlPanel {
       this.waterAnimatorConfig.speed = value;
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
     }).setValue(waterSettings.speed);
-    folder.add(waterSettings, 'gravity', -10, 10, 0.5).onChange((value) => {
+    folder.add(waterSettings, 'gravity', -50, 50, 1).onChange((value) => {
       this.waterAnimatorConfig.gravity = value;
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
     }).setValue(waterSettings.gravity);
+    folder.add(waterSettings, 'levelSetDamping', 0, 1, 0.01).onChange((value) => {
+      this.waterAnimatorConfig.levelSetDamping = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
+    }).setValue(waterSettings.levelSetDamping);
+    folder.add(waterSettings, 'velAdvectionDamping', 0, 1, 0.01).onChange((value) => {
+      this.waterAnimatorConfig.velAdvectionDamping = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
+    }).setValue(waterSettings.velAdvectionDamping);
+    folder.add(waterSettings, 'pressureModulation', 0, 1, 0.01).onChange((value) => {
+      this.waterAnimatorConfig.pressureModulation = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
+    }).setValue(waterSettings.pressureModulation);
+    
 
     folder.addColor(waterSettings, 'shallowColour').onChange((value) => {
       this.waterAnimatorConfig.shallowColour = GuiColorToRGBObj(value);

@@ -9,6 +9,7 @@ class VoxelClient {
     this.lastFrameId = 0;
     this.consecutiveFramesOutofSequence = 0;
     this.lastFrameHashCode = -1;
+    //this.audioOnQueue = false;
   }
 
   start(controlPanel) {
@@ -125,7 +126,7 @@ class VoxelClient {
     }
   }
   sendAudioInfo(audioInfo) {
-    if (this.socket.readyState === WebSocket.OPEN) {
+    if (this.socket.bufferedAmount === 0 && this.socket.readyState === WebSocket.OPEN && !this.audioOnQueue) {
       this.socket.send(VoxelProtocol.buildClientPacketStrAudio(audioInfo));
     }
   }

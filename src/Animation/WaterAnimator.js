@@ -12,6 +12,9 @@ export const waterAnimatorDefaultConfig = {
   gravity: 9.81,
   confinementScale: 0.12,
   waterLevelEpsilon: 1e-6,
+  levelSetDamping: 0,
+  velAdvectionDamping: 0,
+  pressureModulation: 1,
 
   colourInterpolationType: COLOUR_INTERPOLATION_RGB,
   shallowColour:  new THREE.Color(0.4,1,1),
@@ -32,7 +35,8 @@ class WaterAnimator extends AudioVisualizerAnimator {
   setConfig(c) {
     super.setConfig(c);
 
-    const {gravity, confinementScale, waterLevelEpsilon} = c;
+    const {gravity, confinementScale, waterLevelEpsilon, 
+      levelSetDamping, velAdvectionDamping, pressureModulation} = c;
 
     if (!this.fluidModel) {
       this.fluidModel = new LiquidGPU(this.voxelModel.gridSize, this.voxelModel.gpuKernelMgr);
@@ -43,23 +47,40 @@ class WaterAnimator extends AudioVisualizerAnimator {
         posZOffset:B_OFFSET, negZOffset:B_OFFSET
       });
       // Start by injecting a sphere of liquid
-      this.fluidModel.injectSphere();
+      const {gridSize} = this.voxelModel;
+      const halfGridSize = (gridSize+2)/2;
+      this.fluidModel.injectSphere([halfGridSize-8, halfGridSize-8, halfGridSize-8], 4);
+      this.fluidModel.injectSphere([halfGridSize+8, halfGridSize+8, halfGridSize+8], 4);
     }
     this.fluidModel.gravity = gravity;
     this.fluidModel.confinementScale = confinementScale;
     this.fluidModel.levelEpsilon = waterLevelEpsilon;
+    this.fluidModel.levelSetDamping = levelSetDamping;
+    this.fluidModel.velAdvectionDamping = velAdvectionDamping;
+    this.fluidModel.pressureModulation = pressureModulation;
 
     this.genColourLookup();
   }
 
   reset() {
     super.reset();
+    this.t = 0;
   }
 
   render(dt) {
     const {speed} = this.config;
     const dtSpeed = dt*speed;
-
+    /*
+    this.t += dtSpeed;
+    if (this.t > 5) {
+      const {gridSize} = this.voxelModel;
+      const halfGridSize = (gridSize+2)/2;
+      this.fluidModel.injectForceBlob([halfGridSize,1,halfGridSize], 10, 5);
+      this.fluidModel.stopSimulation = false;
+      this.t = 0;
+    }
+    */
+    
     this.fluidModel.step(dtSpeed);
 
     // Update the voxels...

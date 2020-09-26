@@ -142,6 +142,7 @@ class VoxelModel {
     let self = this;
     let lastFrameTime = Date.now();
     let dt = 0;
+    let framesOnQueue = 0;
 
     const renderLoop = async function() {
       self.currFrameTime = Date.now();
@@ -196,17 +197,22 @@ class VoxelModel {
       lastFrameTime = self.currFrameTime;
 
       // Make sure we're keeping up with the set framerate, accounting for the time it took to execute the current frame
-      const currTotalFrameTime = Date.now() - self.currFrameTime;
-      const timeToNextFrame = DEFAULT_POLLING_INTERVAL_MS-currTotalFrameTime;
-      if (timeToNextFrame <= 0) {
-        setImmediate(renderLoop);
-      }
-      else {
-        setTimeout(renderLoop, timeToNextFrame);
+      framesOnQueue--;
+      if (framesOnQueue === 0) {
+        const currTotalFrameTime = Date.now() - self.currFrameTime;
+        const timeToNextFrame = DEFAULT_POLLING_INTERVAL_MS-currTotalFrameTime;
+        if (timeToNextFrame <= 0) {
+          setImmediate(renderLoop);
+        }
+        else {
+          setTimeout(renderLoop, timeToNextFrame);
+        }
+        framesOnQueue++;
       }
     };
 
     setTimeout(renderLoop, DEFAULT_POLLING_INTERVAL_MS);
+    framesOnQueue = 1;
   }
  
   /**

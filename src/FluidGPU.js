@@ -5,6 +5,7 @@ const DEFAULT_BOUNDARY_CONFIG = {
 class FluidGPU {
   constructor(gridSize, gpuManager) {
     this.N = gridSize;
+    this.dx = this.dy = this.dz = 1;
     this.gpuManager = gpuManager;
     this.gpuManager.initFluidKernels(this.N);
 
