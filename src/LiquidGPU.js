@@ -1,7 +1,7 @@
 import FluidGPU from "./FluidGPU";
 
-const REINIT_PER_FRAME_LOOPS   = 3;
-const PRESSURE_PER_FRAME_LOOPS = 30;
+const REINIT_PER_FRAME_LOOPS   = 5;
+const PRESSURE_PER_FRAME_LOOPS = 60;
 
 class LiquidGPU extends FluidGPU {
   constructor(gridSize, gpuManager) {
@@ -10,7 +10,7 @@ class LiquidGPU extends FluidGPU {
 
     this.gravity = 9; // Force of gravity, continuously applied to the liquid
     this.confinementScale = 0.12;
-    this.levelEpsilon = 0.9; // The interface band between liquid and air/gas
+    this.levelEpsilon = this.dx-(1e-6); // The interface band between liquid and air/gas
     this.decay = 1;
     this.velAdvectionDamping = 0.0;
     this.lsAdvectionDamping = 0.0;
@@ -33,6 +33,10 @@ class LiquidGPU extends FluidGPU {
     this.tempScalarBuf1 = this.gpuManager.initFluidBufferFunc(0);
     this.tempVec3Buf   = this.gpuManager.initFluidBuffer3Func(0, 0, 0);
 
+    this._restartSimulation();
+  }
+
+  _restartSimulation() {
     this.stopSimulation = false;
     this.pressureSlowdownTime = 0;
     this.numRuns = 0;
@@ -40,12 +44,14 @@ class LiquidGPU extends FluidGPU {
   
   injectForceBlob(center, impulseStrength, size) {
     this.forceBlob = {center, impulseStrength, size};
+    this._restartSimulation();
   }
 
   injectSphere(center=[1 + this.N/2, this.N-4, 1 + this.N/2], radius=3) {
     let temp = this.levelSet;
     this.levelSet = this.gpuManager.injectLiquidSphere(center, radius, this.levelSet, this.boundaryBuf);
     temp.delete();
+    this._restartSimulation();
   }
 
   advectLevelSet(dt) {
@@ -104,11 +110,11 @@ class LiquidGPU extends FluidGPU {
 
   applyVorticityConfinement(dt) {
     let temp = this.tempVec3Buf;
-    this.tempVec3Buf = this.gpuManager.applyLiquidVorticity(this.vel, this.boundaryBuf);
+    this.tempVec3Buf = this.gpuManager.applyLiquidVorticity(this.vel, this.boundaryBuf, this.levelSet);
     temp.delete();
 
     temp = this.vel;
-    this.vel = this.gpuManager.applyLiquidConfinement(dt, this.confinementScale, this.tempVec3Buf, this.vel, this.boundaryBuf);
+    this.vel = this.gpuManager.applyLiquidConfinement(dt, this.confinementScale, this.tempVec3Buf, this.vel, this.boundaryBuf, this.levelSet);
     temp.delete();
   }
 
@@ -175,11 +181,12 @@ class LiquidGPU extends FluidGPU {
       }
     }
     avg /= count;
-    if (avg < 1e-6) {
+    //console.log(avg);
+    if (avg < 0.005) {
       this.pressureSlowdownTime += dt;
-      this.lsAdvectionDamping = Math.min(1, this.lsAdvectionDamping + dt*0.01);
+      this.lsAdvectionDamping = Math.min(1, this.lsAdvectionDamping + dt*0.1);
       //console.log("SLOWING DOWN... " + this.pressureSlowdownTime);
-      if (this.pressureSlowdownTime >= 3) {
+      if (this.pressureSlowdownTime >= 2) {
         this.stopSimulation = true;
       }
     }
@@ -202,12 +209,17 @@ class LiquidGPU extends FluidGPU {
 
     this.advectLevelSetRK3(dt);
     this.reinitLevelSetRK(dt);
+
+    
     this.advectVelocity(dt);
-    this.applyVorticityConfinement(dt);
     this.applyExternalForces(dt);
+    
+    this.applyVorticityConfinement(dt);
+    
     this.computeVelocityDivergence();
     this.computePressure();
     this.projectVelocity();
+
     this.calcPressureDiff(dt);
     this.numRuns++;
   }

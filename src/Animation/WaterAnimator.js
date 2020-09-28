@@ -67,16 +67,18 @@ class WaterAnimator extends AudioVisualizerAnimator {
   render(dt) {
     const {speed} = this.config;
     const dtSpeed = dt*speed;
-    /*
+
     this.t += dtSpeed;
-    if (this.t > 5) {
+    if (this.t > 2) {
       const {gridSize} = this.voxelModel;
-      const halfGridSize = (gridSize+2)/2;
-      this.fluidModel.injectForceBlob([halfGridSize,1,halfGridSize], 10, 5);
+      const sphereR = (3+Math.random()*3);
+      const gridSpan = gridSize+2-2*sphereR;
+      this.fluidModel.injectSphere([sphereR + Math.random()*gridSpan, 3+sphereR + Math.random()*(gridSpan-3), sphereR + Math.random()*gridSpan], sphereR);
+      //this.fluidModel.injectForceBlob([halfGridSize,1,halfGridSize], 10, 5);
       this.fluidModel.stopSimulation = false;
       this.t = 0;
     }
-    */
+
     
     this.fluidModel.step(dtSpeed);
 
