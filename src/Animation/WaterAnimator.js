@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 import LiquidGPU from '../LiquidGPU';
+import SimpleLiquid, {LiquidCell} from '../SimpleLiquid';
 import Spectrum, {COLOUR_INTERPOLATION_RGB} from '../Spectrum';
 
 import AudioVisualizerAnimator from './AudioVisualizerAnimator';
@@ -23,7 +24,7 @@ export const waterAnimatorDefaultConfig = {
   audioVisualizationOn: false,
 };
 
-class WaterAnimator extends AudioVisualizerAnimator {
+class WaterAnimator extends VoxelAnimator {
   constructor(voxelModel, config=waterAnimatorDefaultConfig) {
     super(voxelModel, config);
     this.reset();
@@ -34,6 +35,9 @@ class WaterAnimator extends AudioVisualizerAnimator {
   setConfig(c) {
     super.setConfig(c);
 
+    const {gridSize} = this.voxelModel;
+    this.liquid = new SimpleLiquid(gridSize);
+    /*
     const {gravity, confinementScale, waterLevelEpsilon, 
       levelSetDamping, velAdvectionDamping, pressureModulation} = c;
 
@@ -57,6 +61,7 @@ class WaterAnimator extends AudioVisualizerAnimator {
     this.fluidModel.pressureModulation = pressureModulation;
 
     this.genColourLookup();
+    */
   }
 
   reset() {
@@ -64,10 +69,36 @@ class WaterAnimator extends AudioVisualizerAnimator {
     this.t = 0;
   }
 
+  rendersToCPUOnly() { return true; }
   render(dt) {
+    const {clamp} = THREE.MathUtils;
     const {speed} = this.config;
     const dtSpeed = dt*speed;
 
+    this.liquid.step(dtSpeed);
+
+    const OFFSET = 1;
+    const {cells} = this.liquid;
+    const pt = new THREE.Vector3();
+    const colour = new THREE.Color();
+    for (let x = OFFSET; x < cells.length-OFFSET; x++) {
+      for (let y = OFFSET; y < cells[x].length-OFFSET; y++) {
+        const cell = cells[x][y];
+        pt.set(x-OFFSET,y-OFFSET,0);
+        if (cell.type === LiquidCell.SOLID_CELL_TYPE) {
+          colour.setRGB(1,1,1);
+        }
+        else {
+          const amt = clamp(cell.liquidVol,0,1);
+          colour.setRGB(0,amt,amt);
+        }
+
+        this.voxelModel.drawPoint(pt, colour);
+      }
+    }
+
+
+    /*
     this.t += dtSpeed;
     if (this.t > 2) {
       const {gridSize} = this.voxelModel;
@@ -86,6 +117,7 @@ class WaterAnimator extends AudioVisualizerAnimator {
     const gpuFramebuffer = this.voxelModel.framebuffer;
     const {levelSet, boundaryBuf, levelEpsilon} = this.fluidModel;
     gpuFramebuffer.drawWater(this.waterLookup, this.airLookup, levelSet, boundaryBuf, levelEpsilon, [1, 1, 1]);
+    */
   }
 
   setAudioInfo(audioInfo) {
