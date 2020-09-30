@@ -215,8 +215,8 @@ class LiquidGPU extends FluidGPU {
     this.applyExternalForces(dt);
     
     this.applyVorticityConfinement(dt);
-    
     this.computeVelocityDivergence();
+    
     this.computePressure();
     this.projectVelocity();
 
