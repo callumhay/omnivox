@@ -90,7 +90,8 @@ class WaterAnimator extends VoxelAnimator {
         }
         else {
           const amt = clamp(cell.liquidVol,0,1);
-          colour.setRGB(0,amt,amt);
+          const extra = Math.max(0, 4*(amt-1));
+          colour.setRGB(extra,amt/2,amt-extra);
         }
 
         this.voxelModel.drawPoint(pt, colour);
