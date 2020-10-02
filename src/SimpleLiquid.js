@@ -62,13 +62,15 @@ class SimpleLiquid {
 
 const GRAVITY = 9.81;  // m/s^2
 const LIQUID_DENSITY = 1;
-const ATMO_PRESSURE  = 10;
+const ATMO_PRESSURE  = 101000; // N/m^2
+const MAX_GRAVITY_VELOCITY  = 10; // m/s
+const MAX_PRESSURE_VELOCITY = 15.5; // m/s
 
 class LiquidSim {
   static get LIQUID_EPSILON() { return 1e-6; }
 
   // Flows are in m^2/s
-  static get MAX_FLOW() { return 4.0; } 
+  static get MAX_FLOW() { return 1.0; } 
   static get MIN_FLOW() { return LiquidSim.LIQUID_EPSILON; }
 
   static get MAX_PRESSURE_CELL_COUNT() { return 5; }
@@ -77,16 +79,15 @@ class LiquidSim {
     this.unitSize = unitSize; // Units are in meters
     this.maxLiquidVol = Math.pow(this.unitSize,3); // Volumes are in m^3
     this.flowSpeed = 5.0;
-    this.maxCompression = 0.15;
 
-    this.tempBuffScalar = this.buildBuffer(size,1)
-    this.tempBuffVec3   = this.buildBuffer(size,3);
-    this.velField       = this.buildBuffer(size,3);
-
-    this.pressureField  = this.buildBuffer(size,1);
-    this.tempPressure   = this.buildBuffer(size,1);
+    this.tempBuffScalar = this.build3DBuffer(size, 3, 1)
+    this.tempBuffVec3   = this.build3DBuffer(size, 3, 3);
+    this.velField       = this.build3DBuffer(size, 3, 3);
+    this.pressureField  = this.build3DBuffer(size, 3, 1);
+    this.tempPressure   = this.build3DBuffer(size, 3, 1);
 
     this.vorticityConfinement = 0.012;
+    this.count = 0;
 
     this.diffs = new Array(size).fill(null);
     for (let i = 0; i < size; i++) {
@@ -94,12 +95,15 @@ class LiquidSim {
     }
   }
 
-  buildBuffer(size, vecDim) {
-    const result = new Array(size).fill(null);
-    for (let i = 0; i < size; i++) {
-      result[i] = new Array(size).fill(null);
-      for (let j = 0; j < size; j++) {
-        result[i][j] = vecDim === 1 ? 0 : new Array(vecDim).fill(0);
+  build3DBuffer(xySize, zSize, vecDim) {
+    const result = new Array(xySize).fill(null);
+    for (let i = 0; i < xySize; i++) {
+      result[i] = new Array(xySize).fill(null);
+      for (let j = 0; j < xySize; j++) {
+        result[i][j] = new Array(zSize).fill(null);
+        for (let k = 0; k < zSize; k++) {
+          result[i][j][k] = vecDim === 1 ? 0 : new Array(vecDim).fill(0);
+        }
       }
     }
     return result;
@@ -121,25 +125,12 @@ class LiquidSim {
   }
 
   calculateHorizontalFlow(remainingLiquid, destinationCell) {
-    return 0.5 * ((remainingLiquid + this.maxCompression) - destinationCell.liquidVol);
+    return (remainingLiquid - destinationCell.liquidVol);
   }
 
-  calculateVerticalFlow(remainingLiquid, destinationCell) {
-    const sum = remainingLiquid + destinationCell.liquidVol;
-    let value = 0;
-		if (sum <= this.maxLiquidVol) {
-			value = this.maxLiquidVol;
-    }
-    else if (sum < 2 * this.maxLiquidVol + this.maxCompression) {
-      value = (this.maxLiquidVol * this.maxLiquidVol + sum * this.maxCompression) / 
-        (this.maxLiquidVol + this.maxCompression);
-    }
-    else {
-			value = 0.5 * (sum + this.maxCompression);
-		}
-		return value;
-
-    //return  (sum < 2*this.maxLiquidVol) ? this.maxLiquidVol :  0.5 * sum;
+  calculateVerticalFlow(remainingLiquid, destinationLiquid) {
+    const sum = remainingLiquid + destinationLiquid;
+    return sum <= this.maxLiquidVol ? this.maxLiquidVol : 0.5*sum;
   }
 
   advectVelocity(dt, cells) {
@@ -149,25 +140,34 @@ class LiquidSim {
 
     for (let x = 0; x < this.velField.length; x++) {
       for (let y = 0; y < this.velField[x].length; y++) {
-        const u = this.velField[x][y];
-        const cell = cells[x][y];
-        if (cell.type === LiquidCell.SOLID_CELL_TYPE || cell.settled) { continue; }
-        const xx = clamp(x-dt*u[0], minClamp, maxClamp);
-        const yy = clamp(y-dt*u[1], minClamp, maxClamp);
-        //const zz = clampValue(z-dt*u.z, minClamp, maxClamp);
-        const i0 = Math.floor(xx), i1 = i0 + 1;
-        const j0 = Math.floor(yy), j1 = j0 + 1;
-        //const k0 = Math.floor(zz), k1 = k0 + 1;
-        const sx1 = xx-i0, sx0 = 1-sx1;
-        const sy1 = yy-j0, sy0 = 1-sy1;
-        //const sz1 = zz-k0, sz0 = 1-sz1;
-        //const vel000 = vel0[i0][j0][k0], vel010 = vel0[i0][j1][k0], vel100 = vel0[i1][j0][k0];
-        //const vel110 = vel0[i1][j1][k0], vel001 = vel0[i0][j0][k1], vel011 = vel0[i0][j1][k1];
-        //const vel101 = vel0[i1][j0][k1], vel111 = vel0[i1][j1][k1];
-        const vel00 = this.velField[i0][j0], vel01 = this.velField[i0][j1];
-        const vel10 = this.velField[i1][j0], vel11 = this.velField[i1][j1];
-        for (let i = 0; i < 2; i++) {
-          u[i] += sx0*(sy0*vel00[i] + sy1*vel01[i]) + sx1*(sy0*vel10[i] + sy1*vel11[i]);
+        for (let z = 0; z < this.velField[x][y].length; z++) {
+          const u = this.velField[x][y][z];
+
+          // Boundaries extend in z dimension
+          const cell = cells[x][y];
+          if (cell.type === LiquidCell.SOLID_CELL_TYPE || cell.settled) {
+            u[0] = u[1] = u[2] = 0;
+            continue;
+          }
+
+          const xx = clamp(x-dt*u[0], minClamp, maxClamp);
+          const yy = clamp(y-dt*u[1], minClamp, maxClamp);
+          const zz = clamp(z-dt*u[2], minClamp, this.velField[x][y].length-1.5);
+          const i0 = Math.floor(xx), i1 = i0 + 1;
+          const j0 = Math.floor(yy), j1 = j0 + 1;
+          const k0 = Math.floor(zz), k1 = k0 + 1;
+          const sx1 = xx-i0, sx0 = 1-sx1;
+          const sy1 = yy-j0, sy0 = 1-sy1;
+          const sz1 = zz-k0, sz0 = 1-sz1;
+          const vel000 = this.velField[i0][j0][k0], vel010 = this.velField[i0][j1][k0];
+          const vel100 = this.velField[i1][j0][k0], vel110 = this.velField[i1][j1][k0];
+          const vel001 = this.velField[i0][j0][k1], vel011 = this.velField[i0][j1][k1];
+          const vel101 = this.velField[i1][j0][k1], vel111 = this.velField[i1][j1][k1];
+          for (let i = 0; i < 3; i++) {
+            const v0 = sx0*(sy0*vel000[i] + sy1*vel010[i]) + sx1*(sy0*vel100[i] + sy1*vel110[i]);
+            const v1 = sx0*(sy0*vel001[i] + sy1*vel011[i]) + sx1*(sy0*vel101[i] + sy1*vel111[i]);
+            u[i] = sz0*v0 + sz1*v1;
+          }
         }
       }
     }
@@ -178,11 +178,19 @@ class LiquidSim {
     const size = this.velField.length;
     for (let x = 0; x < this.velField.length; x++) {
       for (let y = 0; y < this.velField[x].length; y++) {
-        const u = this.velField[x][y];
+        const z = 1;
+        const u = this.velField[x][y][z];
         const cell = cells[x][y];
         if (cell.type === LiquidCell.SOLID_CELL_TYPE || cell.settled) { continue; }
         // Apply gravity...
-        u[1] = Math.max(u[1] - GRAVITY*dt, -10);
+        const bottomY = Math.max(0, y-1);
+        const bottomCell = cells[x][bottomY];
+        if (y !== bottomY && bottomCell.type === LiquidCell.EMPTY_CELL_TYPE) {
+          u[1] = clamp(u[1] - GRAVITY*dt, -MAX_GRAVITY_VELOCITY, MAX_GRAVITY_VELOCITY);
+        }
+        else {
+          u[1] = Math.min(0, u[1]);
+        }
 
         // Apply hydrostatic pressure velocity...
         
@@ -198,28 +206,30 @@ class LiquidSim {
           }
         }
         const liquidMassAboveCell = LIQUID_DENSITY*liquidVolAboveCell;
-        const hsForce = (10 + liquidMassAboveCell*GRAVITY)*this.unitArea;
+        const hsForce = (ATMO_PRESSURE + liquidMassAboveCell*GRAVITY)*this.unitArea;
         const dHSVel  = hsForce*dt/(liquidMassAboveCell+1e-6);
 
         const xm1 = Math.max(0, x-1), xp1 = Math.min(size-1, x+1);
         const leftCell = cells[xm1][y];
         const rightCell = cells[xp1][y];
         let totalVel = 0;
-        if (leftCell.type === LiquidCell.EMPTY_CELL_TYPE && cell.liquidVol > leftCell.liquidVol) {
+        if (leftCell.type === LiquidCell.EMPTY_CELL_TYPE && cell.liquidVol > leftCell.liquidVol && 
+          (bottomCell.type === LiquidCell.SOLID_CELL_TYPE || bottomCell.liquidVol >= cell.liquidVol)) {
           totalVel -= dHSVel;
           leftCell.settled = false;
         }
         else {
           u[0] = Math.max(0, u[0]);
         }
-        if (rightCell.type === LiquidCell.EMPTY_CELL_TYPE && cell.liquidVol > rightCell.liquidVol) {
+        if (rightCell.type === LiquidCell.EMPTY_CELL_TYPE && cell.liquidVol > rightCell.liquidVol &&
+          (bottomCell.type === LiquidCell.SOLID_CELL_TYPE || bottomCell.liquidVol >= cell.liquidVol)) {
           totalVel += dHSVel;
           rightCell.settled = false;
         }
         else {
           u[0] = Math.min(0, u[0]);
         }
-        u[0] = clamp(u[0] + totalVel, -20, 20);
+        u[0] = clamp(u[0] + totalVel, -MAX_PRESSURE_VELOCITY, MAX_PRESSURE_VELOCITY);
       }
     }
   }
@@ -229,24 +239,30 @@ class LiquidSim {
     // Calculate the curl and curl lengths
     for (let x = 0; x < this.velField.length; x++) {
       for (let y = 0; y < this.velField[x].length; y++) {
-        const result = this.tempBuffVec3[x][y];
-        result[0] = result[1] = 0;
-        this.tempBuffScalar[x][y] = 0
-
-        const cell = cells[x][y];
-        if (cell.type === LiquidCell.SOLID_CELL_TYPE || cell.settled) { continue; }
 
         const xm1 = Math.max(0, x-1), xp1 = Math.min(size-1, x+1);
         const ym1 = Math.max(0, y-1), yp1 = Math.min(size-1, y+1);
+        
+        for (let z = 0; z < this.velField[x][y].length; z++) {
+          const result = this.tempBuffVec3[x][y][z];
+          result[0] = result[1] = result[2] = 0;
+          this.tempBuffScalar[x][y][z] = 0;
 
-        const L = [...this.velField[xm1][y],0]; const R = [...this.velField[xp1][y],0]
-        const B = [...this.velField[x][ym1],0]; const T = [...this.velField[x][yp1],0];
-        const D = [0,0,0], U = [0,0,0];
-        result[0] = 0.5 * ((T[2] - B[2]) - (U[1] - D[1]));
-        result[1] = 0.5 * ((U[0] - D[0]) - (R[2] - L[2]));
-        result[2] = 0.5 * ((R[1] - L[1]) - (T[0] - B[0]));
-        // Store the length of the result
-        this.tempBuffScalar[x][y] = Math.sqrt(result[0]*result[0] + result[1]*result[1] + result[2]*result[2]);
+          // Boundaries extend in z dimension
+          const cell = cells[x][y];
+          if (cell.type === LiquidCell.SOLID_CELL_TYPE || cell.settled) { continue; }
+
+          const zm1 = Math.max(0, z-1), zp1 = Math.min(this.velField[x][y].length-1, z+1);
+
+          const L = this.velField[xm1][y][z], R = this.velField[xp1][y][z];
+          const B = this.velField[x][ym1][z], T = this.velField[x][yp1][z];
+          const D = this.velField[x][y][zm1], U = this.velField[x][y][zp1];
+          result[0] = 0.5 * ((T[2] - B[2]) - (U[1] - D[1]));
+          result[1] = 0.5 * ((U[0] - D[0]) - (R[2] - L[2]));
+          result[2] = 0.5 * ((R[1] - L[1]) - (T[0] - B[0]));
+          // Store the length of the result
+          this.tempBuffScalar[x][y][z] = Math.sqrt(result[0]*result[0] + result[1]*result[1] + result[2]*result[2]);
+        }
       }
 
       // Apply confinement
@@ -254,25 +270,32 @@ class LiquidSim {
       const dtEpsilon = dt*this.vorticityConfinement;
       for (let x = 0; x < this.velField.length; x++) {
         for (let y = 0; y < this.velField[x].length; y++) {
-          const cell = cells[x][y];
-          if (cell.type === LiquidCell.SOLID_CELL_TYPE || cell.settled) { continue; }
 
+          const cell = cells[x][y];
+          // Boundaries extend in z dimension
+          if (cell.type === LiquidCell.SOLID_CELL_TYPE || cell.settled) { continue; }
           const xm1 = Math.max(0, x-1), xp1 = Math.min(size-1, x+1);
           const ym1 = Math.max(0, y-1), yp1 = Math.min(size-1, y+1);
 
-          const omega = this.tempBuffVec3[x][y];
-          const omegaL = this.tempBuffScalar[xm1][y];
-          const omegaR = this.tempBuffScalar[xp1][y];
-          const omegaB = this.tempBuffScalar[x][ym1];
-          const omegaT = this.tempBuffScalar[x][yp1];
-          const omegaD = 0, omegaU = 0;
-          eta.set(0.5 * (omegaR - omegaL), 0.5 * (omegaT - omegaB), 0.5 * (omegaU - omegaD));
-          let len = eta.length() + 1e-6;
-          eta.divideScalar(len);
-          const vel = this.velField[x][y];
-          vel[0] += dtEpsilon * (eta.x*omega[2] - eta.z*omega[1]);
-          vel[1] += dtEpsilon * (eta.z*omega[0] - eta.x*omega[2]);
-          vel[2] += dtEpsilon * (eta.x*omega[1] - eta.y*omega[0]);
+          for (let z = 0; z < this.velField[x][y].length; z++) {
+            const zm1 = Math.max(0, z-1), zp1 = Math.min(this.velField[x][y].length-1, z+1);
+
+            const omega  = this.tempBuffVec3[x][y][z];
+            const omegaL = this.tempBuffScalar[xm1][y][z];
+            const omegaR = this.tempBuffScalar[xp1][y][z];
+            const omegaB = this.tempBuffScalar[x][ym1][z];
+            const omegaT = this.tempBuffScalar[x][yp1][z];
+            const omegaD = this.tempBuffScalar[x][y][zm1];
+            const omegaU = this.tempBuffScalar[x][y][zp1];
+
+            eta.set(0.5 * (omegaR - omegaL), 0.5 * (omegaT - omegaB), 0.5 * (omegaU - omegaD));
+            let len = eta.length() + 1e-6;
+            eta.divideScalar(len);
+            const vel = this.velField[x][y][z];
+            vel[0] += dtEpsilon * (eta.x*omega[2] - eta.z*omega[1]);
+            vel[1] += dtEpsilon * (eta.z*omega[0] - eta.x*omega[2]);
+            vel[2] += dtEpsilon * (eta.x*omega[1] - eta.y*omega[0]);
+          }
         }
       }
     }
@@ -284,22 +307,34 @@ class LiquidSim {
     for (let x = 0; x < this.velField.length; x++) {
       for (let y = 0; y < this.velField[x].length; y++) {
         const cell = cells[x][y];
-        if (cell.type === LiquidCell.SOLID_CELL_TYPE || cell.settled) { continue; } // Set to 0??
-
         const xm1 = Math.max(0, x-1), xp1 = Math.min(size-1, x+1);
         const ym1 = Math.max(0, y-1), yp1 = Math.min(size-1, y+1);
 
-        const u = this.velField[x][y];
-        // NOTE: If the boundary has a velocity then change noVel to that velocity!
-        const fieldL = (cells[xm1][y].type === LiquidCell.SOLID_CELL_TYPE) ? noVel : this.velField[xm1][y];
-        const fieldR = (cells[xp1][y].type === LiquidCell.SOLID_CELL_TYPE) ? noVel : this.velField[xp1][y];
-        const fieldB = (cells[x][ym1].type === LiquidCell.SOLID_CELL_TYPE) ? noVel : this.velField[x][ym1];
-        const fieldT = (cells[x][yp1].type === LiquidCell.SOLID_CELL_TYPE) ? noVel : this.velField[x][yp1];
-        const fieldD = noVel;
-        const fieldU = noVel;
-        this.tempBuffScalar[x][y] = 0.5 * (
-          (fieldR[0]-fieldL[0]) + (fieldT[1]-fieldB[1]) + (fieldU[2]-fieldD[2])
-        );
+        for (let z = 0; z < this.velField[x][y].length; z++) {
+          if (cell.type === LiquidCell.SOLID_CELL_TYPE || cell.settled) {
+            this.tempBuffScalar[x][y][z] = 0;
+            continue; 
+          }
+          const zm1 = Math.max(0, z-1), zp1 = Math.min(this.velField[x][y].length-1, z+1);
+
+          // NOTE: If the boundary has a velocity then change noVel to that velocity!
+          // NOTE: All boundaries extend in the z dimension
+          const fieldL = (cells[xm1][y].type === LiquidCell.SOLID_CELL_TYPE) ? 
+            noVel : this.velField[xm1][y][z];
+          const fieldR = (cells[xp1][y].type === LiquidCell.SOLID_CELL_TYPE) ? 
+            noVel : this.velField[xp1][y][z];
+          const fieldB = (cells[x][ym1].type === LiquidCell.SOLID_CELL_TYPE) ? 
+            noVel : this.velField[x][ym1][z];
+          const fieldT = (cells[x][yp1].type === LiquidCell.SOLID_CELL_TYPE) ? 
+            noVel : this.velField[x][yp1][z];
+
+          const fieldD = noVel;//z === 1 ? 0 : this.velField[x][y][zm1];
+          const fieldU = noVel;//z === 1 ? 0 : this.velField[x][y][zp1];
+
+          this.tempBuffScalar[x][y][z] = 0.5 * (
+            (fieldR[0]-fieldL[0]) + (fieldT[1]-fieldB[1]) + (fieldU[2]-fieldD[2])
+          );
+        }
       }
     }
   }
@@ -307,31 +342,44 @@ class LiquidSim {
   computePressure(cells, numIter=12) {
     for (let x = 0; x < this.pressureField.length; x++) {
       for (let y = 0; y < this.pressureField[x].length; y++) {
-        this.pressureField[x][y] = 0;
+        for (let z = 0; z < this.pressureField[x][y].length; z++) {
+          this.pressureField[x][y][z] = 0;
+        }
       }
     }
     const size = this.pressureField.length;
     for (let i = 0; i < numIter; i++) {
       for (let x = 0; x < this.pressureField.length; x++) {
         for (let y = 0; y < this.pressureField[x].length; y++) {
+          
+          // Boundaries extend in z dimension
           if (cells[x][y].type === LiquidCell.SOLID_CELL_TYPE || cells[x][y].settled) { continue; }
-          const pC = this.pressureField[x][y];
-          const bC = this.tempBuffScalar[x][y]; // Contains the 'divergence' calculated previously
-
           const xm1 = Math.max(0, x-1), xp1 = Math.min(size-1, x+1);
           const ym1 = Math.max(0, y-1), yp1 = Math.min(size-1, y+1);
+
+          for (let z = 0; z < this.pressureField[x][y].length; z++) {
           
-          let pL = this.pressureField[xm1][y];
-          if (cells[xm1][y].type === LiquidCell.SOLID_CELL_TYPE) { pL = pC; }
-          let pR = this.pressureField[xp1][y];
-          if (cells[xp1][y].type === LiquidCell.SOLID_CELL_TYPE) { pR = pC; }
-          let pB = this.pressureField[x][ym1];
-          if (cells[x][ym1].type === LiquidCell.SOLID_CELL_TYPE) { pB = pC; }
-          let pT = this.pressureField[x][yp1];
-          if (cells[x][yp1].type === LiquidCell.SOLID_CELL_TYPE) { pT = pC; }
-          //let pD = 0;
-          //let pU = 0;
-          this.tempPressure = (pL + pR + pB + pT /*+ pU + pD*/ - bC) / 4.0;
+            const pC = this.pressureField[x][y][z];
+            const bC = this.tempBuffScalar[x][y][z]; // Contains the 'divergence' calculated previously
+            const zm1 = Math.max(0, z-1), zp1 = Math.min(this.pressureField[x][y].length-1, z+1);
+            
+            let pL = this.pressureField[xm1][y][z];
+            let pR = this.pressureField[xp1][y][z];
+            let pB = this.pressureField[x][ym1][z];
+            let pT = this.pressureField[x][yp1][z];
+            
+            // Boundaries extend in z dimension
+            if (cells[xm1][y].type === LiquidCell.SOLID_CELL_TYPE) { pL = pC; }
+            if (cells[xp1][y].type === LiquidCell.SOLID_CELL_TYPE) { pR = pC; }
+            if (cells[x][ym1].type === LiquidCell.SOLID_CELL_TYPE) { pB = pC; }
+            if (cells[x][yp1].type === LiquidCell.SOLID_CELL_TYPE) { pT = pC; }
+
+            // In the plane below and above z===1 the cells are considered solid boundaries
+            let pD = z===1 ? this.pressureField[x][y][zm1] : pC;
+            let pU = z===1 ? this.pressureField[x][y][zp1] : pC;
+
+            this.tempPressure[x][y][z] = (pL + pR + pB + pT + pU + pD - bC) / 6.0;
+          }
         }
       }
       // Swap the buffers
@@ -345,39 +393,53 @@ class LiquidSim {
     const size = this.velField.length;
     for (let x = 0; x < this.velField.length; x++) {
       for (let y = 0; y < this.velField[x].length; y++) {
-        if (cells[x][y].type === LiquidCell.SOLID_CELL_TYPE || cells[x][y].settled) { continue; }
 
         const xm1 = Math.max(0, x-1), xp1 = Math.min(size-1, x+1);
         const ym1 = Math.max(0, y-1), yp1 = Math.min(size-1, y+1);
 
-        const u = this.velField[x][y];
-        let pC = this.pressureField[x][y];  
-        let pL = this.pressureField[xm1][y], pR = this.pressureField[xp1][y];
-        let pB = this.pressureField[x][ym1], pT = this.pressureField[x][yp1];
-        //let pD = 0, pU = 0;
+        for (let z = 0; z < this.velField[x][y].length; z++) {
+          const u = this.velField[x][y][z];
 
-        // NOTE: This requires augmentation if the boundaries have velocity!
-        const vMaskPos = [1,1];
-        const vMaskNeg = [1,1];
-        if (cells[xm1][y].type === LiquidCell.SOLID_CELL_TYPE) { pL = pC; vMaskNeg[0] = 0; }
-        if (cells[xp1][y].type === LiquidCell.SOLID_CELL_TYPE) { pR = pC; vMaskPos[0] = 0; }
-        if (cells[x][ym1].type === LiquidCell.SOLID_CELL_TYPE) { pB = pC; vMaskNeg[1] = 0; }
-        if (cells[x][yp1].type === LiquidCell.SOLID_CELL_TYPE) { pT = pC; vMaskPos[1] = 0; }
+          // Boundaries extend in z dimension
+          const cell = cells[x][y];
+          if (cell.type === LiquidCell.SOLID_CELL_TYPE || cell.settled) { 
+            u[0] = u[1] = u[2] = 0;
+            continue; 
+          }
 
-        u[0] -= 0.5 * (pR-pL);
-        u[1] -= 0.5 * (pT-pB);
-        //u[2] -= 0.5 * (pU-pD);
+          //const zm1 = Math.max(0, z-1), zp1 = Math.min(this.pressureField[x][y].length-1, z+1);
 
-        u[0] = Math.max(u[0]*vMaskNeg[0], u[0]);
-        u[0] = Math.min(u[0]*vMaskPos[0], u[0]);
-        u[1] = Math.max(u[1]*vMaskNeg[1], u[1]);
-        u[1] = Math.min(u[1]*vMaskPos[1], u[1]);
+          let pC = this.pressureField[x][y][z];  
+          let pL = this.pressureField[xm1][y][z], pR = this.pressureField[xp1][y][z];
+          let pB = this.pressureField[x][ym1][z], pT = this.pressureField[x][yp1][z];
+        
+          // NOTE: This requires augmentation if the boundaries have velocity!
+          const vMaskPos = [1,1,1];
+          const vMaskNeg = [1,1,1];
+          if (z === 1) {
+            if (cells[xm1][y].type === LiquidCell.SOLID_CELL_TYPE) { pL = pC; vMaskNeg[0] = 0; }
+            if (cells[xp1][y].type === LiquidCell.SOLID_CELL_TYPE) { pR = pC; vMaskPos[0] = 0; }
+            if (cells[x][ym1].type === LiquidCell.SOLID_CELL_TYPE) { pB = pC; vMaskNeg[1] = 0; }
+            if (cells[x][yp1].type === LiquidCell.SOLID_CELL_TYPE) { pT = pC; vMaskPos[1] = 0; }
+          }
+          let pD = pC
+          let pU = pC;
+          
+          u[0] -= 0.5 * (pR-pL);
+          u[1] -= 0.5 * (pT-pB);
+          u[2] -= 0.5 * (pU-pD);
+
+          u[0] = Math.min(u[0]*vMaskPos[0], Math.max(u[0]*vMaskNeg[0], u[0]));
+          u[1] = Math.min(u[1]*vMaskPos[1], Math.max(u[1]*vMaskNeg[1], u[1]));
+        }
       }
     }
   }
 
   simulate(dt, cells) {
-    dt = Math.min(dt, 0.3*this.unitSize/10);
+    // Enforce CFL condition on dt
+    //dt = Math.min(dt, 0.3*this.unitSize/(Math.max(MAX_GRAVITY_VELOCITY, MAX_PRESSURE_VELOCITY)));
+
     const {clamp} = THREE.MathUtils;
     let flow = 0;
     this.clearDiffs();
@@ -392,23 +454,41 @@ class LiquidSim {
     for (let x = 0; x < cells.length; x++) {
       for (let y = 0; y < cells[x].length; y++) {
         const cell = cells[x][y];
-        if (cell.type === LiquidCell.SOLID_CELL_TYPE || cell.liquidVol < LiquidSim.LIQUID_EPSILON) {
-          cell.liquidVol = 0;
+        if (cell.type === LiquidCell.SOLID_CELL_TYPE) {
           continue;
         }
         if (cell.settled) { continue; }
  
-        const startValue = cell.liquidVol;
-        let remainingValue = startValue;
+        let remainingValue = cell.liquidVol;
+        let isActive = false;
         flow = 0;
 
-        const velocity = this.velField[x][y];
-        
+        const velocity = this.velField[x][y][1];
+
+        // Flow to Top cell
+        if (velocity[1] > 0 && cell.top && cell.top.type === LiquidCell.EMPTY_CELL_TYPE &&
+          cell.liquidVol > cell.top.liquidVol) {
+
+          let flowFrac = remainingValue - this.calculateVerticalFlow(remainingValue, cell.top.liquidVol);
+          flow = flowFrac*this.calculateAbsCrossSectionFlow(velocity[1]);
+          flow *= this.flowSpeed*dt;
+          flow = clamp(flow, 0, remainingValue);
+          if (flow !== 0) {
+            remainingValue -= flow;
+            this.diffs[x][y] -= flow;
+            this.diffs[x][y+1] += flow;
+            cell.top.settled = false;
+          }
+        }
+        if (remainingValue < LiquidSim.LIQUID_EPSILON) {
+          this.diffs[x][y] -= remainingValue;
+          continue;
+        }
+
         // Flow to bottom cell
-        if (cell.bottom && cell.bottom.type === LiquidCell.EMPTY_CELL_TYPE) {
-          let flowFrac = this.calculateVerticalFlow(remainingValue, cell.bottom) - cell.bottom.liquidVol;
-          flowFrac = clamp(flowFrac, 0, Math.min(LiquidSim.MAX_FLOW, remainingValue));
-          flow = (flowFrac/LiquidSim.MAX_FLOW)*this.calculateAbsCrossSectionFlow(velocity[1]);
+        if (velocity[1] < 0 && cell.bottom && cell.bottom.type === LiquidCell.EMPTY_CELL_TYPE) {
+          let flowFrac = this.calculateVerticalFlow(remainingValue, cell.bottom.liquidVol) - cell.bottom.liquidVol;
+          flow = flowFrac*this.calculateAbsCrossSectionFlow(velocity[1]);
           flow *= this.flowSpeed*dt;
           flow = clamp(flow, 0, remainingValue);
 					if (flow !== 0) {
@@ -418,20 +498,18 @@ class LiquidSim {
 						cell.bottom.settled = false;
 					}
         }
-        else {
-          velocity[1] = Math.max(0, velocity[1]);
-        }
         if (remainingValue < LiquidSim.LIQUID_EPSILON) {
           this.diffs[x][y] -= remainingValue;
           continue;
         }
 
+
+
         // Flow to left and right cells
         if (velocity[0] < 0 && cell.left && cell.left.type === LiquidCell.EMPTY_CELL_TYPE) {
           let flowFrac = this.calculateHorizontalFlow(remainingValue, cell.left);
-          let minVal = Math.min(LiquidSim.MAX_FLOW, remainingValue);
-          flow = (flowFrac/LiquidSim.MAX_FLOW)*this.calculateAbsCrossSectionFlow(velocity[0])*this.flowSpeed*dt;
-          flow = clamp(flow, 0, minVal);
+          flow = flowFrac*this.calculateAbsCrossSectionFlow(velocity[0])*this.flowSpeed*dt;
+          flow = clamp(flow, 0, remainingValue);
           if (flow !== 0) {
 						remainingValue -= flow;
 						this.diffs[x][y] -= flow;
@@ -445,9 +523,8 @@ class LiquidSim {
         }
         if (velocity[0] > 0 && cell.right && cell.right.type === LiquidCell.EMPTY_CELL_TYPE) {
           let flowFrac = this.calculateHorizontalFlow(remainingValue, cell.right);
-          let minVal = Math.min(LiquidSim.MAX_FLOW, remainingValue);
-          flow = (flowFrac/LiquidSim.MAX_FLOW)*this.calculateAbsCrossSectionFlow(velocity[0])*this.flowSpeed*dt;
-          flow = clamp(flow, 0, minVal);
+          flow = flowFrac*this.calculateAbsCrossSectionFlow(velocity[0])*this.flowSpeed*dt;
+          flow = clamp(flow, 0, remainingValue);
           if (flow !== 0) {
 						remainingValue -= flow;
 						this.diffs[x][y] -= flow;
@@ -460,31 +537,12 @@ class LiquidSim {
           continue;
         }
         
-        // Flow to Top cell
-        if (cell.top && cell.top.type === LiquidCell.EMPTY_CELL_TYPE) {
-          let flowFrac = remainingValue - this.calculateVerticalFlow(remainingValue, cell.top); 
-          const minVal = Math.min(LiquidSim.MAX_FLOW, remainingValue);
-          flowFrac = clamp(flowFrac, 0, minVal);
-          flow = flowFrac;
-          flow *= this.flowSpeed*dt;
-          flow = clamp(flow, 0, minVal);
-          if (flow !== 0) {
-            remainingValue -= flow;
-            this.diffs[x][y] -= flow;
-            this.diffs[x][y+1] += flow;
-            cell.top.settled = false;
-          } 
-        }
-        else {
-          velocity[1] = Math.min(0, velocity[1]);
-        }
-        if (remainingValue < LiquidSim.LIQUID_EPSILON) {
-          this.diffs[x][y] -= remainingValue;
-          continue;
+        if (cell.liquidVol < LiquidSim.LIQUID_EPSILON) {
+          cell.liquidVol = 0;
         }
 
         // Check if cell is settled
-				if (startValue == remainingValue) {
+				if (!isActive) {
 					cell.settleCount++;
 					if (cell.SettleCount >= 10) {
 						cell.settled = true;
@@ -497,19 +555,23 @@ class LiquidSim {
     }
 
     // Update Cell values
+    //let totalVol = 0;
     for (let x = 0; x < cells.length; x++) {
       for (let y = 0; y < cells[x].length; y++) {
         const cell = cells[x][y];
         cell.addLiquid(this.diffs[x][y]);
         if (cell.liquidVol < LiquidSim.LIQUID_EPSILON) {
           cell.liquidVol = 0;
-          const velocity = this.velField[x][y];
+          const velocity = this.velField[x][y][1];
           velocity[0] = 0;
           velocity[1] = 0;
+          velocity[2] = 0;
           cell.settled = false;
-        }				
+        }		
+        //totalVol += cell.liquidVol;		
       }
     }
+    
   }
 }
 
