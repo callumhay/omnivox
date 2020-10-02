@@ -89,11 +89,21 @@ class WaterAnimator extends VoxelAnimator {
           colour.setRGB(1,1,1);
         }
         else {
-          const amt = clamp(cell.liquidVol*2,0,1);
+          const amt = clamp(cell.liquidVol*3,0,1);
           const extra = clamp(4*(cell.liquidVol-1),0,1);
           colour.setRGB(extra,amt/2,amt);
         }
 
+        this.voxelModel.drawPoint(pt, colour);
+
+        // Debug: Draw the velocity buffer
+        const {velField} = this.liquid.liquidSim;
+        const u = velField[x][y][1];
+        pt.z = this.voxelModel.gridSize-1;
+        colour.setRGB(
+          Math.min(Math.abs(u[0]/10), 1), 
+          Math.min(Math.abs(u[1]/10), 1),
+          Math.min(Math.abs(u[2]/10), 1));
         this.voxelModel.drawPoint(pt, colour);
       }
     }

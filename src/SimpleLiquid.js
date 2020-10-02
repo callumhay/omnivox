@@ -64,7 +64,7 @@ const GRAVITY = 9.81;  // m/s^2
 const LIQUID_DENSITY = 1;
 const ATMO_PRESSURE  = 101000; // N/m^2
 const MAX_GRAVITY_VELOCITY  = 10; // m/s
-const MAX_PRESSURE_VELOCITY = 15.5; // m/s
+const MAX_PRESSURE_VELOCITY = 10; // m/s
 
 class LiquidSim {
   static get LIQUID_EPSILON() { return 1e-6; }
@@ -438,10 +438,11 @@ class LiquidSim {
 
   simulate(dt, cells) {
     // Enforce CFL condition on dt
-    //dt = Math.min(dt, 0.3*this.unitSize/(Math.max(MAX_GRAVITY_VELOCITY, MAX_PRESSURE_VELOCITY)));
+    dt = Math.min(dt, 0.3*this.unitSize/(Math.max(MAX_GRAVITY_VELOCITY, MAX_PRESSURE_VELOCITY)));
 
     const {clamp} = THREE.MathUtils;
-    let flow = 0;
+    let flow = 0, startLiquid = 0, remainingLiquid = 0;
+    let flowToTop = 0, flowToBottom = 0, flowToLeft = 0, flowToRight = 0;
     this.clearDiffs();
 
     this.advectVelocity(dt, cells);
@@ -455,51 +456,160 @@ class LiquidSim {
       for (let y = 0; y < cells[x].length; y++) {
         const cell = cells[x][y];
         if (cell.type === LiquidCell.SOLID_CELL_TYPE) {
+          cell.liquidVol = 0;
           continue;
         }
-        if (cell.settled) { continue; }
+        if (cell.settled || cell.liquidVol === 0) { continue; }
  
-        let remainingValue = cell.liquidVol;
-        let isActive = false;
-        flow = 0;
-
+        const {liquidVol} = cell;
+        startLiquid = liquidVol;
+        remainingLiquid = startLiquid;
+        flow = 0, flowToTop = 0, flowToBottom = 0, flowToLeft = 0, flowToRight = 0;
         const velocity = this.velField[x][y][1];
+        
+        if (velocity[1] > 0 && cell.top && cell.top.type === LiquidCell.EMPTY_CELL_TYPE) {
+          let flowFrac = liquidVol - this.calculateVerticalFlow(liquidVol, cell.top.liquidVol);
+          flowToTop = flowFrac*this.calculateAbsCrossSectionFlow(velocity[1]);
+          flowToTop = clamp(flowToTop, 0, liquidVol);
+        }
+        if (velocity[1] < 0 && cell.bottom && cell.bottom.type === LiquidCell.EMPTY_CELL_TYPE) {
+          let flowFrac = this.calculateVerticalFlow(liquidVol, cell.bottom.liquidVol) - cell.bottom.liquidVol;
+          flowToBottom = flowFrac*this.calculateAbsCrossSectionFlow(velocity[1]);
+          flowToBottom = clamp(flowToBottom, 0, liquidVol);
+        }
+        if (velocity[0] < 0 && cell.left && cell.left.type === LiquidCell.EMPTY_CELL_TYPE) {
+          let flowFrac = this.calculateHorizontalFlow(liquidVol, cell.left);
+          flowToLeft = flowFrac*this.calculateAbsCrossSectionFlow(velocity[0]);
+          flowToLeft = clamp(flowToLeft, 0, liquidVol);
+        }
+        if (velocity[0] > 0 && cell.right && cell.right.type === LiquidCell.EMPTY_CELL_TYPE) {
+          let flowFrac = this.calculateHorizontalFlow(liquidVol, cell.right);
+          flowToRight = flowFrac*this.calculateAbsCrossSectionFlow(velocity[0]);
+          flowToRight = clamp(flowToRight, 0, liquidVol);
+        }
+        
+        let numUnmasked = 4;
+        let leftMask = 1, rightMask = 1, topMask = 1, bottomMask = 1;
+        // Can we flow down?
+        if (cell.bottom && (cell.bottom.liquidVol >= this.maxLiquidVol || 
+            cell.bottom.type === LiquidCell.SOLID_CELL_TYPE)) {
+          // No flow downward, redirect that force to the other flows
+          numUnmasked--;
+          const flowBottomDiv = flowToBottom / numUnmasked;
+          flowToLeft  += flowBottomDiv;
+          flowToRight += flowBottomDiv;
+          flowToTop   += flowBottomDiv;
+          flowToBottom = 0, bottomMask = 0;
+          
+        }
+        // Can we flow left?
+        if (cell.left && (cell.left.liquidVol >= this.maxLiquidVol ||
+            cell.left.type === LiquidCell.SOLID_CELL_TYPE)) {
+          // No flow leftward, redirect to other flows
+          numUnmasked--;
+          const flowLeftDiv = flowToLeft / numUnmasked;
+          flowToRight  += flowLeftDiv;
+          flowToTop    += flowLeftDiv;
+          flowToBottom += flowLeftDiv;
+          flowToLeft = 0, leftMask = 0;
+        }
+        // Can we flow right?
+        if (cell.right && (cell.right.liquidVol >= this.maxLiquidVol ||
+          cell.right.type === LiquidCell.SOLID_CELL_TYPE)) {
+          // No flow rightward, redirect to other flows
+          numUnmasked--;
+          const flowRightDiv = flowToRight / numUnmasked;
+          flowToTop    += flowRightDiv;
+          flowToBottom += flowRightDiv;
+          flowToLeft   += flowRightDiv;
+          flowToRight = 0, rightMask = 0;
+        }
+        // Can we flow up?
+        if (cell.top && (cell.top.liquidVol >= this.maxLiquidVol ||
+          cell.top.type === LiquidCell.SOLID_CELL_TYPE)) {
+          // No flow upward, nothing is redirected
+          numUnmasked--;
+          flowToTop = 0, topMask = 0;
+        }
 
+        flowToTop    *= topMask;
+        flowToBottom *= bottomMask;
+        flowToRight  *= rightMask;
+        flowToLeft   *= leftMask;
+
+        const totalFlow = (flowToTop+flowToBottom+flowToLeft+flowToRight);
+        if (numUnmasked > 0 && totalFlow >= LiquidSim.LIQUID_EPSILON) {
+          flowToTop    = (flowToTop/totalFlow)*startLiquid*this.flowSpeed*dt*
+            this.calculateAbsCrossSectionFlow(velocity[1]);
+          flowToBottom = (flowToBottom/totalFlow)*startLiquid*this.flowSpeed*dt*
+            this.calculateAbsCrossSectionFlow(velocity[1]);
+          flowToRight  = (flowToRight/totalFlow)*startLiquid*this.flowSpeed*dt*
+            this.calculateAbsCrossSectionFlow(velocity[0]);
+          flowToLeft   = (flowToLeft/totalFlow)*startLiquid*this.flowSpeed*dt*
+            this.calculateAbsCrossSectionFlow(velocity[0]);
+
+          if (flowToTop !== 0) {
+            remainingLiquid -= flowToTop;
+            this.diffs[x][y] -= flowToTop;
+            this.diffs[x][y+1] += flowToTop;
+            cell.top.settled = false;
+          }
+          if (flowToBottom !== 0) {
+            remainingLiquid -= flowToBottom;
+						this.diffs[x][y] -= flowToBottom;
+						this.diffs[x][y-1] += flowToBottom;
+						cell.bottom.settled = false;
+          }
+          if (flowToLeft !== 0) {
+            remainingLiquid -= flowToLeft;
+						this.diffs[x][y] -= flowToLeft;
+            this.diffs[x-1][y] += flowToLeft;
+						cell.left.settled = false;
+          }
+          if (flowToRight !== 0) {
+						remainingLiquid -= flowToRight;
+						this.diffs[x][y] -= flowToRight;
+            this.diffs[x+1][y] += flowToRight;
+						cell.right.settled = false;
+					} 
+        }
+
+        /*
         // Flow to Top cell
         if (velocity[1] > 0 && cell.top && cell.top.type === LiquidCell.EMPTY_CELL_TYPE &&
           cell.liquidVol > cell.top.liquidVol) {
 
-          let flowFrac = remainingValue - this.calculateVerticalFlow(remainingValue, cell.top.liquidVol);
+          let flowFrac = remainingLiquid - this.calculateVerticalFlow(remainingLiquid, cell.top.liquidVol);
           flow = flowFrac*this.calculateAbsCrossSectionFlow(velocity[1]);
           flow *= this.flowSpeed*dt;
-          flow = clamp(flow, 0, remainingValue);
+          flow = clamp(flow, 0, remainingLiquid);
           if (flow !== 0) {
-            remainingValue -= flow;
+            remainingLiquid -= flow;
             this.diffs[x][y] -= flow;
             this.diffs[x][y+1] += flow;
             cell.top.settled = false;
           }
         }
-        if (remainingValue < LiquidSim.LIQUID_EPSILON) {
-          this.diffs[x][y] -= remainingValue;
+        if (remainingLiquid < LiquidSim.LIQUID_EPSILON) {
+          this.diffs[x][y] -= remainingLiquid;
           continue;
         }
 
         // Flow to bottom cell
         if (velocity[1] < 0 && cell.bottom && cell.bottom.type === LiquidCell.EMPTY_CELL_TYPE) {
-          let flowFrac = this.calculateVerticalFlow(remainingValue, cell.bottom.liquidVol) - cell.bottom.liquidVol;
+          let flowFrac = this.calculateVerticalFlow(remainingLiquid, cell.bottom.liquidVol) - cell.bottom.liquidVol;
           flow = flowFrac*this.calculateAbsCrossSectionFlow(velocity[1]);
           flow *= this.flowSpeed*dt;
-          flow = clamp(flow, 0, remainingValue);
+          flow = clamp(flow, 0, remainingLiquid);
 					if (flow !== 0) {
-						remainingValue -= flow;
+						remainingLiquid -= flow;
 						this.diffs[x][y] -= flow;
 						this.diffs[x][y-1] += flow;
 						cell.bottom.settled = false;
 					}
         }
-        if (remainingValue < LiquidSim.LIQUID_EPSILON) {
-          this.diffs[x][y] -= remainingValue;
+        if (remainingLiquid < LiquidSim.LIQUID_EPSILON) {
+          this.diffs[x][y] -= remainingLiquid;
           continue;
         }
 
@@ -507,42 +617,43 @@ class LiquidSim {
 
         // Flow to left and right cells
         if (velocity[0] < 0 && cell.left && cell.left.type === LiquidCell.EMPTY_CELL_TYPE) {
-          let flowFrac = this.calculateHorizontalFlow(remainingValue, cell.left);
+          let flowFrac = this.calculateHorizontalFlow(remainingLiquid, cell.left);
           flow = flowFrac*this.calculateAbsCrossSectionFlow(velocity[0])*this.flowSpeed*dt;
-          flow = clamp(flow, 0, remainingValue);
+          flow = clamp(flow, 0, remainingLiquid);
           if (flow !== 0) {
-						remainingValue -= flow;
+						remainingLiquid -= flow;
 						this.diffs[x][y] -= flow;
             this.diffs[x-1][y] += flow;
 						cell.left.settled = false;
 					}
         }
-        if (remainingValue < LiquidSim.LIQUID_EPSILON) {
-          this.diffs[x][y] -= remainingValue;
+        if (remainingLiquid < LiquidSim.LIQUID_EPSILON) {
+          this.diffs[x][y] -= remainingLiquid;
           continue;
         }
         if (velocity[0] > 0 && cell.right && cell.right.type === LiquidCell.EMPTY_CELL_TYPE) {
-          let flowFrac = this.calculateHorizontalFlow(remainingValue, cell.right);
+          let flowFrac = this.calculateHorizontalFlow(remainingLiquid, cell.right);
           flow = flowFrac*this.calculateAbsCrossSectionFlow(velocity[0])*this.flowSpeed*dt;
-          flow = clamp(flow, 0, remainingValue);
+          flow = clamp(flow, 0, remainingLiquid);
           if (flow !== 0) {
-						remainingValue -= flow;
+						remainingLiquid -= flow;
 						this.diffs[x][y] -= flow;
             this.diffs[x+1][y] += flow;
 						cell.right.settled = false;
 					} 
         }
-        if (remainingValue < LiquidSim.LIQUID_EPSILON) {
-          this.diffs[x][y] -= remainingValue;
+        if (remainingLiquid < LiquidSim.LIQUID_EPSILON) {
+          this.diffs[x][y] -= remainingLiquid;
           continue;
         }
+        */
         
-        if (cell.liquidVol < LiquidSim.LIQUID_EPSILON) {
+        if (remainingLiquid < LiquidSim.LIQUID_EPSILON) {
           cell.liquidVol = 0;
         }
 
         // Check if cell is settled
-				if (!isActive) {
+				if (startLiquid === remainingLiquid) {
 					cell.settleCount++;
 					if (cell.SettleCount >= 10) {
 						cell.settled = true;
@@ -555,7 +666,7 @@ class LiquidSim {
     }
 
     // Update Cell values
-    //let totalVol = 0;
+    let totalVol = 0;
     for (let x = 0; x < cells.length; x++) {
       for (let y = 0; y < cells[x].length; y++) {
         const cell = cells[x][y];
@@ -563,15 +674,14 @@ class LiquidSim {
         if (cell.liquidVol < LiquidSim.LIQUID_EPSILON) {
           cell.liquidVol = 0;
           const velocity = this.velField[x][y][1];
-          velocity[0] = 0;
-          velocity[1] = 0;
-          velocity[2] = 0;
+          velocity[0] = velocity[1] = velocity[2] = 0;
           cell.settled = false;
         }		
-        //totalVol += cell.liquidVol;		
+        totalVol += cell.liquidVol;		
       }
     }
-    
+
+    this.count++;
   }
 }
 
