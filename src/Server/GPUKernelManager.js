@@ -1301,6 +1301,30 @@ class GPUKernelManager {
     this._barVisKernelsInit = true;
   }
 
+  initSimpleWater2DKernels(nPlus2) {
+    if (this._simpleWater2DInit) { return; }
+
+    const settings = {
+      output: [nPlus2, nPlus2, 3],
+      pipeline: true,
+      immutable: false,
+      constants: {
+        N: nPlus2-2, NPLUS2: nPlus2 
+      }
+    };
+
+    this.buildSimpleWaterBufferScalar = this.gpu.createKernel(function() {
+      return 0;
+    }, {...settings, returnType:'Float'} );
+    this.buildSimpleWaterBufferVec3 = this.gpu.createKernel(function() {
+      return [0,0,0];
+    }, {...settings, returnType:'Array(3)'} );
+
+
+
+    this._simpleWater2DInit = true;
+  }
+
 }
 
 export default GPUKernelManager;

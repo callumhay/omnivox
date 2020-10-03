@@ -10,11 +10,9 @@ import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 
 export const waterAnimatorDefaultConfig = {
   speed: 1.0,
-  gravity: 10,
-  confinementScale: 0.12,
-  levelSetDamping: 0,
-  velAdvectionDamping: 0,
-  pressureModulation: 1,
+  gravity: 9.81,
+  vorticityConfinement: 0.7,
+  viscosity: 0,
 
   colourInterpolationType: COLOUR_INTERPOLATION_RGB,
   shallowColour:  new THREE.Color(0.4,1,1),
@@ -35,8 +33,17 @@ class WaterAnimator extends VoxelAnimator {
   setConfig(c) {
     super.setConfig(c);
 
-    const {gridSize} = this.voxelModel;
-    this.liquid = new SimpleLiquid(gridSize);
+    const {gridSize, gpuKernelMgr} = this.voxelModel;
+    if (!this.liquid) {
+      this.liquid = new SimpleLiquid(gridSize, gpuKernelMgr);
+    }
+    const {liquidSim} = this.liquid;
+
+    const {gravity, viscosity, vorticityConfinement} = c;
+    liquidSim.gravity = gravity;
+    liquidSim.viscosity = viscosity;
+    liquidSim.vorticityConfinement = vorticityConfinement;
+
     /*
     const {gravity, confinementScale, waterLevelEpsilon, 
       levelSetDamping, velAdvectionDamping, pressureModulation} = c;
@@ -83,7 +90,7 @@ class WaterAnimator extends VoxelAnimator {
     const colour = new THREE.Color();
     for (let x = OFFSET; x < cells.length-OFFSET; x++) {
       for (let y = OFFSET; y < cells[x].length-OFFSET; y++) {
-        const cell = cells[x][y];
+        const cell = cells[x][y][1];
         pt.set(x-OFFSET,y-OFFSET,0);
         if (cell.type === LiquidCell.SOLID_CELL_TYPE) {
           colour.setRGB(1,1,1);

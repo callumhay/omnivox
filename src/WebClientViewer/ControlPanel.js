@@ -840,23 +840,19 @@ class ControlPanel {
       this.waterAnimatorConfig.speed = value;
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
     }).setValue(waterSettings.speed);
-    folder.add(waterSettings, 'gravity', -50, 50, 1).onChange((value) => {
+    folder.add(waterSettings, 'gravity', -20, 20, 0.01).onChange((value) => {
       this.waterAnimatorConfig.gravity = value;
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
     }).setValue(waterSettings.gravity);
-    folder.add(waterSettings, 'levelSetDamping', 0, 1, 0.01).onChange((value) => {
-      this.waterAnimatorConfig.levelSetDamping = value;
+    folder.add(waterSettings, 'vorticityConfinement', 0, 2, 0.01).onChange((value) => {
+      this.waterAnimatorConfig.vorticityConfinement = value;
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
-    }).setValue(waterSettings.levelSetDamping);
-    folder.add(waterSettings, 'velAdvectionDamping', 0, 1, 0.01).onChange((value) => {
-      this.waterAnimatorConfig.velAdvectionDamping = value;
+    }).setValue(waterSettings.vorticityConfinement);
+    folder.add(waterSettings, 'viscosity', 0, 0.1, 0.001).onChange((value) => {
+      this.waterAnimatorConfig.viscosity = value;
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
-    }).setValue(waterSettings.velAdvectionDamping);
-    folder.add(waterSettings, 'pressureModulation', 0, 1, 0.01).onChange((value) => {
-      this.waterAnimatorConfig.pressureModulation = value;
-      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
-    }).setValue(waterSettings.pressureModulation);
-    
+    }).setValue(waterSettings.viscosity);
+   
 
     folder.addColor(waterSettings, 'shallowColour').onChange((value) => {
       this.waterAnimatorConfig.shallowColour = GuiColorToRGBObj(value);
