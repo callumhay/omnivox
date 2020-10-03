@@ -66,11 +66,12 @@ class SimpleLiquid {
 
 }
 
-const GRAVITY = 9.81;  // m/s^2
-const LIQUID_DENSITY = 1;
-const ATMO_PRESSURE  = 101000; // N/m^2
+const GRAVITY = 9.81;             // m/s^2
+const LIQUID_DENSITY = 1000;      // Kg/m^3
+const ATMO_PRESSURE  = 101325;    // N/m^2 (or Pascals)
 const MAX_GRAVITY_VELOCITY  = 11; // m/s
-const MAX_PRESSURE_VELOCITY = 9; // m/s
+const MAX_PRESSURE_VELOCITY = 9;  // m/s
+const PRESSURE_MAX_HEIGHT = 5;    // m
 
 class LiquidSim {
   static get LIQUID_EPSILON() { return 1e-6; }
@@ -87,7 +88,17 @@ class LiquidSim {
     this.maxLiquidVol = Math.pow(this.unitSize,3); // Volumes are in m^3
     this.gpuManager = gpuManager;
 
-    this.gpuManager.initSimpleWater2DKernels(size);
+    this.gpuManager.initFluidKernels(size-2);
+    this.gpuManager.initSimpleWater2DKernels(size, unitSize, {
+      SOLID_CELL_TYPE:  LiquidCell.SOLID_CELL_TYPE, 
+      LIQUID_CELL_TYPE: LiquidCell.LIQUID_CELL_TYPE, 
+      MAX_GRAVITY_VEL:  MAX_GRAVITY_VELOCITY, 
+      MAX_PRESSURE_VEL: MAX_PRESSURE_VELOCITY,
+      PRESSURE_MAX_HEIGHT: PRESSURE_MAX_HEIGHT,
+      LIQUID_DENSITY: LIQUID_DENSITY,
+      LIQUID_EPSILON: LiquidSim.LIQUID_EPSILON,
+      ATMO_PRESSURE: ATMO_PRESSURE,
+    });
 
     this.gravity = GRAVITY;
     //this.maxGravityVel = MAX_GRAVITY_VELOCITY;
@@ -220,9 +231,10 @@ class LiquidSim {
             liquidVolAboveCell += aboveCell.liquidVol;
           }
         }
+        const cellMass = cell.liquidVol*LIQUID_DENSITY;
         const liquidMassAboveCell = LIQUID_DENSITY*liquidVolAboveCell;
         const hsForce = (ATMO_PRESSURE + liquidMassAboveCell*GRAVITY)*this.unitArea;
-        const dHSVel  = hsForce*dt/(liquidMassAboveCell+1e-6);
+        const dHSVel  = hsForce*dt/(cellMass+1e-6);
 
         const xm1 = Math.max(0, x-1), xp1 = Math.min(size-1, x+1);
         const leftCell = cells[xm1][y][z];
@@ -231,7 +243,6 @@ class LiquidSim {
         if (leftCell.type === LiquidCell.EMPTY_CELL_TYPE && cell.liquidVol > leftCell.liquidVol && 
           (bottomCell.type === LiquidCell.SOLID_CELL_TYPE || bottomCell.liquidVol >= cell.liquidVol)) {
           totalVel -= dHSVel;
-          leftCell.settled = false;
         }
         else {
           u[0] = Math.max(0, u[0]);
@@ -239,7 +250,6 @@ class LiquidSim {
         if (rightCell.type === LiquidCell.EMPTY_CELL_TYPE && cell.liquidVol > rightCell.liquidVol &&
           (bottomCell.type === LiquidCell.SOLID_CELL_TYPE || bottomCell.liquidVol >= cell.liquidVol)) {
           totalVel += dHSVel;
-          rightCell.settled = false;
         }
         else {
           u[0] = Math.min(0, u[0]);

@@ -11,7 +11,7 @@ import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 export const waterAnimatorDefaultConfig = {
   speed: 1.0,
   gravity: 9.81,
-  vorticityConfinement: 0.7,
+  vorticityConfinement: 0.5,
   viscosity: 0,
 
   colourInterpolationType: COLOUR_INTERPOLATION_RGB,
@@ -96,7 +96,7 @@ class WaterAnimator extends VoxelAnimator {
           colour.setRGB(1,1,1);
         }
         else {
-          const amt = clamp(cell.liquidVol*3,0,1);
+          const amt = clamp(cell.liquidVol,0,1);
           const extra = clamp(4*(cell.liquidVol-1),0,1);
           colour.setRGB(extra,amt/2,amt);
         }

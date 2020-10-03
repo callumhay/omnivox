@@ -201,6 +201,40 @@ class GPUKernelManager {
       constants: {N: N},
       immutable: true,
     };
+
+    this.gpu.addFunction(function xyzLookup() {
+      return [this.thread.z, this.thread.y, this.thread.x];
+    });
+    this.gpu.addFunction(function clampm1(c) {
+      return Math.max(c-1, 0);
+    });
+    this.gpu.addFunction(function clampm2(c) {
+      return Math.max(c-2, 0);
+    });
+    this.gpu.addFunction(function clampmX(c,x) {
+      return Math.max(c-x, 0);
+    });
+    this.gpu.addFunction(function clampp1(c) {
+      return Math.min(c+1, this.constants.NPLUS1);
+    });
+    this.gpu.addFunction(function clampp2(c) {
+      return Math.min(c+2, this.constants.NPLUS1);
+    });
+    this.gpu.addFunction(function clamppX(c,x) {
+      return Math.min(c+x, this.constants.NPLUS1);
+    });
+    
+    this.gpu.addFunction(function length3(vec) {
+      return Math.sqrt(vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2]);
+    });
+    this.gpu.addFunction(function normalize3(vec) {
+      const len = length3(vec) + 0.0001;
+      return [vec[0]/len, vec[1]/len, vec[2]/len];
+    });
+    this.gpu.addFunction(function lerp(x, x0, x1, y0, y1) {
+      return y0 + (x-x0) * ((y1-y0) / (x1 - x0 + 0.00001));
+    });
+
     this.initFluidBufferFunc = this.gpu.createKernel(function(value) {
       return value;
     }, {...pipelineFuncSettings, argumentTypes: {value: 'Float'}});
@@ -508,38 +542,7 @@ class GPUKernelManager {
         BOUNDARY: 0.1, DX:1, DY:1, DZ:1, MAX_ABS_SPD:10 },
       immutable: true,
     };
-    this.gpu.addFunction(function xyzLookup() {
-      return [this.thread.z, this.thread.y, this.thread.x];
-    });
-    this.gpu.addFunction(function clampm1(c) {
-      return Math.max(c-1, 0);
-    });
-    this.gpu.addFunction(function clampm2(c) {
-      return Math.max(c-2, 0);
-    });
-    this.gpu.addFunction(function clampmX(c,x) {
-      return Math.max(c-x, 0);
-    });
-    this.gpu.addFunction(function clampp1(c) {
-      return Math.min(c+1, this.constants.NPLUS1);
-    });
-    this.gpu.addFunction(function clampp2(c) {
-      return Math.min(c+2, this.constants.NPLUS1);
-    });
-    this.gpu.addFunction(function clamppX(c,x) {
-      return Math.min(c+x, this.constants.NPLUS1);
-    });
-    
-    this.gpu.addFunction(function length3(vec) {
-      return Math.sqrt(vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2]);
-    });
-    this.gpu.addFunction(function normalize3(vec) {
-      const len = length3(vec) + 0.0001;
-      return [vec[0]/len, vec[1]/len, vec[2]/len];
-    });
-    this.gpu.addFunction(function lerp(x, x0, x1, y0, y1) {
-      return y0 + (x-x0) * ((y1-y0) / (x1 - x0 + 0.00001));
-    });
+
     this.gpu.addFunction(function minmod(a,b) {
       return ((a*b < 0) ? 0 : ((Math.abs(a) < Math.abs(b)) ? a : b));
     });
@@ -1301,17 +1304,28 @@ class GPUKernelManager {
     this._barVisKernelsInit = true;
   }
 
-  initSimpleWater2DKernels(nPlus2) {
+  initSimpleWater2DKernels(nPlus2, unitSize, constants) {
     if (this._simpleWater2DInit) { return; }
-
     const settings = {
       output: [nPlus2, nPlus2, 3],
       pipeline: true,
       immutable: false,
-      constants: {
-        N: nPlus2-2, NPLUS2: nPlus2 
+      constants: {...constants,
+        N: nPlus2-2, NPLUSAHALF: nPlus2-1.5, 
+        NPLUS1: nPlus2-1, NPLUS2: nPlus2, NZ: 1, unitSize: unitSize,
+        unitSizeSqr: unitSize*unitSize
       }
     };
+
+    this.gpu.addFunction(function cellLiquidVol(cell) {
+      return cell[0];
+    });
+    this.gpu.addFunction(function cellType(cell) {
+      return cell[1];
+    });
+    this.gpu.addFunction(function cellSettled(cell) {
+      return cell[2];
+    });
 
     this.buildSimpleWaterBufferScalar = this.gpu.createKernel(function() {
       return 0;
@@ -1320,7 +1334,274 @@ class GPUKernelManager {
       return [0,0,0];
     }, {...settings, returnType:'Array(3)'} );
 
+    const VEL_TYPE  = 'Array3D(3)';
+    const CELL_TYPE = 'Array3D(4)';
 
+    this.simpleWaterAdvectVel = this.gpu.createKernel(function(dt, vel, cellData) {
+      const [x,y,z] = xyzLookup();
+      const u = vel[x][y][z];
+
+      // Boundary condition - no velocity in solid cells or at the edge of the grid
+      const cell = cellData[x][y][z];
+      if (cellType(cell) === this.constants.SOLID_CELL_TYPE || cellSettled(cell) === 1 || 
+          x < 1 || y < 1 || z < 1 || x > this.constants.N || y > this.constants.N || z > this.constants.NZ) { 
+        return [0,0,0]; 
+      }
+
+      const xx = clamp(x-dt*u[0], 0.5, this.constants.NPLUSAHALF);
+      const yy = clamp(y-dt*u[1], 0.5, this.constants.NPLUSAHALF);
+      const zz = clamp(z-dt*u[2], 0.5, NZ-1.5);
+      const i0 = Math.floor(xx), i1 = i0 + 1;
+      const j0 = Math.floor(yy), j1 = j0 + 1;
+      const k0 = Math.floor(zz), k1 = k0 + 1;
+      const sx1 = xx-i0, sx0 = 1-sx1;
+      const sy1 = yy-j0, sy0 = 1-sy1;
+      const sz1 = zz-k0, sz0 = 1-sz1;
+      const vel000 = vel[i0][j0][k0], vel010 = vel[i0][j1][k0];
+      const vel100 = vel[i1][j0][k0], vel110 = vel[i1][j1][k0];
+      const vel001 = vel[i0][j0][k1], vel011 = vel[i0][j1][k1];
+      const vel101 = vel[i1][j0][k1], vel111 = vel[i1][j1][k1];
+      const result = [0,0,0];
+      for (let i = 0; i < 3; i++) {
+        const v0 = sx0*(sy0*vel000[i] + sy1*vel010[i]) + sx1*(sy0*vel100[i] + sy1*vel110[i]);
+        const v1 = sx0*(sy0*vel001[i] + sy1*vel011[i]) + sx1*(sy0*vel101[i] + sy1*vel111[i]);
+        result[i] = sz0*v0 + sz1*v1;
+      }
+      return result;
+    }, {...settings, returnType:'Array(3)', argumentTypes:{dt:'Float', vel:VEL_TYPE, cellData:CELL_TYPE}});
+
+    this.simpleWaterApplyExtForces = this.gpu.createKernel(function(dt, gravity, vel, cellData) {
+      const [x,y,z] = xyzLookup();
+
+      // Boundary condition - no velocity in solid cells or at the edge of the grid
+      const cell = cellData[x][y][z];
+      if (cellType(cell) === this.constants.SOLID_CELL_TYPE ||  x < 1 || y < 1 || z < 1 || 
+          x > this.constants.N || y > this.constants.N || z > this.constants.NZ) { 
+        return [0,0,0]; 
+      }
+      const u = vel[x][y][z];
+      const result = [u[0], u[1], u[2]];
+      const ym1 = clampm1(y);
+
+      // Apply Gravity
+      const bCell = cellData[x][ym1][z];
+      const bCellType = cellType(bCell);
+      if (bCellType === this.constants.EMPTY_CELL_TYPE) {
+        result[1] = clampValue(result[1] - gravity*dt, 
+          -this.constants.MAX_GRAVITY_VEL, this.constants.MAX_GRAVITY_VEL);
+      }
+      else {
+        result[1] = Math.min(0, result[1]);
+      }
+
+      // Determine the hydrostatic pressure = density*gravity*(height of the fluid above 
+      // How much pressure is pressing down on this cell?
+      let liquidVolAboveCell = 0;
+      const pressureHeightIdx = Math.min(this.constants.N, y+1+this.constants.PRESSURE_MAX_HEIGHT);
+      for (let i = y+1; i < pressureHeightIdx; i++) {
+        const aboveCell = cellData[x][i][z];
+        const aboveCellType = cellType(aboveCell);
+        const aboveCellVol = cellLiquidVol(aboveCell);
+        if (aboveCellType === this.constants.SOLID_CELL_TYPE || 
+            aboveCellVol < this.constants.LIQUID_EPSILON) { break; }
+        liquidVolAboveCell += aboveCell.liquidVol;
+      }
+      const liquidMassAboveCell = this.constants.LIQUID_DENSITY*liquidVolAboveCell;
+      const cellLiquidVol = cellLiquidVol(cell);
+      const cellMass = this.constants.LIQUID_DENSITY*cellLiquidVol;
+
+      const hsForce = (ATMO_PRESSURE + liquidMassAboveCell*gravity)*this.constants.unitSizeSqr;
+      const dHSVel  = hsForce*dt/(cellMass+1e-6);
+
+      const xm1 = clampm1(x), xp1 = clampp1(x);
+      const leftCell = cellData[xm1][y][z];
+      const rightCell = cellData[xp1][y][z];
+      const bCellLiquidVol = cellLiquidVol(bCell);
+
+      let totalVel = 0;
+      if (cellType(leftCell) === LiquidCell.EMPTY_CELL_TYPE && cellLiquidVol > cellLiquidVol(leftCell) &&
+        (bCellType === LiquidCell.SOLID_CELL_TYPE || bCellLiquidVol >= cellLiquidVol)) {
+        totalVel -= dHSVel;
+      }
+      else {
+        result[0] = Math.max(0, result[0]);
+      }
+      if (cellType(rightCell) === LiquidCell.EMPTY_CELL_TYPE && cellLiquidVol > cellLiquidVol(rightCell) &&
+        (bCellType === LiquidCell.SOLID_CELL_TYPE || bCellLiquidVol >= cellLiquidVol)) {
+        totalVel += dHSVel;
+      }
+      else {
+        result[0] = Math.min(0, result[0]);
+      }
+      result[0] = clampValue(result[0] + totalVel, -this.constants.MAX_PRESSURE_VEL, this.constants.MAX_PRESSURE_VEL);
+      return result;
+    }, {...settings, returnType:'Array(3)', argumentTypes:{
+      dt:'Float', gravity:'Float', vel:VEL_TYPE, cellData:CELL_TYPE
+    }});
+
+    this.simpleWaterCurl = this.gpu.createKernel(function(vel, cellData) {
+      const [x,y,z] = xyzLookup();
+      const cell = cellData[x][y][z];
+      if (cellType(cell) === this.constants.SOLID_CELL_TYPE || x < 1 || y < 1 || z < 1 || 
+          x > this.constants.N || y > this.constants.N || z > this.constants.NZ) { return [0,0,0]; }
+
+      const xm1 = clampm1(x), xp1 = clampp1(x);
+      const ym1 = clampm1(y), yp1 = clampp1(y);
+      const zm1 = clampm1(z), zp1 = clampp1(z);
+
+      const L = vel[xm1][y][z], R = vel[xp1][y][z];
+      const B = vel[x][ym1][z], T = vel[x][yp1][z];
+      const D = vel[x][y][zm1], U = vel[x][y][zp1];
+
+      return [
+        0.5 * ((T[2] - B[2]) - (U[1] - D[1])),
+        0.5 * ((U[0] - D[0]) - (R[2] - L[2])),
+        0.5 * ((R[1] - L[1]) - (T[0] - B[0]))
+      ];
+    }, {...settings, returnType:'Array(3)', argumentTypes:{vel:VEL_TYPE, cellData:CELL_TYPE}});
+
+    this.simpleWaterCurlLen = this.gpu.createKernel(function(curl) {
+      const [x,y,z] = xyzLookup();
+      return length3(curl[x][y][z]);
+    }, {...settings, returnType:'Float', argumentTypes:{curl:'Array3D(3)'}});
+
+    this.simpleWaterApplyVC = this.gpu.createKernel(function(dtVC, vel, cellData, curl, curlLen) {
+      const [x,y,z] = xyzLookup();
+
+      const cell = cellData[x][y][z];
+      if (cellType(cell) === this.constants.SOLID_CELL_TYPE || x < 1 || y < 1 || z < 1 || 
+          x > this.constants.N || y > this.constants.N || z > this.constants.NZ) { return [0,0,0]; }
+
+      const xm1 = clampm1(x), xp1 = clampp1(x);
+      const ym1 = clampm1(y), yp1 = clampp1(y);
+      const zm1 = clampm1(z), zp1 = clampp1(z);
+      
+      const omega  = curl[x][y][z];
+      const omegaL = curlLen[xm1][y][z], omegaR = curlLen[xp1][y][z];
+      const omegaB = curlLen[x][ym1][z], omegaT = curlLen[x][yp1][z];
+      const omegaD = curlLen[x][y][zm1], omegaU = curlLen[x][y][zp1];
+
+      const eta = [0.5 * (omegaR - omegaL), 0.5 * (omegaT - omegaB), 0.5 * (omegaU - omegaD)];
+      const etaLen = length3(eta) + 1e-6;
+      eta[0] /= etaLen; eta[1] /= etaLen; eta[2] /= etaLen;
+      const u = vel[x][y][z];
+      return [
+        u[0] + dtVC * (eta[0]*omega[2] - eta[2]*omega[1]),
+        u[1] + dtVC * (eta[2]*omega[0] - eta[0]*omega[2]),
+        u[2] + dtVC * (eta[0]*omega[1] - eta[1]*omega[0])
+      ];
+    }, {...settings, returnType:'Array(3)', argumentTypes:{
+      dtVC:'Float', vel:VEL_TYPE, cellData:CELL_TYPE, curl:'Array3D(3)', curlLen:'Array'
+    }});
+
+    this.simpleWaterDiv = this.gpu.createKernel(function(vel, cellData) {
+      const [x,y,z] = xyzLookup();
+      const cell = cellData[x][y][z];
+      if (cellType(cell) === this.constants.SOLID_CELL_TYPE || x < 1 || y < 1 || z < 1 || 
+          x > this.constants.N || y > this.constants.N || z > this.constants.NZ) { return 0; }
+
+      const xm1 = clampm1(x), xp1 = clampp1(x);
+      const ym1 = clampm1(y), yp1 = clampp1(y);
+      const zm1 = clampm1(z), zp1 = clampp1(z);
+
+      // NOTE: If the boundary has a velocity then change noVel to that velocity!
+      const fieldL = (cellType(cellData[xm1][y][z]) === LiquidCell.SOLID_CELL_TYPE) ? noVel : vel[xm1][y][z];
+      const fieldR = (cellType(cellData[xp1][y][z]) === LiquidCell.SOLID_CELL_TYPE) ? noVel : vel[xp1][y][z];
+      const fieldB = (cellType(cellData[x][ym1][z]) === LiquidCell.SOLID_CELL_TYPE) ? noVel : vel[x][ym1][z];
+      const fieldT = (cellType(cellData[x][yp1][z]) === LiquidCell.SOLID_CELL_TYPE) ? noVel : vel[x][yp1][z];
+      const fieldD = (cellType(cellData[x][y][zm1]) === LiquidCell.SOLID_CELL_TYPE) ? noVel : vel[x][y][zm1];
+      const fieldU = (cellType(cellData[x][y][zp1]) === LiquidCell.SOLID_CELL_TYPE) ? noVel : vel[x][y][zp1];
+      return 0.5 * ((fieldR[0]-fieldL[0]) + (fieldT[1]-fieldB[1]) + (fieldU[2]-fieldD[2]));
+
+    }, {...settings, returnType:'Float', argumentTypes:{vel:VEL_TYPE, cellData:CELL_TYPE}});
+
+    this.simpleWaterComputePressure = this.gpu.createKernel(function(pressure, cellData, div) {
+      // NOTE: The pressure buffer should be cleared before calling this!!
+      const [x,y,z] = xyzLookup();
+      const pC = pressure[x][y][z];
+      const cell = cellData[x][y][z];
+      if (cellType(cell) === this.constants.SOLID_CELL_TYPE || x < 1 || y < 1 || z < 1 || 
+          x > this.constants.N || y > this.constants.N || z > this.constants.NZ) { return pC; }
+
+      const xm1 = clampm1(x), xp1 = clampp1(x);
+      const ym1 = clampm1(y), yp1 = clampp1(y);
+      const zm1 = clampm1(z), zp1 = clampp1(z);
+
+      const bC = div[x][y][z]; // Contains the 'divergence' calculated previously
+      const pL = cellType(cellData[xm1][y][z] === this.constants.SOLID_CELL_TYPE) ? pC : pressure[xm1][y][z];
+      const pR = cellType(cellData[xp1][y][z] === this.constants.SOLID_CELL_TYPE) ? pC : pressure[xp1][y][z];
+      const pB = cellType(cellData[x][ym1][z] === this.constants.SOLID_CELL_TYPE) ? pC : pressure[x][ym1][z];
+      const pT = cellType(cellData[x][yp1][z] === this.constants.SOLID_CELL_TYPE) ? pC : pressure[x][yp1][z];
+      const pD = cellType(cellData[x][y][zm1] === this.constants.SOLID_CELL_TYPE) ? pC : pressure[x][y][zm1];
+      const pU = cellType(cellData[x][y][zp1] === this.constants.SOLID_CELL_TYPE) ? pC : pressure[x][y][zp1];
+      return (pL + pR + pB + pT + pU + pD - bC) / 6.0;
+
+    }, {...settings, returnType:'Float', argumentTypes:{pressure:'Array', cellData:CELL_TYPE, div:'Array'}});
+
+    this.simpleWaterProjVel = this.gpu.createKernel(function(pressure, vel, cellData) {
+      const [x,y,z] = xyzLookup();
+      const cell = cellData[x][y][z];
+      if (cellType(cell) === this.constants.SOLID_CELL_TYPE || x < 1 || y < 1 || z < 1 || 
+          x > this.constants.N || y > this.constants.N || z > this.constants.NZ) { return [0,0,0]; }
+
+      const xm1 = clampm1(x), xp1 = clampp1(x);
+      const ym1 = clampm1(y), yp1 = clampp1(y);
+      const zm1 = clampm1(z), zp1 = clampp1(z);
+
+      const u = vel[x][y][z];
+      let pC = pressure[x][y][z];  
+      let pL = pressure[xm1][y][z], pR = pressure[xp1][y][z];
+      let pB = pressure[x][ym1][z], pT = pressure[x][yp1][z];
+      let pD = pressure[x][y][zm1], pU = pressure[x][y][zp1];
+
+      // NOTE: This requires augmentation if the boundaries have velocity!
+      const vMaskPos = [1,1,1];
+      const vMaskNeg = [1,1,1];
+      if (cellType(cellData[xm1][y][z]) === this.constants.SOLID_CELL_TYPE) { pL = pC; vMaskNeg[0] = 0; }
+      if (cellType(cellData[xp1][y][z]) === this.constants.SOLID_CELL_TYPE) { pR = pC; vMaskPos[0] = 0; }
+      if (cellType(cellData[x][ym1][z]) === this.constants.SOLID_CELL_TYPE) { pB = pC; vMaskNeg[1] = 0; }
+      if (cellType(cellData[x][yp1][z]) === this.constants.SOLID_CELL_TYPE) { pT = pC; vMaskPos[1] = 0; }
+      if (cellType(cellData[x][y][zm1]) === this.constants.SOLID_CELL_TYPE) { pD = pC; vMaskNeg[2] = 0; }
+      if (cellType(cellData[x][y][zp1]) === this.constants.SOLID_CELL_TYPE) { pU = pC; vMaskPos[2] = 0; }
+
+      const result = [u[0] - 0.5 * (pR-pL), u[1] - 0.5 * (pT-pB), u[2] - 0.5 * (pU-pD)];
+      result[0] = Math.min(result[0]*vMaskPos[0], Math.max(result[0]*vMaskNeg[0], result[0]));
+      result[1] = Math.min(result[1]*vMaskPos[1], Math.max(result[1]*vMaskNeg[1], result[1]));
+      result[2] = Math.min(result[2]*vMaskPos[2], Math.max(result[2]*vMaskNeg[2], result[2]));
+      return result;
+
+    }, {...settings, returnType:'Array(3)', argumentTypes:{
+      pressure:'Array', vel:VEL_TYPE, cellData:CELL_TYPE
+    }});
+
+    this.simpleWaterDiffuseVel = this.gpu.createKernel(function(vel, cellData, a) {
+      const [x,y,z] = xyzLookup();
+      const cell = cellData[x][y][z];
+      if (cellType(cell) === this.constants.SOLID_CELL_TYPE || x < 1 || y < 1 || z < 1 || 
+          x > this.constants.N || y > this.constants.N || z > this.constants.NZ) { return [0,0,0]; }
+
+      const xm1 = clampm1(x), xp1 = clampp1(x);
+      const ym1 = clampm1(y), yp1 = clampp1(y);
+      const zm1 = clampm1(z), zp1 = clampp1(z);
+
+      const u = vel[x][y][z];
+      const uxNeg = (cellType(cellData[xm1][y][z]) === LiquidCell.SOLID_CELL_TYPE) ? u : vel[xm1][y][z];
+      const uxPos = (cellType(cellData[xp1][y][z]) === LiquidCell.SOLID_CELL_TYPE) ? u : vel[xp1][y][z];
+      const uyNeg = (cellType(cellData[x][ym1][z]) === LiquidCell.SOLID_CELL_TYPE) ? u : vel[x][ym1][z];
+      const uyPos = (cellType(cellData[x][yp1][z]) === LiquidCell.SOLID_CELL_TYPE) ? u : vel[x][yp1][z];
+      const uzNeg = (cellType(cellData[x][y][zp1]) === LiquidCell.SOLID_CELL_TYPE) ? u : vel[x][y][zm1];
+      const uzPos = (cellType(cellData[x][y][zm1]) === LiquidCell.SOLID_CELL_TYPE) ? u : vel[x][y][zp1];
+
+      const divisor = 1.0 + 6.0*a;
+      const result = [0,0,0];
+      for (let i = 0 ; i < 3; i++) {
+        result[i] = (u[i] + a*(uxNeg[i] + uxPos[i] + uyNeg[i] + uyPos[i] + uzNeg[i] + uzPos[i])) / divisor;
+      }
+      return result;
+
+    }, {...settings, returnType:'Array(3)', argumentTypes:{
+      vel:VEL_TYPE, cellData:CELL_TYPE, a:'Float'
+    }});
 
     this._simpleWater2DInit = true;
   }
