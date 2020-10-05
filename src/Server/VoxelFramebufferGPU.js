@@ -94,6 +94,9 @@ class VoxelFramebufferGPU extends VoxelFramebuffer {
   drawWater(waterLookup, airLookup, levelSetArr, boundaryBuf, levelEpsilon, offsetXYZ) {
     this._bufferTexture = this.gpuKernelMgr.waterOverwrite(waterLookup, airLookup, levelSetArr, boundaryBuf, levelEpsilon, offsetXYZ);
   }
+  drawSimpleWater(cells, maxLiquidVol, offsetXYZ) {
+    this._bufferTexture = this.gpuKernelMgr.simpleWaterOverwrite(cells, maxLiquidVol, offsetXYZ);
+  }
 }
 
 export default VoxelFramebufferGPU;

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 import LiquidGPU from '../LiquidGPU';
-import SimpleLiquid, {LiquidCell} from '../SimpleLiquid';
+import SimpleLiquid, {LiquidCell, CELL_VOL_IDX, CELL_TYPE_IDX, SOLID_CELL_TYPE} from '../SimpleLiquid';
 import Spectrum, {COLOUR_INTERPOLATION_RGB} from '../Spectrum';
 
 import AudioVisualizerAnimator from './AudioVisualizerAnimator';
@@ -12,7 +12,7 @@ export const waterAnimatorDefaultConfig = {
   speed: 1.0,
   gravity: 9.81,
   vorticityConfinement: 0.5,
-  viscosity: 0,
+  viscosity: 0.0001,
 
   colourInterpolationType: COLOUR_INTERPOLATION_RGB,
   shallowColour:  new THREE.Color(0.4,1,1),
@@ -76,7 +76,7 @@ class WaterAnimator extends VoxelAnimator {
     this.t = 0;
   }
 
-  rendersToCPUOnly() { return true; }
+  //rendersToCPUOnly() { return true; }
   render(dt) {
     const {clamp} = THREE.MathUtils;
     const {speed} = this.config;
@@ -85,23 +85,37 @@ class WaterAnimator extends VoxelAnimator {
     this.liquid.step(dtSpeed);
 
     const OFFSET = 1;
-    const {cells} = this.liquid;
+    const {cells, maxLiquidVol, flowSumField} = this.liquid.liquidSim;
+    // Update the voxels...
+    const gpuFramebuffer = this.voxelModel.framebuffer;
+    gpuFramebuffer.drawSimpleWater(cells, maxLiquidVol, [1, 1, 1]);
+    
+    /*
     const pt = new THREE.Vector3();
     const colour = new THREE.Color();
+    const flowSums = flowSumField.toArray();
+
     for (let x = OFFSET; x < cells.length-OFFSET; x++) {
       for (let y = OFFSET; y < cells[x].length-OFFSET; y++) {
-        const cell = cells[x][y][1];
+        const cell = cells[1][y][x];
+        const cellType = cell[CELL_TYPE_IDX];
+        const cellLiquidVol = cell[CELL_VOL_IDX];
         pt.set(x-OFFSET,y-OFFSET,0);
-        if (cell.type === LiquidCell.SOLID_CELL_TYPE) {
+        if (cellType === SOLID_CELL_TYPE) {
           colour.setRGB(1,1,1);
         }
         else {
-          const amt = clamp(cell.liquidVol,0,1);
-          const extra = clamp(4*(cell.liquidVol-1),0,1);
+          const amt = clamp(cellLiquidVol,0,1);
+          const extra = clamp(4*(cellLiquidVol-maxLiquidVol),0,1);
           colour.setRGB(extra,amt/2,amt);
         }
 
         this.voxelModel.drawPoint(pt, colour);
+
+        //const flowSum = flowSums[x][y][1];
+        //colour.setRGB(Math.min(Math.abs(flowSum), 1), 0, 0);
+        //pt.z = this.voxelModel.gridSize-1;
+        //this.voxelModel.drawPoint(pt, colour);
 
         // Debug: Draw the velocity buffer
         const {velField} = this.liquid.liquidSim;
@@ -114,6 +128,7 @@ class WaterAnimator extends VoxelAnimator {
         this.voxelModel.drawPoint(pt, colour);
       }
     }
+    */
 
 
     /*
