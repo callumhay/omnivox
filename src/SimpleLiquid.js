@@ -13,14 +13,17 @@ class SimpleLiquid {
 const GRAVITY = 9.81;             // m/s^2
 const LIQUID_DENSITY = 1000;      // Kg/m^3
 const ATMO_PRESSURE  = 101325;    // N/m^2 (or Pascals)
-const MAX_GRAVITY_VELOCITY  = 11; // m/s
-const MAX_PRESSURE_VELOCITY = 4; // m/s
+const MAX_GRAVITY_VELOCITY  = 10; // m/s
+const MAX_PRESSURE_VELOCITY = 9; // m/s
 const PRESSURE_MAX_HEIGHT   = 10;  // m
+
+const PRESSURE_ITERS = 16;
+const DIFFUSE_ITERS  = 16;
 
 export const SOLID_CELL_TYPE = 1;
 export const EMPTY_CELL_TYPE = 0;
 
-const LIQUID_EPSILON = 1e-6;
+const LIQUID_EPSILON = 1e-4;
 
 export const CELL_VOL_IDX     = 0;
 export const CELL_TYPE_IDX    = 1;
@@ -103,7 +106,7 @@ class LiquidSim {
     temp.delete();
   }
 
-  computePressure(numIter=12) {
+  computePressure(numIter=PRESSURE_ITERS) {
     this.pressureField.clear();
     let temp = null;
     for (let i = 0; i < numIter; i++) {
@@ -121,7 +124,7 @@ class LiquidSim {
     temp.delete();
   }
 
-  diffuseVelocity(dt, numIter=10) {
+  diffuseVelocity(dt, numIter=DIFFUSE_ITERS) {
     const vol = Math.pow(this.gridSize-2,2);
     const a = dt*this.viscosity*vol;
     let temp = null;

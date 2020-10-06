@@ -9,10 +9,10 @@ import VoxelAnimator from './VoxelAnimator';
 import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 
 export const waterAnimatorDefaultConfig = {
-  speed: 5.0,
+  speed: 2.0,
   gravity: 9.81,
-  vorticityConfinement: 0.1,
-  viscosity: 0.0001,
+  vorticityConfinement: 0.02,
+  viscosity: 0.08,
 
   colourInterpolationType: COLOUR_INTERPOLATION_RGB,
   shallowColour:  new THREE.Color(0.4,1,1),
