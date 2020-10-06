@@ -9,9 +9,9 @@ import VoxelAnimator from './VoxelAnimator';
 import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 
 export const waterAnimatorDefaultConfig = {
-  speed: 1.0,
+  speed: 5.0,
   gravity: 9.81,
-  vorticityConfinement: 0.5,
+  vorticityConfinement: 0.1,
   viscosity: 0.0001,
 
   colourInterpolationType: COLOUR_INTERPOLATION_RGB,
@@ -84,52 +84,11 @@ class WaterAnimator extends VoxelAnimator {
 
     this.liquid.step(dtSpeed);
 
-    const OFFSET = 1;
-    const {cells, maxLiquidVol, flowSumField} = this.liquid.liquidSim;
+    const {maxCellVolume, cells, pressureField, velField} = this.liquid.liquidSim;
     // Update the voxels...
     const gpuFramebuffer = this.voxelModel.framebuffer;
-    gpuFramebuffer.drawSimpleWater(cells, maxLiquidVol, [1, 1, 1]);
+    gpuFramebuffer.drawSimpleWater(cells, pressureField, velField, maxCellVolume, [1, 1, 1]);
     
-    /*
-    const pt = new THREE.Vector3();
-    const colour = new THREE.Color();
-    const flowSums = flowSumField.toArray();
-
-    for (let x = OFFSET; x < cells.length-OFFSET; x++) {
-      for (let y = OFFSET; y < cells[x].length-OFFSET; y++) {
-        const cell = cells[1][y][x];
-        const cellType = cell[CELL_TYPE_IDX];
-        const cellLiquidVol = cell[CELL_VOL_IDX];
-        pt.set(x-OFFSET,y-OFFSET,0);
-        if (cellType === SOLID_CELL_TYPE) {
-          colour.setRGB(1,1,1);
-        }
-        else {
-          const amt = clamp(cellLiquidVol,0,1);
-          const extra = clamp(4*(cellLiquidVol-maxLiquidVol),0,1);
-          colour.setRGB(extra,amt/2,amt);
-        }
-
-        this.voxelModel.drawPoint(pt, colour);
-
-        //const flowSum = flowSums[x][y][1];
-        //colour.setRGB(Math.min(Math.abs(flowSum), 1), 0, 0);
-        //pt.z = this.voxelModel.gridSize-1;
-        //this.voxelModel.drawPoint(pt, colour);
-
-        // Debug: Draw the velocity buffer
-        const {velField} = this.liquid.liquidSim;
-        const u = velField[x][y][1];
-        pt.z = this.voxelModel.gridSize-1;
-        colour.setRGB(
-          Math.min(Math.abs(u[0]/10), 1), 
-          Math.min(Math.abs(u[1]/10), 1),
-          Math.min(Math.abs(u[2]/10), 1));
-        this.voxelModel.drawPoint(pt, colour);
-      }
-    }
-    */
-
 
     /*
     this.t += dtSpeed;
