@@ -14,7 +14,7 @@ const GRAVITY = 9.81;             // m/s^2
 const LIQUID_DENSITY = 1000;      // Kg/m^3
 const ATMO_PRESSURE  = 101325;    // N/m^2 (or Pascals)
 const MAX_GRAVITY_VELOCITY  = 10; // m/s
-const MAX_PRESSURE_VELOCITY = 9; // m/s
+const MAX_PRESSURE_VELOCITY = 10; // m/s
 const PRESSURE_MAX_HEIGHT   = 10;  // m
 
 const PRESSURE_ITERS = 16;

@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 
-import LiquidGPU from '../LiquidGPU';
-import SimpleLiquid, {LiquidCell, CELL_VOL_IDX, CELL_TYPE_IDX, SOLID_CELL_TYPE} from '../SimpleLiquid';
+import SimpleLiquid from '../SimpleLiquid';
 import Spectrum, {COLOUR_INTERPOLATION_RGB} from '../Spectrum';
 
 import AudioVisualizerAnimator from './AudioVisualizerAnimator';
@@ -11,8 +10,8 @@ import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 export const waterAnimatorDefaultConfig = {
   speed: 2.0,
   gravity: 9.81,
-  vorticityConfinement: 0.02,
-  viscosity: 0.08,
+  vorticityConfinement: 0.012,
+  viscosity: 0.1,
 
   colourInterpolationType: COLOUR_INTERPOLATION_RGB,
   shallowColour:  new THREE.Color(0.4,1,1),
