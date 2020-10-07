@@ -23,7 +23,7 @@ const DIFFUSE_ITERS  = 16;
 export const SOLID_CELL_TYPE = 1;
 export const EMPTY_CELL_TYPE = 0;
 
-const LIQUID_EPSILON = 1e-4;
+const LIQUID_EPSILON = 1e-6;
 
 export const CELL_VOL_IDX     = 0;
 export const CELL_TYPE_IDX    = 1;

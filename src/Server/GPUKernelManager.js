@@ -203,7 +203,9 @@ class GPUKernelManager {
         const cellLiquidVol = cell[0];
         const amt = clampValue(5*cellLiquidVol/maxLiquidVol,0,1);
         const extra = clampValue(4*(cellLiquidVol-maxLiquidVol),0,1);
-        return [extra, amt/2, amt];
+        const negAmt = cellLiquidVol < 0 ? clampValue(Math.abs(cellLiquidVol*10),0,1) : 0;
+
+        return [extra, negAmt, amt];
       }
       else if (z === 26) {
         const p = Math.min(1, Math.abs(pressure[x][y][1]));
@@ -1343,7 +1345,7 @@ class GPUKernelManager {
     if (this._simpleWater2DInit) { return; }
     const allConstants = {...constants,
       N: nPlus2-2, NPLUSAHALF: nPlus2-1.5, 
-      NPLUS1: nPlus2-1, NPLUS2: nPlus2, NZ: 1, 
+      NPLUS1: nPlus2-1, NPLUS2: nPlus2, NZ: 1, NDIM:3, 
       unitSize: unitSize, unitArea: unitSize*unitSize,
       unitVolume: unitSize*unitSize*unitSize,
     };
@@ -1369,13 +1371,6 @@ class GPUKernelManager {
     this.gpu.addFunction(function absCSFlow(ui) {
       return Math.abs(ui * this.constants.unitArea);
     });
-    this.gpu.addFunction(function calculateSideFlow(remainingLiquid, destinationLiquid) {
-      //return this.constants.unitVolume;
-      const heightRemaining = remainingLiquid/this.constants.unitArea;
-      const heightDestination = destinationLiquid/this.constants.unitArea;
-      const crossSection = (heightRemaining-heightDestination)*this.constants.unitSize;
-      return this.constants.unitVolume*crossSection;
-    });
 
     this.buildSimpleWaterBufferScalar = this.gpu.createKernel(function() {
       return 0;
@@ -1394,7 +1389,7 @@ class GPUKernelManager {
       }
       // Add other boundaries
       if ((y === 24 && (x >= 15 && x < this.constants.N)) ||
-          (y === 15 && (x >= 2 && x <= 15)) || ((x === 5 || x === 26) && (y >= 3 && y < 9)) ||
+          (y === 15 && (x >= 2 && x <= 15)) || ((x === 5 || x === 26) && (y >= 3 && y <= 10)) ||
           (x >= 13 && x <= 18) && (y >= 2 && y <= 6)) {
         return [0, this.constants.SOLID_CELL_TYPE, 0];
       }
@@ -1542,7 +1537,7 @@ class GPUKernelManager {
         (omegaT - omegaB) / (2*this.constants.unitSize), 
         (omegaU - omegaD) / (2*this.constants.unitSize)
       ];
-      const etaLen = length3(eta) + 1e-6;
+      const etaLen = length3(eta) + 1e-10;
       eta[0] /= etaLen; eta[1] /= etaLen; eta[2] /= etaLen;
       const u = vel[x][y][z];
       return [
@@ -1573,7 +1568,7 @@ class GPUKernelManager {
       const fieldT = (cellType(cT) === this.constants.SOLID_CELL_TYPE) ? noVel : vel[x][yp1][z];
       const fieldD = (cellType(cD) === this.constants.SOLID_CELL_TYPE) ? noVel : vel[x][y][zm1];
       const fieldU = (cellType(cU) === this.constants.SOLID_CELL_TYPE) ? noVel : vel[x][y][zp1];
-      return ((fieldR[0]-fieldL[0]) + (fieldT[1]-fieldB[1]) + (fieldU[2]-fieldD[2])) / (3*this.constants.N);//(2*this.constants.unitSize);
+      return ((fieldR[0]-fieldL[0]) + (fieldT[1]-fieldB[1]) + (fieldU[2]-fieldD[2])) / ((this.constants.NDIM-1)*this.constants.N);//(2*this.constants.unitSize);
 
     }, {...settings, returnType:'Float', argumentTypes:{vel:VEL_TYPE, cellData:CELL_TYPE}});
 
@@ -1639,9 +1634,9 @@ class GPUKernelManager {
       if (cellType(cU) === this.constants.SOLID_CELL_TYPE || cellSettled(cU) === 1) { pU = pC; vMaskPos[2] = 0; }
 
       const result = [
-        u[0] - (pR-pL) / (3*this.constants.N),//(2*this.constants.unitSize), 
-        u[1] - (pT-pB) / (3*this.constants.N),//(2*this.constants.unitSize), 
-        u[2] - (pU-pD) / (3*this.constants.N),//(2*this.constants.unitSize)
+        u[0] - (pR-pL) / ((this.constants.NDIM-1)*this.constants.N),//(2*this.constants.unitSize), 
+        u[1] - (pT-pB) / ((this.constants.NDIM-1)*this.constants.N),//(2*this.constants.unitSize), 
+        u[2] - (pU-pD) / ((this.constants.NDIM-1)*this.constants.N),//(2*this.constants.unitSize)
       ];
       result[0] = Math.min(result[0]*vMaskPos[0], Math.max(result[0]*vMaskNeg[0], result[0]));
       result[1] = Math.min(result[1]*vMaskPos[1], Math.max(result[1]*vMaskNeg[1], result[1]));
@@ -1712,7 +1707,7 @@ class GPUKernelManager {
       let flowToL = clampValue(this.constants.unitVolume * absCSFlowL * dt, 0, liquidVol);
       let flowToR = clampValue(this.constants.unitVolume * absCSFlowR * dt, 0, liquidVol);
       let flowToB = clampValue(this.constants.unitVolume * absCSFlowB * dt, 0, liquidVol);
-      let flowToT = clampValue((liquidVol-liquidVolT) * (10+absCSFlowT) * dt, 0, liquidVol); // Yup, the 10 is a hack, it just works.
+      let flowToT = clampValue((liquidVol-liquidVolT) * (11.5+absCSFlowT) * dt, 0, liquidVol); // Yup, this is a hack, it just works.
       
       let leftMask = 1, rightMask = 1, topMask = 1, bottomMask = 1;
 
@@ -1722,14 +1717,16 @@ class GPUKernelManager {
         bottomMask = 0;
       }
       // Can we flow left?
-      if (liquidVolL >= this.constants.unitVolume || liquidVolL >= liquidVol || typeL === this.constants.SOLID_CELL_TYPE || 
+      if (liquidVolL >= this.constants.unitVolume || liquidVolL >= liquidVol || 
+          typeL === this.constants.SOLID_CELL_TYPE || 
           (typeB === this.constants.EMPTY_CELL_TYPE && liquidVolB < liquidVol)) {
         // No flow leftward
         flowToR += flowToL;
         leftMask = 0;
       }
       // Can we flow right?
-      if (liquidVolR >= this.constants.unitVolume || liquidVolR >= liquidVol || typeR === this.constants.SOLID_CELL_TYPE || 
+      if (liquidVolR >= this.constants.unitVolume || liquidVolR >= liquidVol || 
+          typeR === this.constants.SOLID_CELL_TYPE || 
           (typeB === this.constants.EMPTY_CELL_TYPE && liquidVolB < liquidVol)) {
         // No flow rightward
         flowToL += flowToR;
@@ -1747,10 +1744,11 @@ class GPUKernelManager {
       flowToL *= leftMask;
 
       const totalFlow = (flowToT+flowToB+flowToL+flowToR)+1e-6;
-      flowToT = Math.min(0.5*Math.max(liquidVol-liquidVolT,0), Math.min(liquidVol*(flowToT/totalFlow), flowToT));
+
+      flowToT = Math.min(Math.max(0.5*(liquidVol-liquidVolT),0), Math.min(liquidVol*(flowToT/totalFlow), flowToT));
       flowToB = Math.min(0.5*(liquidVol+liquidVolB), Math.min(liquidVol*(flowToB/totalFlow), flowToB));
-      flowToR = Math.min(0.5*Math.max(liquidVol-liquidVolR,0), Math.min(liquidVol*(flowToR/totalFlow), flowToR));
-      flowToL = Math.min(0.5*Math.max(liquidVol-liquidVolL,0), Math.min(liquidVol*(flowToL/totalFlow), flowToL));
+      flowToR = Math.min(Math.max(0.5*(liquidVol-liquidVolR),0), Math.min(liquidVol*(flowToR/totalFlow), flowToR));
+      flowToL = Math.min(Math.max(0.5*(liquidVol-liquidVolL),0), Math.min(liquidVol*(flowToL/totalFlow), flowToL));
 
       return [flowToL, flowToR, flowToB, flowToT];
 
@@ -1794,18 +1792,19 @@ class GPUKernelManager {
       
       const liquidVol = cell[this.constants.CELL_VOL_IDX];
 
-      const finalVol = Math.max(0, (liquidVol + sC));
+      const finalVol = (liquidVol + sC);
       cell[this.constants.CELL_VOL_IDX] = (Math.abs(finalVol) < this.constants.LIQUID_EPSILON) ? 0 : finalVol;
 
-      // If there's no change in flow then the cell becomes settled
-      cell[this.constants.CELL_SETTLED_IDX] = 
-        (Math.abs(sC) < this.constants.LIQUID_EPSILON && 
-         Math.abs(liquidVol) < this.constants.LIQUID_EPSILON ||
-         liquidVol === this.constants.unitVolume) ? 1 : 0;
       // Unsettle the cell if there are any changes in the neighbour cell flows
       if (Math.abs(sL) >= this.constants.LIQUID_EPSILON || Math.abs(sR) >= this.constants.LIQUID_EPSILON ||
           Math.abs(sB) >= this.constants.LIQUID_EPSILON || Math.abs(sT) >= this.constants.LIQUID_EPSILON) {
         cell[this.constants.CELL_SETTLED_IDX] = 0;
+      }
+      else {
+        // If there's no change in flow then the cell becomes settled
+        cell[this.constants.CELL_SETTLED_IDX] = (Math.abs(sC) < this.constants.LIQUID_EPSILON && 
+          Math.abs(liquidVol) < this.constants.LIQUID_EPSILON || 
+          Math.abs(liquidVol-this.constants.unitVolume) < this.constants.LIQUID_EPSILON) ? 1 : 0;
       }
 
       return cell;
