@@ -8,7 +8,7 @@ import VoxelAnimator from './VoxelAnimator';
 import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 
 export const waterAnimatorDefaultConfig = {
-  speed: 2.0,
+  speed: 1.0,
   gravity: 9.81,
   vorticityConfinement: 0.012,
   viscosity: 0.1,

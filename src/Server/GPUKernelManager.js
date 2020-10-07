@@ -1712,7 +1712,7 @@ class GPUKernelManager {
       let flowToL = clampValue(this.constants.unitVolume * absCSFlowL * dt, 0, liquidVol);
       let flowToR = clampValue(this.constants.unitVolume * absCSFlowR * dt, 0, liquidVol);
       let flowToB = clampValue(this.constants.unitVolume * absCSFlowB * dt, 0, liquidVol);
-      let flowToT = clampValue((liquidVol-liquidVolT) * (8+absCSFlowT) * dt, 0, liquidVol);
+      let flowToT = clampValue((liquidVol-liquidVolT) * (10+absCSFlowT) * dt, 0, liquidVol); // Yup, the 10 is a hack, it just works.
       
       let leftMask = 1, rightMask = 1, topMask = 1, bottomMask = 1;
 
@@ -1794,6 +1794,9 @@ class GPUKernelManager {
       
       const liquidVol = cell[this.constants.CELL_VOL_IDX];
 
+      const finalVol = Math.max(0, (liquidVol + sC));
+      cell[this.constants.CELL_VOL_IDX] = (Math.abs(finalVol) < this.constants.LIQUID_EPSILON) ? 0 : finalVol;
+
       // If there's no change in flow then the cell becomes settled
       cell[this.constants.CELL_SETTLED_IDX] = 
         (Math.abs(sC) < this.constants.LIQUID_EPSILON && 
@@ -1804,9 +1807,6 @@ class GPUKernelManager {
           Math.abs(sB) >= this.constants.LIQUID_EPSILON || Math.abs(sT) >= this.constants.LIQUID_EPSILON) {
         cell[this.constants.CELL_SETTLED_IDX] = 0;
       }
- 
-      const finalVol = (liquidVol + sC);
-      cell[this.constants.CELL_VOL_IDX] = (Math.abs(finalVol) < this.constants.LIQUID_EPSILON) ? 0 : finalVol;
 
       return cell;
 
