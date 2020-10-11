@@ -848,7 +848,7 @@ class ControlPanel {
       this.waterAnimatorConfig.vorticityConfinement = value;
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
     }).setValue(waterSettings.vorticityConfinement);
-    folder.add(waterSettings, 'viscosity', 0, 1, 0.001).onChange((value) => {
+    folder.add(waterSettings, 'viscosity', 0, 0.01, 0.00001).onChange((value) => {
       this.waterAnimatorConfig.viscosity = value;
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
     }).setValue(waterSettings.viscosity);

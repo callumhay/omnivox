@@ -5,6 +5,10 @@ class SimpleLiquid {
     this.liquidSim = new LiquidSim(gridSize+2, 1, gpuManager);
   }
 
+  injectForceBlob(center, impulseStrength, size) {
+    this.liquidSim.forceBlobs.push({center, impulseStrength, size});
+  }
+
   step(dt) {
     this.liquidSim.simulate(dt);
   }
@@ -13,12 +17,12 @@ class SimpleLiquid {
 const GRAVITY = 9.81;             // m/s^2
 const LIQUID_DENSITY = 1000;      // Kg/m^3
 const ATMO_PRESSURE  = 101325;    // N/m^2 (or Pascals)
-const MAX_GRAVITY_VELOCITY  = 10; // m/s
-const MAX_PRESSURE_VELOCITY = 10; // m/s
+const MAX_GRAVITY_VELOCITY  = 11; // m/s
+const MAX_PRESSURE_VELOCITY = 11; // m/s
 const PRESSURE_MAX_HEIGHT   = 10;  // m
 
-const PRESSURE_ITERS = 16;
-const DIFFUSE_ITERS  = 16;
+const PRESSURE_ITERS = 12;
+const DIFFUSE_ITERS  = 10;
 
 export const SOLID_CELL_TYPE = 1;
 export const EMPTY_CELL_TYPE = 0;
@@ -37,11 +41,13 @@ class LiquidSim {
     // Units are in meters
     this.gridSize = size;
     this.unitSize = unitSize; 
+    this.maxCellVolume = Math.pow(unitSize,3);
+    this.forceBlobs = [];
 
     this.gpuManager = gpuManager;
 
     this.gravity = GRAVITY;
-    this.vorticityConfinement = 0.012;
+    this.vorticityConfinement = 0;
     this.viscosity = 0;
     this.count = 0;
 
@@ -59,13 +65,12 @@ class LiquidSim {
     this.tempPressure   = this.gpuManager.buildSimpleWaterBufferScalar();
     this.tempBuffVec3   = this.gpuManager.buildSimpleWaterBufferVec3();
     this.velField       = this.gpuManager.buildSimpleWaterBufferVec3();
-    this.flowField      = this.gpuManager.buildSimpleWaterBufferVec4();
+    this.flowFieldLRB   = this.gpuManager.buildSimpleWaterBufferVec3();
+    this.flowFieldDUT   = this.gpuManager.buildSimpleWaterBufferVec3();
     this.flowSumField   = this.gpuManager.buildSimpleWaterBufferScalar();
 
     this.cells = this.gpuManager.buildSimpleWaterCellBuffer();
   }
-
-  get maxCellVolume() { return Math.pow(this.unitSize,3); }
 
   applyCFL(dt) {
     return Math.min(dt, 0.3*this.unitSize/(Math.max(MAX_GRAVITY_VELOCITY, MAX_PRESSURE_VELOCITY)));
@@ -81,6 +86,17 @@ class LiquidSim {
     let temp = this.velField;
     this.velField = this.gpuManager.simpleWaterApplyExtForces(dt, this.gravity, this.velField, this.cells);
     temp.delete();
+
+    for (const forceBlob of this.forceBlobs) {
+      const {center, impulseStrength, size} = forceBlob;
+      console.log(forceBlob);
+      temp = this.velField;
+      this.velField = this.gpuManager.simpleWaterInjectForceBlob(
+        center, impulseStrength, size, this.velField, this.cells
+      );
+      temp.delete();
+    }
+    this.forceBlobs = [];
   }
 
   applyVorticityConfinement(dt) {
@@ -125,14 +141,16 @@ class LiquidSim {
   }
 
   diffuseVelocity(dt, numIter=DIFFUSE_ITERS) {
-    const vol = Math.pow(this.gridSize-2,2);
-    const a = dt*this.viscosity*vol;
     let temp = null;
+
+    const a = dt*this.viscosity*Math.pow(this.gridSize-2,3);
     for (let i = 0; i < numIter; i++) {
-      temp = this.velField;
-      this.velField = this.gpuManager.simpleWaterDiffuseVel(this.velField, this.cells, a);
+      temp = this.tempBuffVec3;
+      this.tempBuffVec3 = this.gpuManager.simpleWaterDiffuseVel(this.velField, this.tempBuffVec3, this.cells, a);
       temp.delete();
     }
+    this.velField.delete();
+    this.velField = this.tempBuffVec3;
   }
   
   simulate(dt) {
@@ -142,17 +160,20 @@ class LiquidSim {
     this.advectVelocity(dt);
     this.applyExternalForces(dt);
     this.applyVorticityConfinement(dt);
+    //this.diffuseVelocity(dt);
     this.computeDivergence();
     this.computePressure();
-    this.diffuseVelocity(dt);
     this.projectVelocityFromPressure();
     
-    let temp = this.flowField;
-    this.flowField = this.gpuManager.simpleWaterCalcFlows(dt, this.velField, this.cells);
+    let temp = this.flowFieldLRB;
+    this.flowFieldLRB = this.gpuManager.simpleWaterCalcFlowsLRB(dt, this.velField, this.cells);
+    temp.delete();
+    temp = this.flowFieldDUT;
+    this.flowFieldDUT = this.gpuManager.simpleWaterCalcFlowsDUT(dt, this.velField, this.cells);
     temp.delete();
     
     temp = this.flowSumField;
-    this.flowSumField = this.gpuManager.simpleWaterSumFlows(this.flowField, this.cells);
+    this.flowSumField = this.gpuManager.simpleWaterSumFlows(this.flowFieldLRB, this.flowFieldDUT, this.cells);
     temp.delete();
 
     temp = this.cells;
@@ -160,42 +181,5 @@ class LiquidSim {
     temp.delete();
   }
 }
-
-export class LiquidCell {
-  constructor() {
-    this.liquidVol = 0;
-    this._settled = false;
-    this._type = EMPTY_CELL_TYPE;
-    this.settleCount = 0;
-    this.top = this.bottom = this.left = this.right = null;
-  }
-
-  get type() { return this._type; }
-  set type(t) {
-    this._type = t;
-    if (t === SOLID_CELL_TYPE) { this.liquidVol = 0; }
-    this.unsettleNeighbours();
-  }
-
-  get settled() { return this._settled; }
-  set settled(s) {
-    this._settled = s;
-    if (!s) { this.settleCount = 0; }
-  }
-
-  addLiquid(amount) {
-    this.liquidVol += amount;
-    this.settled = false;
-  }
-
-  unsettleNeighbours() {
-    if (this.top) { this.top.settled = false; }
-    if (this.bottom) { this.bottom.settled = false; }
-    if (this.left) { this.left.settled = false; }
-    if (this.right) { this.right.settled = false; }
-  }
-
-}
-
 
 export default SimpleLiquid;

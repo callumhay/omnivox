@@ -109,7 +109,7 @@ class SimpleScene extends SceneRenderer {
     const halfXSize = this.voxelModel.xSize()/2;
     const halfYSize = this.voxelModel.ySize()/2;
     const halfZSize = this.voxelModel.zSize()/2;
-    const lightMovementRadius = sphereRadius + 1;
+    const lightMovementRadius = sphereRadius + (this.voxelModel.xSize()-2 - 2*sphereRadius)/2;
 
     const t = this.timeCounter*pointLightsSpd;
 

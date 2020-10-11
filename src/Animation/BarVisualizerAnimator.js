@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import chroma from 'chroma-js';
 
+import VoxelAnimator from './VoxelAnimator';
 import AudioVisualizerAnimator, {RandomHighLowColourCycler} from './AudioVisualizerAnimator';
 import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 

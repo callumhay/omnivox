@@ -196,32 +196,14 @@ class GPUKernelManager {
       const x = this.thread.z + offsetXYZ[2];
       const y = this.thread.y + offsetXYZ[1];
       const z = this.thread.x + offsetXYZ[0];
-      const cell = cells[x][y][1];
+      const cell = cells[x][y][z];
 
-      if (z === 1) { 
-        if (cell[1] === 1) { return [1,1,1]; }
-        const cellLiquidVol = cell[0];
-        const amt = clampValue(5*cellLiquidVol/maxLiquidVol,0,1);
-        const extra = clampValue(4*(cellLiquidVol-maxLiquidVol),0,1);
-        const negAmt = cellLiquidVol < 0 ? clampValue(Math.abs(cellLiquidVol*10),0,1) : 0;
+      if (cell[1] === 1) { return [1,1,1]; }
+      const cellLiquidVol = cell[0];
+      const amt = clampValue(5*cellLiquidVol/maxLiquidVol,0,1);
+      const extra = clampValue(4*(cellLiquidVol-maxLiquidVol),0,1);
 
-        return [extra, negAmt, amt];
-      }
-      else if (z === 26) {
-        const p = Math.min(1, Math.abs(pressure[x][y][1]));
-        return [0,p,0];
-      }
-      else if (z === 28) {
-        const settledVal = cell[2];
-        return [settledVal,settledVal,settledVal];
-      }
-      else if (z === 31) {
-        const u = vel[x][y][1];
-        return [Math.max(0, Math.abs(u[0])), Math.max(0, Math.abs(u[1])), Math.max(0, Math.abs(u[2]))];
-      }
-      else {
-        return [0,0,0];
-      }
+      return [extra, 0.75*amt, amt];
 
     }, {...this.pipelineFuncSettings, argumentTypes: { 
       cells: 'Array3D(3)', pressure:'Array', vel:'Array3D(3)', maxLiquidVol: 'Float', offsetXYZ: 'Array'},
@@ -1345,13 +1327,13 @@ class GPUKernelManager {
     if (this._simpleWater2DInit) { return; }
     const allConstants = {...constants,
       N: nPlus2-2, NPLUSAHALF: nPlus2-1.5, 
-      NPLUS1: nPlus2-1, NPLUS2: nPlus2, NZ: 1, NDIM:3, 
+      NPLUS1: nPlus2-1, NPLUS2: nPlus2, NDIM:3, 
       unitSize: unitSize, unitArea: unitSize*unitSize,
       unitVolume: unitSize*unitSize*unitSize,
     };
 
     const settings = {
-      output: [3, nPlus2, nPlus2],
+      output: [nPlus2, nPlus2, nPlus2],
       pipeline: true,
       immutable: true,
       constants: allConstants
@@ -1384,17 +1366,30 @@ class GPUKernelManager {
     this.buildSimpleWaterCellBuffer = this.gpu.createKernel(function() {
       const [x,y,z] = xyzLookup();
       // Set the boundaries along the outside in all dimensions
-      if (z !== 1 || y <= 1 || y >= this.constants.N || x <= 1 || x >= this.constants.N) { 
+      if (z < 1 || z > this.constants.N || y < 1 || y > this.constants.N || x < 1 || x > this.constants.N) { 
         return [0, this.constants.SOLID_CELL_TYPE, 0];
       }
+      if (y === 24 && (x >= 15 && x <= this.constants.N) && (z >= 0 && z <= this.constants.N)) {
+        return [0, this.constants.SOLID_CELL_TYPE, 0];
+      }
+      if (y === 15 && (x >= 0 && x <= 15) && (z >= 0 && z <= this.constants.N)) {
+        return [0, this.constants.SOLID_CELL_TYPE, 0];
+      }
+
+      if ((x === 5 || x === 26) && (y >= 3 && y <= 10)) {
+        return [0, this.constants.SOLID_CELL_TYPE, 0];
+      }
+      /*
       // Add other boundaries
       if ((y === 24 && (x >= 15 && x < this.constants.N)) ||
           (y === 15 && (x >= 2 && x <= 15)) || ((x === 5 || x === 26) && (y >= 3 && y <= 10)) ||
           (x >= 13 && x <= 18) && (y >= 2 && y <= 6)) {
         return [0, this.constants.SOLID_CELL_TYPE, 0];
       }
+      */
       // Add liquid to the top
-      if (x >= 2 && x < this.constants.N && y >= this.constants.NPLUS2-5 && y <= this.constants.NPLUS2-3) {
+      if (x >= 1 && x <= this.constants.N && y >= this.constants.N-3 && y <= this.constants.N &&
+          z >= 1 && z <= this.constants.N) {
         return [this.constants.unitVolume, this.constants.EMPTY_CELL_TYPE, 0];
       }
 
@@ -1411,12 +1406,12 @@ class GPUKernelManager {
       const cell = cellData[x][y][z];
       const u = vel[x][y][z];
       if (cellType(cell) === this.constants.SOLID_CELL_TYPE || x < 1 || y < 1 || z < 1 || 
-          x > this.constants.N || y > this.constants.N || z > this.constants.NZ) { 
+          x > this.constants.N || y > this.constants.N || z > this.constants.N) { 
         return [0,0,0]; 
       }
       const xx = clampValue(x-dt*u[0], 0.5, this.constants.NPLUSAHALF);
       const yy = clampValue(y-dt*u[1], 0.5, this.constants.NPLUSAHALF);
-      const zz = clampValue(z-dt*u[2], 0.5, this.constants.NZ+0.5);
+      const zz = clampValue(z-dt*u[2], 0.5, this.constants.NPLUSAHALF);
       const i0 = Math.floor(xx), i1 = i0 + 1;
       const j0 = Math.floor(yy), j1 = j0 + 1;
       const k0 = Math.floor(zz), k1 = k0 + 1;
@@ -1443,8 +1438,8 @@ class GPUKernelManager {
       const cell = cellData[x][y][z];
       const cellLiquidVol = cellLiquidVol(cell);
       const u = vel[x][y][z];
-      if (cellType(cell) === this.constants.SOLID_CELL_TYPE ||  x < 1 || y < 1 || z < 1 || 
-          x > this.constants.N || y > this.constants.N || z > this.constants.NZ || 
+      if (cellType(cell) === this.constants.SOLID_CELL_TYPE || x < 1 || y < 1 || z < 1 || 
+          x > this.constants.N || y > this.constants.N || z > this.constants.N || 
           Math.abs(cellLiquidVol) < this.constants.LIQUID_EPSILON) { 
         return u; 
       }
@@ -1455,8 +1450,7 @@ class GPUKernelManager {
       // Apply Gravity
       const bCell = cellData[x][ym1][z];
       const bCellType = cellType(bCell);
-      result[1] = clampValue(result[1] - gravity*dt, 
-        -this.constants.MAX_GRAVITY_VEL, this.constants.MAX_GRAVITY_VEL);
+      result[1] = clampValue(result[1] - gravity*dt, -this.constants.MAX_GRAVITY_VEL, this.constants.MAX_GRAVITY_VEL);
 
       // Determine the hydrostatic pressure = density*gravity*(height of the fluid above 
       // How much pressure is pressing down on this cell?
@@ -1475,26 +1469,60 @@ class GPUKernelManager {
       const dHSVel  = hsForce*dt;
 
       const xm1 = clampm1(x), xp1 = clampp1(x);
-      const leftCell = cellData[xm1][y][z];
-      const rightCell = cellData[xp1][y][z];
+      const zm1 = clampm1(z), zp1 = clampp1(z);
+      const cellL = cellData[xm1][y][z];
+      const cellR = cellData[xp1][y][z];
+      const cellD = cellData[x][y][zm1];
+      const cellU = cellData[x][y][zp1];
       const bCellLiquidVol = cellLiquidVol(bCell);
 
-      let totalVel = 0;
+      let totalVelX = 0, totalVelZ = 0;
       if (bCellType === this.constants.SOLID_CELL_TYPE || bCellLiquidVol >= cellLiquidVol) {
-        if (cellType(leftCell) === this.constants.EMPTY_CELL_TYPE && cellLiquidVol(leftCell) < cellLiquidVol) {
-          totalVel -= dHSVel;
-        }
-        if (cellType(rightCell) === this.constants.EMPTY_CELL_TYPE && cellLiquidVol(rightCell) < cellLiquidVol) {
-          totalVel += dHSVel;
-        }
+        totalVelX -= (cellType(cellL) === this.constants.EMPTY_CELL_TYPE && 
+                      cellLiquidVol(cellL) < cellLiquidVol) ? dHSVel : 0;
+        totalVelX += (cellType(cellR) === this.constants.EMPTY_CELL_TYPE && 
+                      cellLiquidVol(cellR) < cellLiquidVol) ? dHSVel : 0;
+        totalVelZ -= (cellType(cellD) === this.constants.EMPTY_CELL_TYPE &&
+                      cellLiquidVol(cellD) < cellLiquidVol) ? dHSVel : 0;
+        totalVelZ += (cellType(cellU) === this.constants.EMPTY_CELL_TYPE &&
+                      cellLiquidVol(cellU) < cellLiquidVol) ? dHSVel : 0;
       }
-      result[0] = clampValue(result[0] + totalVel, -this.constants.MAX_PRESSURE_VEL, this.constants.MAX_PRESSURE_VEL);
-      const frictionVel = (result[0] - result[0]*dt*10);
-      result[0] = result[0] < 0 ? Math.min(0, frictionVel) : Math.max(0, frictionVel); // Friction hack
+      result[0] = clampValue(result[0] + totalVelX, -this.constants.MAX_PRESSURE_VEL, this.constants.MAX_PRESSURE_VEL);
+      result[2] = clampValue(result[2] + totalVelZ, -this.constants.MAX_PRESSURE_VEL, this.constants.MAX_PRESSURE_VEL);
+      
+      // Friction hack
+      const FRICTION_AMT = 15;
+      const frictionVelX = (result[0] - result[0]*dt*FRICTION_AMT);
+      const frictionVelZ = (result[2] - result[2]*dt*FRICTION_AMT);
+      result[0] = result[0] < 0 ? Math.min(0, frictionVelX) : Math.max(0, frictionVelX); 
+      result[2] = result[2] < 0 ? Math.min(0, frictionVelZ) : Math.max(0, frictionVelZ);
+
       return result;
 
     }, {...settings, returnType:'Array(3)', argumentTypes:{
       dt:'Float', gravity:'Float', vel:VEL_TYPE, cellData:CELL_TYPE
+    }});
+
+    this.simpleWaterInjectForceBlob = this.gpu.createKernel(function(center, impulseStrength, size, vel, cellData) {
+      const [x,y,z] = xyzLookup();
+
+      // Boundary condition - no forces are applied outside of the liquid
+      const cell = cellData[x][y][z];
+      const cellLiquidVol = cellLiquidVol(cell);
+      const u = vel[x][y][z];
+      if (cellType(cell) === this.constants.SOLID_CELL_TYPE || x < 1 || y < 1 || z < 1 || 
+          x > this.constants.N || y > this.constants.N || z > this.constants.N) { 
+        return u;
+      }
+
+      const mass = cellLiquidVol*this.constants.LIQUID_DENSITY;
+      const force = impulseStrength*mass;
+
+      const dir = [x-center[0], y-center[1], z-center[2]];
+      const len = length3(dir);
+      return len > size ? u : [u[0] + force*dir[0], u[1] + force*dir[1], u[2] + force*dir[2]];
+    }, {...settings, returnType: 'Array(3)', argumentTypes: {
+      center: 'Array', impulseStrength: 'Float', size: 'Float', vel:VEL_TYPE, cellData:CELL_TYPE
     }});
 
     this.simpleWaterCurl = this.gpu.createKernel(function(vel, cellData) {
@@ -1568,7 +1596,8 @@ class GPUKernelManager {
       const fieldT = (cellType(cT) === this.constants.SOLID_CELL_TYPE) ? noVel : vel[x][yp1][z];
       const fieldD = (cellType(cD) === this.constants.SOLID_CELL_TYPE) ? noVel : vel[x][y][zm1];
       const fieldU = (cellType(cU) === this.constants.SOLID_CELL_TYPE) ? noVel : vel[x][y][zp1];
-      return ((fieldR[0]-fieldL[0]) + (fieldT[1]-fieldB[1]) + (fieldU[2]-fieldD[2])) / ((this.constants.NDIM-1)*this.constants.N);//(2*this.constants.unitSize);
+      return ((fieldR[0]-fieldL[0]) + (fieldT[1]-fieldB[1]) + (fieldU[2]-fieldD[2])) / 
+        (this.constants.NDIM*this.constants.N);
 
     }, {...settings, returnType:'Float', argumentTypes:{vel:VEL_TYPE, cellData:CELL_TYPE}});
 
@@ -1578,10 +1607,8 @@ class GPUKernelManager {
       const pC = pressure[x][y][z];
       const cell = cellData[x][y][z];
       if (cellType(cell) === this.constants.SOLID_CELL_TYPE || x < 1 || y < 1 || z < 1 || 
-          x > this.constants.N || y > this.constants.N || z > this.constants.NZ) { return pC; }
-      if (Math.abs(cellLiquidVol(cell)) < this.constants.LIQUID_EPSILON) {
-        return 0;
-      } 
+          x > this.constants.N || y > this.constants.N || z > this.constants.N) { return pC; }
+      if (Math.abs(cellLiquidVol(cell)) < this.constants.LIQUID_EPSILON) { return 0; } 
 
       const xm1 = clampm1(x), xp1 = clampp1(x);
       const ym1 = clampm1(y), yp1 = clampp1(y);
@@ -1607,7 +1634,7 @@ class GPUKernelManager {
       const [x,y,z] = xyzLookup();
       const cell = cellData[x][y][z];
       if (cellType(cell) === this.constants.SOLID_CELL_TYPE || x < 1 || y < 1 || z < 1 || 
-          x > this.constants.N || y > this.constants.N || z > this.constants.NZ) { return [0,0,0]; }
+          x > this.constants.N || y > this.constants.N || z > this.constants.N) { return [0,0,0]; }
 
       const xm1 = clampm1(x), xp1 = clampp1(x);
       const ym1 = clampm1(y), yp1 = clampp1(y);
@@ -1634,30 +1661,35 @@ class GPUKernelManager {
       if (cellType(cU) === this.constants.SOLID_CELL_TYPE || cellSettled(cU) === 1) { pU = pC; vMaskPos[2] = 0; }
 
       const result = [
-        u[0] - (pR-pL) / ((this.constants.NDIM-1)*this.constants.N),//(2*this.constants.unitSize), 
-        u[1] - (pT-pB) / ((this.constants.NDIM-1)*this.constants.N),//(2*this.constants.unitSize), 
-        u[2] - (pU-pD) / ((this.constants.NDIM-1)*this.constants.N),//(2*this.constants.unitSize)
+        u[0] - (pR-pL) / (this.constants.NDIM*this.constants.N),
+        u[1] - (pT-pB) / (this.constants.NDIM*this.constants.N),
+        u[2] - (pU-pD) / (this.constants.NDIM*this.constants.N)
       ];
       result[0] = Math.min(result[0]*vMaskPos[0], Math.max(result[0]*vMaskNeg[0], result[0]));
       result[1] = Math.min(result[1]*vMaskPos[1], Math.max(result[1]*vMaskNeg[1], result[1]));
-      result[2] = 0;//Math.min(result[2]*vMaskPos[2], Math.max(result[2]*vMaskNeg[2], result[2]));
+      result[2] = Math.min(result[2]*vMaskPos[2], Math.max(result[2]*vMaskNeg[2], result[2]));
       return result;
 
     }, {...settings, returnType:'Array(3)', argumentTypes:{
       pressure:'Array', vel:VEL_TYPE, cellData:CELL_TYPE
     }});
 
-    this.simpleWaterDiffuseVel = this.gpu.createKernel(function(vel, cellData, a) {
+    this.simpleWaterDiffuseVel = this.gpu.createKernel(function(vel0, vel, cellData, a) {
       const [x,y,z] = xyzLookup();
       const cell = cellData[x][y][z];
-      const u = vel[x][y][z];
+      
       if (cellType(cell) === this.constants.SOLID_CELL_TYPE || x < 1 || y < 1 || z < 1 || 
-          x > this.constants.N || y > this.constants.N || z > this.constants.NZ) { return [0,0,0]; }
-
+          x > this.constants.N || y > this.constants.N || z > this.constants.N || 
+          Math.abs(cellLiquidVol(cell)) < this.constants.LIQUID_EPSILON) {
+        return [0,0,0];
+      }
       const xm1 = clampm1(x), xp1 = clampp1(x);
       const ym1 = clampm1(y), yp1 = clampp1(y);
       const zm1 = clampm1(z), zp1 = clampp1(z);
-
+      
+      const u  = vel[x][y][z];
+      const u0 = vel0[x][y][z];
+      
       const uxNeg = (cellType(cellData[xm1][y][z]) === this.constants.SOLID_CELL_TYPE) ? u : vel[xm1][y][z];
       const uxPos = (cellType(cellData[xp1][y][z]) === this.constants.SOLID_CELL_TYPE) ? u : vel[xp1][y][z];
       const uyNeg = (cellType(cellData[x][ym1][z]) === this.constants.SOLID_CELL_TYPE) ? u : vel[x][ym1][z];
@@ -1667,128 +1699,216 @@ class GPUKernelManager {
 
       const divisor = 1.0 + 6.0*a;
       const result = [0,0,0];
-      for (let i = 0 ; i < 3; i++) {
-        result[i] = (u[i] + a*(uxNeg[i] + uxPos[i] + uyNeg[i] + uyPos[i] + uzNeg[i] + uzPos[i])) / divisor;
+      for (let i = 0; i < 3; i++) {
+        result[i] = (u0[i] + a*(uxNeg[i] + uxPos[i] + uyNeg[i] + uyPos[i] + uzNeg[i] + uzPos[i])) / divisor;
       }
       return result;
 
     }, {...settings, returnType:'Array(3)', argumentTypes:{
-      vel:VEL_TYPE, cellData:CELL_TYPE, a:'Float'
+      vel0:VEL_TYPE, vel:VEL_TYPE, cellData:CELL_TYPE, a:'Float'
     }});
 
-    this.simpleWaterCalcFlows = this.gpu.createKernel(function(dt, vel, cellData) {
+    this.gpu.addFunction(function simpleWaterFlowHelperLRDU(dt, vel, cellData) {
       const [x,y,z] = xyzLookup();
       const cell = cellData[x][y][z];
       const liquidVol = cellLiquidVol(cell);
-      if (cellType(cell) === this.constants.SOLID_CELL_TYPE || 
-          liquidVol === 0 || x < 1 || y < 1 || z < 1 || 
-          x > this.constants.N || y > this.constants.N || z > this.constants.NZ ||
-          cellSettled(cell) === 1) { return [0,0,0,0]; }
-
       const xm1 = clampm1(x), xp1 = clampp1(x);
-      const ym1 = clampm1(y), yp1 = clampp1(y);
-      //const zm1 = clampm1(z), zp1 = clampp1(z);
-
+      const ym1 = clampm1(y);
+      const zm1 = clampm1(z), zp1 = clampp1(z);
       const u = vel[x][y][z];
       const cL = cellData[xm1][y][z], cR = cellData[xp1][y][z];
-      const cB = cellData[x][ym1][z], cT = cellData[x][yp1][z];
-      //const cD = cellData[x][y][zm1], cU = cellData[x][y][zp1];
-
+      const cB = cellData[x][ym1][z];
+      const cD = cellData[x][y][zm1], cU = cellData[x][y][zp1];
       const liquidVolL = cellLiquidVol(cL), liquidVolR = cellLiquidVol(cR);
-      const liquidVolB = cellLiquidVol(cB), liquidVolT = cellLiquidVol(cT);
+      const liquidVolB = cellLiquidVol(cB);
+      const liquidVolD = cellLiquidVol(cD), liquidVolU = cellLiquidVol(cU);
       const typeL = cellType(cL), typeR = cellType(cR);
-      const typeB = cellType(cB), typeT = cellType(cT);
+      const typeB = cellType(cB);
+      const typeD = cellType(cD), typeU = cellType(cU);
 
       const absCSFlowL = absCSFlow(Math.min(0, u[0]));
       const absCSFlowR = absCSFlow(Math.max(0, u[0]));
-      const absCSFlowB = absCSFlow(Math.min(0, u[1]));
-      const absCSFlowT = absCSFlow(Math.max(0, u[1]));
+      const absCSFlowD = absCSFlow(Math.min(0, u[2]));
+      const absCSFlowU = absCSFlow(Math.max(0, u[2]));
 
       let flowToL = clampValue(this.constants.unitVolume * absCSFlowL * dt, 0, liquidVol);
       let flowToR = clampValue(this.constants.unitVolume * absCSFlowR * dt, 0, liquidVol);
-      let flowToB = clampValue(this.constants.unitVolume * absCSFlowB * dt, 0, liquidVol);
-      let flowToT = clampValue((liquidVol-liquidVolT) * (11.5+absCSFlowT) * dt, 0, liquidVol); // Yup, this is a hack, it just works.
-      
-      let leftMask = 1, rightMask = 1, topMask = 1, bottomMask = 1;
+      let flowToD = clampValue(this.constants.unitVolume * absCSFlowD * dt, 0, liquidVol);
+      let flowToU = clampValue(this.constants.unitVolume * absCSFlowU * dt, 0, liquidVol);
 
-      // Can we flow down?
-      if (liquidVolB >= this.constants.unitVolume || typeB === this.constants.SOLID_CELL_TYPE) {
-        // No flow downward
-        bottomMask = 0;
-      }
+      let maskL = 1, maskR = 1, maskD = 1, maskU = 1;
+
       // Can we flow left?
       if (liquidVolL >= this.constants.unitVolume || liquidVolL >= liquidVol || 
           typeL === this.constants.SOLID_CELL_TYPE || 
           (typeB === this.constants.EMPTY_CELL_TYPE && liquidVolB < liquidVol)) {
         // No flow leftward
-        flowToR += flowToL;
-        leftMask = 0;
+        const flowToLDiv = flowToL/3; 
+        flowToR += flowToLDiv;
+        flowToU += flowToLDiv;
+        flowToD += flowToLDiv;
+        maskL = 0;
       }
       // Can we flow right?
       if (liquidVolR >= this.constants.unitVolume || liquidVolR >= liquidVol || 
           typeR === this.constants.SOLID_CELL_TYPE || 
           (typeB === this.constants.EMPTY_CELL_TYPE && liquidVolB < liquidVol)) {
         // No flow rightward
-        flowToL += flowToR;
-        rightMask = 0;
+        const flowToRDiv = flowToR/3; 
+        flowToL += flowToRDiv;
+        flowToU += flowToRDiv;
+        flowToD += flowToRDiv;
+        maskR = 0;
+      }
+      // Can we flow back?
+      if (liquidVolD >= this.constants.unitVolume || liquidVolD >= liquidVol || 
+          typeD === this.constants.SOLID_CELL_TYPE || 
+          (typeB === this.constants.EMPTY_CELL_TYPE && liquidVolB < liquidVol)) {
+        // No flow backward
+        const flowToDDiv = flowToD/3; 
+        flowToL += flowToDDiv;
+        flowToR += flowToDDiv;
+        flowToU += flowToDDiv;
+        maskD = 0;
+      }
+      // Can we flow forward?
+      if (liquidVolU >= this.constants.unitVolume || liquidVolU >= liquidVol || 
+          typeU === this.constants.SOLID_CELL_TYPE || 
+          (typeB === this.constants.EMPTY_CELL_TYPE && liquidVolB < liquidVol)) {
+        // No flow forward
+        const flowToUDiv = flowToU/3; 
+        flowToL += flowToUDiv;
+        flowToR += flowToUDiv;
+        flowToD += flowToUDiv;
+        maskU = 0;
+      }
+
+      flowToL *= maskL; flowToR *= maskR;
+      flowToD *= maskD; flowToU *= maskU;
+      return [flowToL, flowToR, flowToD, flowToU];
+    }, {returnType:'Array(4)'});
+
+    this.gpu.addFunction(function simpleWaterFlowHelperBT(dt, vel, cellData) {
+      const [x,y,z] = xyzLookup();
+      const cell = cellData[x][y][z];
+      const liquidVol = cellLiquidVol(cell);
+      const ym1 = clampm1(y), yp1 = clampp1(y);
+      const u = vel[x][y][z];
+      const cB = cellData[x][ym1][z], cT = cellData[x][yp1][z];
+      const liquidVolB = cellLiquidVol(cB), liquidVolT = cellLiquidVol(cT);
+      const typeB = cellType(cB), typeT = cellType(cT);
+      const absCSFlowB = absCSFlow(Math.min(0, u[1]));
+      const absCSFlowT = absCSFlow(Math.max(0, u[1]));
+      let flowToB = clampValue(this.constants.unitVolume * absCSFlowB * dt, 0, liquidVol);
+      let flowToT = clampValue((liquidVol-liquidVolT) * (6+absCSFlowT) * dt, 0, liquidVol); // Yup, this is a hack, it just works.
+      let maskT = 1, maskB = 1;
+
+      // Can we flow down?
+      if (liquidVolB >= this.constants.unitVolume || typeB === this.constants.SOLID_CELL_TYPE) {
+        // No flow downward
+        maskB = 0;
       }
       // Can we flow up?
       if (liquidVolT >= liquidVol || typeT === this.constants.SOLID_CELL_TYPE) {
         // No flow upward
-        topMask = 0;
+        maskT = 0;
       }
+      flowToB *= maskB; flowToT *= maskT;
+      return [flowToB, flowToT];
 
-      flowToT *= topMask;   
-      flowToB *= bottomMask;
-      flowToR *= rightMask;
-      flowToL *= leftMask;
+    }, {returnType:'Array(2)'});
 
-      const totalFlow = (flowToT+flowToB+flowToL+flowToR)+1e-6;
+    this.simpleWaterCalcFlowsLRB = this.gpu.createKernel(function(dt, vel, cellData) {
+      const [x,y,z] = xyzLookup();
+      const cell = cellData[x][y][z];
+      const liquidVol = cellLiquidVol(cell);
+      if (cellType(cell) === this.constants.SOLID_CELL_TYPE || liquidVol === 0 || 
+          x < 1 || y < 1 || z < 1 || x > this.constants.N || y > this.constants.N || z > this.constants.N ||
+          cellSettled(cell) === 1) { return [0,0,0]; }
 
-      flowToT = Math.min(Math.max(0.5*(liquidVol-liquidVolT),0), Math.min(liquidVol*(flowToT/totalFlow), flowToT));
-      flowToB = Math.min(0.5*(liquidVol+liquidVolB), Math.min(liquidVol*(flowToB/totalFlow), flowToB));
-      flowToR = Math.min(Math.max(0.5*(liquidVol-liquidVolR),0), Math.min(liquidVol*(flowToR/totalFlow), flowToR));
-      flowToL = Math.min(Math.max(0.5*(liquidVol-liquidVolL),0), Math.min(liquidVol*(flowToL/totalFlow), flowToL));
+      const xm1 = clampm1(x), xp1 = clampp1(x);
+      const ym1 = clampm1(y);
+      const cL = cellData[xm1][y][z], cR = cellData[xp1][y][z];
+      const cB = cellData[x][ym1][z];
+      const liquidVolB = cellLiquidVol(cB);
+      const liquidVolL = cellLiquidVol(cL), liquidVolR = cellLiquidVol(cR);
 
-      return [flowToL, flowToR, flowToB, flowToT];
+      const [flowToL, flowToR, flowToD, flowToU] = simpleWaterFlowHelperLRDU(dt, vel, cellData);
+      const [flowToB, flowToT] = simpleWaterFlowHelperBT(dt, vel, cellData);
+      const totalFlow = (flowToL+flowToR+flowToB+flowToT+flowToD+flowToU)+1e-6;
 
-    }, {...settings, returnType:'Array(4)', argumentTypes:{
-      dt:'Float', vel:VEL_TYPE, cellData:CELL_TYPE
-    }});
+      return [
+        Math.min(Math.max(0.5*(liquidVol-liquidVolL),0), Math.min(liquidVol*(flowToL/totalFlow), flowToL)),
+        Math.min(Math.max(0.5*(liquidVol-liquidVolR),0), Math.min(liquidVol*(flowToR/totalFlow), flowToR)),
+        Math.min(0.5*(liquidVol+liquidVolB), Math.min(liquidVol*(flowToB/totalFlow), flowToB))
+      ];
+    }, {...settings, returnType:'Array(3)', argumentTypes:{dt:'Float', vel:VEL_TYPE, cellData:CELL_TYPE }});
 
-    this.simpleWaterSumFlows = this.gpu.createKernel(function(cellFlows, cellData) {
+    this.simpleWaterCalcFlowsDUT = this.gpu.createKernel(function(dt, vel, cellData) {
+      const [x,y,z] = xyzLookup();
+      const cell = cellData[x][y][z];
+      const liquidVol = cellLiquidVol(cell);
+      if (cellType(cell) === this.constants.SOLID_CELL_TYPE || liquidVol === 0 || 
+          x < 1 || y < 1 || z < 1 || x > this.constants.N || y > this.constants.N || z > this.constants.N ||
+          cellSettled(cell) === 1) { return [0,0,0]; }
+
+      const zm1 = clampm1(z), zp1 = clampp1(z);
+      const yp1 = clampp1(y);
+      const cD = cellData[x][y][zm1], cU = cellData[x][y][zp1];
+      const cT = cellData[x][yp1][z];
+      const liquidVolT = cellLiquidVol(cT);
+      const liquidVolD = cellLiquidVol(cD), liquidVolU = cellLiquidVol(cU);
+
+      const [flowToL, flowToR, flowToD, flowToU] = simpleWaterFlowHelperLRDU(dt, vel, cellData);
+      const [flowToB, flowToT] = simpleWaterFlowHelperBT(dt, vel, cellData);
+      const totalFlow = (flowToL+flowToR+flowToB+flowToT+flowToD+flowToU)+1e-6;
+
+      return [
+        Math.min(Math.max(0.5*(liquidVol-liquidVolD),0), Math.min(liquidVol*(flowToD/totalFlow), flowToD)),
+        Math.min(Math.max(0.5*(liquidVol-liquidVolU),0), Math.min(liquidVol*(flowToU/totalFlow), flowToU)),
+        Math.min(Math.max(0.5*(liquidVol-liquidVolT),0), Math.min(liquidVol*(flowToT/totalFlow), flowToT))
+      ];
+    }, {...settings, returnType:'Array(3)', argumentTypes:{dt:'Float', vel:VEL_TYPE, cellData:CELL_TYPE }});
+
+    this.simpleWaterSumFlows = this.gpu.createKernel(function(cellFlowsLRB, cellFlowsDUT, cellData) {
       const [x,y,z] = xyzLookup();
       const cell = cellData[x][y][z];
       if (cellType(cell) === this.constants.SOLID_CELL_TYPE || x < 1 || y < 1 || z < 1 || 
-          x > this.constants.N || y > this.constants.N || z > this.constants.NZ) { return 0; }
+          x > this.constants.N || y > this.constants.N || z > this.constants.N) { return 0; }
 
       const xm1 = clampm1(x), xp1 = clampp1(x);
       const ym1 = clampm1(y), yp1 = clampp1(y);
-      //const zm1 = clampm1(z), zp1 = clampp1(z);
-      const fC = cellFlows[x][y][z];
-      const fL = cellFlows[xm1][y][z], fR = cellFlows[xp1][y][z];
-      const fB = cellFlows[x][ym1][z], fT = cellFlows[x][yp1][z];
+      const zm1 = clampm1(z), zp1 = clampp1(z);
+
+      const fC_LRB = cellFlowsLRB[x][y][z],   fC_DUT = cellFlowsDUT[x][y][z];
+      const fL_LRB = cellFlowsLRB[xm1][y][z], fR_LRB = cellFlowsLRB[xp1][y][z];
+      const fB_DUT = cellFlowsDUT[x][ym1][z], fT_LRB = cellFlowsLRB[x][yp1][z];
+      const fD_DUT = cellFlowsDUT[x][y][zm1], fU_DUT = cellFlowsDUT[x][y][zp1];
 
       // The total volume change in this cell is equal to all the incoming flows
       // from neighbour cells minus the total outward flow from the current cell
-      return (fL[1] + fR[0] + fB[3] + fT[2]) - (fC[0] + fC[1] + fC[2] + fC[3]);
+      return (
+        (fL_LRB[1] + fR_LRB[0] + fB_DUT[2] + fD_DUT[1] + fU_DUT[0] + fT_LRB[2]) - 
+        (fC_LRB[0] + fC_LRB[1] + fC_LRB[2] + fC_DUT[0] + fC_DUT[1] + fC_DUT[2])
+      );
       
     }, {...settings, returnType:'Float', argumentTypes:{
-      cellFlows: 'Array3D(4)', cellData:CELL_TYPE
+      cellFlowsLRB: 'Array3D(3)', cellFlowsDUT: 'Array3D(3)', cellData:CELL_TYPE
     }})
 
     this.simpleWaterAdjustFlows = this.gpu.createKernel(function(cellFlowSums, cellData) {
       const [x,y,z] = xyzLookup();
       const cell = cellData[x][y][z];
       if (cellType(cell) === this.constants.SOLID_CELL_TYPE || x < 1 || y < 1 || z < 1 || 
-          x > this.constants.N || y > this.constants.N || z > this.constants.NZ) { return cell; }
+          x > this.constants.N || y > this.constants.N || z > this.constants.N) { return cell; }
 
       const xm1 = clampm1(x), xp1 = clampp1(x);
       const ym1 = clampm1(y), yp1 = clampp1(y);
-      //const zm1 = clampm1(z), zp1 = clampp1(z);
+      const zm1 = clampm1(z), zp1 = clampp1(z);
       let sC = cellFlowSums[x][y][z];
       const sL = cellFlowSums[xm1][y][z], sR = cellFlowSums[xp1][y][z];
       const sB = cellFlowSums[x][ym1][z], sT = cellFlowSums[x][yp1][z];
+      const sD = cellFlowSums[x][y][zm1], sU = cellFlowSums[x][y][zp1];
       
       const liquidVol = cell[this.constants.CELL_VOL_IDX];
 
@@ -1797,7 +1917,8 @@ class GPUKernelManager {
 
       // Unsettle the cell if there are any changes in the neighbour cell flows
       if (Math.abs(sL) >= this.constants.LIQUID_EPSILON || Math.abs(sR) >= this.constants.LIQUID_EPSILON ||
-          Math.abs(sB) >= this.constants.LIQUID_EPSILON || Math.abs(sT) >= this.constants.LIQUID_EPSILON) {
+          Math.abs(sB) >= this.constants.LIQUID_EPSILON || Math.abs(sT) >= this.constants.LIQUID_EPSILON ||
+          Math.abs(sD) >= this.constants.LIQUID_EPSILON || Math.abs(sU) >= this.constants.LIQUID_EPSILON) {
         cell[this.constants.CELL_SETTLED_IDX] = 0;
       }
       else {
@@ -1806,7 +1927,6 @@ class GPUKernelManager {
           Math.abs(liquidVol) < this.constants.LIQUID_EPSILON || 
           Math.abs(liquidVol-this.constants.unitVolume) < this.constants.LIQUID_EPSILON) ? 1 : 0;
       }
-
       return cell;
 
     }, {...settings, returnType:'Array(3)', argumentTypes:{

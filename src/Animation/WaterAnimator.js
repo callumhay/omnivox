@@ -10,8 +10,8 @@ import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 export const waterAnimatorDefaultConfig = {
   speed: 1.0,
   gravity: 9.81,
-  vorticityConfinement: 0.012,
-  viscosity: 0.1,
+  vorticityConfinement: 0.01,
+  viscosity: 0.00015,
 
   colourInterpolationType: COLOUR_INTERPOLATION_RGB,
   shallowColour:  new THREE.Color(0.4,1,1),
@@ -42,32 +42,6 @@ class WaterAnimator extends VoxelAnimator {
     liquidSim.gravity = gravity;
     liquidSim.viscosity = viscosity;
     liquidSim.vorticityConfinement = vorticityConfinement;
-
-    /*
-    const {gravity, confinementScale, waterLevelEpsilon, 
-      levelSetDamping, velAdvectionDamping, pressureModulation} = c;
-
-    this.fluidModel = new LiquidGPU(this.voxelModel.gridSize, this.voxelModel.gpuKernelMgr);
-    const B_OFFSET = 0;
-    this.fluidModel.setBoundary({
-      posXOffset:B_OFFSET, negXOffset:B_OFFSET, 
-      posYOffset:B_OFFSET, negYOffset:B_OFFSET, 
-      posZOffset:B_OFFSET, negZOffset:B_OFFSET
-    });
-    // Start by injecting a sphere of liquid
-    const {gridSize} = this.voxelModel;
-    const halfGridSize = (gridSize+2)/2;
-    this.fluidModel.injectSphere([halfGridSize-8, halfGridSize-8, halfGridSize-8], 4);
-    this.fluidModel.injectSphere([halfGridSize+8, halfGridSize+8, halfGridSize+8], 4);
-
-    this.fluidModel.gravity = gravity;
-    this.fluidModel.confinementScale = confinementScale;
-    this.fluidModel.levelSetDamping = levelSetDamping;
-    this.fluidModel.velAdvectionDamping = velAdvectionDamping;
-    this.fluidModel.pressureModulation = pressureModulation;
-
-    this.genColourLookup();
-    */
   }
 
   reset() {
@@ -77,38 +51,25 @@ class WaterAnimator extends VoxelAnimator {
 
   //rendersToCPUOnly() { return true; }
   render(dt) {
-    const {clamp} = THREE.MathUtils;
     const {speed} = this.config;
     const dtSpeed = dt*speed;
 
+    this.t += dtSpeed;
+    if (this.t > 2) {
+      const {gridSize} = this.voxelModel;
+      const sphereR = (5+Math.random()*3);
+      const halfGridPos = gridSize+2/2;
+      const center = [halfGridPos-sphereR, sphereR, halfGridPos-sphereR];//[sphereR + Math.random()*gridSpan, 2, sphereR + Math.random()*gridSpan];
+      //this.liquid.injectForceBlob(center, 1e20, sphereR);
+      this.t = 0;
+    }
+  
     this.liquid.step(dtSpeed);
 
     const {maxCellVolume, cells, pressureField, velField} = this.liquid.liquidSim;
     // Update the voxels...
     const gpuFramebuffer = this.voxelModel.framebuffer;
     gpuFramebuffer.drawSimpleWater(cells, pressureField, velField, maxCellVolume, [1, 1, 1]);
-    
-
-    /*
-    this.t += dtSpeed;
-    if (this.t > 2) {
-      const {gridSize} = this.voxelModel;
-      const sphereR = (3+Math.random()*3);
-      const gridSpan = gridSize+2-2*sphereR;
-      this.fluidModel.injectSphere([sphereR + Math.random()*gridSpan, 3+sphereR + Math.random()*(gridSpan-3), sphereR + Math.random()*gridSpan], sphereR);
-      //this.fluidModel.injectForceBlob([halfGridSize,1,halfGridSize], 10, 5);
-      this.fluidModel.stopSimulation = false;
-      this.t = 0;
-    }
-
-    
-    this.fluidModel.step(dtSpeed);
-
-    // Update the voxels...
-    const gpuFramebuffer = this.voxelModel.framebuffer;
-    const {levelSet, boundaryBuf, levelEpsilon} = this.fluidModel;
-    gpuFramebuffer.drawWater(this.waterLookup, this.airLookup, levelSet, boundaryBuf, levelEpsilon, [1, 1, 1]);
-    */
   }
 
   setAudioInfo(audioInfo) {
