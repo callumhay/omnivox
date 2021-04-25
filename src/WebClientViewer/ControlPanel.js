@@ -130,8 +130,12 @@ class ControlPanel {
           break;
       }
 
+      if (this.visualizerDebugController) {
+        this.gui.remove(this.visualizerDebugController);
+        this.visualizerDebugController = null;
+      }
       if (this.soundController.enabled) {
-        this.gui.add(this.settings, 'showVisualizerDebug').onChange((value) => {
+        this.visualizerDebugController = this.gui.add(this.settings, 'showVisualizerDebug').onChange((value) => {
           this.soundController.showDebug = value;
         }).setValue(this.settings.showVisualizerDebug);
       }

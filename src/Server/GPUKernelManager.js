@@ -1323,8 +1323,8 @@ class GPUKernelManager {
     this._barVisKernelsInit = true;
   }
 
-  initSimpleWater2DKernels(nPlus2, unitSize, constants) {
-    if (this._simpleWater2DInit) { return; }
+  initSimpleWaterKernels(nPlus2, unitSize, constants) {
+    if (this._simpleWaterInit) { return; }
     const allConstants = {...constants,
       N: nPlus2-2, NPLUSAHALF: nPlus2-1.5, 
       NPLUS1: nPlus2-1, NPLUS2: nPlus2, NDIM:3, 
@@ -1379,14 +1379,6 @@ class GPUKernelManager {
       if ((x === 5 || x === 26) && (y >= 3 && y <= 10)) {
         return [0, this.constants.SOLID_CELL_TYPE, 0];
       }
-      /*
-      // Add other boundaries
-      if ((y === 24 && (x >= 15 && x < this.constants.N)) ||
-          (y === 15 && (x >= 2 && x <= 15)) || ((x === 5 || x === 26) && (y >= 3 && y <= 10)) ||
-          (x >= 13 && x <= 18) && (y >= 2 && y <= 6)) {
-        return [0, this.constants.SOLID_CELL_TYPE, 0];
-      }
-      */
       // Add liquid to the top
       if (x >= 1 && x <= this.constants.N && y >= this.constants.N-3 && y <= this.constants.N &&
           z >= 1 && z <= this.constants.N) {
@@ -1492,10 +1484,10 @@ class GPUKernelManager {
       
       // Friction hack
       const FRICTION_AMT = 15;
-      const frictionVelX = (result[0] - result[0]*dt*FRICTION_AMT);
-      const frictionVelZ = (result[2] - result[2]*dt*FRICTION_AMT);
-      result[0] = result[0] < 0 ? Math.min(0, frictionVelX) : Math.max(0, frictionVelX); 
-      result[2] = result[2] < 0 ? Math.min(0, frictionVelZ) : Math.max(0, frictionVelZ);
+      const frictionVelX = dt*FRICTION_AMT;
+      const frictionVelZ = dt*FRICTION_AMT;
+      result[0] = result[0] < 0 ? Math.min(0, result[0] + frictionVelX) : Math.max(0, result[0] - frictionVelX); 
+      result[2] = result[2] < 0 ? Math.min(0, result[2] + frictionVelZ) : Math.max(0, result[2] - frictionVelZ);
 
       return result;
 
@@ -1894,7 +1886,7 @@ class GPUKernelManager {
       
     }, {...settings, returnType:'Float', argumentTypes:{
       cellFlowsLRB: 'Array3D(3)', cellFlowsDUT: 'Array3D(3)', cellData:CELL_TYPE
-    }})
+    }});
 
     this.simpleWaterAdjustFlows = this.gpu.createKernel(function(cellFlowSums, cellData) {
       const [x,y,z] = xyzLookup();
@@ -1934,7 +1926,7 @@ class GPUKernelManager {
     }});
 
 
-    this._simpleWater2DInit = true;
+    this._simpleWaterInit = true;
   }
 
 }

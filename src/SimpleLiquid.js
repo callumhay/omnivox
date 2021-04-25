@@ -51,7 +51,7 @@ class LiquidSim {
     this.viscosity = 0;
     this.count = 0;
 
-    this.gpuManager.initSimpleWater2DKernels(size, unitSize, {
+    this.gpuManager.initSimpleWaterKernels(size, unitSize, {
       SOLID_CELL_TYPE, EMPTY_CELL_TYPE, 
       MAX_GRAVITY_VEL:  MAX_GRAVITY_VELOCITY, 
       MAX_PRESSURE_VEL: MAX_PRESSURE_VELOCITY,
