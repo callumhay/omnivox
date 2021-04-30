@@ -27,9 +27,9 @@ const controlPanel = new ControlPanel(voxelClient, voxelDisplay, soundController
 
 // Make sure the camera is positioned somewhere where we can see everything we need to at initial render
 scene.position.set(0,0,0);
-camera.position.z = 0;
-camera.position.y = 0;
-camera.position.z = 10;
+camera.position.set(0,0,10);
+
+controls.target = new THREE.Vector3(0,0,0);
 controls.update();
 
 // Constants used to make window resizing a bit more user-friendly

@@ -196,6 +196,7 @@ class VoxelDisplay {
   }
   setOrbitModeEnabled(enable) {
     this._controls.autoRotate = enable;
+
     this.orbitModeEnabled = enable;
   }
 

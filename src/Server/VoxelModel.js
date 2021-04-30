@@ -5,6 +5,7 @@ import VoxelConstants from '../VoxelConstants';
 
 import VoxelAnimator, {DEFAULT_CROSSFADE_TIME_SECS} from '../Animation/VoxelAnimator';
 import VoxelColourAnimator from '../Animation/VoxelColourAnimator';
+import TextAnimator from '../Animation/TextAnimator';
 import StarShowerAnimator from '../Animation/StarShowerAnimator';
 import ShapeWaveAnimator from '../Animation/ShapeWaveAnimator';
 import FireAnimator from '../Animation/FireAnimator';
@@ -16,6 +17,7 @@ import VTScene from '../VoxelTracer/VTScene';
 import VoxelFramebufferCPU from './VoxelFramebufferCPU';
 import VoxelFramebufferGPU from './VoxelFramebufferGPU';
 import GPUKernelManager from './GPUKernelManager';
+
 
 export const BLEND_MODE_OVERWRITE = 0;
 export const BLEND_MODE_ADDITIVE  = 1;
@@ -66,6 +68,7 @@ class VoxelModel {
     this.vtScene = new VTScene(this);
     this._animators = {
       [VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR]       : new VoxelColourAnimator(this),
+      [VoxelAnimator.VOXEL_ANIM_TEXT]              : new TextAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER]  : new StarShowerAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES]  : new ShapeWaveAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_FIRE]              : new FireAnimator(this),

@@ -9,9 +9,11 @@ import FireAnimator, {fireAnimatorDefaultConfig} from '../Animation/FireAnimator
 import { waterAnimatorDefaultConfig } from '../Animation/WaterAnimator';
 import {sceneAnimatorDefaultConfig, SCENE_TYPES, SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG} from '../Animation/SceneAnimatorDefaultConfigs';
 import BarVisualizerAnimator, {barVisualizerAnimatorDefaultConfig} from '../Animation/BarVisualizerAnimator';
+import { textAnimatorDefaultConfig } from '../Animation/TextAnimator';
 
 import {ColourSystems, COLOUR_INTERPOLATION_TYPES} from '../Spectrum';
 import {simpleSceneDefaultOptions, shadowSceneDefaultOptions, fogSceneDefaultOptions} from '../VoxelTracer/Scenes/SceneDefaultConfigs';
+
 
 
 const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
@@ -44,6 +46,7 @@ class ControlPanel {
     this.soundController = soundController;
 
     this.colourAnimatorConfig = {...voxelColourAnimatorDefaultConfig};
+    this.textAnimatorConfig = {...textAnimatorDefaultConfig};
     this.starShowerAnimatorConfig = {...starShowerDefaultConfig};
     this.shapeWaveAnimatorConfig = {...shapeWaveAnimatorDefaultConfig};
     this.fireAnimatorConfig = {...fireAnimatorDefaultConfig};
@@ -65,6 +68,7 @@ class ControlPanel {
 
     this.animatorTypeController = this.gui.add(this.settings, 'animatorType', [
       VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR,
+      VoxelAnimator.VOXEL_ANIM_TEXT,
       VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER,
       VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES,
       VoxelAnimator.VOXEL_ANIM_FIRE,
@@ -90,6 +94,11 @@ class ControlPanel {
         case VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR:
           this.currFolder = this.buildVoxelColourControls();
           this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
+          break;
+        
+        case VoxelAnimator.VOXEL_ANIM_TEXT:
+          this.currFolder = this.buildTextAnimatorControls();
+          this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TEXT, this.textAnimatorConfig);
           break;
 
         case VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER:
@@ -176,6 +185,13 @@ class ControlPanel {
     this.gui.remember(this.settings.voxelColourSettings.sphereProperties.center);
     this.gui.remember(this.settings.voxelColourSettings.boxProperties);
     this.gui.remember(this.settings.voxelColourSettings.boxProperties.center);
+  }
+  reloadTextSettings() {
+    this.settings.textSettings = {...this.textAnimatorConfig,
+      colour: THREEColorToGuiColor(this.textAnimatorConfig.colour),
+      reset: this.resetDisplay.bind(this),
+    };
+    this.gui.remember(this.settings.textSettings);
   }
   reloadStarShowerSettings() {
     this.settings.starShowerSettings = {
@@ -269,6 +285,7 @@ class ControlPanel {
     };
 
     this.reloadVoxelColourSettings();
+    this.reloadTextSettings();
     this.reloadStarShowerSettings();
     this.reloadShapeWavesSettings();
     this.reloadFireSettings();
@@ -286,6 +303,10 @@ class ControlPanel {
       case VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR:
         this.colourAnimatorConfig = config;
         this.reloadVoxelColourSettings();
+        break;
+      case VoxelAnimator.VOXEL_ANIM_TEXT:
+        this.textAnimatorConfig = config;
+        this.reloadTextSettings();
         break;
       case VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER:
         this.starShowerAnimatorConfig = config;
@@ -502,6 +523,30 @@ class ControlPanel {
       }
     }).setValue(voxelColourSettings.shapeType);
   
+    folder.open();
+    return folder;
+  }
+
+  buildTextAnimatorControls() {
+    const {textSettings} = this.settings;
+
+    const folder = this.gui.addFolder("Font/Text Controls");
+
+    folder.add(textSettings, 'text').onChange((value) => {
+      this.textAnimatorConfig.text = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TEXT, this.textAnimatorConfig);
+    }).setValue(textSettings.text);
+
+    folder.add(textSettings, 'letterSpacing').onChange((value) => {
+      this.textAnimatorConfig.letterSpacing = value;
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TEXT, this.textAnimatorConfig);
+    }).setValue(textSettings.letterSpacing);
+
+    folder.addColor(textSettings, 'colour').onChange((value) => {
+      this.textAnimatorConfig.colour = GuiColorToRGBObj(value);
+      this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TEXT, this.textAnimatorConfig);
+    }).setValue(textSettings.colour);
+
     folder.open();
     return folder;
   }
