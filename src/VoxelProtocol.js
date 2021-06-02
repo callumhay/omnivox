@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { hashCode } from './MathUtils';
+import VoxelConstants from './VoxelConstants';
+
+const NUM_OCTO_DATA_PINS = 8;
 
 const DISCOVERY_REQ_PACKET_HEADER = "REQ";
 const DISCOVERY_ACK_PACKET_HEADER = "ACK";
@@ -28,9 +31,47 @@ const PACKET_END = ";";
 const WEBSOCKET_HOST = "localhost";
 const WEBSOCKET_PORT = 4001;
 
-const VOXEL_MODULE_X_SIZE = 8;
-const VOXEL_MODULE_Z_SIZE = 8;
 
+// Gamma correction for Neopixel LED strips - maps each of R, G, and B from uint8 value
+// to a gamma corrected uint8 value ****************************************************
+/*
+const GAMMA_MAP_ADAFRUIT = [
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,
+    1,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  2,  2,  2,
+    2,  3,  3,  3,  3,  3,  3,  3,  4,  4,  4,  4,  4,  5,  5,  5,
+    5,  6,  6,  6,  6,  7,  7,  7,  7,  8,  8,  8,  9,  9,  9, 10,
+   10, 10, 11, 11, 11, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16,
+   17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 24, 24, 25,
+   25, 26, 27, 27, 28, 29, 29, 30, 31, 32, 32, 33, 34, 35, 35, 36,
+   37, 38, 39, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 50,
+   51, 52, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 66, 67, 68,
+   69, 70, 72, 73, 74, 75, 77, 78, 79, 81, 82, 83, 85, 86, 87, 89,
+   90, 92, 93, 95, 96, 98, 99,101,102,104,105,107,109,110,112,114,
+  115,117,119,120,122,124,126,127,129,131,133,135,137,138,140,142,
+  144,146,148,150,152,154,156,158,160,162,164,167,169,171,173,175,
+  177,180,182,184,186,189,191,193,196,198,200,203,205,208,210,213,
+  215,218,220,223,225,228,231,233,236,239,241,244,247,249,252,255
+];
+*/
+const GAMMA_MAP_RGB123 = [
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
+  2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5,
+  6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9, 9, 10, 10, 11, 11,
+  11, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18,
+  19, 19, 20, 21, 21, 22, 22, 23, 23, 24, 25, 25, 26, 27, 27, 28,
+  29, 29, 30, 31, 31, 32, 33, 34, 34, 35, 36, 37, 37, 38, 39, 40,
+  40, 41, 42, 43, 44, 45, 46, 46, 47, 48, 49, 50, 51, 52, 53, 54,
+  55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
+  71, 72, 73, 74, 76, 77, 78, 79, 80, 81, 83, 84, 85, 86, 88, 89,
+  90, 91, 93, 94, 95, 96, 98, 99,100,102,103,104,106,107,109,110,
+  111,113,114,116,117,119,120,121,123,124,126,128,129,131,132,134,
+  135,137,138,140,142,143,145,146,148,150,151,153,155,157,158,160,
+  162,163,165,167,169,170,172,174,176,178,179,181,183,185,187,189,
+  191,193,194,196,198,200,202,204,206,208,210,212,214,216,218,220,
+  222,224,227,229,231,233,235,237,239,241,244,246,248,250,252,255
+];
 
 class VoxelProtocol {
 
@@ -169,30 +210,45 @@ class VoxelProtocol {
     return true;
   }
 
+  
   static stuffVoxelDataAll(startIdx, packetBuf, data, slaveId = null) {
     let byteCount = startIdx;
 
     if (slaveId !== null) {
-      // We split voxels up among the slave boards based on their ID
-      const xLen = data.length;
+      // For Teensy OctoWS2812 clients...
+      const VOXEL_MODULE_X_SIZE = VoxelConstants.VOXEL_GRID_SIZE;
+      const VOXEL_MODULE_Y_SIZE = VoxelConstants.VOXEL_GRID_SIZE;
+      const VOXEL_MODULE_Z_SIZE = VoxelConstants.VOXEL_GRID_SIZE;
       const startX = slaveId * VOXEL_MODULE_X_SIZE;
-      const endX = Math.min(xLen, startX + VOXEL_MODULE_X_SIZE);
+      const endX = startX + NUM_OCTO_DATA_PINS;
+      const octoVoxels = new Array(NUM_OCTO_DATA_PINS).fill(0);
 
-      for (let x = startX; x < endX; x++) {
-        const yLen = data[x].length;
+      // Go through z-coords first
+      for (let z = 0; z < VOXEL_MODULE_Z_SIZE; z++) {
+        // ... then y-coords
+        for (let y = 0; y < VOXEL_MODULE_Y_SIZE; y++) {
 
-        for (let y = 0; y < yLen; y++) {
-          const zLen = data[x][y].length;
-          const startZ = (slaveId % zLen) * VOXEL_MODULE_Z_SIZE;
-          const endZ   = Math.min(zLen, startZ + VOXEL_MODULE_Z_SIZE); 
-
-          for (let z = startZ; z < endZ; z++) {
+          // We interleave the voxel data by fetching 8 voxels from the cube, each one is from an individual board and corresponds
+          // to a different pin on the Teensy's Octo
+          let octoVoxIdx = 0;
+          for (let x = startX; x < endX; x++) { // Always NUM_OCTO_DATA_PINS iterations!
             const voxelColour = data[x][y][z];
+            const r = GAMMA_MAP_RGB123[parseInt(voxelColour[0]*255)];
+            const g = GAMMA_MAP_RGB123[parseInt(voxelColour[1]*255)];
+            const b = GAMMA_MAP_RGB123[parseInt(voxelColour[2]*255)];
+            // Store as a hex/int colour as one of the NUM_OCTO_DATA_PINS colour values
+            octoVoxels[octoVoxIdx++] = (0xFF0000 & (r << 16)) | (0x00FF00 & (g << 8)) | (0x0000FF & b);
+          }
 
-            packetBuf[byteCount]   = parseInt(voxelColour[0]*255);
-            packetBuf[byteCount+1] = parseInt(voxelColour[1]*255);
-            packetBuf[byteCount+2] = parseInt(voxelColour[2]*255);
-            byteCount += 3;
+          // Now convert the 8 voxel colour integers to 24 bytes and store it in the packetBuf
+          for (let mask = 0x800000; mask != 0; mask >>= 1) {
+            let b = 0;
+            for (let i = 0; i < 8; i++) {
+              if ((octoVoxels[i] & mask) != 0) {
+                b |= (1 << i);
+              }
+            }
+            packetBuf[byteCount++] = b;
           }
         }
       }
@@ -214,8 +270,10 @@ class VoxelProtocol {
         }
       }
     }
+    
   }
 
+  // For websocket clients
   static buildVoxelDataPacket(voxelData) {
     if (voxelData === null) {
       return null;
@@ -267,7 +325,7 @@ class VoxelProtocol {
 
     switch (type) {
       case VOXEL_DATA_ALL_TYPE:
-        packetDataBuf = new Uint8Array(4 + data.length*data[0].length*data[0][0].length*3); // slaveid (1 byte), type (1 byte), frame id (2 bytes), and data (3*O(n^3) bytes)
+        packetDataBuf = new Uint8Array(4 + NUM_OCTO_DATA_PINS * data[0].length * data[0][0].length * 3); // slaveid (1 byte), type (1 byte), frame id (2 bytes), data (NUM_OCTO_DATA_PINS*size*size*3 bytes)
         this.stuffVoxelDataAll(4, packetDataBuf, data, slaveId);
         break;
 
@@ -283,6 +341,7 @@ class VoxelProtocol {
     packetDataBuf[1] = type.charCodeAt(0);
     packetDataBuf[2] = frameId0;
     packetDataBuf[3] = frameId1;
+    //packetDataBuf[packetDataBuf.length-1] = '\n'.charCodeAt(0);
 
     return Buffer.from(packetDataBuf);
   }

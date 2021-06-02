@@ -7,7 +7,7 @@ A 3D LED display server and client made to drive fun and novel visualizations.
 
 - Run `npm install` to get all the required node packages.
 - Run `npm run dev|prod` for dev or production mode (leave this running for the watch).
-- In parallel, run `npm start` to run server.js in production, or `run npm run start_dev` to use nodemon while running the server during development.
+- In parallel, run `npm start` to run server.js in production, or `npm run start_dev` to use nodemon while running the server during development.
 - Navigate to http://locahost:4000 and have fun!
   
 ## Authors

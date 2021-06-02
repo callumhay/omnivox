@@ -28,6 +28,7 @@ app.get("/", (req, res) => {
 
 
 const webServer = http.createServer(app);
+
 reload(app).then((reloadReturned) => {
   // Reload started, start web server
   webServer.listen(app.get('port'), function () {
@@ -57,3 +58,9 @@ const voxelServer = new VoxelServer(voxelModel);
 voxelServer.start();
 voxelModel.run(voxelServer);
 
+process.once('SIGINT', function (code) {
+  console.log('SIGINT received...');
+  voxelServer.stop();
+  webServer.close();
+  process.exit(code);
+});
