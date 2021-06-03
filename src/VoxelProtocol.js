@@ -24,6 +24,7 @@ const VOXEL_ROUTINE_RESET_HEADER = "R";
 const VOXEL_CLEAR_COMMAND_HEADER = "L";
 const AUDIO_INFO_HEADER = "A";
 const CROSSFADE_UPDATE_HEADER = "X";
+const BRIGHTNESS_UPDATE_HEADER = "B";
 
 const PACKET_END = ";";
 
@@ -95,6 +96,7 @@ class VoxelProtocol {
   static get VOXEL_CLEAR_COMMAND_HEADER() {return VOXEL_CLEAR_COMMAND_HEADER;}
   static get AUDIO_INFO_HEADER() {return AUDIO_INFO_HEADER;}
   static get CROSSFADE_UPDATE_HEADER() {return CROSSFADE_UPDATE_HEADER;}
+  static get BRIGHTNESS_UPDATE_HEADER() {return BRIGHTNESS_UPDATE_HEADER;}
 
   static buildWelcomePacketForSlaves(voxelModel) {
     const packetDataBuf = new Uint8Array(3); // slaveid (1 byte), type (1 byte), y-size (1 byte)
@@ -108,6 +110,7 @@ class VoxelProtocol {
     const welcomeDataObj = {
       currentAnimatorType: voxelModel.currentAnimator ? voxelModel.currentAnimator.getType() : null,
       currentAnimatorConfig: voxelModel.currentAnimator ? voxelModel.currentAnimator.config : null,
+      globalBrightness: voxelModel.globalBrightnessMultiplier,
     };
     const gridSizeCharCode = String.fromCharCode(voxelModel.gridSize);
     if (gridSizeCharCode.length !== 1) {
@@ -139,7 +142,13 @@ class VoxelProtocol {
       packetType: CROSSFADE_UPDATE_HEADER,
       timeInSecs: crossfadeTimeInSecs,
     });
-  } 
+  }
+  static buildClientBrightnessPacketStr(brightness) {
+    return JSON.stringify({
+      packetType: BRIGHTNESS_UPDATE_HEADER,
+      brightness: brightness,
+    });
+  }
   static buildClientPacketStrAudio(audioInfo) {
     return JSON.stringify({
       packetType: AUDIO_INFO_HEADER,
@@ -202,6 +211,10 @@ class VoxelProtocol {
       case CROSSFADE_UPDATE_HEADER:
         voxelModel.setCrossfadeTime(dataObj.timeInSecs);
         break;
+      
+      case BRIGHTNESS_UPDATE_HEADER:
+        voxelModel.setGlobalBrightness(dataObj.brightness);
+        break;
 
       default:
         return false;
@@ -211,7 +224,7 @@ class VoxelProtocol {
   }
 
   
-  static stuffVoxelDataAll(startIdx, packetBuf, data, slaveId = null) {
+  static stuffVoxelDataAll(startIdx, packetBuf, data, brightnessMultiplier, slaveId = null) {
     let byteCount = startIdx;
 
     if (slaveId !== null) {
@@ -233,9 +246,9 @@ class VoxelProtocol {
           let octoVoxIdx = 0;
           for (let x = startX; x < endX; x++) { // Always NUM_OCTO_DATA_PINS iterations!
             const voxelColour = data[x][y][z];
-            const r = GAMMA_MAP_RGB123[parseInt(voxelColour[0]*255)];
-            const g = GAMMA_MAP_RGB123[parseInt(voxelColour[1]*255)];
-            const b = GAMMA_MAP_RGB123[parseInt(voxelColour[2]*255)];
+            const r = GAMMA_MAP_RGB123[parseInt(brightnessMultiplier*voxelColour[0]*255)];
+            const g = GAMMA_MAP_RGB123[parseInt(brightnessMultiplier*voxelColour[1]*255)];
+            const b = GAMMA_MAP_RGB123[parseInt(brightnessMultiplier*voxelColour[2]*255)];
             // Store as a hex/int colour as one of the NUM_OCTO_DATA_PINS colour values
             octoVoxels[octoVoxIdx++] = (0xFF0000 & (r << 16)) | (0x00FF00 & (g << 8)) | (0x0000FF & b);
           }
@@ -262,9 +275,9 @@ class VoxelProtocol {
           for (let z = 0; z < zLen; z++) {
             const voxelColour = data[x][y][z];
 
-            packetBuf[byteCount]   = parseInt(voxelColour[0]*255);
-            packetBuf[byteCount+1] = parseInt(voxelColour[1]*255);
-            packetBuf[byteCount+2] = parseInt(voxelColour[2]*255);
+            packetBuf[byteCount]   = parseInt(brightnessMultiplier*voxelColour[0]*255);
+            packetBuf[byteCount+1] = parseInt(brightnessMultiplier*voxelColour[1]*255);
+            packetBuf[byteCount+2] = parseInt(brightnessMultiplier*voxelColour[2]*255);
             byteCount += 3;
           }
         }
@@ -278,7 +291,7 @@ class VoxelProtocol {
     if (voxelData === null) {
       return null;
     }
-    const {type, data} = voxelData;
+    const {type, data, brightnessMultiplier} = voxelData;
     if (!type || !data) {
       console.log("Invalid voxel data object found!");
       return null;
@@ -289,7 +302,7 @@ class VoxelProtocol {
     switch (type) {
       case VOXEL_DATA_ALL_TYPE:
         packetDataBuf = new Uint8Array(5 + data.length*data[0].length*data[0][0].length*3); // type (1 byte), subtype (1 byte), frame id (2 bytes), end delimiter (1 byte), and data (3*O(n^3) bytes)
-        this.stuffVoxelDataAll(4, packetDataBuf, data);
+        this.stuffVoxelDataAll(4, packetDataBuf, data, brightnessMultiplier);
         break;
 
       default:
@@ -315,7 +328,7 @@ class VoxelProtocol {
     if (voxelData === null) {
       return null;
     }
-    const {type, data} = voxelData;
+    const {type, data, brightnessMultiplier} = voxelData;
     if (!type || !data) {
       console.log("Invalid voxel data object found!");
       return null;
@@ -326,7 +339,7 @@ class VoxelProtocol {
     switch (type) {
       case VOXEL_DATA_ALL_TYPE:
         packetDataBuf = new Uint8Array(4 + NUM_OCTO_DATA_PINS * data[0].length * data[0][0].length * 3); // slaveid (1 byte), type (1 byte), frame id (2 bytes), data (NUM_OCTO_DATA_PINS*size*size*3 bytes)
-        this.stuffVoxelDataAll(4, packetDataBuf, data, slaveId);
+        this.stuffVoxelDataAll(4, packetDataBuf, data, brightnessMultiplier, slaveId);
         break;
 
       default:

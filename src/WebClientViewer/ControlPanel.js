@@ -1,6 +1,7 @@
 import * as dat from 'dat.gui';
 import * as THREE from 'three';
 
+import VoxelConstants from '../VoxelConstants';
 import VoxelAnimator, {DEFAULT_CROSSFADE_TIME_SECS} from '../Animation/VoxelAnimator';
 import {voxelColourAnimatorDefaultConfig, INTERPOLATION_TYPES} from '../Animation/VoxelColourAnimator';
 import {starShowerDefaultConfig} from '../Animation/StarShowerAnimator';
@@ -13,8 +14,6 @@ import { textAnimatorDefaultConfig } from '../Animation/TextAnimator';
 
 import {ColourSystems, COLOUR_INTERPOLATION_TYPES} from '../Spectrum';
 import {simpleSceneDefaultOptions, shadowSceneDefaultOptions, fogSceneDefaultOptions} from '../VoxelTracer/Scenes/SceneDefaultConfigs';
-
-
 
 const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
 const VOXEL_COLOUR_SHAPE_TYPE_SPHERE = "Sphere";
@@ -161,6 +160,9 @@ class ControlPanel {
     this.gui.add(this.settings, 'crossfadeTime', 0, 10, 0.1).onChange((value) => {
       this.voxelClient.sendCrossfadeTime(value);
     }).setValue(this.settings.crossfadeTime);
+    this.gui.add(this.settings, 'brightness', 0, 1, 0.01).onChange((value) => {
+      this.voxelClient.sendGlobalBrightness(value);
+    }).setValue(this.settings.brightness);
 
     this.gui.open();
   }
@@ -281,6 +283,7 @@ class ControlPanel {
       showWireFrame: this.voxelDisplay.outlinesEnabled,
       orbitMode: this.voxelDisplay.orbitModeEnabled,
       crossfadeTime: DEFAULT_CROSSFADE_TIME_SECS,
+      brightness: VoxelConstants.DEFAULT_BRIGHTNESS_MULTIPLIER,
       showVisualizerDebug: this.soundController.showDebug,
     };
 
@@ -295,6 +298,11 @@ class ControlPanel {
 
     this.gui.remember(this.settings);
   }
+
+  updateBrightness(brightness) {
+    this.settings.brightness = brightness;
+    this.gui.remember(this.settings);
+  } 
 
   updateAnimator(animatorType, config) {
     
@@ -616,7 +624,6 @@ class ControlPanel {
       onChangeDir(value, 'z');
     }).setValue(starShowerSettings.direction.z);
     dirFolder.open();
-    
     
     const onChangePositionMin = (value, component) => {
       const actualVal = Math.min(value, starShowerSettings.maxSpawnPos[component]);

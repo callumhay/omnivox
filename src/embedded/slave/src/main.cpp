@@ -102,10 +102,10 @@ void readFullVoxelData(const uint8_t* buffer, size_t size, size_t startIdx, int 
   lastKnownFrameId = frameId;
 
   // Debug/Info status update
-
   statusUpdateFrameCounter++;
   if (statusUpdateFrameCounter % STATUS_UPDATE_FRAMES == 0) {
-     DEBUG_SERIAL.printf("[Slave %i] LED Refresh FPS: %.2f, Frame#: %i", MY_SLAVE_ID, (1000000.0f/((float)frameDiffMicroSecs)), lastKnownFrameId); DEBUG_SERIAL.println();
+     DEBUG_SERIAL.printf("[Slave %i] LED Refresh FPS: %.2f, Frame#: %i", MY_SLAVE_ID, (1000000.0f/((float)frameDiffMicroSecs)), lastKnownFrameId); 
+     DEBUG_SERIAL.println();
      statusUpdateFrameCounter = 0;
   }
 
@@ -148,6 +148,7 @@ void onSerialPacketReceived(const void* sender, const uint8_t* buffer, size_t si
     }
   }
 }
+
 /*
 void setup() {
   Serial.begin(9600);

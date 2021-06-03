@@ -81,6 +81,8 @@ class VoxelModel {
 
     this.currFrameTime = Date.now();
     this.frameCounter = 0;
+    this.globalBrightnessMultiplier = VoxelConstants.DEFAULT_BRIGHTNESS_MULTIPLIER;
+    
 
     // Crossfading
     this.totalCrossfadeTime = DEFAULT_CROSSFADE_TIME_SECS;
@@ -141,6 +143,11 @@ class VoxelModel {
     this._animators[VoxelAnimator.VOXEL_ANIM_SCENE].setCrossfadeTime(this.totalCrossfadeTime);
   }
 
+  setGlobalBrightness(b) {
+    this.globalBrightnessMultiplier = Math.min(1.0, Math.max(0.0, b));
+    //console.log("Global brightness set to " + this.globalBrightnessMultiplier);
+  }
+
   run(voxelServer) {
     let self = this;
     let lastFrameTime = Date.now();
@@ -194,7 +201,7 @@ class VoxelModel {
       }
 
       // Let the server know to broadcast the new voxel data to all clients
-      voxelServer.setVoxelData(self.framebuffer.getCPUBuffer(), self.frameCounter);
+      voxelServer.setVoxelData(self.framebuffer.getCPUBuffer(), self.globalBrightnessMultiplier, self.frameCounter);
       self.frameCounter++;
 
       lastFrameTime = self.currFrameTime;

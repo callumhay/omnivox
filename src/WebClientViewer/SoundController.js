@@ -6,7 +6,6 @@ export const DEFAULT_FFT_BUFFER_SIZE = 2048;
 
 class SoundController {
   constructor() {
-
     if (window.hasOwnProperty('webkitAudioContext') && !window.hasOwnProperty('AudioContext')) {
       window.AudioContext = webkitAudioContext;
     }
@@ -35,7 +34,7 @@ class SoundController {
     this._soundDebugScene.position.set(0,0,0);
     this._soundDebugCamera.position.set(0,0,10);
 
-    this._renderTarget = new THREE.WebGLRenderTarget(width, height, {minFilter: THREE.LinearMipMapLinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat});
+    this._renderTarget = new THREE.WebGLRenderTarget(width, height, {minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, format: THREE.RGBAFormat});
     let spriteMaterial = new THREE.SpriteMaterial({map:this._renderTarget.texture, blending:THREE.AdditiveBlending});
     this._renderTargetSprite = new THREE.Sprite(spriteMaterial)
     this._soundDebugSceneOrtho.add(this._renderTargetSprite);
@@ -54,38 +53,32 @@ class SoundController {
     }
     this._initRenderFFTs();
   }
+  
   _initRenderFFTs() {
     if (this._lines) {
       this._soundDebugScene.remove(this._lines);
     }
 
     this._lines = new THREE.Group();
-    let material = new THREE.LineBasicMaterial({color:0x00ff00});
+    const material = new THREE.LineBasicMaterial({color:0x00ff00});
+
     for (let i = 0; i < this.ffts.length; i++) {
-      let geometry = new THREE.BufferGeometry();
-      let positions = new Float32Array(this.ffts[i].length * 3);
+      if (this.ffts[i]) {
+        let geometry = new THREE.BufferGeometry();
+        let positions = new Float32Array(this.ffts[i].length * 3);
 
-      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      geometry.setDrawRange(0, this.ffts[i].length);
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setDrawRange(0, this.ffts[i].length);
+        geometry.computeBoundingSphere();
 
-      let line = new THREE.Line(geometry, material);
-      this._lines.add(line);
+        const line = new THREE.Line(geometry, material);
+        this._lines.add(line);
 
-      positions = line.geometry.attributes.position.array;
+        positions = line.geometry.attributes.position.array;
+      }
     }
 
     this._soundDebugScene.add(this._lines);
-
-    /*
-    let bufferLineGeometry = new THREE.BufferGeometry();
-    this._bufferLine = new THREE.Line(bufferLineGeometry, material);
-    {
-      let positions = new Float32Array(this.fftBufferSize * 3);
-      bufferLineGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      bufferLineGeometry.setDrawRange(0, this.fftBufferSize);
-      positions = this._bufferLine.geometry.attributes.position.array;
-    }
-    */
   }
 
 

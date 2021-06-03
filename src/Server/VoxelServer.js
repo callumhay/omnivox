@@ -156,7 +156,7 @@ class VoxelServer {
                     }
                     else {
                       console.log(data);
-                      console.log("Current Server Frame#: " + self.voxelModel.frameCounter);
+                      console.log("Current Server Frame#: " + (self.voxelModel.frameCounter % 65536));
                     }
                   });
                   self.connectedSerialPorts.push(newSerialPort);
@@ -235,10 +235,11 @@ class VoxelServer {
    * This will result in a full refresh of the display.
    * @param {[][][]} data - A 3D array of the voxel data for display, where each voxel has an RGB colour (getColour() accessor function).
    */
-  setVoxelData(data, frameCounter) {
+  setVoxelData(data, brightnessMultiplier, frameCounter) {
     this.sendClientSocketVoxelData({
       type: VoxelProtocol.VOXEL_DATA_ALL_TYPE,
       data: data,
+      brightnessMultiplier: brightnessMultiplier,
       frameId: frameCounter,
     });
   }

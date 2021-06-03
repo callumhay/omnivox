@@ -49,7 +49,7 @@ class VoxelClient {
       case VoxelProtocol.SERVER_TO_CLIENT_WELCOME_HEADER:
         const welcomeDataObj = VoxelProtocol.getDataObjFromWelcomePacketStr(messageData);
         if (welcomeDataObj) {
-          const {gridSize, currentAnimatorType, currentAnimatorConfig} = welcomeDataObj;
+          const {gridSize, currentAnimatorType, currentAnimatorConfig, globalBrightness} = welcomeDataObj;
 
           if (gridSize !== undefined && gridSize !== this.voxelDisplay.gridSize) {
             console.log("Resizing the voxel grid.");
@@ -58,6 +58,9 @@ class VoxelClient {
           if (currentAnimatorType && currentAnimatorConfig) {
             // TODO: Tell the GUI to update itself
             controlPanel.updateAnimator(currentAnimatorType, currentAnimatorConfig);
+          }
+          if (globalBrightness) {
+            controlPanel.updateBrightness(globalBrightness);
           }
 
           this.lastFrameId = 0; // Reset the frame Id
@@ -133,6 +136,11 @@ class VoxelClient {
   sendCrossfadeTime(crossfadeTimeInSecs) {
     if (this.socket.readyState === WebSocket.OPEN) {
       this.socket.send(VoxelProtocol.buildClientCrossfadePacketStr(crossfadeTimeInSecs));
+    }
+  }
+  sendGlobalBrightness(brightness) {
+    if (this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(VoxelProtocol.buildClientBrightnessPacketStr(brightness));
     }
   }
 }
