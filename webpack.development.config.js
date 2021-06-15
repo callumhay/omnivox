@@ -18,19 +18,34 @@ const commonConfig = {
     fs: 'empty',
   },
   plugins: [
-    new webpack.DefinePlugin({
-      DEBUG: true,
-    }),
+    new webpack.DefinePlugin({ DEBUG: true }),
+    //new webpack.HotModuleReplacementPlugin(),
   ],
 };
 
-const webClientConfig = {...commonConfig,
+const webClientViewerConfig = {...commonConfig,
   target: 'web',
   entry: './src/WebClientViewer/webclientviewer.js',
   output: {
     filename: 'webclientviewer.js',
     path: distPath,
   },
+};
+
+const webClientDesignerConfig = {...commonConfig,
+  target: 'web',
+  entry: './src/WebClientDesigner/webclientdesigner.js',
+  output: {
+    filename: 'webclientdesigner.js',
+    path: distPath,
+  },
+  module: {
+    rules: [{
+      test: /\.(js|jsx)$/,
+      use: ['babel-loader'],
+      exclude: /node_modules/
+    }]
+  }
 };
 
 const serverConfig = {...commonConfig,
@@ -57,4 +72,4 @@ const renderChildConfig = {...commonConfig,
   },
 };
 
-module.exports = [webClientConfig, serverConfig, renderChildConfig];
+module.exports = [webClientViewerConfig, webClientDesignerConfig, serverConfig, renderChildConfig];

@@ -5,7 +5,7 @@ import {fork} from 'child_process';
 
 import VTAmbientLight from './VTAmbientLight';
 import VTRenderProc from './RenderProc/VTRenderProc';
-import VoxelModel from '../Server/VoxelModel';
+import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 class VTScene {
   constructor(voxelModel) {
@@ -308,7 +308,7 @@ class VTScene {
     const chunkedRenderData = new Array(numChildProcs).fill().map(() => ({}));
     for (let i = 0; i < renderableVoxels.length; i++) {
       const renderableVoxel = renderableVoxels[i];
-      const voxelIdx = VoxelModel.voxelFlatIdx(renderableVoxel.voxelPt, this.voxelModel.gridSize);
+      const voxelIdx = VoxelGeometryUtils.voxelFlatIdx(renderableVoxel.voxelPt, this.voxelModel.gridSize);
       if (voxelIdx >= 0 && voxelIdx < numVoxels) { 
         const childProcIdx = Math.floor(voxelIdx / numVoxelsPerProc);
         const childProcChunk = chunkedRenderData[childProcIdx];

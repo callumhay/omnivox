@@ -14,6 +14,7 @@ import { textAnimatorDefaultConfig } from '../Animation/TextAnimator';
 
 import {ColourSystems, COLOUR_INTERPOLATION_TYPES} from '../Spectrum';
 import {simpleSceneDefaultOptions, shadowSceneDefaultOptions, fogSceneDefaultOptions} from '../VoxelTracer/Scenes/SceneDefaultConfigs';
+import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
 const VOXEL_COLOUR_SHAPE_TYPE_SPHERE = "Sphere";
@@ -404,14 +405,14 @@ class ControlPanel {
           this.shapeSettingsFolder = folder.addFolder("Sphere Properties");
 
           this.shapeSettingsFolder.add(voxelColourSettings.sphereProperties, 'fill').onChange((value) => {
-            this.colourAnimatorConfig.voxelPositions = voxelDisplay.voxelSphereList(
-              new THREE.Vector3(
-                voxelColourSettings.sphereProperties.center.x,
-                voxelColourSettings.sphereProperties.center.y,
-                voxelColourSettings.sphereProperties.center.z
-              ),
-              voxelColourSettings.sphereProperties.radius, value
+            const {radius} = voxelColourSettings.sphereProperties;
+            const center = new THREE.Vector3(
+              voxelColourSettings.sphereProperties.center.x,
+              voxelColourSettings.sphereProperties.center.y,
+              voxelColourSettings.sphereProperties.center.z
             );
+            const voxelBB = VoxelGeometryUtils.voxelBoundingBox(voxelDisplay.gridSize);
+            this.colourAnimatorConfig.voxelPositions = VoxelGeometryUtils.voxelSphereList(center, radius, value, voxelBB);
 
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
             this.voxelClient.sendClearCommand(0,0,0);
@@ -420,13 +421,14 @@ class ControlPanel {
 
           this.shapeSettingsFolder.add(voxelColourSettings.sphereProperties, 'radius', 0.5, voxelDisplay.gridSize, 0.5).onChange((value) => {
             
-            this.colourAnimatorConfig.voxelPositions = voxelDisplay.voxelSphereList(
-              new THREE.Vector3(
-                voxelColourSettings.sphereProperties.center.x,
-                voxelColourSettings.sphereProperties.center.y,
-                voxelColourSettings.sphereProperties.center.z
-              ), value, voxelColourSettings.sphereProperties.fill
+            const center = new THREE.Vector3(
+              voxelColourSettings.sphereProperties.center.x,
+              voxelColourSettings.sphereProperties.center.y,
+              voxelColourSettings.sphereProperties.center.z
             );
+            const {fill} = voxelColourSettings.sphereProperties;
+            const voxelBB = VoxelGeometryUtils.voxelBoundingBox(voxelDisplay.gridSize);
+            this.colourAnimatorConfig.voxelPositions = VoxelGeometryUtils.voxelSphereList(center, value, fill, voxelBB);
 
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
             this.voxelClient.sendClearCommand(0,0,0);
@@ -436,7 +438,9 @@ class ControlPanel {
           const onChangeSphereCenter = (value, component) => {
             const newCenter = new THREE.Vector3(voxelColourSettings.sphereProperties.center.x,voxelColourSettings.sphereProperties.center.y,voxelColourSettings.sphereProperties.center.z);
             newCenter[component] = value;
-            this.colourAnimatorConfig.voxelPositions = voxelDisplay.voxelSphereList(newCenter, voxelColourSettings.sphereProperties.radius, voxelColourSettings.sphereProperties.fill);
+            const {radius, fill} = voxelColourSettings.sphereProperties;
+            const voxelBB = VoxelGeometryUtils.voxelBoundingBox(voxelDisplay.gridSize);
+            this.colourAnimatorConfig.voxelPositions = VoxelGeometryUtils.voxelSphereList(newCenter, radius, fill, voxelBB);
             
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
             this.voxelClient.sendClearCommand(0,0,0);
@@ -466,18 +470,18 @@ class ControlPanel {
             const halfHeight = currBoxProperties.height/2.0;
             const halfDepth = currBoxProperties.depth/2.0;
 
-            return voxelDisplay.voxelBoxList(
-              new THREE.Vector3(
-                currBoxProperties.center.x-halfWidth,
-                currBoxProperties.center.y-halfHeight,
-                currBoxProperties.center.z-halfDepth
-              ), 
-              new THREE.Vector3(
-                currBoxProperties.center.x+halfWidth,
-                currBoxProperties.center.y+halfHeight,
-                currBoxProperties.center.z+halfDepth,
-              ), currBoxProperties.fill 
+            const minPt = new THREE.Vector3(
+              currBoxProperties.center.x-halfWidth,
+              currBoxProperties.center.y-halfHeight,
+              currBoxProperties.center.z-halfDepth
             );
+            const maxPt = new THREE.Vector3(
+              currBoxProperties.center.x+halfWidth,
+              currBoxProperties.center.y+halfHeight,
+              currBoxProperties.center.z+halfDepth,
+            );
+
+            return VoxelGeometryUtils.voxelAABBList(minPt, maxPt, currBoxProperties.fill, VoxelGeometryUtils.voxelBoundingBox(voxelDisplay.gridSize));
           };
 
           const onChangeBasicBoxProperty = (value, property) => {

@@ -28,7 +28,7 @@ class VoxelFramebuffer {
   drawCombinedFramebuffers(fb1, fb2, options) { console.error("drawCombinedFramebuffers abstract method call."); }
 
   drawPoint(pt, colour, blendMode) { console.error("drawPoint abstract method call."); }
-  drawBox(minPt, maxPt, colour, fill, blendMode) { console.error("drawBox abstract method call."); }
+  drawAABB(minPt, maxPt, colour, fill, blendMode) { console.error("drawAABB abstract method call."); }
   drawSphere(center, radius, colour, fill, blendMode) { console.error("drawSphere abstract method call."); }
   drawSpheres(center, radii, colours, brightness) { console.error("drawSpheres abstract method call."); }
   drawCubes(center, radii, colours, brightness) { console.error("drawCubes abstract method call."); }

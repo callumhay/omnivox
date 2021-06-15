@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import VoxelModel from '../../src/Server/VoxelModel';
+
+import VoxelGeometryUtils from '../../src/VoxelGeometryUtils';
 
 // A function prototype shell class for the VTMesh, for use in node.js multithreading
 class VTMeshMultithreading {
@@ -17,7 +18,7 @@ class VTMeshMultithreading {
     }
 
     let vtTriSamples = null;
-    const voxelIdxLookup = VoxelModel.voxelIdStr(voxelIdxPt);
+    const voxelIdxLookup = VoxelGeometryUtils.voxelIdStr(voxelIdxPt);
     if (voxelIdxLookup in this.voxelIdxToTriSamples) {
       vtTriSamples = this.voxelIdxToTriSamples[voxelIdxLookup];
       finalColour.add(vtSceneMt.calculateLightingSamples(vtTriSamples.map(triSample => triSample.sample), this.material));

@@ -75,8 +75,10 @@ class VoxelFramebufferGPU extends VoxelFramebuffer {
   }
 
   drawPoint(pt, colour, blendMode) { console.error("drawPoint called on GPU Framebuffer."); }
-  drawBox(minPt, maxPt, colour, fill, blendMode) { console.error("drawBox called on GPU Framebuffer."); }
+  drawAABB(minPt, maxPt, colour, fill, blendMode) { console.error("drawAABB called on GPU Framebuffer."); }
   drawSphere(center, radius, colour, fill, blendMode) { console.error("drawSphere called on GPU Framebuffer."); }
+
+  //drawBox()
 
   drawSpheres(center, radii, colours, brightness) {
     const radiiSqr = radii.map(r => r*r);

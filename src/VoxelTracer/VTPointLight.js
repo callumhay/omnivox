@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import VoxelModel from '../Server/VoxelModel';
+
+import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 import VTObject from './VTObject';
 
@@ -86,7 +87,7 @@ class VTPointLight extends VTObject {
 
   getCollidingVoxels(voxelGridBoundingBox=null) {
     // Just return the nearest voxel to this light (since it's a point light it will only be a single voxel)
-    return [VoxelModel.closestVoxelIdxPt(this._position)];
+    return [VoxelGeometryUtils.closestVoxelIdxPt(this._position)];
   }
 }
 

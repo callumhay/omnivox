@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-import VoxelModel from '../Server/VoxelModel';
+import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 import VTObject from './VTObject';
 
@@ -36,7 +36,7 @@ export class VTVoxelAbstract extends VTObject {
 
   computeBoundingBox() {
     this._getWorldSpacePosition(this._tempVec3);
-    this._boundingBox = VoxelModel.calcVoxelBoundingBox(VoxelModel.closestVoxelIdxPt(this._tempVec3));
+    this._boundingBox = VoxelGeometryUtils.singleVoxelBoundingBox(VoxelGeometryUtils.closestVoxelIdxPt(this._tempVec3));
   }
 
   intersectsRay(raycaster) {
@@ -44,7 +44,7 @@ export class VTVoxelAbstract extends VTObject {
   }
 
   getCollidingVoxels(voxelBoundingBox=null) {
-    return [VoxelModel.closestVoxelIdxPt(this._voxelIdxPt)];
+    return [VoxelGeometryUtils.closestVoxelIdxPt(this._voxelIdxPt)];
   }
 }
 

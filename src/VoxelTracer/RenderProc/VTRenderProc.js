@@ -1,5 +1,5 @@
 import VTRPScene from "./VTRPScene";
-import VoxelModel from "../../Server/VoxelModel";
+import VoxelGeometryUtils from "../../VoxelGeometryUtils";
 
 class VTRenderProc {
   static get TO_PROC_INIT() { return 'i'; }
@@ -69,7 +69,7 @@ class VTRenderProc {
                 }
 
                 // If the voxel point is going to be rendered by this process then we include it
-                const voxelIdx = VoxelModel.voxelFlatIdx(voxelPt, this.rpScene.gridSize);
+                const voxelIdx = VoxelGeometryUtils.voxelFlatIdx(voxelPt, this.rpScene.gridSize);
                 if (voxelIdx >= this.voxelIndexRange[0] && voxelIdx <= this.voxelIndexRange[1]) {
                   newRenderableToVoxelPtsMappings[renderableId].push(voxelPt);
                 }

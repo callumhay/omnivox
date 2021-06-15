@@ -83,7 +83,7 @@ class WaveShape {
       case WAVE_SHAPE_CUBE:
         const minPt = this.getMinPt(drawRadius);
         const maxPt = this.getMaxPt(drawRadius);
-        this.voxelModel.drawBox(minPt, maxPt, adjustedColour, true);
+        this.voxelModel.drawAABB(minPt, maxPt, adjustedColour, true);
         break;
       case WAVE_SHAPE_SPHERE:
         this.voxelModel.drawSphere(this.center, drawRadius, adjustedColour, true);

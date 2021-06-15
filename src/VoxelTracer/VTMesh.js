@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {computeBoundsTree, disposeBoundsTree, acceleratedRaycast, MeshBVH, SAH} from 'three-mesh-bvh';
 
-import VoxelModel from '../Server/VoxelModel';
+import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 import VTObject from './VTObject';
 
@@ -70,7 +70,7 @@ class VTMesh extends VTObject {
   }
   getCollidingVoxels(voxelGridBoundingBox) {
     const worldSpaceBB = this.geometry.boundingBox.clone().applyMatrix4(this.threeMesh.matrixWorld);
-    return VoxelModel.voxelBoxList(worldSpaceBB.min, worldSpaceBB.max, true, voxelGridBoundingBox);
+    return VoxelGeometryUtils.voxelAABBList(worldSpaceBB.min, worldSpaceBB.max, true, voxelGridBoundingBox);
   }
 }
 

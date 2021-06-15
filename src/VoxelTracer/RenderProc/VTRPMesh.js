@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import {computeBoundsTree, disposeBoundsTree, acceleratedRaycast, MeshBVH, SAH} from 'three-mesh-bvh';
+
 import {SQRT2PI, SQRT3} from '../../MathUtils';
-import VoxelModel from '../../Server/VoxelModel';
+import VoxelGeometryUtils from '../../VoxelGeometryUtils';
+
 import VTObject from '../VTObject';
 import VTMaterialFactory from '../VTMaterialFactory';
 
@@ -91,7 +93,7 @@ class VTRPMesh extends VTObject {
     }
     else if (this.threeMesh.geometry.boundsTree) {
       // We need to build a set of new triangle samples for the given voxel
-      const voxelBoundingBox = VoxelModel.calcVoxelBoundingBox(voxelIdxPt);
+      const voxelBoundingBox = VoxelGeometryUtils.singleVoxelBoundingBox(voxelIdxPt);
       voxelBoundingBox.getCenter(this._voxelCenterPt);
   
       const furthestPossibleDistFromCenter = SQRT3*Math.SQRT1_2;
@@ -194,7 +196,7 @@ class VTRPMesh extends VTObject {
   }
 
   calculateVoxelColour(voxelIdxPt, scene) {
-    const voxelId = VoxelModel.voxelFlatIdx(voxelIdxPt, scene.gridSize);
+    const voxelId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, scene.gridSize);
     let finalColour = new THREE.Color(0,0,0);
 
     // Fast-out if we can't even see this mesh
@@ -219,7 +221,7 @@ class VTRPMesh extends VTObject {
 
   getCollidingVoxels(voxelGridBoundingBox) {
     const worldSpaceBB = this.geometry.boundingBox.clone().applyMatrix4(this.threeMesh.matrixWorld);
-    return VoxelModel.voxelBoxList(worldSpaceBB.min, worldSpaceBB.max, true, voxelGridBoundingBox);
+    return VoxelGeometryUtils.voxelAABBList(worldSpaceBB.min, worldSpaceBB.max, true, voxelGridBoundingBox);
   }
 }
 

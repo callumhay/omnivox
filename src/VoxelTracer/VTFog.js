@@ -1,7 +1,7 @@
 
 import * as THREE from 'three';
-import VoxelModel from '../Server/VoxelModel';
 
+import VoxelGeometryUtils from '../VoxelGeometryUtils';
 import VTObject from './VTObject';
 
 export const fogDefaultOptions = {
@@ -59,7 +59,7 @@ class VTFog extends VTObject {
   }
 
   getCollidingVoxels(voxelGridBoundingBox) {
-    return VoxelModel.voxelBoxList(this._boundingBox.min, this._boundingBox.max, true, voxelGridBoundingBox);
+    return VoxelGeometryUtils.voxelAABBList(this._boundingBox.min, this._boundingBox.max, true, voxelGridBoundingBox);
   }
 }
 

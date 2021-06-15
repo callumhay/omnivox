@@ -1,6 +1,7 @@
 import VoxelFramebuffer from './VoxelFramebuffer';
 import VoxelModel, {BLEND_MODE_ADDITIVE, BLEND_MODE_OVERWRITE} from './VoxelModel';
 import {clamp} from '../MathUtils';
+import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 class VoxelFramebufferCPU extends VoxelFramebuffer {
   constructor(index, gridSize, gpuKernelMgr) {
@@ -108,9 +109,9 @@ class VoxelFramebufferCPU extends VoxelFramebuffer {
     blendFunc(pt, colour);
   }
 
-  drawBox(minPt, maxPt, colour, fill, blendMode) {
+  drawAABB(minPt, maxPt, colour, fill, blendMode) {
     const gridSize = this._buffer.length;
-    const boxPts = VoxelModel.voxelBoxList(minPt, maxPt, fill, VoxelModel.voxelBoundingBox(gridSize, gridSize, gridSize));
+    const boxPts = VoxelGeometryUtils.voxelAABBList(minPt, maxPt, fill, VoxelGeometryUtils.voxelBoundingBox(gridSize));
     const blendDrawPointFunc = this._getBlendFuncNoCheck(blendMode);
     const colourArr = [colour.r, colour.g, colour.b];
 
@@ -121,11 +122,39 @@ class VoxelFramebufferCPU extends VoxelFramebuffer {
 
   drawSphere(center, radius, colour, fill, blendMode) {
     const gridSize = this._buffer.length;
-    const spherePts = VoxelModel.voxelSphereList(center, radius, fill, VoxelModel.voxelBoundingBox(gridSize, gridSize, gridSize));
+    const spherePts = VoxelGeometryUtils.voxelSphereList(center, radius, fill, VoxelGeometryUtils.voxelBoundingBox(gridSize));
     const blendDrawPointFunc = this._getBlendFuncNoCheck(blendMode);
     const colourArr = [colour.r, colour.g, colour.b];
 
     spherePts.forEach((pt) => {
+      blendDrawPointFunc([pt.x, pt.y, pt.z], colourArr);
+    });
+  }
+
+  drawBox(center, eulerRot, size, colour, fill, blendMode) {
+    const halfSize = size.clone().multiplyScalar(0.5);
+    // Figure out all the points in the grid that will be inside the box...
+    const minPt = center.clone();
+    const maxPt = center.clone();
+    minPt.sub(halfSize);
+    maxPt.add(halfSize);
+
+    const boxPts = VoxelGeometryUtils.voxelAABBList(minPt, maxPt, fill, VoxelGeometryUtils.voxelBoundingBox(gridSize));
+    const blendDrawPointFunc = this._getBlendFuncNoCheck(blendMode);
+    const colourArr = [colour.r, colour.g, colour.b];
+
+    // Transform all the box points by the rotation, make sure we're doing this from the given center point...
+    if (eulerRot.x !== 0 || eulerRot.y !== 0 || eulerRot.z !== 0) {
+      for (let i = 0; i < boxPts.length; i++) {
+        const boxPt = boxPts[i];
+        boxPt.sub(center); // Bring the point to the origin...
+        boxPt.applyEuler(eulerRot); // Rotate it
+        boxPt.add(center); // Move back to where the box is
+      }
+    }
+
+    // Draw the box
+    boxPts.forEach((pt) => {
       blendDrawPointFunc([pt.x, pt.y, pt.z], colourArr);
     });
   }
