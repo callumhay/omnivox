@@ -178,7 +178,7 @@ class ControlPanel {
     this.settings.voxelColourSettings = {...this.colourAnimatorConfig,
       shapeType: VOXEL_COLOUR_SHAPE_TYPE_ALL,
       sphereProperties: { center: { x: halfVoxelDisplayUnits, y: halfVoxelDisplayUnits, z: halfVoxelDisplayUnits }, radius: halfVoxelDisplayUnits, fill: false },
-      boxProperties: { center: { x: halfVoxelDisplayUnits, y: halfVoxelDisplayUnits, z: halfVoxelDisplayUnits }, width: 2 * halfVoxelDisplayUnits - 2, height: 2 * halfVoxelDisplayUnits - 2, depth: 2 * halfVoxelDisplayUnits - 2, fill: false },
+      boxProperties: { center: { x: halfVoxelDisplayUnits, y: halfVoxelDisplayUnits, z: halfVoxelDisplayUnits }, rotation: { x: 0, y: 0, z: 0}, width: 2 * halfVoxelDisplayUnits - 2, height: 2 * halfVoxelDisplayUnits - 2, depth: 2 * halfVoxelDisplayUnits - 2, fill: false },
       colourStart: THREEColorToGuiColor(this.colourAnimatorConfig.colourStart),
       colourEnd: THREEColorToGuiColor(this.colourAnimatorConfig.colourEnd),
       reset: this.resetDisplay.bind(this),
@@ -188,6 +188,7 @@ class ControlPanel {
     this.gui.remember(this.settings.voxelColourSettings.sphereProperties.center);
     this.gui.remember(this.settings.voxelColourSettings.boxProperties);
     this.gui.remember(this.settings.voxelColourSettings.boxProperties.center);
+    this.gui.remember(this.settings.voxelColourSettings.boxProperties.rotation);
   }
   reloadTextSettings() {
     this.settings.textSettings = {...this.textAnimatorConfig,
@@ -466,22 +467,23 @@ class ControlPanel {
 
         case VOXEL_COLOUR_SHAPE_TYPE_BOX: {
           const buildBoxPts = (currBoxProperties) => {
-            const halfWidth = currBoxProperties.width/2.0;
-            const halfHeight = currBoxProperties.height/2.0;
-            const halfDepth = currBoxProperties.depth/2.0;
+            const {width, height, depth, center, rotation, fill} = currBoxProperties;
 
-            const minPt = new THREE.Vector3(
-              currBoxProperties.center.x-halfWidth,
-              currBoxProperties.center.y-halfHeight,
-              currBoxProperties.center.z-halfDepth
+            const centerVec3 = new THREE.Vector3(center.x, center.y, center.z);
+            const eulerRot = new THREE.Euler(
+              THREE.MathUtils.degToRad(rotation.x), 
+              THREE.MathUtils.degToRad(rotation.y),
+              THREE.MathUtils.degToRad(rotation.z), 'XYZ'
             );
-            const maxPt = new THREE.Vector3(
-              currBoxProperties.center.x+halfWidth,
-              currBoxProperties.center.y+halfHeight,
-              currBoxProperties.center.z+halfDepth,
-            );
+            const size = new THREE.Vector3(width, height, depth);
 
-            return VoxelGeometryUtils.voxelAABBList(minPt, maxPt, currBoxProperties.fill, VoxelGeometryUtils.voxelBoundingBox(voxelDisplay.gridSize));
+            return VoxelGeometryUtils.voxelBoxList(centerVec3, eulerRot, size, fill, VoxelGeometryUtils.voxelBoundingBox(voxelDisplay.gridSize));
+            //const halfWidth  = width/2.0;
+            //const halfHeight = height/2.0;
+            //const halfDepth  = depth/2.0;
+            //const minPt = new THREE.Vector3(center.x-halfWidth, center.y-halfHeight, center.z-halfDepth);
+            //const maxPt = new THREE.Vector3(center.x+halfWidth, center.y+halfHeight, center.z+halfDepth);
+            //return VoxelGeometryUtils.voxelAABBList(minPt, maxPt, currBoxProperties.fill, VoxelGeometryUtils.voxelBoundingBox(voxelDisplay.gridSize));
           };
 
           const onChangeBasicBoxProperty = (value, property) => {
@@ -490,9 +492,18 @@ class ControlPanel {
             this.voxelClient.sendClearCommand(0,0,0);
           };
           const onChangeBoxCenter = (value, component) => {
-            const newCenter = new THREE.Vector3(voxelColourSettings.boxProperties.center.x,voxelColourSettings.boxProperties.center.y,voxelColourSettings.boxProperties.center.z);
+            const {center} = voxelColourSettings.boxProperties;
+            const newCenter = new THREE.Vector3(center.x, center.y, center.z);
             newCenter[component] = value;
             this.colourAnimatorConfig.voxelPositions = buildBoxPts({...voxelColourSettings.boxProperties, center:newCenter});
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
+            this.voxelClient.sendClearCommand(0,0,0);
+          };
+          const onChangeBoxRotation = (value, component) => {
+            const {rotation} = voxelColourSettings.boxProperties;
+            const newRot = {...rotation};
+            newRot[component] = value;
+            this.colourAnimatorConfig.voxelPositions = buildBoxPts({...voxelColourSettings.boxProperties, rotation:newRot});
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
             this.voxelClient.sendClearCommand(0,0,0);
           };
@@ -504,29 +515,27 @@ class ControlPanel {
 
           const dimensionsFolder = this.shapeSettingsFolder.addFolder("Dimensions");
           const voxelGridSize = voxelDisplay.gridSize;
-          dimensionsFolder.add(voxelColourSettings.boxProperties, 'width', 0.5, 2*voxelGridSize, 0.5).onChange((value) => {
-            onChangeBasicBoxProperty(value, 'width');
-          }).setValue(voxelColourSettings.boxProperties.width);
-          dimensionsFolder.add(voxelColourSettings.boxProperties, 'height', 0.5, 2*voxelGridSize, 0.5).onChange((value) => {
-            onChangeBasicBoxProperty(value, 'height');
-          }).setValue(voxelColourSettings.boxProperties.height);
-          dimensionsFolder.add(voxelColourSettings.boxProperties, 'depth', 0.5, 2*voxelGridSize, 0.5).onChange((value) => {
-            onChangeBasicBoxProperty(value, 'depth');
-          }).setValue(voxelColourSettings.boxProperties.depth);
+          ['width', 'height', 'depth'].forEach(dim => {
+            dimensionsFolder.add(voxelColourSettings.boxProperties, dim, 0.5, 2*voxelGridSize, 0.5).onChange((value) => {
+              onChangeBasicBoxProperty(value, dim);
+            }).setValue(voxelColourSettings.boxProperties[dim]);
+          });
           dimensionsFolder.open();
 
           const centerFolder = this.shapeSettingsFolder.addFolder("Center");
-          centerFolder.add(voxelColourSettings.boxProperties.center, 'x', -voxelGridSize, 2*voxelGridSize, 0.5).onChange((value) => {
-            onChangeBoxCenter(value, 'x');
-          }).setValue(voxelColourSettings.boxProperties.center.x);
-          centerFolder.add(voxelColourSettings.boxProperties.center, 'y', -voxelGridSize, 2*voxelGridSize, 0.5).onChange((value) => {
-            onChangeBoxCenter(value, 'y');
-          }).setValue(voxelColourSettings.boxProperties.center.y);
-          centerFolder.add(voxelColourSettings.boxProperties.center, 'z', -voxelGridSize, 2*voxelGridSize, 0.5).onChange((value) => {
-            onChangeBoxCenter(value, 'z');
-          }).setValue(voxelColourSettings.boxProperties.center.z);
+          const rotationFolder = this.shapeSettingsFolder.addFolder("Rotation");
+          const minRot = -360; const maxRot = 360;
+          ['x', 'y', 'z'].forEach(component => {
+            centerFolder.add(voxelColourSettings.boxProperties.center, component, -voxelGridSize, 2*voxelGridSize, 0.5).onChange((value) => {
+              onChangeBoxCenter(value, component);
+            }).setValue(voxelColourSettings.boxProperties.center[component]);
+            rotationFolder.add(voxelColourSettings.boxProperties.rotation, component, minRot, maxRot, 1.0).onChange((value) => {
+              onChangeBoxRotation(value, component);
+            }).setValue(voxelColourSettings.boxProperties.rotation[component]);
+          });
           centerFolder.open();
-          
+          rotationFolder.open();
+
           this.shapeSettingsFolder.open();
           break;
         }

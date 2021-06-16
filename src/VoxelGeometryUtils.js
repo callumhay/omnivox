@@ -121,6 +121,31 @@ class VoxelGeometryUtils {
     }
     return voxelPts;
   }
+
+  static voxelBoxList(center, eulerRot, size, fill, voxelBoundingBox) {
+    const halfSize = size.clone().multiplyScalar(0.5);
+    // Figure out all the points in the grid that will be inside the box...
+    const minPt = center.clone();
+    const maxPt = center.clone();
+    minPt.sub(halfSize);
+    maxPt.add(halfSize);
+
+    const boxPts = VoxelGeometryUtils.voxelAABBList(minPt, maxPt, fill, voxelBoundingBox);
+    if (eulerRot.x === 0 && eulerRot.y === 0 && eulerRot.z === 0) {
+      return boxPts; // A zero rotation was provided
+    }
+
+    // Transform all the box points by the rotation, make sure we're doing this from the given center point...    
+    for (let i = 0; i < boxPts.length; i++) {
+      const boxPt = boxPts[i];
+      boxPt.sub(center); // Bring the point to the origin...
+      boxPt.applyEuler(eulerRot); // Rotate it
+      boxPt.add(center); // Move back to where the box is
+    }
+
+    return boxPts;
+  }
+
 }
 
 export default VoxelGeometryUtils;

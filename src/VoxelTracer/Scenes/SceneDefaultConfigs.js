@@ -1,14 +1,14 @@
 export const simpleSceneDefaultOptions = {
-  sphereRadius: 2,
+  sphereRadius: 3,
   sphereColour: {r:1, g:1, b:1},
 
   pointLightsSpd: Math.PI,
   pointLight1Colour: {r:1, g:0, b:0},
   pointLight2Colour: {r:0, g:1, b:0},
   pointLight3Colour: {r:0, g:0, b:1},
-  pointLightAtten: {quadratic:0.5, linear:0},
+  pointLightAtten: {quadratic:0.01, linear:0},
 
-  ambientLightColour: {r:0.01, g:0.01, b:0.01},
+  ambientLightColour: {r:0.1, g:0.1, b:0.1},
 
   textureFilename: '',
 

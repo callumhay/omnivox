@@ -266,6 +266,7 @@ class VTRPScene {
       const {point, normal, uv, falloff} = samples[i];
 
       sampleLightContrib.copy(material.emission(uv));
+      sampleLightContrib.multiplyScalar(falloff);
 
       for (let j = 0; j < lights.length; j++) {
         const light = lights[j];
@@ -303,6 +304,7 @@ class VTRPScene {
           sampleLightContrib.add(materialLightingColour.multiplyScalar(falloff));
         }
       }
+      
       sampleLightContrib.multiplyScalar(factorPerSample);
       finalColour.add(sampleLightContrib);
     }
