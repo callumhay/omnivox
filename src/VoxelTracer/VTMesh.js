@@ -59,6 +59,18 @@ class VTMesh extends VTObject {
     this.threeMesh.position.set(x,y,z);
     this.makeDirty();
   }
+  setPositionFromVec3(v) {
+    this.threeMesh.position.copy(v);
+    this.makeDirty();
+  }
+  setRotationFromEuler(euler) {
+    this.threeMesh.rotation.copy(euler);
+    this.makeDirty();
+  }
+  setRotationFromQuaternion(q) {
+    this.threeMesh.rotation.setFromQuaternion(q);
+    this.makeDirty();
+  }
   updateMatrixWorld() { this.threeMesh.updateMatrixWorld(); }
 
   intersectsBox(box) {

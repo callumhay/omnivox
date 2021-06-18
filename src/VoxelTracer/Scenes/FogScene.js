@@ -20,7 +20,7 @@ class FogScene extends SceneRenderer {
 
   build(options) {
 
-    const fogColour = options.fogColour ? options.fogColour : fogSceneDefaultOptions.fogColour;
+    const fogColour = options.fogColour ? options.fogColour : fogDefaultOptions.fogColour;
     const fogScattering = options.fogScattering ? options.fogScattering : fogDefaultOptions.fogScattering;
 
     const fogOptions = {
@@ -29,10 +29,10 @@ class FogScene extends SceneRenderer {
     };
 
     if (!this._objectsBuilt) {
-      const ambientLightColour = options.ambientLightColour ? options.ambientLightColour : fogSceneDefaultOptions.ambientLightColour;
-      const pointLightColour = options.pointLightColour ? options.pointLightColour : fogSceneDefaultOptions.pointLightColour;
-      const pointLightPosition = options.pointLightPosition ? options.pointLightPosition : fogSceneDefaultOptions.pointLightPosition;
-      const pointLightAtten = options.pointLightAtten ? options.pointLightAtten : fogSceneDefaultOptions.pointLightAtten;
+      const ambientLightColour = options.ambientLightColour ? options.ambientLightColour : fogDefaultOptions.ambientLightColour;
+      const pointLightColour = options.pointLightColour ? options.pointLightColour : fogDefaultOptions.pointLightColour;
+      const pointLightPosition = options.pointLightPosition ? options.pointLightPosition : fogDefaultOptions.pointLightPosition;
+      const pointLightAtten = options.pointLightAtten ? options.pointLightAtten : fogDefaultOptions.pointLightAtten;
 
       const size = this.voxelModel.xSize();
 

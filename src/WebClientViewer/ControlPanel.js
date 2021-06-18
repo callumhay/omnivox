@@ -8,12 +8,15 @@ import {starShowerDefaultConfig} from '../Animation/StarShowerAnimator';
 import {shapeWaveAnimatorDefaultConfig, WAVE_SHAPE_TYPES} from '../Animation/ShapeWaveAnimator';
 import FireAnimator, {fireAnimatorDefaultConfig} from '../Animation/FireAnimator';
 import { waterAnimatorDefaultConfig } from '../Animation/WaterAnimator';
-import {sceneAnimatorDefaultConfig, SCENE_TYPES, SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG} from '../Animation/SceneAnimatorDefaultConfigs';
+import {
+  simpleSceneDefaultOptions, shadowSceneDefaultOptions, fogSceneDefaultOptions,
+  sceneAnimatorDefaultConfig, 
+  SCENE_TYPES, SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG
+} from '../Animation/SceneAnimatorDefaultConfigs';
 import BarVisualizerAnimator, {barVisualizerAnimatorDefaultConfig} from '../Animation/BarVisualizerAnimator';
 import { textAnimatorDefaultConfig } from '../Animation/TextAnimator';
 
 import {ColourSystems, COLOUR_INTERPOLATION_TYPES} from '../Spectrum';
-import {simpleSceneDefaultOptions, shadowSceneDefaultOptions, fogSceneDefaultOptions} from '../VoxelTracer/Scenes/SceneDefaultConfigs';
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
