@@ -34,7 +34,7 @@ class VTRPFog extends VTObject {
 
   dispose() {}
 
-  isShadowCaster() { return true; }
+  isShadowCaster() { return false; }
 
   position(target) { 
     return this._boundingBox.getCenter(target); 

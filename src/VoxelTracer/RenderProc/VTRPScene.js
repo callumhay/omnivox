@@ -174,6 +174,26 @@ class VTRPScene {
     updatedMap[id] = buildFunc(lightData);
   }
 
+  // Calculates the accumulated effect of shadow casters between the current voxel (point) and a light
+  // given the direction and distance to that light.
+  _calculateShadowCasterLightMultiplier(point, nToLightVec, distanceToLight) {
+    let lightMultiplier = 1.0;
+    
+    // Check to see if the voxel is in shadow
+    // NOTE: We currently only use point lights so there's only umbra shadow (no soft shadows/sampling)
+    const shadowCasters = Object.values(this.shadowCasters);
+    const raycaster = new THREE.Raycaster(point, nToLightVec, VoxelConstants.VOXEL_EPSILON, distanceToLight);
+    for (let k = 0; k < shadowCasters.length && lightMultiplier > 0; k++) {
+      const shadowCaster = shadowCasters[k];
+      const shadowCasterResult = shadowCaster.calculateShadow(raycaster);
+      if (shadowCasterResult.inShadow) {
+        lightMultiplier -= shadowCasterResult.lightReduction;
+      }
+    }
+
+    return lightMultiplier;
+  }
+
   calculateVoxelLighting(point, material, receivesShadow) {
     // We treat voxels as perfect inifintesmial spheres centered at a given voxel position
     // they can be shadowed and have materials like meshes
@@ -181,9 +201,8 @@ class VTRPScene {
     
     const lights = Object.values(this.lights);
     if (lights.length > 0) {
-      const nVoxelToLightVec = new THREE.Vector3();
-      const raycaster = new THREE.Raycaster();
 
+      const nVoxelToLightVec = new THREE.Vector3();
       for (let j = 0; j < lights.length; j++) {
         const light = lights[j];
 
@@ -192,24 +211,7 @@ class VTRPScene {
         const distanceToLight = Math.max(VoxelConstants.VOXEL_EPSILON, nVoxelToLightVec.length());
         nVoxelToLightVec.divideScalar(distanceToLight);
 
-        let lightMultiplier = 1.0;
-        if (receivesShadow) {
-
-          // Check to see if the voxel is in shadow
-          // NOTE: We currently only use point lights so there's only umbra shadow (no soft shadows/sampling)
-          raycaster.set(point, nVoxelToLightVec); 
-          raycaster.near = VoxelConstants.VOXEL_EPSILON;
-          raycaster.far  = distanceToLight;
-
-          for (let k = 0; k < this.shadowCasters.length; k++) {
-            const shadowCaster = this.shadowCasters[k];
-            const shadowCasterResult = shadowCaster.calculateShadow(raycaster);
-            if (shadowCasterResult.inShadow) {
-              lightMultiplier -= shadowCasterResult.lightReduction;
-            }
-          }
-        }
-
+        const lightMultiplier = receivesShadow ? this._calculateShadowCasterLightMultiplier(point, nVoxelToLightVec, distanceToLight) : 1.0;
         if (lightMultiplier > 0) {
           // The voxel is not in total shadow, do the lighting - since it's a "infitesimal sphere" the normal is always
           // in the direction of the light, so it's always ambiently lit (unless it's in shadow)
@@ -231,18 +233,25 @@ class VTRPScene {
 
   calculateFogLighting(point) {
     const finalColour = new THREE.Color(0,0,0);
-    const nFogToLightVec = new THREE.Vector3(0,0,0);
+    const nLightToFogVec = new THREE.Vector3(0,0,0);
 
     const lights = Object.values(this.lights);
     if (lights.length > 0) {
       for (let j = 0; j < lights.length; j++) {
         const light = lights[j];
 
-        nFogToLightVec.set(light.position.x, light.position.y, light.position.z);
-        nFogToLightVec.sub(point);
-        const distanceToLight = Math.max(VoxelConstants.VOXEL_EPSILON, nFogToLightVec.length());
-        const lightEmission = light.emission(distanceToLight);
-        finalColour.add(lightEmission);
+        // We use the light to the fog (and not vice versa) since the fog can't be inside objects
+        nLightToFogVec.set(point.x, point.y, point.z);
+        nLightToFogVec.sub(light.position);
+        const distanceFromLight = Math.max(VoxelConstants.VOXEL_EPSILON, nLightToFogVec.length());
+        nLightToFogVec.divideScalar(distanceFromLight);
+
+        // Fog will not catch the light if it's behind or inside of an object...
+        const lightMultiplier = this._calculateShadowCasterLightMultiplier(light.position, nLightToFogVec, distanceFromLight);
+        if (lightMultiplier > 0) {
+          const lightEmission = light.emission(distanceFromLight).multiplyScalar(lightMultiplier);
+          finalColour.add(lightEmission);
+        }
       }
       finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
     }
@@ -256,12 +265,9 @@ class VTRPScene {
 
     // Go through each light in the scene and raytrace to them...
     const nObjToLightVec = new THREE.Vector3(0,0,0);
-    const raycaster = new THREE.Raycaster();
-
     const factorPerSample = 1.0 / samples.length;
     const lights = Object.values(this.lights);
-    const shadowCasters = Object.values(this.shadowCasters);
-
+    
     for (let i = 0; i < samples.length; i++) {
       const {point, normal, uv, falloff} = samples[i];
 
@@ -281,22 +287,7 @@ class VTRPScene {
           continue;
         }
 
-        // Check to see if the surface is in shadow
-        // NOTE: We currently only use point lights so there's only umbra shadow (no soft shadows/sampling)
-        raycaster.set(point, nObjToLightVec); 
-        raycaster.near = VoxelConstants.VOXEL_EPSILON;
-        raycaster.far  = distanceToLight;
-
-        let lightMultiplier = 1.0;
-        
-        for (let k = 0; k < shadowCasters.length; k++) {
-          const shadowCaster = shadowCasters[k];
-          const shadowCasterResult = shadowCaster.calculateShadow(raycaster);
-          if (shadowCasterResult.inShadow) {
-            lightMultiplier -= shadowCasterResult.lightReduction;
-          }
-        }
-
+        const lightMultiplier = this._calculateShadowCasterLightMultiplier(point, nObjToLightVec, distanceToLight);
         if (lightMultiplier > 0) {
           // The voxel is not in total shadow, do the lighting
           const lightEmission = light.emission(distanceToLight).multiplyScalar(lightMultiplier*falloff);

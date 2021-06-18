@@ -172,7 +172,8 @@ class VoxelProtocol {
 
       case VOXEL_ROUTINE_CHANGE_HEADER:
         if (!dataObj.config || !dataObj.voxelAnimType) {
-          console.log("Unspecified configuration or routine change type.");
+          console.log("Unspecified configuration or routine change type:");
+          console.log(dataObj);
           return false;
         }
         if (!voxelModel.setAnimator(dataObj.voxelAnimType, dataObj.config)) {

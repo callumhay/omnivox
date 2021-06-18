@@ -9,15 +9,16 @@ import {shapeWaveAnimatorDefaultConfig, WAVE_SHAPE_TYPES} from '../Animation/Sha
 import FireAnimator, {fireAnimatorDefaultConfig} from '../Animation/FireAnimator';
 import { waterAnimatorDefaultConfig } from '../Animation/WaterAnimator';
 import {
-  simpleSceneDefaultOptions, shadowSceneDefaultOptions, fogSceneDefaultOptions,
+  sceneDefaultOptionsMap,
   sceneAnimatorDefaultConfig, 
-  SCENE_TYPES, SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG
+  SCENE_TYPES, SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG, SCENE_TYPE_GODRAY
 } from '../Animation/SceneAnimatorDefaultConfigs';
 import BarVisualizerAnimator, {barVisualizerAnimatorDefaultConfig} from '../Animation/BarVisualizerAnimator';
 import { textAnimatorDefaultConfig } from '../Animation/TextAnimator';
 
 import {ColourSystems, COLOUR_INTERPOLATION_TYPES} from '../Spectrum';
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
+import {threeColorToGuiColor, guiColorToRGBObj, buildGuiControls} from './ControlPanelBuilder';
 
 const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
 const VOXEL_COLOUR_SHAPE_TYPE_SPHERE = "Sphere";
@@ -27,17 +28,6 @@ const VOXEL_COLOUR_SHAPE_TYPES = [
   VOXEL_COLOUR_SHAPE_TYPE_SPHERE,
   VOXEL_COLOUR_SHAPE_TYPE_BOX,
 ];
-
-const THREEColorToGuiColor = (c) => {
-  return [parseInt(c.r*255),parseInt(c.g*255),parseInt(c.b*255)];
-}
-const GuiColorToRGBObj = (c) => {
-  return {
-    r: parseFloat(c[0])/255.0, 
-    g: parseFloat(c[1])/255.0, 
-    b: parseFloat(c[2])/255.0
-  };
-}
 
 class ControlPanel {
   constructor(voxelClient, voxelDisplay, soundController) {
@@ -182,8 +172,8 @@ class ControlPanel {
       shapeType: VOXEL_COLOUR_SHAPE_TYPE_ALL,
       sphereProperties: { center: { x: halfVoxelDisplayUnits, y: halfVoxelDisplayUnits, z: halfVoxelDisplayUnits }, radius: halfVoxelDisplayUnits, fill: false },
       boxProperties: { center: { x: halfVoxelDisplayUnits, y: halfVoxelDisplayUnits, z: halfVoxelDisplayUnits }, rotation: { x: 0, y: 0, z: 0}, width: 2 * halfVoxelDisplayUnits - 2, height: 2 * halfVoxelDisplayUnits - 2, depth: 2 * halfVoxelDisplayUnits - 2, fill: false },
-      colourStart: THREEColorToGuiColor(this.colourAnimatorConfig.colourStart),
-      colourEnd: THREEColorToGuiColor(this.colourAnimatorConfig.colourEnd),
+      colourStart: threeColorToGuiColor(this.colourAnimatorConfig.colourStart),
+      colourEnd: threeColorToGuiColor(this.colourAnimatorConfig.colourEnd),
       reset: this.resetDisplay.bind(this),
     };
     this.gui.remember(this.settings.voxelColourSettings);
@@ -195,7 +185,7 @@ class ControlPanel {
   }
   reloadTextSettings() {
     this.settings.textSettings = {...this.textAnimatorConfig,
-      colour: THREEColorToGuiColor(this.textAnimatorConfig.colour),
+      colour: threeColorToGuiColor(this.textAnimatorConfig.colour),
       reset: this.resetDisplay.bind(this),
     };
     this.gui.remember(this.settings.textSettings);
@@ -209,8 +199,8 @@ class ControlPanel {
       speedMin: this.starShowerAnimatorConfig.speedRandomizer.min,
       speedMax: this.starShowerAnimatorConfig.speedRandomizer.max,
       spawnRate: this.starShowerAnimatorConfig.spawnRate,
-      colourMin: THREEColorToGuiColor(this.starShowerAnimatorConfig.colourRandomizer.min),
-      colourMax: THREEColorToGuiColor(this.starShowerAnimatorConfig.colourRandomizer.max),
+      colourMin: threeColorToGuiColor(this.starShowerAnimatorConfig.colourRandomizer.min),
+      colourMax: threeColorToGuiColor(this.starShowerAnimatorConfig.colourRandomizer.max),
       reset: this.resetDisplay.bind(this),
     };
     this.gui.remember(this.settings.starShowerSettings);
@@ -233,51 +223,47 @@ class ControlPanel {
   }
   reloadFireSettings() {
     this.settings.fireSettings = {...this.fireAnimatorConfig,
-      lowTempColour: THREEColorToGuiColor(this.fireAnimatorConfig.lowTempColour),
-      highTempColour: THREEColorToGuiColor(this.fireAnimatorConfig.highTempColour),
+      lowTempColour: threeColorToGuiColor(this.fireAnimatorConfig.lowTempColour),
+      highTempColour: threeColorToGuiColor(this.fireAnimatorConfig.highTempColour),
       reset: this.resetDisplay.bind(this),
     };
     this.gui.remember(this.settings.fireSettings);
   }
   reloadWaterSettings() {
     this.settings.waterSettings = {...this.waterAnimatorConfig,
-      shallowColour: THREEColorToGuiColor(this.waterAnimatorConfig.shallowColour),
-      deepColour: THREEColorToGuiColor(this.waterAnimatorConfig.deepColour),
+      shallowColour: threeColorToGuiColor(this.waterAnimatorConfig.shallowColour),
+      deepColour: threeColorToGuiColor(this.waterAnimatorConfig.deepColour),
       reset: this.resetDisplay.bind(this),
     };
     this.gui.remember(this.settings.waterSettings);
   }
   reloadSceneSettings() {
+    const sceneOptionsMap = {};
+    Object.values(sceneDefaultOptionsMap).forEach(mapVal => {
+      const guiOptions = {...mapVal.options};
+
+      // Make sure the options have GUI-appropriate values based on their types
+      for (const [key, value] of Object.entries(mapVal.options)) {
+        if (value.r !== undefined && value.g !== undefined && value.b !== undefined) {
+          guiOptions[key] = threeColorToGuiColor(value);
+        }
+      }
+
+      sceneOptionsMap[mapVal.name] = guiOptions;
+    });
+
     this.settings.sceneSettings = {
       sceneType: this.sceneAnimatorConfig.sceneType,
-      simpleSceneOptions: {...simpleSceneDefaultOptions,
-        ambientLightColour: THREEColorToGuiColor(simpleSceneDefaultOptions.ambientLightColour),
-        pointLight1Colour: THREEColorToGuiColor(simpleSceneDefaultOptions.pointLight1Colour),
-        pointLight2Colour: THREEColorToGuiColor(simpleSceneDefaultOptions.pointLight2Colour),
-        pointLight3Colour: THREEColorToGuiColor(simpleSceneDefaultOptions.pointLight3Colour),
-        sphereColour: THREEColorToGuiColor(simpleSceneDefaultOptions.sphereColour),
-        wallColour: THREEColorToGuiColor(simpleSceneDefaultOptions.wallColour),
-      },
-      shadowSceneOptions: {...shadowSceneDefaultOptions,
-        ambientLightColour: THREEColorToGuiColor(shadowSceneDefaultOptions.ambientLightColour),
-        pointLightColour: THREEColorToGuiColor(shadowSceneDefaultOptions.pointLightColour),
-      },
-      fogSceneOptions: {...fogSceneDefaultOptions,
-        fogColour: THREEColorToGuiColor(fogSceneDefaultOptions.fogColour),
-        ambientLightColour: THREEColorToGuiColor(fogSceneDefaultOptions.ambientLightColour),
-        pointLightColour: THREEColorToGuiColor(fogSceneDefaultOptions.pointLightColour),
-      },
+      ...sceneOptionsMap
     };
+
     this.gui.remember(this.settings.sceneSettings);
     this.gui.remember(this.settings.sceneSettings.sceneType);
-    this.gui.remember(this.settings.sceneSettings.simpleSceneOptions);
-    this.gui.remember(this.settings.sceneSettings.shadowSceneOptions);
-    this.gui.remember(this.settings.sceneSettings.fogSceneOptions);
   }
   reloadBarVisSettings() {
     this.settings.barVisSettings = {...this.barVisAnimatorConfig,
-      lowColour: THREEColorToGuiColor(barVisualizerAnimatorDefaultConfig.lowColour),
-      highColour: THREEColorToGuiColor(barVisualizerAnimatorDefaultConfig.highColour),
+      lowColour: threeColorToGuiColor(barVisualizerAnimatorDefaultConfig.lowColour),
+      highColour: threeColorToGuiColor(barVisualizerAnimatorDefaultConfig.highColour),
     };
     this.gui.remember(this.settings.barVisSettings);
   }
@@ -369,12 +355,12 @@ class ControlPanel {
     }).setValue(voxelColourSettings.interpolationType);
 
     folder.addColor(voxelColourSettings, 'colourStart').onChange((value) => {
-      this.colourAnimatorConfig.colourStart = GuiColorToRGBObj(value);
+      this.colourAnimatorConfig.colourStart = guiColorToRGBObj(value);
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
     }).setValue(voxelColourSettings.colourStart);
     
     folder.addColor(voxelColourSettings, 'colourEnd').onChange((value) => {
-      this.colourAnimatorConfig.colourEnd = GuiColorToRGBObj(value);
+      this.colourAnimatorConfig.colourEnd = guiColorToRGBObj(value);
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, this.colourAnimatorConfig);
     }).setValue(voxelColourSettings.colourEnd);
     
@@ -567,7 +553,7 @@ class ControlPanel {
     }).setValue(textSettings.letterSpacing);
 
     folder.addColor(textSettings, 'colour').onChange((value) => {
-      this.textAnimatorConfig.colour = GuiColorToRGBObj(value);
+      this.textAnimatorConfig.colour = guiColorToRGBObj(value);
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TEXT, this.textAnimatorConfig);
     }).setValue(textSettings.colour);
 
@@ -587,14 +573,14 @@ class ControlPanel {
 
     folder.addColor(starShowerSettings, 'colourMin').onChange((value) => {
       const currRandomizer = this.starShowerAnimatorConfig.colourRandomizer;
-      currRandomizer.min = GuiColorToRGBObj(value);
+      currRandomizer.min = guiColorToRGBObj(value);
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER, this.starShowerAnimatorConfig);
       //this.voxelClient.sendClearCommand(0,0,0);
     }).setValue(starShowerSettings.colourMin);
 
     folder.addColor(starShowerSettings, 'colourMax').onChange((value) => {
       const currRandomizer = this.starShowerAnimatorConfig.colourRandomizer;
-      currRandomizer.max = GuiColorToRGBObj(value);
+      currRandomizer.max = guiColorToRGBObj(value);
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER, this.starShowerAnimatorConfig);
       //this.voxelClient.sendClearCommand(0,0,0);
     }).setValue(starShowerSettings.colourMax);
@@ -831,11 +817,11 @@ class ControlPanel {
 
         case FireAnimator.LOW_HIGH_TEMP_COLOUR_MODE:
           this.fireColourModeFolder.addColor(fireSettings, 'lowTempColour').onChange((value) => {
-            this.fireAnimatorConfig.lowTempColour = GuiColorToRGBObj(value);
+            this.fireAnimatorConfig.lowTempColour = guiColorToRGBObj(value);
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
           }).setValue(fireSettings.lowTempColour);
           this.fireColourModeFolder.addColor(fireSettings, 'highTempColour').onChange((value) => {
-            this.fireAnimatorConfig.highTempColour = GuiColorToRGBObj(value);
+            this.fireAnimatorConfig.highTempColour = guiColorToRGBObj(value);
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, this.fireAnimatorConfig);
           }).setValue(fireSettings.highTempColour);
           this.fireColourModeFolder.add(fireSettings, 'colourInterpolationType', COLOUR_INTERPOLATION_TYPES).onChange((value) => {
@@ -927,11 +913,11 @@ class ControlPanel {
    
 
     folder.addColor(waterSettings, 'shallowColour').onChange((value) => {
-      this.waterAnimatorConfig.shallowColour = GuiColorToRGBObj(value);
+      this.waterAnimatorConfig.shallowColour = guiColorToRGBObj(value);
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
     }).setValue(waterSettings.shallowColour);
     folder.addColor(waterSettings, 'deepColour').onChange((value) => {
-      this.waterAnimatorConfig.deepColour = GuiColorToRGBObj(value);
+      this.waterAnimatorConfig.deepColour = guiColorToRGBObj(value);
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_WATER, this.waterAnimatorConfig);
     }).setValue(waterSettings.deepColour);
 
@@ -969,11 +955,15 @@ class ControlPanel {
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
           }).setValue(sceneTypeOptions.sphereRadius);
           this.sceneSettingsFolder.addColor(sceneTypeOptions, 'sphereColour').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.sphereColour = GuiColorToRGBObj(value);
+            this.sceneAnimatorConfig.sceneOptions.sphereColour = guiColorToRGBObj(value);
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
           }).setValue(sceneTypeOptions.sphereColour);
+          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'sphereEmission').onChange((value) => {
+            this.sceneAnimatorConfig.sceneOptions.sphereEmission = guiColorToRGBObj(value);
+            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
+          }).setValue(sceneTypeOptions.sphereEmission);
           this.sceneSettingsFolder.addColor(sceneTypeOptions, 'wallColour').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.wallColour = GuiColorToRGBObj(value);
+            this.sceneAnimatorConfig.sceneOptions.wallColour = guiColorToRGBObj(value);
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
           }).setValue(sceneTypeOptions.wallColour);
 
@@ -1001,15 +991,15 @@ class ControlPanel {
           }).setValue(sceneTypeOptions.pointLightsSpd);
           
           this.sceneSettingsFolder.addColor(sceneTypeOptions, 'pointLight1Colour').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLight1Colour = GuiColorToRGBObj(value);
+            this.sceneAnimatorConfig.sceneOptions.pointLight1Colour = guiColorToRGBObj(value);
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
           }).setValue(sceneTypeOptions.pointLight1Colour);
           this.sceneSettingsFolder.addColor(sceneTypeOptions, 'pointLight2Colour').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLight2Colour = GuiColorToRGBObj(value);
+            this.sceneAnimatorConfig.sceneOptions.pointLight2Colour = guiColorToRGBObj(value);
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
           }).setValue(sceneTypeOptions.pointLight2Colour);
           this.sceneSettingsFolder.addColor(sceneTypeOptions, 'pointLight3Colour').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLight3Colour = GuiColorToRGBObj(value);
+            this.sceneAnimatorConfig.sceneOptions.pointLight3Colour = guiColorToRGBObj(value);
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
           }).setValue(sceneTypeOptions.pointLight3Colour);
 
@@ -1067,7 +1057,7 @@ class ControlPanel {
           pointLightPosFolder.open();
 
           this.sceneSettingsFolder.addColor(sceneTypeOptions, 'pointLightColour').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLightColour = GuiColorToRGBObj(value);
+            this.sceneAnimatorConfig.sceneOptions.pointLightColour = guiColorToRGBObj(value);
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
           }).setValue(sceneTypeOptions.pointLightColour);
 
@@ -1095,7 +1085,7 @@ class ControlPanel {
           }).setValue(sceneTypeOptions.fogScattering);
 
           this.sceneSettingsFolder.addColor(sceneTypeOptions, 'fogColour').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.fogColour = GuiColorToRGBObj(value);
+            this.sceneAnimatorConfig.sceneOptions.fogColour = guiColorToRGBObj(value);
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
           }).setValue(sceneTypeOptions.fogColour);
 
@@ -1111,12 +1101,24 @@ class ControlPanel {
           pointLightAttenFolder.open();
 
           this.sceneSettingsFolder.addColor(sceneTypeOptions, 'pointLightColour').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLightColour = GuiColorToRGBObj(value);
+            this.sceneAnimatorConfig.sceneOptions.pointLightColour = guiColorToRGBObj(value);
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
           }).setValue(sceneTypeOptions.pointLightColour);
 
           break;
         }
+
+        case SCENE_TYPE_GODRAY: {
+          sceneTypeOptions = sceneSettings.godRaySceneOptions;
+          this.sceneAnimatorConfig.sceneOptions = {...sceneTypeOptions};
+
+          buildGuiControls(this.voxelClient, VoxelAnimator.VOXEL_ANIM_SCENE, 
+            this.sceneSettingsFolder, this.sceneAnimatorConfig, this.sceneAnimatorConfig.sceneOptions, 
+            sceneTypeOptions, sceneDefaultOptionsMap[SCENE_TYPE_GODRAY].controlParams);
+
+          break;
+        }
+
 
         default:
           break;
@@ -1124,7 +1126,7 @@ class ControlPanel {
 
       if (sceneTypeOptions && sceneTypeOptions.ambientLightColour) {
         this.sceneSettingsFolder.addColor(sceneTypeOptions, 'ambientLightColour').onChange((value) => {
-          this.sceneAnimatorConfig.sceneOptions.ambientLightColour = GuiColorToRGBObj(value);
+          this.sceneAnimatorConfig.sceneOptions.ambientLightColour = guiColorToRGBObj(value);
           this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
         }).setValue(sceneTypeOptions.ambientLightColour);
       }
@@ -1234,11 +1236,11 @@ class ControlPanel {
         case BarVisualizerAnimator.LOW_HIGH_COLOUR_MODE:
         default:
           this.barVisColourModeFolder.addColor(barVisSettings, 'lowColour').onChange((value) => {
-            this.barVisAnimatorConfig.lowColour = GuiColorToRGBObj(value);
+            this.barVisAnimatorConfig.lowColour = guiColorToRGBObj(value);
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER, this.barVisAnimatorConfig);
           }).setValue(barVisSettings.lowColour);
           this.barVisColourModeFolder.addColor(barVisSettings, 'highColour').onChange((value) => {
-            this.barVisAnimatorConfig.highColour = GuiColorToRGBObj(value);
+            this.barVisAnimatorConfig.highColour = guiColorToRGBObj(value);
             this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER, this.barVisAnimatorConfig);
           }).setValue(barVisSettings.highColour);
           break;
