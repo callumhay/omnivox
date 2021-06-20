@@ -6,11 +6,13 @@ import {clamp} from '../../MathUtils';
 import VTObject from '../VTObject';
 import VTAmbientLight from '../VTAmbientLight';
 import VTPointLight from '../VTPointLight';
+import VTSpotLight from '../VTSpotLight';
 
 import VTRenderProc from './VTRenderProc';
 import VTRPMesh from './VTRPMesh';
 import VTRPFog from './VTRPFog';
 import VTRPVoxel from './VTRPVoxel';
+
 
 class VTRPScene {
   constructor() {
@@ -108,10 +110,13 @@ class VTRPScene {
       }
 
       switch (obj.type) {
+
         case VTObject.POINT_LIGHT_TYPE:
+        case VTObject.SPOT_LIGHT_TYPE:
           this.renderables[id] = obj;
           this.lights[id] = obj;
           break;
+
         default:
           this.renderables[id] = obj;
           if (obj.isShadowCaster()) {
@@ -136,6 +141,9 @@ class VTRPScene {
       case VTObject.POINT_LIGHT_TYPE:
         buildFunc = VTPointLight.build;
         break;
+      case VTObject.SPOT_LIGHT_TYPE:
+        buildFunc = VTSpotLight.build;
+        break;
       case VTObject.VOXEL_TYPE:
         buildFunc = VTRPVoxel.build;
         break;
@@ -159,10 +167,13 @@ class VTRPScene {
 
     let buildFunc = null;
     switch (type) {
+
       case VTObject.POINT_LIGHT_TYPE:
         buildFunc = VTPointLight.build;
         break;
-
+      case VTObject.SPOT_LIGHT_TYPE:
+        buildFunc = VTSpotLight.build;
+        break;
       case VTObject.AMBIENT_LIGHT_TYPE:
         this.ambientLight = VTAmbientLight.build(lightData);
         return;
@@ -215,7 +226,7 @@ class VTRPScene {
         if (lightMultiplier > 0) {
           // The voxel is not in total shadow, do the lighting - since it's a "infitesimal sphere" the normal is always
           // in the direction of the light, so it's always ambiently lit (unless it's in shadow)
-          const lightEmission = light.emission(distanceToLight).multiplyScalar(lightMultiplier);
+          const lightEmission = light.emission(point, distanceToLight).multiplyScalar(lightMultiplier);
           const materialLightingColour = material.brdfAmbient(null, lightEmission);
           finalColour.add(materialLightingColour);
         }
@@ -249,7 +260,7 @@ class VTRPScene {
         // Fog will not catch the light if it's behind or inside of an object...
         const lightMultiplier = this._calculateShadowCasterLightMultiplier(light.position, nLightToFogVec, distanceFromLight);
         if (lightMultiplier > 0) {
-          const lightEmission = light.emission(distanceFromLight).multiplyScalar(lightMultiplier);
+          const lightEmission = light.emission(point, distanceFromLight).multiplyScalar(lightMultiplier);
           finalColour.add(lightEmission);
         }
       }
@@ -290,7 +301,7 @@ class VTRPScene {
         const lightMultiplier = this._calculateShadowCasterLightMultiplier(point, nObjToLightVec, distanceToLight);
         if (lightMultiplier > 0) {
           // The voxel is not in total shadow, do the lighting
-          const lightEmission = light.emission(distanceToLight).multiplyScalar(lightMultiplier*falloff);
+          const lightEmission = light.emission(point, distanceToLight).multiplyScalar(lightMultiplier*falloff);
           const materialLightingColour = material.brdf(nObjToLightVec, normal, uv, lightEmission);
           sampleLightContrib.add(materialLightingColour.multiplyScalar(falloff));
         }

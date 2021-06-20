@@ -929,207 +929,22 @@ class ControlPanel {
   }
   
   buildSceneAnimatorControls() {
-    
     const {sceneSettings} = this.settings;
-    
     const folder = this.gui.addFolder("Scene Controls");
-
     folder.add(sceneSettings, 'sceneType', SCENE_TYPES).onChange((value) => {
       
       if (this.sceneSettingsFolder) {
         folder.removeFolder(this.sceneSettingsFolder);
         this.sceneSettingsFolder = null;
       }
-
       this.sceneSettingsFolder = folder.addFolder(value + " Settings");
-      let sceneTypeOptions = null;
-      
       this.sceneAnimatorConfig.sceneType = value;
-      switch (value) {
-        case SCENE_TYPE_SIMPLE:
-          sceneTypeOptions = sceneSettings.simpleSceneOptions;
-          this.sceneAnimatorConfig.sceneOptions = {...sceneTypeOptions};
-          
-          this.sceneSettingsFolder.add(sceneTypeOptions, 'sphereRadius', 0.5, 5, 0.25).onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.sphereRadius = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.sphereRadius);
-          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'sphereColour').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.sphereColour = guiColorToRGBObj(value);
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.sphereColour);
-          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'sphereEmission').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.sphereEmission = guiColorToRGBObj(value);
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.sphereEmission);
-          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'wallColour').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.wallColour = guiColorToRGBObj(value);
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.wallColour);
+      const sceneTypeOptions = sceneSettings[sceneDefaultOptionsMap[value].name];
+      this.sceneAnimatorConfig.sceneOptions = {...sceneTypeOptions};
 
-          this.sceneSettingsFolder.add(sceneTypeOptions, 'wallX').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.wallX = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.wallX);
-          this.sceneSettingsFolder.add(sceneTypeOptions, 'wallY').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.wallY = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.wallY);
-          this.sceneSettingsFolder.add(sceneTypeOptions, 'wallZ').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.wallZ = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.wallZ);
-
-          this.sceneSettingsFolder.add(sceneTypeOptions, 'textureFilename').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.textureFilename = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.textureFilename);
-
-          this.sceneSettingsFolder.add(sceneTypeOptions, 'pointLightsSpd', 0, Math.PI*6, Math.PI/6).onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLightsSpd = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.pointLightsSpd);
-          
-          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'pointLight1Colour').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLight1Colour = guiColorToRGBObj(value);
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.pointLight1Colour);
-          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'pointLight2Colour').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLight2Colour = guiColorToRGBObj(value);
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.pointLight2Colour);
-          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'pointLight3Colour').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLight3Colour = guiColorToRGBObj(value);
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.pointLight3Colour);
-
-          const pointLightAttenFolder = this.sceneSettingsFolder.addFolder("Point Light Attenuation");
-          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'quadratic', 0, 2, 0.001).onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLightAtten.quadratic = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.pointLightAtten.quadratic);
-          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'linear', 0, 4, 0.001).onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLightAtten.linear = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.pointLightAtten.linear);
-          pointLightAttenFolder.open();
-
-          break;
-
-        case SCENE_TYPE_SHADOW: {
-          sceneTypeOptions = sceneSettings.shadowSceneOptions;
-          this.sceneAnimatorConfig.sceneOptions = {...sceneTypeOptions};
-          
-          
-          const boxSizeFolder = this.sceneSettingsFolder.addFolder("Moving Box Size");
-          boxSizeFolder.add(sceneTypeOptions.movingBoxSize, 'x', 0.5, 5, 0.25).onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.movingBoxSize.x = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.movingBoxSize.x);
-          boxSizeFolder.add(sceneTypeOptions.movingBoxSize, 'y', 0.5, 5, 0.25).onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.movingBoxSize.y = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.movingBoxSize.y);
-          boxSizeFolder.add(sceneTypeOptions.movingBoxSize, 'z', 0.5, 5, 0.25).onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.movingBoxSize.z = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.movingBoxSize.z);
-          boxSizeFolder.open();
-
-          this.sceneSettingsFolder.add(sceneTypeOptions, 'movingBoxSpeed', 0, 4*Math.PI, 0.1).onChange(value => {
-            this.sceneAnimatorConfig.sceneOptions.movingBoxSpeed = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.movingBoxSpeed);
-
-          const pointLightPosFolder = this.sceneSettingsFolder.addFolder("Point Light Position");
-          pointLightPosFolder.add(sceneTypeOptions.pointLightPosition, 'x', 0, this.voxelDisplay.xSize(), 1).onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLightPosition.x = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.pointLightPosition.x);
-          pointLightPosFolder.add(sceneTypeOptions.pointLightPosition, 'y', 0, this.voxelDisplay.ySize(), 1).onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLightPosition.y = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.pointLightPosition.y);
-          pointLightPosFolder.add(sceneTypeOptions.pointLightPosition, 'z', 0, this.voxelDisplay.zSize(), 1).onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLightPosition.z = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.pointLightPosition.z);
-          pointLightPosFolder.open();
-
-          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'pointLightColour').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLightColour = guiColorToRGBObj(value);
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.pointLightColour);
-
-          const pointLightAttenFolder = this.sceneSettingsFolder.addFolder("Point Light Attenuation");
-          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'quadratic', 0, 1, 0.001).onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLightAtten.quadratic = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.pointLightAtten.quadratic);
-          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'linear', 0, 2, 0.001).onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLightAtten.linear = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.pointLightAtten.linear);
-          pointLightAttenFolder.open();
-
-          break;
-        }
-
-        case SCENE_TYPE_FOG: {
-          sceneTypeOptions = sceneSettings.fogSceneOptions;
-          this.sceneAnimatorConfig.sceneOptions = {...sceneTypeOptions};
-
-          this.sceneSettingsFolder.add(sceneTypeOptions, 'fogScattering', 0, 1, 0.01).onChange(value => {
-            this.sceneAnimatorConfig.sceneOptions.fogScattering = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.fogScattering);
-
-          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'fogColour').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.fogColour = guiColorToRGBObj(value);
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.fogColour);
-
-          const pointLightAttenFolder = this.sceneSettingsFolder.addFolder("Point Light Attenuation");
-          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'quadratic', 0, 1, 0.001).onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLightAtten.quadratic = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.pointLightAtten.quadratic);
-          pointLightAttenFolder.add(sceneTypeOptions.pointLightAtten, 'linear', 0, 2, 0.001).onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLightAtten.linear = value;
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.pointLightAtten.linear);
-          pointLightAttenFolder.open();
-
-          this.sceneSettingsFolder.addColor(sceneTypeOptions, 'pointLightColour').onChange((value) => {
-            this.sceneAnimatorConfig.sceneOptions.pointLightColour = guiColorToRGBObj(value);
-            this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-          }).setValue(sceneTypeOptions.pointLightColour);
-
-          break;
-        }
-
-        case SCENE_TYPE_GODRAY: {
-          sceneTypeOptions = sceneSettings.godRaySceneOptions;
-          this.sceneAnimatorConfig.sceneOptions = {...sceneTypeOptions};
-
-          buildGuiControls(this.voxelClient, VoxelAnimator.VOXEL_ANIM_SCENE, 
-            this.sceneSettingsFolder, this.sceneAnimatorConfig, this.sceneAnimatorConfig.sceneOptions, 
-            sceneTypeOptions, sceneDefaultOptionsMap[SCENE_TYPE_GODRAY].controlParams);
-
-          break;
-        }
-
-
-        default:
-          break;
-      }
-
-      if (sceneTypeOptions && sceneTypeOptions.ambientLightColour) {
-        this.sceneSettingsFolder.addColor(sceneTypeOptions, 'ambientLightColour').onChange((value) => {
-          this.sceneAnimatorConfig.sceneOptions.ambientLightColour = guiColorToRGBObj(value);
-          this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
-        }).setValue(sceneTypeOptions.ambientLightColour);
-      }
+      buildGuiControls(this.voxelClient, VoxelAnimator.VOXEL_ANIM_SCENE, 
+        this.sceneSettingsFolder, this.sceneAnimatorConfig, this.sceneAnimatorConfig.sceneOptions, 
+        sceneTypeOptions, sceneDefaultOptionsMap[value].controlParams);
 
       this.voxelClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_SCENE, this.sceneAnimatorConfig);
       
@@ -1137,7 +952,6 @@ class ControlPanel {
     }).setValue(sceneSettings.sceneType);
 
     folder.open();
-
     return folder;
   }
 

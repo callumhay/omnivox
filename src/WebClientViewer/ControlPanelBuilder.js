@@ -12,9 +12,6 @@ export const guiColorToRGBObj = (c) => {
   };
 };
 
-
-
-
 export const buildGuiControls = (voxelClient, animatorType, folder, configObj, configOptionsObj, optionsObj, controlParams) => {
   for (const [key, value] of Object.entries(optionsObj)) {
     // Is this a colour control?
@@ -24,21 +21,24 @@ export const buildGuiControls = (voxelClient, animatorType, folder, configObj, c
         voxelClient.sendAnimatorChangeCommand(animatorType, configObj);
       }).setValue(optionsObj[key]);
     }
+    else if (typeof value === 'boolean') {
+      folder.add(optionsObj, key).onChange(value => {
+        configOptionsObj[key] = value;
+        voxelClient.sendAnimatorChangeCommand(animatorType, configObj);
+      }).setValue(optionsObj[key]);
+    }
+    else if (typeof value === 'object') {
+      // This is likely a vector of some sort, create a subfolder and populate it with the proper GUI widgets, recursively
+      const subFolder = folder.addFolder(key);
+      buildGuiControls(voxelClient, animatorType, subFolder, configObj, configOptionsObj[key], optionsObj[key], controlParams[key]);
+    }
     else {
-      // Will this require a sub-folder?
-      if (typeof value === 'object') {
-        // This is likely a vector of some sort, create a subfolder and populate it with the proper GUI widgets, recursively
-        const subFolder = folder.addFolder(key);
-        buildGuiControls(voxelClient, animatorType, subFolder, configObj, configOptionsObj[key], optionsObj[key], controlParams[key]);
-      }
-      else {
-        // No subfolder, just add it directly to the GUI
-        const {min, max, step} = controlParams[key];
-        folder.add(optionsObj, key, min, max, step).onChange(value => {
-          configOptionsObj[key] = value;
-          voxelClient.sendAnimatorChangeCommand(animatorType, configObj);
-        }).setValue(optionsObj[key]);
-      }
+      // No subfolder, just add it directly to the GUI
+      const {min, max, step} = controlParams[key];
+      folder.add(optionsObj, key, min, max, step).onChange(value => {
+        configOptionsObj[key] = value;
+        voxelClient.sendAnimatorChangeCommand(animatorType, configObj);
+      }).setValue(optionsObj[key]);
     }
   }
 

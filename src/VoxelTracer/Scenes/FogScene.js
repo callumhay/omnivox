@@ -2,9 +2,11 @@ import * as THREE from 'three';
 
 import SceneRenderer from './SceneRenderer';
 
-import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';
+import VTPointLight from '../VTPointLight';
+import VTSpotLight from '../VTSpotLight';
 import VTFog, { fogDefaultOptions } from '../VTFog';
+import { MathUtils } from 'three';
 
 class FogScene extends SceneRenderer {
   constructor(scene, voxelModel) {
@@ -19,10 +21,8 @@ class FogScene extends SceneRenderer {
   }
 
   build(options) {
-
     const fogColour = options.fogColour ? options.fogColour : fogDefaultOptions.fogColour;
     const fogScattering = options.fogScattering ? options.fogScattering : fogDefaultOptions.fogScattering;
-
     const fogOptions = {
       fogColour: new THREE.Color(fogColour.r, fogColour.g, fogColour.b), 
       scattering: fogScattering
@@ -31,15 +31,21 @@ class FogScene extends SceneRenderer {
     if (!this._objectsBuilt) {
       const ambientLightColour = options.ambientLightColour ? options.ambientLightColour : fogDefaultOptions.ambientLightColour;
       const pointLightColour = options.pointLightColour ? options.pointLightColour : fogDefaultOptions.pointLightColour;
-      const pointLightPosition = options.pointLightPosition ? options.pointLightPosition : fogDefaultOptions.pointLightPosition;
       const pointLightAtten = options.pointLightAtten ? options.pointLightAtten : fogDefaultOptions.pointLightAtten;
 
       const size = this.voxelModel.xSize();
 
       this.ptLight = new VTPointLight(
-        new THREE.Vector3(pointLightPosition.x, pointLightPosition.y, pointLightPosition.z), 
-        new THREE.Color(pointLightColour.r, pointLightColour.g, pointLightColour.b), 
+        new THREE.Vector3(), new THREE.Color(pointLightColour.r, pointLightColour.g, pointLightColour.b), 
         {...pointLightAtten}
+      );
+
+      const {inner, outer} = options.spotLightAngles;
+      const spotLightAtten = options.spotLightAtten ? options.spotLightAtten : fogDefaultOptions.pointLightAtten;
+      this.spotLight = new VTSpotLight(
+        new THREE.Vector3(size/2, size-1, size/2), new THREE.Vector3(0,-1,0),
+        new THREE.Color(pointLightColour.r, pointLightColour.g, pointLightColour.b),
+        MathUtils.degToRad(inner), MathUtils.degToRad(outer), {...spotLightAtten}
       );
 
       this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
@@ -52,6 +58,7 @@ class FogScene extends SceneRenderer {
     }
 
     this.scene.addLight(this.ptLight);
+    this.scene.addLight(this.spotLight);
     this.scene.addLight(this.ambientLight);
     this.scene.addFog(this.fog);
   }

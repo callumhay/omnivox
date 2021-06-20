@@ -5,6 +5,7 @@ class VTObject {
   static get MESH_TYPE() { return 'm'; }
   static get AMBIENT_LIGHT_TYPE() { return 'a'; }
   static get POINT_LIGHT_TYPE() { return 'p'; }
+  static get SPOT_LIGHT_TYPE() { return 's'; }
   static get VOXEL_TYPE() { return 'v'; }
   static get FOG_TYPE() { return 'f'; }
   

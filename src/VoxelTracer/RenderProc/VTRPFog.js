@@ -1,7 +1,6 @@
 
 import * as THREE from 'three';
 
-import VoxelConstants from '../../VoxelConstants';
 import {clamp} from '../../MathUtils';
 import VoxelGeometryUtils from '../../VoxelGeometryUtils';
 
@@ -40,12 +39,15 @@ class VTRPFog extends VTObject {
     return this._boundingBox.getCenter(target); 
   }
 
+  // NOT CURRENTLY IN USE.
   calculateShadow(raycaster) {
+    
     const result = {
       inShadow: false,
       lightReduction: 0,
     };
-
+    return result;
+    /*
     const {ray} = raycaster;
 
     // First check to see if the ray originates inside this fog
@@ -74,6 +76,7 @@ class VTRPFog extends VTObject {
     }
 
     return result;
+    */
   }
 
   calculateVoxelColour(voxelIdxPt, scene) {

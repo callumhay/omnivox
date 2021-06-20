@@ -81,7 +81,7 @@ class GodRayScene extends SceneRenderer {
     const newRX = this._shapeRotation.x + dt*shapeRotationSpd.x;
     const newRY = this._shapeRotation.y + dt*shapeRotationSpd.y;
     const newRZ = this._shapeRotation.z + dt*shapeRotationSpd.z;
-    this._shapeRotation.set(newRX, newRY, newRZ);
+    this._shapeRotation.set(newRX, newRY, newRZ, 'XYZ');
     this.shapeMesh.setRotationFromEuler(this._shapeRotation);
 
     //this._shapePosition ...

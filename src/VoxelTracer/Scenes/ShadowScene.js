@@ -33,7 +33,7 @@ class ShadowScene extends SceneRenderer {
       const halfZSize = this.voxelModel.zSize()/2;
 
       this.movingBoxGeometry = new THREE.BoxBufferGeometry(movingBoxSize.x, movingBoxSize.y, movingBoxSize.z, 1, 1, 1);
-      this.movingBoxMesh = new VTMesh(this.movingBoxGeometry, new VTLambertMaterial(new THREE.Color(1,0.5,1)));
+      this.movingBoxMesh = new VTMesh(this.movingBoxGeometry, new VTLambertMaterial(new THREE.Color(1,1,1)));
 
       this.boxGeometry = new THREE.BoxBufferGeometry(size,2,size);
       this.boxMesh = new VTMesh(this.boxGeometry, new VTLambertMaterial(new THREE.Color(1,1,1)));
@@ -66,7 +66,7 @@ class ShadowScene extends SceneRenderer {
     const halfXSize = this.voxelModel.xSize()/2;
     const halfYSize = this.voxelModel.ySize()/2;
     const halfZSize = this.voxelModel.zSize()/2;
-    const RADIUS = halfXSize-1.5;
+    const RADIUS = halfXSize-2;
     const t = this.timeCounter*movingBoxSpeed;
     this.movingBoxMesh.setPosition((RADIUS)*Math.cos(t) + halfXSize, halfYSize-1, (RADIUS)*Math.sin(t) + halfZSize);
     this.timeCounter += dt;

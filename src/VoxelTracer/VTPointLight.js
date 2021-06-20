@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
+import {clamp} from '../MathUtils';
 
 import VTObject from './VTObject';
+import VoxelConstants from '../VoxelConstants';
 
-export const defaultAttenuation = {
-  quadratic:0, 
-  linear:1, 
+const defaultAttenuation = {
+  quadratic:0.04, 
+  linear:0.1, 
 };
 
 class VTPointLight extends VTObject {
@@ -25,6 +27,10 @@ class VTPointLight extends VTObject {
     const result = new VTPointLight(new THREE.Vector3(_position.x, _position.y, _position.z), colour, _attenuation);
     result.id = id;
     return result;
+  }
+  toJSON() {
+    const {id, type, _position, _colour, _attenuation} = this;
+    return {id, type, _position, _colour, _attenuation};
   }
 
   setPosition(p) { this._position = p; this.makeDirty(); }
@@ -50,25 +56,19 @@ class VTPointLight extends VTObject {
 
   isShadowCaster() { return false; }
 
-  toJSON() {
-    const {id, type, _position, _colour, _attenuation} = this;
-    return {id, type, _position, _colour, _attenuation};
-  }
-
-  emission(distance) {
-    // TODO: This can blow out a colour... maybe map it to a spectrum or something when we want to get fancy?
+  emission(pos, distance) {
     const emissionColour = this._colour.clone().multiplyScalar(this.calculateAttenuation(distance));
     emissionColour.setRGB(emissionColour.r, emissionColour.g, emissionColour.b);
     return emissionColour;
   }
 
   calculateAttenuation(distance) {
-    return 1.0 / (this._attenuation.quadratic*distance*distance + this._attenuation.linear*distance + 1.0); // Always in [0,1]
+    return clamp(1.0 / (1.0 + this._attenuation.quadratic*distance*distance + this._attenuation.linear*distance), 0, 1);
   }
 
   calculateVoxelColour(voxelPt, scene=null) {
     const d = this._position.distanceTo(voxelPt);
-    return this.emission(d);
+    return this.emission(voxelPt, d);
   }
 
   intersectsBox(voxelBoundingBox) {
