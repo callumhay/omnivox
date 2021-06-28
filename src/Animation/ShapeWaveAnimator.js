@@ -58,7 +58,6 @@ export const shapeWaveAnimatorDefaultConfig = {
   waveGap: 1, // space between waves
   colourPalette: EIGHTIES_COLOUR_PALETTE,
   colourSelectionMode: COLOUR_SELECTION_RANDOM,
-  brightness: 1.0,
   repeat: -1, // This needs to be here for the VoxelAnimator setConfig
 };
 
@@ -190,7 +189,7 @@ class ShapeWaveAnimator extends VoxelAnimator {
   }
 
   render(dt) {
-    const {waveSpeed, waveGap, brightness, waveShape, center} = this.config;
+    const {waveSpeed, waveGap, waveShape, center} = this.config;
 
     const voxelSampleSize = 1 + waveGap;
     const lastShape = this.activeShapes.length > 0 ? this.activeShapes[this.activeShapes.length-1] : null;
@@ -228,10 +227,10 @@ class ShapeWaveAnimator extends VoxelAnimator {
 
     switch (waveShape) {
       case WAVE_SHAPE_CUBE:
-        this.voxelModel.drawCubes([center.x, center.y, center.z], radii, colours, brightness);
+        this.voxelModel.drawCubes([center.x, center.y, center.z], radii, colours, 1);
         break;
       case WAVE_SHAPE_SPHERE:
-        this.voxelModel.drawSpheres([center.x, center.y, center.z], radii, colours, brightness);
+        this.voxelModel.drawSpheres([center.x, center.y, center.z], radii, colours, 1);
         break;
       default:
         break;

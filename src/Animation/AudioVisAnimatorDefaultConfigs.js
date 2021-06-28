@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {DEFAULT_NUM_FFT_SAMPLES, DEFAULT_FFT_BUFFER_SIZE} from '../WebClientViewer/SoundController';
+import {DEFAULT_NUM_FFT_SAMPLES, DEFAULT_FFT_BUFFER_SIZE} from '../WebClientController/SoundManager';
 import {COLOUR_INTERPOLATION_RGB} from '../Spectrum';
 
 const DEFAULT_LEVEL_MAX = 1.75;

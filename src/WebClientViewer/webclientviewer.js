@@ -1,10 +1,8 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
 
-import ControlPanel from './ControlPanel';
 import VoxelDisplay from './VoxelDisplay';
-import VoxelClient from './VoxelClient';
-import SoundController from './SoundController';
+import DisplayClient from './DisplayClient';
 
 // Setup THREE library boilerplate for getting a scene + camera + basic controls up and running
 const renderer = new THREE.WebGLRenderer();
@@ -19,11 +17,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 // Setup the visualizer for rendering the voxels
 const voxelDisplay = new VoxelDisplay(scene, controls);
 // Setup the client (recieves render messages from the server and sends control messages to the server)
-const voxelClient = new VoxelClient(voxelDisplay);
-// Setup the sound controller for playing music and capturing audio from the mic
-const soundController = new SoundController();
-// Control panel for user interaction / changing routines
-const controlPanel = new ControlPanel(voxelClient, voxelDisplay, soundController);
+const displayClient = new DisplayClient(voxelDisplay);
 
 // Make sure the camera is positioned somewhere where we can see everything we need to at initial render
 scene.position.set(0,0,0);
@@ -39,28 +33,36 @@ const originalWindowHeight = window.innerHeight;
 // Event Listeners
 // -----------------------------------------------------------------------------
 window.addEventListener('resize', onWindowResize, false);
-function onWindowResize(event) {
+function onWindowResize(ev) {
 
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.fov = (360 / Math.PI) * Math.atan(originalTanFOV * (window.innerHeight / originalWindowHeight));
   camera.updateProjectionMatrix();
   camera.lookAt(scene.position);
 
-  soundController.windowResize(originalTanFOV, originalWindowHeight);
-
   controls.update();
 
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.render(scene, camera);
 }
+window.addEventListener('keypress', onWindowKeyPress, false);
+function onWindowKeyPress(ev) {
+  switch (ev.key) {
+    case 'o': case 'O':
+      voxelDisplay.setOrbitModeEnabled(!voxelDisplay.orbitModeEnabled);
+      break;
+    case 'l': case 'L':
+      voxelDisplay.setOutlinesEnabled(!voxelDisplay.outlinesEnabled);
+      break;
+    default:
+      break;
+  }
+  //console.log(ev);
+}
 // ------------------------------------------------------------------------------
-
 
 let frameCount = 0;
 let lastFrameTime = Date.now();
-let sampleAudioTime = 0;
-const TIME_BETWEEN_AUDIO_SAMPLES = 1.0 / 30; // 30Hz
-
 const render = function () {
   let currFrameTime = Date.now();
   let dt = (currFrameTime - lastFrameTime) / 1000;
@@ -70,17 +72,10 @@ const render = function () {
   // Updates for controls/sound/etc.
   controls.update();
 
-  // Avoid overwhelming the server by only sending audio samples at a reasonable frequency
-  sampleAudioTime += dt;
-  if (sampleAudioTime >= TIME_BETWEEN_AUDIO_SAMPLES) {
-    soundController.sample(voxelClient);
-    sampleAudioTime -= TIME_BETWEEN_AUDIO_SAMPLES;
-  }
   
   // Rendering
   renderer.clear();
   renderer.render(scene, camera);
-  soundController.render(renderer);
   
   frameCount++;
   /*
@@ -95,4 +90,4 @@ const render = function () {
 };
 render();
 
-voxelClient.start(controlPanel);
+displayClient.start();

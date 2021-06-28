@@ -11,7 +11,6 @@ import ShapeWaveAnimator from '../Animation/ShapeWaveAnimator';
 import FireAnimator from '../Animation/FireAnimator';
 import SceneAnimator from '../Animation/SceneAnimator';
 import BarVisualizerAnimator from '../Animation/BarVisualizerAnimator';
-import WaterAnimator from '../Animation/WaterAnimator';
 
 import VTScene from '../VoxelTracer/VTScene';
 import VoxelFramebufferCPU from './VoxelFramebufferCPU';
@@ -72,7 +71,6 @@ class VoxelModel {
       [VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER]  : new StarShowerAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES]  : new ShapeWaveAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_FIRE]              : new FireAnimator(this),
-      [VoxelAnimator.VOXEL_ANIM_WATER]             : new WaterAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_SCENE]             : new SceneAnimator(this, this.vtScene),
       [VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER]    : new BarVisualizerAnimator(this),
     };

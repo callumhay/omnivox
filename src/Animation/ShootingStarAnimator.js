@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 import VoxelAnimator, {REPEAT_INFINITE_TIMES} from './VoxelAnimator';
-import VoxelColourAnimator, {INTERPOLATION_SMOOTHER} from './VoxelColourAnimator';
+import VoxelColourAnimator, {INTERPOLATION_SMOOTHER, VOXEL_COLOUR_SHAPE_TYPE_POINT} from './VoxelColourAnimator';
 import {COLOUR_INTERPOLATION_LRGB} from '../Spectrum';
 import VoxelConstants from '../VoxelConstants';
 
@@ -55,7 +55,8 @@ class ShootingStarAnimator extends VoxelAnimator {
     const animatorObj = {
       voxelPosition: pos,
       animator: new VoxelColourAnimator(this.voxelModel, {
-        voxelPositions: [pos],
+        shapeType: VOXEL_COLOUR_SHAPE_TYPE_POINT,
+        pointProperties: {point: pos},
         colourStart: colour,
         colourEnd: {r:0, g:0, b:0},
         startTimeSecs: 0.0,

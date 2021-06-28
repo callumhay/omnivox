@@ -3,6 +3,8 @@ import chroma from 'chroma-js';
 
 import VoxelAnimator, {REPEAT_INFINITE_TIMES} from './VoxelAnimator';
 import {COLOUR_INTERPOLATION_RGB} from '../Spectrum';
+import VoxelConstants from '../VoxelConstants';
+import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 export const INTERPOLATION_LERP     = 'lerp';
 export const INTERPOLATION_SMOOTH   = 'smooth';
@@ -13,8 +15,27 @@ export const INTERPOLATION_TYPES = [
   INTERPOLATION_SMOOTHER,
 ];
 
+export const VOXEL_COLOUR_SHAPE_TYPE_ALL    = "All";
+export const VOXEL_COLOUR_SHAPE_TYPE_POINT  = "Point";
+export const VOXEL_COLOUR_SHAPE_TYPE_SPHERE = "Sphere";
+export const VOXEL_COLOUR_SHAPE_TYPE_BOX    = "Box";
+
 export const voxelColourAnimatorDefaultConfig = {
-  voxelPositions: [{x:0, y:0, z:0}],
+  shapeType: VOXEL_COLOUR_SHAPE_TYPE_ALL,
+  pointProperties: {
+    point: {x: 0, y: 0, z: 0}
+  },
+  sphereProperties: { 
+    center: { x: VoxelConstants.VOXEL_HALF_GRID_IDX, y: VoxelConstants.VOXEL_HALF_GRID_IDX, z: VoxelConstants.VOXEL_HALF_GRID_IDX }, 
+    radius: VoxelConstants.VOXEL_HALF_GRID_IDX, 
+    fill: false
+  },
+  boxProperties: { 
+    center: { x: VoxelConstants.VOXEL_HALF_GRID_IDX, y: VoxelConstants.VOXEL_HALF_GRID_IDX, z: VoxelConstants.VOXEL_HALF_GRID_IDX }, 
+    rotation: { x: 0, y: 0, z: 0}, 
+    size: {x: 2 * VoxelConstants.VOXEL_HALF_GRID_IDX - 2, y: 2 * VoxelConstants.VOXEL_HALF_GRID_IDX - 2, z: 2 * VoxelConstants.VOXEL_HALF_GRID_IDX - 2}, 
+    fill: false 
+  },
   colourStart: {r:0, g:0, b:0},
   colourEnd: {r:0.5, g:0.5, b:0.5},
   colourInterpolationType: COLOUR_INTERPOLATION_RGB,
@@ -34,15 +55,48 @@ class VoxelColourAnimator extends VoxelAnimator {
 
   setConfig(c) {
     super.setConfig(c);
-    const {voxelPositions, colourStart, colourEnd} = c;
+    const {shapeType, pointProperties, sphereProperties, boxProperties, colourStart, colourEnd} = c;
+    switch (shapeType) {
+      case VOXEL_COLOUR_SHAPE_TYPE_ALL:
+      default:
+        this.voxelPositions = VoxelGeometryUtils.voxelIndexList(VoxelConstants.VOXEL_GRID_SIZE);
+        break;
 
-    if (voxelPositions !== this.voxelPositions) {
-      this.voxelPositions = voxelPositions.map(value => new THREE.Vector3(value.x, value.y, value.z));
+      case VOXEL_COLOUR_SHAPE_TYPE_POINT: {
+        const {point} = pointProperties;
+        this.voxelPositions = [new THREE.Vector3(point.x, point.y, point.z)];
+        break;
+      }
+
+      case VOXEL_COLOUR_SHAPE_TYPE_SPHERE: {
+        const {center, radius, fill} = sphereProperties;
+        const centerVec3 = new THREE.Vector3(center.x, center.y, center.z);
+        this.voxelPositions = VoxelGeometryUtils.voxelSphereList(
+          centerVec3, radius, fill, VoxelGeometryUtils.voxelBoundingBox(VoxelConstants.VOXEL_GRID_SIZE)
+        );
+        break;
+      }
+
+      case VOXEL_COLOUR_SHAPE_TYPE_BOX: {
+        const {center, rotation, size, fill} = boxProperties;
+        const centerVec3 = new THREE.Vector3(center.x, center.y, center.z);
+        const eulerRot = new THREE.Euler(
+          THREE.MathUtils.degToRad(rotation.x), 
+          THREE.MathUtils.degToRad(rotation.y),
+          THREE.MathUtils.degToRad(rotation.z), 'XYZ'
+        );
+        const sizeVec3 = new THREE.Vector3(size.x, size.y, size.z);
+        this.voxelPositions = VoxelGeometryUtils.voxelBoxList(
+          centerVec3, eulerRot, sizeVec3, fill, VoxelGeometryUtils.voxelBoundingBox(VoxelConstants.VOXEL_GRID_SIZE)
+        );
+        break;
+      }
     }
-    if (colourStart !== this.colourStart) {
+
+    if (colourStart && colourStart !== this.colourStart) {
       this.colourStart = new THREE.Color(colourStart.r, colourStart.g, colourStart.b);
     }
-    if (colourEnd !== this.colourEnd) {
+    if (colourEnd && colourEnd !== this.colourEnd) {
       this.colourEnd = new THREE.Color(colourEnd.r, colourEnd.g, colourEnd.b);
     }
   }

@@ -1,12 +1,11 @@
 export const REPEAT_INFINITE_TIMES = -1;
 
 const VOXEL_ANIM_TYPE_COLOUR        = "Colour Change";
-const VOXEL_ANIM_TEXT               = "Text/Fonts";
+const VOXEL_ANIM_TEXT               = "Text";
 const VOXEL_ANIM_TYPE_SHOOTING_STAR = "Shooting Star";
 const VOXEL_ANIM_TYPE_STAR_SHOWER   = "Star Shower";
 const VOXEL_ANIM_TYPE_SHAPE_WAVES   = "Shape Waves";
 const VOXEL_ANIM_FIRE               = "Fire";
-const VOXEL_ANIM_WATER              = "Water";
 const VOXEL_ANIM_SCENE              = "Scene";
 
 const VOXEL_ANIM_BAR_VISUALIZER     = "Bar Visualizer";
@@ -45,7 +44,6 @@ class VoxelAnimator {
   static get VOXEL_ANIM_TYPE_STAR_SHOWER() {return VOXEL_ANIM_TYPE_STAR_SHOWER;}
   static get VOXEL_ANIM_TYPE_SHAPE_WAVES() {return VOXEL_ANIM_TYPE_SHAPE_WAVES;}
   static get VOXEL_ANIM_FIRE() {return VOXEL_ANIM_FIRE;}
-  static get VOXEL_ANIM_WATER() {return VOXEL_ANIM_WATER;}
   static get VOXEL_ANIM_SCENE() {return VOXEL_ANIM_SCENE;}
   static get VOXEL_ANIM_TEXT() {return VOXEL_ANIM_TEXT;}
 
@@ -64,7 +62,7 @@ class VoxelAnimator {
     }
   }
 
-  setAudioInfo(audioInfo) { console.error("setAudioInfo unimplemented abstract method called."); }
+  setAudioInfo(audioInfo) { /* Just ignore this */ }
 
   render(dt) {}
   rendersToCPUOnly() { return false; }

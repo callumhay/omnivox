@@ -41,7 +41,7 @@ class GodRayScene extends SceneRenderer {
       this.shapeMesh.setRotationFromEuler(this._shapeRotation);
 
       const pointLightColour = options.pointLightColour ? options.pointLightColour : {x:1,y:1,z:1};
-      const pointLightPosition = /*this.ptLight ? this.ptLight.position : */(options.pointLightPosition ? options.pointLightPosition : {x:0,y:0,z:0});
+      const pointLightPosition = (options.pointLightPosition ? options.pointLightPosition : {x:0,y:0,z:0});
       const pointLightAtten = options.pointLightAtten ? options.pointLightAtten : {quadratic:0.01, linear:0};
       
       this.ptLight = new VTPointLight(
@@ -65,17 +65,6 @@ class GodRayScene extends SceneRenderer {
     if (!this._objectsBuilt) {
       return;
     }
-    /*
-    const tAngle = this._timeCounter*Math.PI;
-    const halfXSize = this.voxelModel.xSize()/2;
-    const halfYSize = this.voxelModel.ySize()/2;
-    const halfZSize = this.voxelModel.zSize()/2;
-
-    const lightMovementRadius = halfXSize-1;
-    this.ptLight.setPosition(this.ptLight.position.set(
-      lightMovementRadius*Math.cos(tAngle) + halfXSize, halfYSize, lightMovementRadius*Math.sin(tAngle) + halfZSize)
-    );
-    */
 
     const {shapeRotationSpd} = this._options;
     const newRX = this._shapeRotation.x + dt*shapeRotationSpd.x;

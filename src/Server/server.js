@@ -25,9 +25,12 @@ app.set('port', LOCALHOST_WEB_PORT);
 app.get("/viewer", (req, res) => {
   res.sendFile(path.join(distPath, 'webclientviewer.html'));
 });
-app.get("/designer", (req, res) => {
-  res.sendFile(path.join(distPath, 'webclientdesigner.html'));
+app.get("/controller", (req, res) => {
+  res.sendFile(path.join(distPath, 'webclientcontroller.html'));
 });
+//app.get("/designer", (req, res) => {
+//  res.sendFile(path.join(distPath, 'webclientdesigner.html'));
+//});
 
 
 const webServer = http.createServer(app);

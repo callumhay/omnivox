@@ -27,7 +27,15 @@ const webClientViewerConfig = {...commonConfig,
     path: distPath,
   },
 };
-
+const webClientControllerConfig = {...commonConfig,
+  target: 'web',
+  entry: './src/WebClientController/webclientcontroller.js',
+  output: {
+    filename: 'webclientcontroller.js',
+    path: distPath,
+  },
+};
+/*
 const webClientDesignerConfig = {...commonConfig,
   target: 'web',
   entry: './src/WebClientDesigner/webclientdesigner.js',
@@ -43,7 +51,7 @@ const webClientDesignerConfig = {...commonConfig,
     }]
   }
 };
-
+*/
 const serverConfig = {...commonConfig,
   target: 'node',
   externals: [nodeExternals(), 'serialport'],
@@ -68,4 +76,4 @@ const renderChildConfig = {...commonConfig,
   },
 };
 
-module.exports = [webClientViewerConfig, webClientDesignerConfig, serverConfig, renderChildConfig];
+module.exports = [webClientViewerConfig, webClientControllerConfig, serverConfig, renderChildConfig];

@@ -29,6 +29,19 @@ class VoxelGeometryUtils {
     return voxelPt.x.toFixed(0) + "_" + voxelPt.y.toFixed(0) + "_" + voxelPt.z.toFixed(0);
   }
 
+  static voxelIndexList(gridSize) {
+    const idxList = [];
+    for (let x = 0; x < gridSize; x++) {
+      for (let y = 0; y < gridSize; y++) {
+        for (let z = 0; z < gridSize; z++) {
+          idxList.push(new THREE.Vector3(x,y,z));
+        }
+      }
+    }
+    return idxList;
+  }
+
+
   static voxelSphereList(center, radius, fill, voxelBoundingBox) {
     // Create a bounding box for the sphere: 
     // Centered at the given center with a half width/height/depth of the given radius
