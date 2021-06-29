@@ -1,4 +1,5 @@
-
+// TODO? This currently does nothing, but any audio-related tweak-ables should
+// be modifiable here.
 class SoundCP {
   constructor(masterCP) {
     this.masterCP = masterCP;
@@ -6,9 +7,7 @@ class SoundCP {
   }
 
   buildFolder() {
-    // Show audio debug
-    const {soundManager} = this.masterCP;
-    
+    //const {soundManager} = this.masterCP;
   }
 
 }

@@ -4,7 +4,7 @@ import MasterCP from './ControlPanels/MasterCP';
 class ControllerClient {
 
   constructor(soundManager) {
-    this.socket = new WebSocket('ws://' + VoxelProtocol.WEBSOCKET_HOST + ':' + VoxelProtocol.WEBSOCKET_PORT);
+    this.socket = new WebSocket('ws://' + VoxelProtocol.WEBSOCKET_HOST + ':' + VoxelProtocol.WEBSOCKET_PORT, VoxelProtocol.WEBSOCKET_PROTOCOL_CONTROLLER);
     this.soundManager = soundManager;
     this.controlPanel = null;
     this.commEnabled = false;
@@ -50,7 +50,7 @@ class ControllerClient {
         if (welcomeDataObj) {
           const {gridSize, currentAnimatorType, currentAnimatorConfig, globalBrightness} = welcomeDataObj;
 
-          if (gridSize !== undefined) {
+          if (gridSize !== undefined && (!this.controlPanel || this.controlPanel.gridSize !== gridSize)) {
             console.log("Initializing Controls.");
             // Disable communication with the server while we (re)initialize the interface
             // otherwise we get a bunch of garbage requests going out from the controller while it initializes
@@ -59,7 +59,7 @@ class ControllerClient {
             this.controlPanel = new MasterCP(gridSize, this, this.soundManager);
             this.commEnabled  = true;
           }
-          
+
           if (this.controlPanel) {
             if (currentAnimatorType && currentAnimatorConfig) {
               this.controlPanel.updateAnimator(currentAnimatorType, currentAnimatorConfig);
@@ -73,6 +73,7 @@ class ControllerClient {
         
       case VoxelProtocol.VOXEL_DATA_HEADER:
         // Ignore voxel data, that's not what the controller is for.
+        console.error("Controller should not be receieving full voxel data!");
         break;
 
       default:

@@ -17,7 +17,7 @@ const client = new ControllerClient(soundManager);
 
 let lastFrameTime = Date.now();
 let sampleAudioTime = 0;
-const TIME_BETWEEN_AUDIO_SAMPLES = 1.0 / 30; // 30Hz
+const TIME_BETWEEN_AUDIO_SAMPLES = 1.0 / 40; // 40Hz
 
 const render = function () {
   let currFrameTime = Date.now();

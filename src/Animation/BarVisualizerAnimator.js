@@ -15,7 +15,7 @@ const NEG_X_DIR = "-x";
 const POS_Z_DIR = "+z";
 const NEG_Z_DIR = "-z";
 
-const LOW_HIGH_COLOUR_MODE = "Low/High Colour";
+const LOW_HIGH_COLOUR_MODE = "Low High Colour";
 const RANDOM_COLOUR_MODE = "Random";
 
 export const barVisualizerAnimatorDefaultConfig = {

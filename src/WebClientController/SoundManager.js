@@ -17,7 +17,7 @@ class SoundManager {
       }
     }
 
-    // Setup audio visualization
+    // Setup audio visualization variables
     this.renderer = renderer;
 
     const renderSize = new THREE.Vector2();
@@ -30,9 +30,9 @@ class SoundManager {
     this._soundDebugScene.position.set(0,0,0);
     this._soundDebugCamera.position.set(0,-1,8);
 
+    // Build the sampler
     this.numFFTSamples = DEFAULT_NUM_FFT_SAMPLES;
     this.fftBufferSize = DEFAULT_FFT_BUFFER_SIZE;
-
     this.context = new AudioContext();
     this._initializeMicrophoneSampling();
     this._initializeFFTs(); // NOTE: The number of FFTs must be a multiple of 8 for the visualizer to work properly!!!

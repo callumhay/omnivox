@@ -5,7 +5,7 @@ const FRAMES_OUT_OF_SEQUENCE_BEFORE_RESET = 30;
 class DisplayClient {
   constructor(voxelDisplay) {
     this.voxelDisplay = voxelDisplay;
-    this.socket = new WebSocket('ws://' + VoxelProtocol.WEBSOCKET_HOST + ':' + VoxelProtocol.WEBSOCKET_PORT);
+    this.socket = new WebSocket('ws://' + VoxelProtocol.WEBSOCKET_HOST + ':' + VoxelProtocol.WEBSOCKET_PORT, VoxelProtocol.WEBSOCKET_PROTOCOL_VIEWER);
     this.lastFrameId = 0;
     this.consecutiveFramesOutofSequence = 0;
     this.lastFrameHashCode = -1;
@@ -48,20 +48,11 @@ class DisplayClient {
       case VoxelProtocol.SERVER_TO_CLIENT_WELCOME_HEADER:
         const welcomeDataObj = VoxelProtocol.getDataObjFromWelcomePacketStr(messageData);
         if (welcomeDataObj) {
-          const {gridSize, currentAnimatorType, currentAnimatorConfig, globalBrightness} = welcomeDataObj;
-
+          const {gridSize} = welcomeDataObj;
           if (gridSize !== undefined && gridSize !== this.voxelDisplay.gridSize) {
             console.log("Resizing the voxel grid.");
             this.voxelDisplay.rebuild(parseInt(gridSize));
           }
-          if (currentAnimatorType && currentAnimatorConfig) {
-            // TODO: Tell the GUI to update itself
-            //controlPanel.updateAnimator(currentAnimatorType, currentAnimatorConfig);
-          }
-          if (globalBrightness) {
-            //controlPanel.updateBrightness(globalBrightness);
-          }
-
           this.lastFrameId = 0; // Reset the frame Id
         }
         break;

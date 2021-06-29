@@ -28,7 +28,7 @@ class FireAnimCP extends AnimCP {
     tempColourFolder.hidden = true;
     folder.remove(tempColourFolder);
     // Low/High Temperature Colour Mode
-    const lowHighColourFolder = folder.addFolder({title: "Low/High Temperature Colour Mode"});
+    const lowHighColourFolder = folder.addFolder({title: "Low High Temperature Colour Mode"});
     this.addControl(lowHighColourFolder, 'lowTempColour', {label: "Low Colour"});
     this.addControl(lowHighColourFolder, 'highTempColour', {label: "High Colour"});
     this.addList(lowHighColourFolder, 'colourInterpolationType', COLOUR_INTERPOLATION_TYPES, "Colour Interpolation");
@@ -59,8 +59,8 @@ class FireAnimCP extends AnimCP {
           randomColourFolder.hidden = false;
           break;
       }
-      self.colourMode = ev.value;
-      self.masterCP.controllerClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_FIRE, self.config);
+      self.config.colourMode = ev.value;
+      self.masterCP.controllerClient.sendAnimatorChangeCommand(self.animatorType(), self.config);
     };
     
     this.addList(folder, 'colourMode', FireAnimator.COLOUR_MODES, "Colour Mode", onColourModeChange);

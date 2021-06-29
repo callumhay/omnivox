@@ -13,11 +13,12 @@ const SERIAL_POLLING_INTERVAL_MS = 10000;
 class VoxelServer {
 
   constructor(voxelModel) {
-    let self = this;
+    const self = this;
     this.voxelModel = voxelModel;
 
     // Setup websockets
-    this.webClientSockets = [];
+    this.viewerWS = null;
+    this.controllerWS = null;
     this.webSocketServer = new ws.Server({
       port: VoxelProtocol.WEBSOCKET_PORT,
       perMessageDeflate: true, // Enable compression... lots of repetitive data.
@@ -29,8 +30,18 @@ class VoxelServer {
 
     this.webSocketServer.on('connection', function(socket, request, client) {
       console.log("Websocket opened.");
-
-      self.webClientSockets.push(socket);
+      switch (socket.protocol) {
+        case VoxelProtocol.WEBSOCKET_PROTOCOL_VIEWER:
+          self.viewerWS = socket;
+          break;
+        case VoxelProtocol.WEBSOCKET_PROTOCOL_CONTROLLER:
+          self.controllerWS = socket;
+          break;
+        default:
+          console.error("Invalid websocket protocol found: " + socket.protocol);
+          socket.destroy("Invalid websocket protocol.");
+          return;
+      }
 
       socket.on('message', function(data) {
         //console.log("Websocket message received: " + data);
@@ -39,11 +50,11 @@ class VoxelServer {
 
       socket.on('close', function() {
         console.log("Websocket closed.");
-        self.webClientSockets.splice(self.webClientSockets.indexOf(socket), 1);
+        if (socket === self.controllerWS) { self.controllerWS = null; }
+        else if (socket === self.viewerWS) { self.viewerWS = null; }
       });
 
       socket.send(VoxelProtocol.buildClientWelcomePacketStr(voxelModel));
-
     });
 
     this.webSocketServer.on('close', function() {
@@ -56,7 +67,7 @@ class VoxelServer {
   }
 
   start() {
-    let self = this;
+    const self = this;
     const parser = new Readline();
 
     setInterval(function() {
@@ -221,13 +232,11 @@ class VoxelServer {
       });
     }
 
-    // Send voxel data to websocket clients
+    // Send voxel data to the viewer websocket client
     const voxelDataPacketBuf = VoxelProtocol.buildVoxelDataPacket(voxelData);
-    this.webClientSockets.forEach(function(socket) {
-      if (socket.bufferedAmount === 0) {
-        socket.send(voxelDataPacketBuf);
-      }
-    });
+    if (this.viewerWS && this.viewerWS.bufferedAmount === 0) {
+      this.viewerWS.send(voxelDataPacketBuf);
+    }
   }
 
   /**

@@ -7,6 +7,10 @@ const NUM_OCTO_DATA_PINS = 8;
 const DISCOVERY_REQ_PACKET_HEADER = "REQ";
 const DISCOVERY_ACK_PACKET_HEADER = "ACK";
 
+// Protocol identifiers
+const WEBSOCKET_PROTOCOL_CONTROLLER = "controller";
+const WEBSOCKET_PROTOCOL_VIEWER = "viewer";
+
 // Packet Header/Identifier Constants
 const VOXEL_DATA_HEADER = "D";
 // Data type constants
@@ -79,6 +83,9 @@ class VoxelProtocol {
   // Packet Header/Identifier Constants for Hardware Discovery - UDP ONLY
   static get DISCOVERY_REQ_PACKET_HEADER() {return DISCOVERY_REQ_PACKET_HEADER;}
   static get DISCOVERY_ACK_PACKET_HEADER() {return DISCOVERY_ACK_PACKET_HEADER;}
+
+  static get WEBSOCKET_PROTOCOL_CONTROLLER() { return WEBSOCKET_PROTOCOL_CONTROLLER; }
+  static get WEBSOCKET_PROTOCOL_VIEWER() { return WEBSOCKET_PROTOCOL_VIEWER; }
 
   static get VOXEL_DATA_HEADER() {return VOXEL_DATA_HEADER;}
   static get VOXEL_DATA_ALL_TYPE() {return VOXEL_DATA_ALL_TYPE;}

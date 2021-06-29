@@ -13,7 +13,7 @@ const REINIT_FLUID_TIME_SECS = 0.1;
 const MAX_AVG_BEATS_PER_SEC = 120;
 
 // Fire colour types
-const LOW_HIGH_TEMP_COLOUR_MODE = "Low/High Temp";
+const LOW_HIGH_TEMP_COLOUR_MODE = "Low High Temp";
 const TEMPERATURE_COLOUR_MODE   = "Temperature";
 const RANDOM_COLOUR_MODE        = "Random";
 
@@ -32,8 +32,8 @@ export const fireAnimatorDefaultConfig = {
   spectrumTempMax: 1700,
   colourSystem: 'CIEsystem',
   // Low-High Colour Mode
-  lowTempColour:  new THREE.Color(0.2, 0, 1),
-  highTempColour: new THREE.Color(1, 0, 0.7),
+  lowTempColour:  {r: 0.2, g: 0, b: 1},
+  highTempColour: {r: 1, g: 0, b: 0.7},
   // Random Colour Mode
   ...RandomHighLowColourCycler.randomColourCyclerDefaultConfig,
 
@@ -181,6 +181,7 @@ class FireAnimator extends AudioVisualizerAnimator {
     if (!this.config.audioVisualizationOn) {
       return;
     }
+    //console.log("AUDIO!");
     super.setAudioInfo(audioInfo);
 
     const {gamma, levelMax, audioBuoyancyMultiplier, audioCoolingMultiplier, audioTurbulenceMultiplier, buoyancy, cooling, vorticityConfinement} = this.config;
