@@ -35,8 +35,11 @@ class AnimCP {
     this.loadSettings();
   }
 
-  addControl(parentFolder, controlParam, options) {
-    if (!this.settings || this.settings[controlParam] === undefined) {
+  addControl(parentFolder, controlParam, options, settingsObj=null, configObj=null) {
+    const settingsInUse = settingsObj || this.settings;
+    const configInUse = configObj || this.config;
+
+    if (!settingsInUse || settingsInUse[controlParam] === undefined) {
       console.error("Control parameter '" + controlParam + "' not present in settings.");
       return null;
     }
@@ -44,23 +47,35 @@ class AnimCP {
     const self = this;
 
     // Determine the type of control...
-    const control = this.settings[controlParam];
+    const control = settingsInUse[controlParam];
     if (Array.isArray(control)) {
       console.error("Array type found while creating control... this is unimplemented!");
       return null;
     }
     else if (typeof control === 'object') {
-      // Is it a colour?
       if (control.r !== undefined && control.g !== undefined && control.b !== undefined) {
-        return parentFolder.addInput(this.settings, controlParam, options).on(CHANGE_EVENT, ev => {
-          self.config[controlParam] = guiColorToRGBObj(ev.value);
+        // Colour
+        return parentFolder.addInput(settingsInUse, controlParam, options).on(CHANGE_EVENT, ev => {
+          configInUse[controlParam] = guiColorToRGBObj(ev.value);
           self.masterCP.controllerClient.sendAnimatorChangeCommand(self.animatorType(), self.config);
         });
       }
+      else if (control.x !== undefined || control.y !== undefined || control.z !== undefined) {
+        // Point or vector just fall through (Tweakpane will handle it with addInput)
+      }
+      else {
+        // Special kind of object, this will require its own subfolder (e.g., attenuation)
+        const title = 'label' in options ? options.label : controlParam.charAt(0).toUpperCase() + controlParam.slice(1);
+        const subfolder = parentFolder.addFolder({title: title});
+        for (const key of Object.keys(settingsInUse[controlParam])) {
+          this.addControl(subfolder, key, (key in options) ? options[key] : {}, settingsInUse[controlParam], configInUse[controlParam]);
+        }
+        return subfolder;
+      }
     }
 
-    return parentFolder.addInput(this.settings, controlParam, options).on(CHANGE_EVENT, ev => {
-      self.config[controlParam] = ev.value;
+    return parentFolder.addInput(settingsInUse, controlParam, options).on(CHANGE_EVENT, ev => {
+      configInUse[controlParam] = ev.value;
       self.masterCP.controllerClient.sendAnimatorChangeCommand(self.animatorType(), self.config);
     });
   }

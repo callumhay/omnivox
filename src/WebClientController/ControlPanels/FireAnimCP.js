@@ -11,8 +11,8 @@ class FireAnimCP extends AnimCP {
   animatorType() { return VoxelAnimator.VOXEL_ANIM_FIRE; }
 
   buildFolder() {
-    const {gridSize} = this.masterCP;
-    const folder = this.masterCP.pane.addFolder({title: "Fire Controls"});
+    const {pane, gridSize} = this.masterCP;
+    const folder = pane.addFolder({title: "Fire Controls"});
     this.addControl(folder, 'speed', {label: "Speed", min: 0.1, max: 5.0, step: 0.1});
     this.addControl(folder, 'buoyancy', {label: "Buoyancy", min: 0.1, max: 8.0, step: 0.1});
     this.addControl(folder, 'cooling', {label: "Cooling", min: 0.1, max: 1.5, step: 0.01});
@@ -83,6 +83,7 @@ class FireAnimCP extends AnimCP {
     this.addControl(audioFolder, 'levelMax', {label: "Max Level", min: 0.1, max: 5, step: 0.01});
     this.addControl(audioFolder, 'gamma', {label: "Gamma", min: 1, max: 8, step: 0.1});
     //this.addControl(audioFolder, 'fadeFactor', {label: "Fade Factor", min: 0, max: 0.1, step: 0.001}); // No fade factor on the fire vis
+    
     audioFolder.addSeparator();
     this.addControl(audioFolder, 'audioNoiseAddition', {label: "Noise Multiplier", min: 0, max: 1, step: 0.01});
     this.addControl(audioFolder, 'audioSpeedMultiplier', {label: "Speed Multiplier", min: 0.1, max: 3, step: 0.01});

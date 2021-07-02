@@ -14,7 +14,6 @@ class SimpleScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
     this._objectsBuilt = false;
-    this.prevTextureFilename = "";
   }
 
   clear() {
@@ -30,10 +29,11 @@ class SimpleScene extends SceneRenderer {
         sphereRadius, sphereColour, sphereEmission,
         ambientLightColour, 
         pointLight1Colour, pointLight2Colour, pointLight3Colour, pointLightAtten, 
-        textureFilename,
         wallColour,
       } = options;
 
+      this.sphereTexture = null;
+      /*
       if (textureFilename.length > 0) {
         let textureFilepath = "dist/textures/" + textureFilename;
         if (textureFilepath !== this.prevTextureFilename) {
@@ -44,9 +44,7 @@ class SimpleScene extends SceneRenderer {
           }
         }
       }
-      else {
-        this.sphereTexture = null;
-      }
+      */
 
       this.sphereGeometry = new THREE.SphereBufferGeometry(sphereRadius, 20, 20);
       this.sphereMesh = new VTMesh(this.sphereGeometry, new VTLambertMaterial(new THREE.Color(sphereColour.r, sphereColour.g, sphereColour.b), 

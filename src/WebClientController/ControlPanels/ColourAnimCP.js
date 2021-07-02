@@ -96,9 +96,8 @@ class ColourAnimCP extends AnimCP {
           break;
       }
       self.config.shapeType = ev.value;
-      self.masterCP.controllerClient.sendAnimatorChangeCommand(VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR, self.config);
+      self.masterCP.controllerClient.sendAnimatorChangeCommand(self.animatorType(), self.config);
     };
-
     this.addList(folder, 'shapeType', VOXEL_COLOUR_SHAPE_TYPES, "Shape Type", onShapeChange);
    
     // Re-add all the subfolders after the selection list widget

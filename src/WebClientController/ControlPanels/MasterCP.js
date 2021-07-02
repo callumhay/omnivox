@@ -11,6 +11,8 @@ import TextAnimCP from './TextAnimCP';
 import StarShowerAnimCP from './StarShowerAnimCP';
 import ShapeWaveAnimCP from './ShapeWaveAnimCP';
 import FireAnimCP from './FireAnimCP';
+import BarVisualizerAnimCP from './BarVisualizerAnimCP';
+import SceneAnimCP from './SceneAnimCP';
 
 
 class MasterCP {
@@ -45,6 +47,8 @@ class MasterCP {
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER] = new StarShowerAnimCP(this);
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES] = new ShapeWaveAnimCP(this);
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_FIRE] = new FireAnimCP(this);
+    this.childControlPanels[VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER] = new BarVisualizerAnimCP(this);
+    this.childControlPanels[VoxelAnimator.VOXEL_ANIM_SCENE] = new SceneAnimCP(this);
 
     this._hideSubFolders();
     this._removeSubFolders();

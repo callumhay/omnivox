@@ -1,5 +1,3 @@
-import * as THREE from 'three';
-
 import VoxelAnimator, {DEFAULT_CROSSFADE_TIME_SECS} from './VoxelAnimator';
 import {
   sceneAnimatorDefaultConfig, 

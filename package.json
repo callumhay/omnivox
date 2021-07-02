@@ -1,5 +1,5 @@
 {
-  "name": "editor",
+  "name": "omnivox",
   "version": "1.0.0",
   "main": "webclientviewer.js",
   "scripts": {
@@ -25,7 +25,6 @@
     "canvas": "^2.6.1",
     "chroma-js": "^2.1.0",
     "cobs": "^0.2.1",
-    "dat.gui": "^0.7.7",
     "express": "^4.17.1",
     "fs": "0.0.1-security",
     "get-pixels": "^3.3.2",

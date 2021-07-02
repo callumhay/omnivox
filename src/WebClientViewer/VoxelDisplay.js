@@ -13,7 +13,7 @@ const POINTS_VERTEX_SHADER = `
   void main() {
     vColor = customColour;
     vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
-    gl_PointSize = size * (300.0 / -mvPosition.z);
+    gl_PointSize = size * (150.0 / -mvPosition.z);
     gl_Position = projectionMatrix * mvPosition;
   }
 `;

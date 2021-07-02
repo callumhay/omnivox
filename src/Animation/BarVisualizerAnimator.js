@@ -23,8 +23,8 @@ export const barVisualizerAnimatorDefaultConfig = {
 
   colourMode: LOW_HIGH_COLOUR_MODE,
   // Low/High colour mode (static)
-  lowColour:   new THREE.Color("#99FC20"),
-  highColour:  new THREE.Color("#FD1999"),
+  lowColour:   {r: 0.6, g: 0.988, b: 0.125},
+  highColour:  {r: 0.992, g: 0.098, b: 0.6},
   // Random colour mode
   ...RandomHighLowColourCycler.randomColourCyclerDefaultConfig,
   
@@ -167,6 +167,7 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
 
       case STATIC_BARS_DISPLAY_TYPE:
       default:
+        //console.log(this.config);
         const {centerSorted, splitLevels} = this.config;
         if (centerSorted) {
           const barFunc = splitLevels ? gpuKernelMgr.staticCenteredSplitLevelBarVisFunc : gpuKernelMgr.staticCenteredBarVisFunc;
