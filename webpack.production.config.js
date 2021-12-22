@@ -11,7 +11,7 @@ const commonConfig = {
     minimize: true,
   },
   node: {
-    fs: 'empty',
+    //fs: 'empty',
   },
   plugins: [
     new webpack.DefinePlugin({DEBUG: false}),

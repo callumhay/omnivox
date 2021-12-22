@@ -16,4 +16,5 @@ A 3D LED display server and client made to drive fun and novel visualizations.
 - Software and Hardware Design and Development: Callum Hay
 - Prototyping and Physical Design: Sara Vinten and Callum Hay
 - Modeling and Construction: Sara Vinten and Callum Hay
+- Laser Cutting and CnC Assistance: Trish Lamanna, Timothy Wyatt, and Michael Everson
 - Original Idea and Ongoing Ideation: Callum Hay, Sara Vinten, Mikhail St. Denis, and Michael Everson

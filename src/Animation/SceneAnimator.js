@@ -1,7 +1,8 @@
 import VoxelAnimator, {DEFAULT_CROSSFADE_TIME_SECS} from './VoxelAnimator';
 import {
   sceneAnimatorDefaultConfig, 
-  SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG, SCENE_TYPE_GODRAY
+  SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG, 
+  SCENE_TYPE_GODRAY, SCENE_TYPE_BEACONS, SCENE_TYPE_METABALLS
 } from './SceneAnimatorDefaultConfigs';
 
 import {clamp} from '../MathUtils';
@@ -11,6 +12,8 @@ import SimpleScene from '../VoxelTracer/Scenes/SimpleScene';
 import ShadowScene from '../VoxelTracer/Scenes/ShadowScene';
 import FogScene from '../VoxelTracer/Scenes/FogScene';
 import GodRayScene from '../VoxelTracer/Scenes/GodRayScene';
+import BeaconsScene from '../VoxelTracer/Scenes/BeaconsScene';
+import MetaballScene from '../VoxelTracer/Scenes/MetaballScene';
 
 class SceneAnimator extends VoxelAnimator {
   constructor(voxelModel, vtScene, config={...sceneAnimatorDefaultConfig}) {
@@ -23,10 +26,12 @@ class SceneAnimator extends VoxelAnimator {
     
     this._scene = vtScene;
     this._sceneMap = {
-      [SCENE_TYPE_SIMPLE]: new SimpleScene(this._scene, this.voxelModel),
-      [SCENE_TYPE_SHADOW]: new ShadowScene(this._scene, this.voxelModel),
-      [SCENE_TYPE_FOG]   : new FogScene(this._scene, this.voxelModel),
-      [SCENE_TYPE_GODRAY]: new GodRayScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_SIMPLE]    : new SimpleScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_SHADOW]    : new ShadowScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_FOG]       : new FogScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_GODRAY]    : new GodRayScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_BEACONS]   : new BeaconsScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_METABALLS] : new MetaballScene(this._scene, this.voxelModel),
     };
 
     this.setConfig(config);

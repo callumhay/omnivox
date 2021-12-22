@@ -12,6 +12,7 @@ import VTRenderProc from './VTRenderProc';
 import VTRPMesh from './VTRPMesh';
 import VTRPFog from './VTRPFog';
 import VTRPVoxel from './VTRPVoxel';
+import VTRPIsofield from './VTRPIsofield';
 
 
 class VTRPScene {
@@ -150,6 +151,9 @@ class VTRPScene {
       case VTObject.FOG_TYPE:
         buildFunc = VTRPFog.build;
         break;
+      case VTObject.ISOFIELD_TYPE:
+        buildFunc = VTRPIsofield.build;
+        break;
 
       default:
         console.error(`Unknown VTObject renderable type found: ${type}`);
@@ -220,7 +224,7 @@ class VTRPScene {
         nVoxelToLightVec.set(light.position.x, light.position.y, light.position.z);
         nVoxelToLightVec.sub(point);
         const distanceToLight = Math.max(VoxelConstants.VOXEL_EPSILON, nVoxelToLightVec.length());
-        nVoxelToLightVec.divideScalar(distanceToLight);
+        nVoxelToLightVec.divideScalar(distanceToLight); // Normalize
 
         const lightMultiplier = receivesShadow ? this._calculateShadowCasterLightMultiplier(point, nVoxelToLightVec, distanceToLight) : 1.0;
         if (lightMultiplier > 0) {
@@ -270,7 +274,7 @@ class VTRPScene {
     return finalColour;
   }
 
-  calculateLightingSamples(samples, material) {
+  calculateLightingSamples(samples, material, recievesShadows=true) {
     const finalColour = new THREE.Color(0,0,0);
     const sampleLightContrib = new THREE.Color(0,0,0);
 
@@ -298,7 +302,7 @@ class VTRPScene {
           continue;
         }
 
-        const lightMultiplier = this._calculateShadowCasterLightMultiplier(point, nObjToLightVec, distanceToLight);
+        const lightMultiplier = recievesShadows ? this._calculateShadowCasterLightMultiplier(point, nObjToLightVec, distanceToLight) : 1.0;
         if (lightMultiplier > 0) {
           // The voxel is not in total shadow, do the lighting
           const lightEmission = light.emission(point, distanceToLight).multiplyScalar(lightMultiplier*falloff);

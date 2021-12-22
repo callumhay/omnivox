@@ -4,7 +4,6 @@ import VoxelGeometryUtils from '../VoxelGeometryUtils';
 import {clamp} from '../MathUtils';
 
 import VTObject from './VTObject';
-import VoxelConstants from '../VoxelConstants';
 
 const defaultAttenuation = {
   quadratic:0.04, 
@@ -12,25 +11,26 @@ const defaultAttenuation = {
 };
 
 class VTPointLight extends VTObject {
-  constructor(position, colour, attenuation=defaultAttenuation) {
+  constructor(position, colour, attenuation=defaultAttenuation, drawLight=true) {
     super(VTObject.POINT_LIGHT_TYPE);
 
     this._position = position;
     this._colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
     this._attenuation = attenuation;
     this._isDirty = true;
+    this._drawLight = drawLight;
   }
 
   static build(jsonData) {
-    const {id, _position, _colour, _attenuation} = jsonData;
+    const {id, _position, _colour, _attenuation, _drawLight} = jsonData;
     const colour = (new THREE.Color()).setHex(_colour);
-    const result = new VTPointLight(new THREE.Vector3(_position.x, _position.y, _position.z), colour, _attenuation);
+    const result = new VTPointLight(new THREE.Vector3(_position.x, _position.y, _position.z), colour, _attenuation, _drawLight);
     result.id = id;
     return result;
   }
   toJSON() {
-    const {id, type, _position, _colour, _attenuation} = this;
-    return {id, type, _position, _colour, _attenuation};
+    const {id, type, _position, _colour, _attenuation, _drawLight} = this;
+    return {id, type, _position, _colour, _attenuation, _drawLight};
   }
 
   setPosition(p) { this._position = p; this.makeDirty(); }
@@ -41,6 +41,9 @@ class VTPointLight extends VTObject {
 
   setAttenuation(a) { this._attenuation = a; this.makeDirty(); }
   get attenuation() { return this._attenuation; }
+
+  setDrawLight(drawLight) { this._drawLight = drawLight; this.makeDirty(); }
+  get drawLight() { return this._drawLight; }
 
   dispose() {}
 
@@ -67,6 +70,7 @@ class VTPointLight extends VTObject {
   }
 
   calculateVoxelColour(voxelPt, scene=null) {
+    if (!this._drawLight) { return new THREE.Color(0,0,0); }
     const d = this._position.distanceTo(voxelPt);
     return this.emission(voxelPt, d);
   }
@@ -85,7 +89,10 @@ class VTPointLight extends VTObject {
     return new THREE.Sphere(this._position.clone(), 0.5);
   }
 
-  getCollidingVoxels(voxelGridBoundingBox=null) {
+  getCollidingVoxels(voxelGridBoundingBox) {
+    // No drawable voxels if not enabled or if the position is outside of the voxel grid
+    if (!this._drawLight || !voxelGridBoundingBox.containsPoint(this._position)) { return []; }
+
     // Just return the nearest voxel to this light (since it's a point light it will only be a single voxel)
     return [VoxelGeometryUtils.closestVoxelIdxPt(this._position)];
   }

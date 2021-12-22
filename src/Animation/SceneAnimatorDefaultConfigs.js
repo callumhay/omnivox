@@ -1,15 +1,19 @@
 import VoxelConstants from "../VoxelConstants";
 
-export const SCENE_TYPE_SIMPLE  = "Simple";
-export const SCENE_TYPE_SHADOW  = "Shadow";
-export const SCENE_TYPE_FOG     = "Fog";
-export const SCENE_TYPE_GODRAY  = "GodRays";
+export const SCENE_TYPE_SIMPLE    = "Simple";
+export const SCENE_TYPE_SHADOW    = "Shadow";
+export const SCENE_TYPE_FOG       = "Fog";
+export const SCENE_TYPE_GODRAY    = "GodRays";
+export const SCENE_TYPE_BEACONS   = "Beacons";
+export const SCENE_TYPE_METABALLS = "Metaballs";
 
 export const SCENE_TYPES = [
   SCENE_TYPE_SIMPLE,
   SCENE_TYPE_SHADOW,
   SCENE_TYPE_FOG,
   SCENE_TYPE_GODRAY,
+  SCENE_TYPE_BEACONS,
+  SCENE_TYPE_METABALLS,
 ];
 
 const fogScatteringCtrlOpt = {label: "Fog Scattering", min:0, max:1, step:0.01};
@@ -22,6 +26,16 @@ const positionCtrlOpt = {
   x: {min:0, max:VoxelConstants.VOXEL_GRID_SIZE-1, step:1},
   y: {min:0, max:VoxelConstants.VOXEL_GRID_SIZE-1, step:1},
   z: {min:0, max:VoxelConstants.VOXEL_GRID_SIZE-1, step:1},
+};
+const widePositionCtrlOpt = {
+  x: {min:-2*VoxelConstants.VOXEL_GRID_SIZE, max:2*VoxelConstants.VOXEL_GRID_SIZE, step:1},
+  y: {min:-2*VoxelConstants.VOXEL_GRID_SIZE, max:2*VoxelConstants.VOXEL_GRID_SIZE, step:1},
+  z: {min:-2*VoxelConstants.VOXEL_GRID_SIZE, max:2*VoxelConstants.VOXEL_GRID_SIZE, step:1},
+};
+const spotAnglesCtrlOpt = {
+  label: "Spot Light Angles",
+  inner: {label: "Inner (°)", min:1, max:45, step:1},
+  outer: {label: "Outer (°)", min:45, max:90, step:1},
 };
 
 const simpleSceneDefaultOptions = {
@@ -95,11 +109,7 @@ const fogSceneControlOptions = {
   ambientLightColour: {label: "Ambient Light Colour"},
   pointLightColour: {label: "Point Light Colour"},
   pointLightAtten: {...attenuationCtrlOpt, label: "Point Light Attenuation"},
-  spotLightAngles: {
-    label: "Spot Light Angles",
-    inner: {label: "Inner (°)", min:1, max:45, step:1},
-    outer: {label: "Outer (°)", min:45, max:90, step:1},
-  },
+  spotLightAngles: {...spotAnglesCtrlOpt},
   spotLightAtten: {...attenuationCtrlOpt, label: "Spot Light Attenuation"},
 };
 
@@ -136,11 +146,87 @@ const godRaySceneControlOptions = {
   }
 };
 
+const beaconsSceneDefaultOptions = {
+  fogColour: {r:1, g:1, b:1},
+  fogScattering: 0.4,
+  ambientLightColour: {r:0, g:0, b:0}, 
+  beaconSpotAngles: {inner:35, outer:60},
+  beaconAtten: {quadratic:0.015, linear:0},
+
+  beacon1Colour1: {r:1, g:0, b:0}, 
+  beacon1Colour2: {r:1, g:0, b:0},
+  beacon1RotSpdMultiplier: 1,
+
+  beacon2Colour1: {r:0, g:1, b:0},
+  beacon2Colour2: {r:0, g:1, b:0},
+  beacon2RotSpdMultiplier: 1,
+
+  beacon3Colour1: {r:0, g:0, b:1},
+  beacon3Colour2: {r:0, g:0, b:1},
+  beacon3RotSpdMultiplier: 1
+};
+const beaconRotSpdCtrlOpt = {min:-5, max:5, step:0.1};
+const beaconsSceneControlOptions = {
+  fogColour: {label: "Fog Colour"},
+  fogScattering: {...fogScatteringCtrlOpt},
+  ambientLightColour: {label: "Ambient Light Colour"},
+  beaconSpotAngles: {...spotAnglesCtrlOpt, label: "Beacon Spot Angles"},
+  beaconAtten: {...attenuationCtrlOpt, label: "Beacon Attenuation"},
+
+  beacon1Colour1: {label: "Beacon 1 Colour 1"},
+  beacon1Colour2: {label: "Beacon 1 Colour 2"},
+  beacon1RotSpdMultiplier: {...beaconRotSpdCtrlOpt, label: "Beacon 1 Rotation Speed Multiplier"},
+
+  beacon2Colour1: {label: "Beacon 2 Colour 1"},
+  beacon2Colour2: {label: "Beacon 2 Colour 2"},
+  beacon2RotSpdMultiplier: {...beaconRotSpdCtrlOpt, label: "Beacon 2 Rotation Speed Multiplier"},
+
+  beacon3Colour1: {label: "Beacon 3 Colour 1"},
+  beacon3Colour2: {label: "Beacon 3 Colour 2"},
+  beacon3RotSpdMultiplier: {...beaconRotSpdCtrlOpt, label: "Beacon 3 Rotation Speed Multiplier"},
+};
+
+const metaballSceneDefaultOptions = {
+  ambientLightColour: {r:0.2, g:0.2, b:0.2},
+  materialColour: {r:1, g:1, b:1},
+  pointLightsAtten: {quadratic:0.015, linear:0},
+  pointLight1Pos: {x: VoxelConstants.VOXEL_GRID_SIZE/2, y: VoxelConstants.VOXEL_GRID_SIZE, z: VoxelConstants.VOXEL_GRID_SIZE},
+  speed: 1,
+  blobSizeMultiplier: 1.6,
+  subtractAmt: 5,
+  numBlobs: 4,
+  wallX: false, 
+  wallY: false, 
+  wallZ: false, 
+  multiColours: false, 
+  hasShadows: false,
+  showLights: false,
+};
+const metaballSceneControlOptions = {
+  ambientLightColour: {label: "Ambient Light Colour"},
+  materialColour: {label: "Default Ball Colour"},
+  pointLightsAtten: {...attenuationCtrlOpt, label: "Point Lights Attenuation"},
+  pointLight1Pos: {...widePositionCtrlOpt, label: "Point Light 1 Position"},
+  speed: {label: "Speed", min:0.1, max:5, step:0.1},
+  blobSizeMultiplier: {label: "Size Multiplier", min:0.5, max:2, step:0.1},
+  subtractAmt: { label: "Subtract Amount", min:1, max:30, step:0.1},
+  numBlobs: { label: "Number of Blobs", min:1, max:10, step:1},
+  wallX: {label: "Show X-Axis Wall?"},
+  wallY: {label: "Show Y-Axis Wall?"},
+  wallZ: {label: "Show Z-Axis Wall?"},
+  multiColours: {label: "Multi-coloured Blobs?"},
+  hasShadows: {label: "Shadows?"},
+  showLights: {label: "Show Lights?"},
+};
+
+
 export const sceneDefaultOptionsMap = {
-  [SCENE_TYPE_SIMPLE]: {options: simpleSceneDefaultOptions, constraints: simpleSceneControlOptions},
-  [SCENE_TYPE_SHADOW]: {options: shadowSceneDefaultOptions, constraints: shadowSceneControlOptions},
-  [SCENE_TYPE_FOG]:    {options: fogSceneDefaultOptions,    constraints: fogSceneControlOptions},
-  [SCENE_TYPE_GODRAY]: {options: godRaySceneDefaultOptions, constraints: godRaySceneControlOptions},
+  [SCENE_TYPE_SIMPLE]:    {options: simpleSceneDefaultOptions,  constraints: simpleSceneControlOptions},
+  [SCENE_TYPE_SHADOW]:    {options: shadowSceneDefaultOptions,  constraints: shadowSceneControlOptions},
+  [SCENE_TYPE_FOG]:       {options: fogSceneDefaultOptions,     constraints: fogSceneControlOptions},
+  [SCENE_TYPE_GODRAY]:    {options: godRaySceneDefaultOptions,  constraints: godRaySceneControlOptions},
+  [SCENE_TYPE_BEACONS]:   {options: beaconsSceneDefaultOptions, constraints: beaconsSceneControlOptions},
+  [SCENE_TYPE_METABALLS]: {options: metaballSceneDefaultOptions, constraints: metaballSceneControlOptions},
 };
 
 export const sceneAnimatorDefaultConfig = {

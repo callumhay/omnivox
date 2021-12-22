@@ -36,15 +36,14 @@ class AnimCP {
   }
 
   addControl(parentFolder, controlParam, options, settingsObj=null, configObj=null) {
-    const settingsInUse = settingsObj || this.settings;
-    const configInUse = configObj || this.config;
+    const self = this;
+    const settingsInUse = settingsObj || self.settings;
+    
 
     if (!settingsInUse || settingsInUse[controlParam] === undefined) {
       console.error("Control parameter '" + controlParam + "' not present in settings.");
       return null;
     }
-
-    const self = this;
 
     // Determine the type of control...
     const control = settingsInUse[controlParam];
@@ -56,8 +55,9 @@ class AnimCP {
       if (control.r !== undefined && control.g !== undefined && control.b !== undefined) {
         // Colour
         return parentFolder.addInput(settingsInUse, controlParam, options).on(CHANGE_EVENT, ev => {
+          const configInUse = configObj || self.config;
           configInUse[controlParam] = guiColorToRGBObj(ev.value);
-          self.masterCP.controllerClient.sendAnimatorChangeCommand(self.animatorType(), self.config);
+          self.masterCP.controllerClient.sendAnimatorChangeCommand(self.animatorType(), configInUse);
         });
       }
       else if (control.x !== undefined || control.y !== undefined || control.z !== undefined) {
@@ -65,6 +65,7 @@ class AnimCP {
       }
       else {
         // Special kind of object, this will require its own subfolder (e.g., attenuation)
+        const configInUse = configObj || self.config;
         const title = 'label' in options ? options.label : controlParam.charAt(0).toUpperCase() + controlParam.slice(1);
         const subfolder = parentFolder.addFolder({title: title});
         for (const key of Object.keys(settingsInUse[controlParam])) {
@@ -74,6 +75,7 @@ class AnimCP {
       }
     }
 
+    const configInUse = configObj || self.config;
     return parentFolder.addInput(settingsInUse, controlParam, options).on(CHANGE_EVENT, ev => {
       configInUse[controlParam] = ev.value;
       self.masterCP.controllerClient.sendAnimatorChangeCommand(self.animatorType(), self.config);

@@ -8,6 +8,7 @@ class VTObject {
   static get SPOT_LIGHT_TYPE() { return 's'; }
   static get VOXEL_TYPE() { return 'v'; }
   static get FOG_TYPE() { return 'f'; }
+  static get ISOFIELD_TYPE() { return 'i'; }
   
   constructor(type) {
     if (this.constructor === VTObject) {

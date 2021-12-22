@@ -54,9 +54,6 @@ class VTSpotLight extends VTObject {
   setRangeAttenuation(ra) { this._rangeAtten = ra; this.makeDirty(); }
   get rangeAttenuation() { return this._rangeAtten; }
 
-  //setSpotAttenuation(sa) { this._spotAtten = sa; this.makeDirty(); }
-  //get spotAttenuation() { return this._spotAtten; }
-
   dispose() {}
 
   isDirty() { return this._isDirty; }

@@ -219,10 +219,10 @@ class VTRPMesh extends VTObject {
     return raycaster.intersectObjects([this.threeMesh]).length > 0;
   }
 
-  getCollidingVoxels(voxelGridBoundingBox) {
-    const worldSpaceBB = this.geometry.boundingBox.clone().applyMatrix4(this.threeMesh.matrixWorld);
-    return VoxelGeometryUtils.voxelAABBList(worldSpaceBB.min, worldSpaceBB.max, true, voxelGridBoundingBox);
-  }
+  //getCollidingVoxels(voxelGridBoundingBox) {
+  //  const worldSpaceBB = this.geometry.boundingBox.clone().applyMatrix4(this.threeMesh.matrixWorld);
+  //  return VoxelGeometryUtils.voxelAABBList(worldSpaceBB.min, worldSpaceBB.max, true, voxelGridBoundingBox);
+  //}
 }
 
 export default VTRPMesh;

@@ -67,6 +67,7 @@ voxelModel.run(voxelServer);
 process.once('SIGINT', function (code) {
   console.log('SIGINT received...');
   voxelServer.stop();
-  webServer.close();
-  process.exit(code);
+  webServer.close(() => {
+    process.exit(code);
+  });
 });
