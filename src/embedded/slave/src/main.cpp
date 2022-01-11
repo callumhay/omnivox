@@ -7,7 +7,7 @@
 
 #define DEBUG_SERIAL Serial
 #define DATA_SERIAL Serial1
-#define MY_SLAVE_ID 0
+#define MY_SLAVE_ID 1
 
 #define CTS_PIN 18
 #define RTS_PIN 17
@@ -101,6 +101,7 @@ void readFullVoxelData(const uint8_t* buffer, size_t size, size_t startIdx, int 
   }
   lastKnownFrameId = frameId;
 
+  /*
   // Debug/Info status update
   statusUpdateFrameCounter++;
   if (statusUpdateFrameCounter % STATUS_UPDATE_FRAMES == 0) {
@@ -108,7 +109,7 @@ void readFullVoxelData(const uint8_t* buffer, size_t size, size_t startIdx, int 
      DEBUG_SERIAL.println();
      statusUpdateFrameCounter = 0;
   }
-
+  */
 }
 
 void onSerialPacketReceived(const void* sender, const uint8_t* buffer, size_t size) {

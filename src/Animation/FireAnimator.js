@@ -158,15 +158,16 @@ class FireAnimator extends AudioVisualizerAnimator {
       this.timeCounterToReinitFluid += dt;
     }
 
+    const clampDt = clamp(dt, 0.0, 1.0/30.0); // Make sure our timesteps aren't too big or it will cause instability in the fire simulation
     const currSpeed = audioVisualizationOn ? speed + audioSpeedMultiplier*(1 + THREE.MathUtils.lerp(0, 0.5, this.avgBeatsPerSec/MAX_AVG_BEATS_PER_SEC)) : speed;
-    const dtSpeed = dt*currSpeed;
+    const dtSpeed = clampDt*currSpeed;
     this.fluidModel.step(dtSpeed);
     this.t += dtSpeed;
 
     // In random colour mode we're animating the colour over time, check to see if it has changed and update it accordingly
     if (colourMode === RANDOM_COLOUR_MODE) {
       const {colourInterpolationType} = this.config;
-      const currColours = this.randomColourCycler.tick(dt, colourInterpolationType);
+      const currColours = this.randomColourCycler.tick(clampDt, colourInterpolationType);
       if (this.randomColourCycler.isTransitioning()) {
         this.fireLookup = FireAnimator._adjustSpectrumAlpha(Spectrum.genLowToHighColourSpectrum(currColours.lowTempColour, currColours.highTempColour, colourInterpolationType));
       }

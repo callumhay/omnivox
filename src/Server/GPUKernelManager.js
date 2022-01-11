@@ -5,11 +5,11 @@ import {FIRE_SPECTRUM_WIDTH} from '../Spectrum';
 
 class GPUKernelManager {
   constructor(gridSize) {
-    this.gpu = new GPU({mode: 'headlessgl'});
+    this.gpu = new GPU({mode: 'gpu'});
 
     this.gpu.addFunction(function clampValue(value, min, max) {
       return Math.min(max, Math.max(min, value));
-    });
+    }, {name: 'clampValue'});
 
     this.pipelineFuncSettings = {
       output: [gridSize, gridSize, gridSize],
@@ -29,27 +29,27 @@ class GPUKernelManager {
     // Utility kernels
     this.clearFunc = this.gpu.createKernel(function(colour) {
       return [colour[0], colour[1], colour[2]];
-    }, {...this.pipelineFuncSettings, immutable: false, argumentTypes: {colour: 'Array(3)'}});
+    }, {...this.pipelineFuncSettings, name:'clearFunc', immutable: false, argumentTypes: {colour: 'Array(3)'}});
 
     this.multiplyColourFunc = this.gpu.createKernel(function(pipelineTex, colour) {
       const currVoxel = pipelineTex[this.thread.z][this.thread.y][this.thread.x];
       return [currVoxel[0]*colour[0], currVoxel[1]*colour[1], currVoxel[2]*colour[2]];
-    }, {...this.pipelineFuncSettings, argumentTypes: {pipelineTex: 'Array3D(3)', colour: 'Array(3)'}});
+    }, {...this.pipelineFuncSettings, name:'multiplyColourFunc', argumentTypes: {pipelineTex: 'Array3D(3)', colour: 'Array(3)'}});
 
     // Framebuffer combination kernels
     this.addFramebuffersFunc = this.gpu.createKernel(function(framebufTexA, framebufTexB) {
       const fbAVoxel = framebufTexA[this.thread.z][this.thread.y][this.thread.x];
       const fbBVoxel = framebufTexB[this.thread.z][this.thread.y][this.thread.x];
       return [clampValue(fbAVoxel[0]+fbBVoxel[0], 0.0, 1.0), clampValue(fbAVoxel[1]+fbBVoxel[1], 0.0, 1.0), clampValue(fbAVoxel[2]+fbBVoxel[2], 0.0, 1.0)];
-    }, {...this.pipelineFuncSettings, argumentTypes: {framebufTexA: 'Array3D(3)', framebufTexB: 'Array3D(3)'}});
+    }, {...this.pipelineFuncSettings, name:'addFramebuffersFunc', argumentTypes: {framebufTexA: 'Array3D(3)', framebufTexB: 'Array3D(3)'}});
 
     this.copyFramebufferFunc = this.gpu.createKernel(function(framebufTex) {
       return framebufTex[this.thread.z][this.thread.y][this.thread.x];
-    }, {...this.pipelineFuncSettings, argumentTypes: {framebufTex: 'Array3D(3)'}});
+    }, {...this.pipelineFuncSettings, name:'copyFramebufferFunc', argumentTypes: {framebufTex: 'Array3D(3)'}});
     
     this.copyFramebufferFuncImmutable = this.gpu.createKernel(function(framebufTex) {
       return framebufTex[this.thread.z][this.thread.y][this.thread.x];
-    }, {...this.pipelineFuncSettings, immutable: true, argumentTypes: {framebufTex: 'Array3D(3)'}});
+    }, {...this.pipelineFuncSettings, name:'copyFramebufferFuncImmutable', immutable: true, argumentTypes: {framebufTex: 'Array3D(3)'}});
     
     this.combineFramebuffersAlphaOneMinusAlphaFunc = this.gpu.createKernel(function(fb1Tex, fb2Tex, alpha, oneMinusAlpha) {
       const fb1Voxel = fb1Tex[this.thread.z][this.thread.y][this.thread.x];
@@ -59,7 +59,7 @@ class GPUKernelManager {
         alpha*fb1Voxel[1] + oneMinusAlpha*fb2Voxel[1],
         alpha*fb1Voxel[2] + oneMinusAlpha*fb2Voxel[2]
       ];
-    }, {...this.pipelineFuncSettings, argumentTypes: {fb1Tex: 'Array3D(3)', fb2Tex: 'Array3D(3)', alpha: 'Float', oneMinusAlpha: 'Float'}});
+    }, {...this.pipelineFuncSettings, name:'combineFramebuffersAlphaOneMinusAlphaFunc', argumentTypes: {fb1Tex: 'Array3D(3)', fb2Tex: 'Array3D(3)', alpha: 'Float', oneMinusAlpha: 'Float'}});
 
     // Animation-specific Kernels
     /*
@@ -112,7 +112,7 @@ class GPUKernelManager {
         }
       }
       return [framebufColour[0], framebufColour[1], framebufColour[2]];
-    }, shapesDrawSettings);
+    }, {...shapesDrawSettings, name: 'spheresFillOverwrite'});
 
     this.cubesFillOverwrite = this.gpu.createKernel(function(framebufTex, c, radii, colours, brightness) {
       // Find the squared distance from the center of the sphere to the voxel
@@ -133,7 +133,7 @@ class GPUKernelManager {
         }
       }
       return [framebufColour[0], framebufColour[1], framebufColour[2]];
-    }, shapesDrawSettings);
+    }, {...shapesDrawSettings, name: 'cubesFillOverwrite'});
 
     const fireLookupSettings = {
       output: [FIRE_SPECTRUM_WIDTH],
@@ -158,7 +158,7 @@ class GPUKernelManager {
         result[3] = this.constants.MAX_FIRE_ALPHA * ((idx > this.constants.FULL_ON_FIRE) ? 1.0 : (idx - this.constants.FIRE_THRESHOLD)/(this.constants.FULL_ON_FIRE - this.constants.FIRE_THRESHOLD));
       }
       return result;
-    }, fireLookupSettings);
+    }, {...fireLookupSettings, name: 'fireLookupGen'});
 
     this.fireOverwrite = this.gpu.createKernel(function(fireLookup, temperatureArr, offsetXYZ) {
       const temperature = temperatureArr[this.thread.z + offsetXYZ[2]][this.thread.y + offsetXYZ[1]][this.thread.x + offsetXYZ[0]];
@@ -171,6 +171,7 @@ class GPUKernelManager {
       ];
     }, 
     {...this.pipelineFuncSettings, 
+      name: 'fireOverwrite',
       argumentTypes: { fireLookupTex: 'Array1D(4)', temperatureArr: 'Array', offsetXYZ: 'Array'},
       constants: {...this.pipelineFuncSettings.constants, FIRE_SPECTRUM_WIDTH: FIRE_SPECTRUM_WIDTH}
     });
@@ -187,6 +188,7 @@ class GPUKernelManager {
       return [voxelColour[0], voxelColour[1], voxelColour[2]];
 
     }, {...this.pipelineFuncSettings,
+      name: 'waterOverwrite',
       argumentTypes: { waterLookup: 'Array1D(4)', airLookup: 'Array1D(4)', levelSet: 'Array', boundaryBuf: 'Array', levelEpsilon: 'Float', offsetXYZ: 'Array'},
     });
 
@@ -205,8 +207,9 @@ class GPUKernelManager {
 
       return [extra, 0.75*amt, amt];
 
-    }, {...this.pipelineFuncSettings, argumentTypes: { 
-      cells: 'Array3D(3)', pressure:'Array', vel:'Array3D(3)', maxLiquidVol: 'Float', offsetXYZ: 'Array'},
+    }, {...this.pipelineFuncSettings, 
+      name: 'simpleWaterOverwrite',
+      argumentTypes: { cells: 'Array3D(3)', pressure:'Array', vel:'Array3D(3)', maxLiquidVol: 'Float', offsetXYZ: 'Array'},
     });
   }
 
@@ -223,43 +226,43 @@ class GPUKernelManager {
 
     this.gpu.addFunction(function xyzLookup() {
       return [this.thread.z, this.thread.y, this.thread.x];
-    });
+    }, {name: 'xyzLookup'});
     this.gpu.addFunction(function clampm1(c) {
       return Math.max(c-1, 0);
-    });
+    }, {name: 'clampm1'});
     this.gpu.addFunction(function clampm2(c) {
       return Math.max(c-2, 0);
-    });
+    }, {name: 'clampm2'});
     this.gpu.addFunction(function clampmX(c,x) {
       return Math.max(c-x, 0);
-    });
+    }, {name: 'clampmX'});
     this.gpu.addFunction(function clampp1(c) {
       return Math.min(c+1, this.constants.NPLUS1);
-    });
+    }, {name: 'clampp1'});
     this.gpu.addFunction(function clampp2(c) {
       return Math.min(c+2, this.constants.NPLUS1);
-    });
+    }, {name: 'clampp2'});
     this.gpu.addFunction(function clamppX(c,x) {
       return Math.min(c+x, this.constants.NPLUS1);
-    });
+    }, {name: 'clamppX'});
     
     this.gpu.addFunction(function length3(vec) {
       return Math.sqrt(vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2]);
-    });
+    }, {name: 'length3'});
     this.gpu.addFunction(function normalize3(vec) {
       const len = length3(vec) + 0.0001;
       return [vec[0]/len, vec[1]/len, vec[2]/len];
-    });
+    }, {name: 'normalize3'});
     this.gpu.addFunction(function lerp(x, x0, x1, y0, y1) {
       return y0 + (x-x0) * ((y1-y0) / (x1 - x0 + 0.00001));
-    });
+    }, {name: 'lerp'});
 
     this.initFluidBufferFunc = this.gpu.createKernel(function(value) {
       return value;
-    }, {...pipelineFuncSettings, argumentTypes: {value: 'Float'}});
+    }, {...pipelineFuncSettings, name: 'initFluidBufferFunc', argumentTypes: {value: 'Float'}});
     this.initFluidBuffer3Func = this.gpu.createKernel(function(x,y,z) {
       return [x, y, z];
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {x: 'Float', y: 'Float', z: 'Float'}});
+    }, {...pipelineFuncSettings, name: 'initFluidBuffer3Func', returnType: 'Array(3)', argumentTypes: {x: 'Float', y: 'Float', z: 'Float'}});
     
     this._fluidKernelsInit = true;
   }
@@ -281,7 +284,7 @@ class GPUKernelManager {
     };
     this.gpu.addFunction(function ijkLookup() {
       return [this.thread.z, this.thread.y, this.thread.x];
-    });
+    }, {name: 'ijkLookup'});
 
     const ARRAY3D_TYPE = 'Array';
     const ARRAY3D_3_TYPE = 'Array3D(3)';
@@ -289,13 +292,13 @@ class GPUKernelManager {
     this.addFluidSourceFunc = this.gpu.createKernel(function(srcBuffer, dstBuffer, dt) {
       const [i,j,k] = ijkLookup();
       return dstBuffer[i][j][k] + srcBuffer[i][j][k] * dt;
-    }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {srcBuffer: ARRAY3D_TYPE, dstBuffer: ARRAY3D_TYPE, dt: 'Float'}});
+    }, {...pipelineFuncSettings, name: 'addFluidSourceFunc', returnType: 'Float', argumentTypes: {srcBuffer: ARRAY3D_TYPE, dstBuffer: ARRAY3D_TYPE, dt: 'Float'}});
 
     this.addBuoyancyFunc = this.gpu.createKernel(function(T, uvw, dtBuoy) {
       const [i,j,k] = ijkLookup();
       const uvwVec = uvw[i][j][k];
       return [uvwVec[0], uvwVec[1]  + T[i][j][k] * dtBuoy, uvwVec[2]];
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {T: ARRAY3D_TYPE, uvw: ARRAY3D_3_TYPE, dtBuoy: 'Float'}});
+    }, {...pipelineFuncSettings, name: 'addBuoyancyFunc', returnType: 'Array(3)', argumentTypes: {T: ARRAY3D_TYPE, uvw: ARRAY3D_3_TYPE, dtBuoy: 'Float'}});
 
     this.diffuseStepFunc = this.gpu.createKernel(function (x0, x, a, boundaryBuf) {
       const [i,j,k] = ijkLookup();
@@ -310,7 +313,7 @@ class GPUKernelManager {
       const xkPos = boundaryBuf[i][j][k+1] > this.constants.BOUNDARY ? x[i][j][k] : x[i][j][k+1];
 
       return (x0[i][j][k] + a * (xiNeg + xiPos + xjNeg + xjPos + xkNeg + xkPos)) / (1+6*a);
-    }, {...pipelineFuncSettings, returnType: 'Float', 
+    }, {...pipelineFuncSettings, name: 'diffuseStepFunc', returnType: 'Float', 
       argumentTypes: {
         x0: ARRAY3D_TYPE, x: ARRAY3D_TYPE, a: 'Float', boundaryBuf: ARRAY3D_TYPE
       }
@@ -336,10 +339,8 @@ class GPUKernelManager {
         (uvw0ijk[1] + a*(uvwiNeg[1] + uvwiPos[1] + uvwjNeg[1] + uvwjPos[1] + uvwkNeg[1] + uvwkPos[1])) / divisor,
         (uvw0ijk[2] + a*(uvwiNeg[2] + uvwiPos[2] + uvwjNeg[2] + uvwjPos[2] + uvwkNeg[2] + uvwkPos[2])) / divisor
       ];
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', 
-      argumentTypes: {
-        uvw0: ARRAY3D_3_TYPE, uvw: ARRAY3D_3_TYPE, a: 'Float', boundaryBuf: ARRAY3D_TYPE
-      }
+    }, {...pipelineFuncSettings, name: 'diffuseStep3Func', returnType: 'Array(3)', 
+      argumentTypes: {uvw0: ARRAY3D_3_TYPE, uvw: ARRAY3D_3_TYPE, a: 'Float', boundaryBuf: ARRAY3D_TYPE}
     });
     
     this.advectCoolFunc = this.gpu.createKernel(function (x0, x, uuvvww, dt0, c0, boundaryBuf) {
@@ -363,7 +364,7 @@ class GPUKernelManager {
       let v0 = sx0*(sy0*x0[i0][j0][k0] + sy1*x0[i0][j1][k0]) + sx1*(sy0*x0[i1][j0][k0] + sy1*x0[i1][j1][k0]);
       let v1 = sx0*(sy0*x0[i0][j0][k1] + sy1*x0[i0][j1][k1]) + sx1*(sy0*x0[i1][j0][k1] + sy1*x0[i1][j1][k1]);
       return (sz0*v0 + sz1*v1)*c0;
-    }, {...pipelineFuncSettings, returnType: 'Float', 
+    }, {...pipelineFuncSettings, name: 'advectCoolFunc', returnType: 'Float', 
         argumentTypes: { 
           x0: ARRAY3D_TYPE, x: ARRAY3D_TYPE, uuvvww: ARRAY3D_3_TYPE, 
           dt0: 'Float', c0: 'Float', boundaryBuf: ARRAY3D_TYPE
@@ -406,7 +407,7 @@ class GPUKernelManager {
         result[i] = sz0*v0 + sz1*v1;
       }
       return result;
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', 
+    }, {...pipelineFuncSettings, name: 'advect3Func', returnType: 'Array(3)', 
         argumentTypes: { uvw0: ARRAY3D_3_TYPE, uvw: ARRAY3D_3_TYPE, dt0: 'Float', boundaryBuf: ARRAY3D_TYPE}});
 
     this.projectStep1Func = this.gpu.createKernel(function(uvw0, uvw) {
@@ -426,7 +427,7 @@ class GPUKernelManager {
         -this.constants.ONEDIVN * (uvwiPos[0] - uvwiNeg[0] + uvwjPos[1] - uvwjNeg[1] + uvwkPos[2] - uvwkNeg[2]) / 3.0,
         uvw0ijk[2]
       ];
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {uvw0: ARRAY3D_3_TYPE, uvw: ARRAY3D_3_TYPE}});
+    }, {...pipelineFuncSettings, name: 'projectStep1Func', returnType: 'Array(3)', argumentTypes: {uvw0: ARRAY3D_3_TYPE, uvw: ARRAY3D_3_TYPE}});
 
     this.projectStep2Func = this.gpu.createKernel(function(uvw0) {
       const [i,j,k] = ijkLookup();
@@ -448,7 +449,7 @@ class GPUKernelManager {
         uvw0ijk[1],
         uvw0ijk[2]
       ];
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {uvw0: ARRAY3D_3_TYPE}});
+    }, {...pipelineFuncSettings, name: 'projectStep2Func', returnType: 'Array(3)', argumentTypes: {uvw0: ARRAY3D_3_TYPE}});
 
     this.projectStep3Func = this.gpu.createKernel(function(uvw, uvw0, boundaryBuf) {
       const [i,j,k] = ijkLookup();
@@ -491,10 +492,8 @@ class GPUKernelManager {
         (velMask[1] * vNew[1]) + obstVel[1],
         (velMask[2] * vNew[2]) + obstVel[2],
       ];
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', 
-      argumentTypes: {
-        uvw: ARRAY3D_3_TYPE, uvw0: ARRAY3D_3_TYPE, boundaryBuf: ARRAY3D_TYPE
-      }
+    }, {...pipelineFuncSettings, name: 'projectStep3Func', returnType: 'Array(3)', 
+      argumentTypes: {uvw: ARRAY3D_3_TYPE, uvw0: ARRAY3D_3_TYPE, boundaryBuf: ARRAY3D_TYPE}
     });
 
     this.curlFunc = this.gpu.createKernel(function(curlxyz, uvw) {
@@ -514,7 +513,7 @@ class GPUKernelManager {
         (uvwkPos[0] - uvwkNeg[0]) * 0.5 - (uvwiPos[2] - uvwiNeg[2]) * 0.5,
         (uvwiPos[1] - uvwiNeg[1]) * 0.5 - (uvwjPos[0] - uvwjNeg[0]) * 0.5
       ];
-    },  {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {curlxyz: ARRAY3D_3_TYPE, uvw: ARRAY3D_3_TYPE}});
+    },  {...pipelineFuncSettings, name: 'curlFunc', returnType: 'Array(3)', argumentTypes: {curlxyz: ARRAY3D_3_TYPE, uvw: ARRAY3D_3_TYPE}});
 
     this.vorticityConfinementStep1Func = this.gpu.createKernel(function(curlxyz) {
       const [i,j,k] = ijkLookup();
@@ -523,7 +522,7 @@ class GPUKernelManager {
       const y = curlxyzijk[1];
       const z = curlxyzijk[2];
       return Math.sqrt(x*x + y*y + z*z);
-    }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {curlxyz: ARRAY3D_3_TYPE}});
+    }, {...pipelineFuncSettings, name: 'vorticityConfinementStep1Func', returnType: 'Float', argumentTypes: {curlxyz: ARRAY3D_3_TYPE}});
   
     this.vorticityConfinementStep2Func = this.gpu.createKernel(function(uvw, T0, curlxyz, dt0) {
       const [i,j,k] = ijkLookup();
@@ -544,7 +543,9 @@ class GPUKernelManager {
         uvwVal[1] + (Nz*curlVal[0] - Nx*curlVal[2]) * dt0,
         uvwVal[2] + (Nx*curlVal[1] - Ny*curlVal[0]) * dt0
       ];
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {uvw: ARRAY3D_3_TYPE, T0: ARRAY3D_TYPE, curlxyz: ARRAY3D_3_TYPE, dt0: 'Float'}});
+    }, {...pipelineFuncSettings, name: 'vorticityConfinementStep2Func', returnType: 'Array(3)', 
+      argumentTypes: {uvw: ARRAY3D_3_TYPE, T0: ARRAY3D_TYPE, curlxyz: ARRAY3D_3_TYPE, dt0: 'Float'}
+    });
 
     this._fireKernelsInit = true;
   }
@@ -564,7 +565,7 @@ class GPUKernelManager {
 
     this.gpu.addFunction(function minmod(a,b) {
       return ((a*b < 0) ? 0 : ((Math.abs(a) < Math.abs(b)) ? a : b));
-    });
+    }, {name: 'minmod'});
     this.gpu.addFunction(function godunovH(sgn, a, b, c, d, e, f) {
       return Math.sqrt(sgn >= 0 ?
         (
@@ -579,7 +580,7 @@ class GPUKernelManager {
           Math.max(Math.pow(Math.max(e,0),2), Math.pow(Math.max(-f,0),2))
         )
       );
-    });
+    }, {name: 'godunovH'});
     this.gpu.addFunction(function trilinearLookup(x,y,z,tex,boundaryBuf) {
       const xx = clampValue(x, 0.5, this.constants.NPLUSAHALF);
       const yy = clampValue(y, 0.5, this.constants.NPLUSAHALF);
@@ -598,16 +599,16 @@ class GPUKernelManager {
       const ls0 = sx0*(sy0*tex[i0][j0][k0]*b000 + sy1*tex[i0][j1][k0]*b010) + sx1*(sy0*tex[i1][j0][k0]*b100 + sy1*tex[i1][j1][k0]*b110);
       const ls1 = sx0*(sy0*tex[i0][j0][k1]*b001 + sy1*tex[i0][j1][k1]*b011) + sx1*(sy0*tex[i1][j0][k1]*b101 + sy1*tex[i1][j1][k1]*b111);
       return (sz0*ls0 + sz1*ls1);
-    });
+    }, {name: 'trilinearLookup'});
     this.gpu.addFunction(function heaviside(lsVal, levelEpsilon) {
       return lsVal > levelEpsilon ? 0 : 1;
       return (lsVal > levelEpsilon) ? 0 : ((lsVal < -levelEpsilon) ? 1 : 
           ((lsVal+levelEpsilon)/(2*levelEpsilon) + Math.sin(Math.PI*lsVal/levelEpsilon)/(2*Math.PI)));
-    });
+    }, {name: 'heaviside'});
     this.gpu.addFunction(function heavisideP(lsC, pC, levelEpsilon) {
       // There should be no pressure outside the liquid boundaries, at the boundary we smooth it out
       return heaviside(lsC, levelEpsilon)*pC;
-    });
+    }, {name: 'heavisideP'});
    
     this.gpu.addFunction(function calcWENOPhi(a,b,c,d) {
       const EPSILON = 1e-6;
@@ -622,7 +623,7 @@ class GPUKernelManager {
       const omega0 = alpha0 / denom, omega2 = alpha2 / denom;
 
       return (1/3)*omega0*(a-2*b+c) + (1/6)*(omega2-0.5)*(b-2*c+d);
-    });
+    }, {name: 'calcWENOPhi'});
 
     this.gpu.addFunction(function calcPhiPlusMinusWENO(phiK, phiKP1, phiKP2, phiKP3, phiKM1, phiKM2, phiKM3, dk) {
       const dPhiKPosM2 = phiKM1-phiKM2, dPhiKPosM1 = phiK-phiKM1;
@@ -645,7 +646,7 @@ class GPUKernelManager {
       const phiNegWENO = nonWENOK - WENOKNeg;
       const phiPosWENO = nonWENOK + WENOKPos;
       return [phiNegWENO, phiPosWENO];
-    });
+    }, {name: 'calcPhiPlusMinusWENO'});
 
     this.gpu.addFunction(function delPhiWENO(x,y,z,phi,upwindVec,boundaryBuf) {
       const xm1 = clampm1(x), xm2 = clampm2(x), xm3 = clampmX(x,3), 
@@ -692,16 +693,15 @@ class GPUKernelManager {
         upwindVec[1] >= 0 ? wenoYPM[0] : wenoYPM[1],
         upwindVec[2] >= 0 ? wenoZPM[0] : wenoZPM[1]
       ];
-    });
+    }, {name: 'delPhiWENO'});
    
-
     this.injectLiquidSphere = this.gpu.createKernel(function(center, radius, levelSet, boundaryBuf) {
       const [x,y,z] = xyzLookup();
       const centerToLookup = [x-center[0], y-center[1], z-center[2]];
       const lsVal = length3(centerToLookup) - radius;
       const lsxyz = levelSet[x][y][z];
       return lsxyz < lsVal ? lsxyz : lsVal; // Output the level set value (negative in liquid, positive outside)
-    }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
+    }, {...pipelineFuncSettings, name: 'injectLiquidSphere', returnType: 'Float', argumentTypes: {
       center: 'Array', radius: 'Float', levelSet: 'Array', boundaryBuf: 'Array'
     }});
 
@@ -714,16 +714,16 @@ class GPUKernelManager {
       const dir = [x-center[0], y-center[1], z-center[2]];
       const len = length3(dir);
       return len > size ? u : [u[0] + impulseStrength*dir[0], u[1] + impulseStrength*dir[1], u[2] + impulseStrength*dir[2]];
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {
+    }, {...pipelineFuncSettings, name: 'injectForceBlob', returnType: 'Array(3)', argumentTypes: {
       center: 'Array', impulseStrength: 'Float', size: 'Float', vel: 'Array3D(3)', boundaryBuf: 'Array'
     }});
 
     this.pressureDiff = this.gpu.createKernel(function(p0, p1) {
       const [x,y,z] = xyzLookup();
       return p0[x][y][z] - p1[x][y][z];
-    }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
-      p0: 'Array', p1: 'Array',
-    }});
+    }, {...pipelineFuncSettings, name: 'pressureDiff', returnType: 'Float', 
+      argumentTypes: {p0: 'Array', p1: 'Array'}
+    });
 
     this.advectLiquidLevelSet = this.gpu.createKernel(function(dt, vel, levelSet, boundaryBuf, forward, decay) {
       const [x,y,z] = xyzLookup();
@@ -739,7 +739,7 @@ class GPUKernelManager {
       const wenoLookup = levelSet[x][y][z] + (du[0]*delPhi[0] + du[1]*delPhi[1] + du[2]*delPhi[2]);
       return wenoLookup*decay;//(triLookup+wenoLookup) * 0.5 * decay;
 
-    }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
+    }, {...pipelineFuncSettings, name: 'advectLiquidLevelSet', returnType: 'Float', argumentTypes: {
       dt: 'Float', vel: 'Array3D(3)', levelSet: 'Array', boundaryBuf: 'Array', forward: 'Float', decay: 'Float'
     }})
     this.advectLiquidLevelSetOrder2 = this.gpu.createKernel(function(
@@ -755,7 +755,7 @@ class GPUKernelManager {
       return 0.75*phiN[x][y][z] + 0.25*phi1[x][y][z] + 
         0.25*(du[0]*delPhi1[0] + du[1]*delPhi1[1] + du[2]*delPhi1[2]);
 
-    }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
+    }, {...pipelineFuncSettings, name: 'advectLiquidLevelSetOrder2', returnType: 'Float', argumentTypes: {
       dt: 'Float', vel: 'Array3D(3)', phiN: 'Array', phi1: 'Array', boundaryBuf: 'Array'
     }});
     this.advectLiquidLevelSetOrder3 = this.gpu.createKernel(function(
@@ -773,7 +773,7 @@ class GPUKernelManager {
       return (damping*phiNxyz + (1-damping) * ((1/3)*phiNxyz + (2/3)*phi2[x][y][z] +
        (2/3)*(du[0]*delPhi2[0] + du[1]*delPhi2[1] + du[2]*delPhi2[2]))) * decay;
 
-    }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
+    }, {...pipelineFuncSettings, name: 'advectLiquidLevelSetOrder3', returnType: 'Float', argumentTypes: {
       dt: 'Float', vel: 'Array3D(3)', phiN: 'Array', phi2: 'Array', boundaryBuf: 'Array', 
       decay: 'Float', damping: 'Float'
     }});
@@ -783,7 +783,7 @@ class GPUKernelManager {
       if (boundaryBuf[x][y][z] > this.constants.BOUNDARY || x < 1 || y < 1 || z < 1 || 
           x > this.constants.N || y > this.constants.N || z > this.constants.N) { return levelSetN[x][y][z]; }
       return 0.5*(levelSetN[x][y][z] + levelSetNPlus2[x][y][z]);
-    }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
+    }, {...pipelineFuncSettings, name: 'rungeKuttaLevelSet', returnType: 'Float', argumentTypes: {
       levelSetN: 'Array', levelSetNPlus2: 'Array', boundaryBuf: 'Array'
     }});
 
@@ -959,7 +959,7 @@ class GPUKernelManager {
       const GPhi = godunovH(sgnPhi0, DxPosPhi, DxNegPhi, DyPosPhi, DyNegPhi, DzPosPhi, DzNegPhi);
       return lsNC*damping + (1-damping)*(lsNC - dt0*sgnPhi0*(GPhi-1.0));
 
-    }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes: {
+    }, {...pipelineFuncSettings, name: 'reinitLevelSet', returnType: 'Float', argumentTypes: {
       dt: 'Float', levelSet0: 'Array', levelSetN: 'Array', boundaryBuf: 'Array', damping: 'Float'
     }});
 
@@ -1003,7 +1003,7 @@ class GPUKernelManager {
         damping*u[1] + (1-damping)*result[1],
         damping*u[2] + (1-damping)*result[2]
       ];
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {
+    }, {...pipelineFuncSettings, name: 'advectLiquidVelocity', returnType: 'Array(3)', argumentTypes: {
       dt: 'Float', vel0: 'Array3D(3)', boundaryBuf: 'Array', damping: 'Float'
     }});
 
@@ -1020,7 +1020,7 @@ class GPUKernelManager {
         0.5 * ((U[0] - D[0]) - (R[2] - L[2])),
         0.5 * ((R[1] - L[1]) - (T[0] - B[0]))
       ];
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes:{vel: 'Array3D(3)', boundaryBuf: 'Array', levelSet: 'Array'}});
+    }, {...pipelineFuncSettings, name: 'applyLiquidVorticity', returnType: 'Array(3)', argumentTypes:{vel: 'Array3D(3)', boundaryBuf: 'Array', levelSet: 'Array'}});
 
     this.applyLiquidConfinement = this.gpu.createKernel(function(dt, epsilon, tempVec3, vel, boundaryBuf, levelSet) {
       const [x,y,z] = xyzLookup();
@@ -1043,7 +1043,7 @@ class GPUKernelManager {
         velxyz[1] + dtEpsilon * (eta[2]*omega[0] - eta[0]*omega[2]),
         velxyz[2] + dtEpsilon * (eta[0]*omega[1] - eta[1]*omega[0])
       ];
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes:{
+    }, {...pipelineFuncSettings, name: 'applyLiquidConfinement', returnType: 'Array(3)', argumentTypes:{
       dt: 'Float', epsilon: 'Float', tempVec3: 'Array3D(3)', vel: 'Array3D(3)', boundaryBuf: 'Array', levelSet: 'Array'
     }});
 
@@ -1067,7 +1067,7 @@ class GPUKernelManager {
       const fieldU = (boundaryBuf[x][y][zp1] > this.constants.BOUNDARY) ? noVel : vel[x][y][zp1];
 
       return 0.5 * ((fieldR[0]-fieldL[0]) + (fieldT[1]-fieldB[1]) + (fieldU[2]-fieldD[2]));
-    }, {...pipelineFuncSettings, returnType: 'Float', argumentTypes:{
+    }, {...pipelineFuncSettings, name: 'computeLiquidVelDiv', returnType: 'Float', argumentTypes:{
       vel:'Array3D(3)', levelSet: 'Array', levelEpsilon: 'Float', boundaryBuf:'Array'
     }});
 
@@ -1085,7 +1085,7 @@ class GPUKernelManager {
         clampValue(u[2] + du[2], -this.constants.MAX_ABS_SPD, this.constants.MAX_ABS_SPD)
       ];
 
-    }, {...pipelineFuncSettings, returnType: 'Array(3)', argumentTypes: {
+    }, {...pipelineFuncSettings, name: 'applyExternalForcesToLiquid', returnType: 'Array(3)', argumentTypes: {
       dt: 'Float', force: 'Array', vel: 'Array3D(3)', levelSet: 'Array', 
       levelEpsilon: 'Float', boundaryBuf: 'Array'
     }});
@@ -1124,13 +1124,12 @@ class GPUKernelManager {
 
       return (pL + pR + pB + pT + pU + pD - bC) / 6.0;
       
-    }, {...pipelineFuncSettings, returnType:'Float', argumentTypes: {
+    }, {...pipelineFuncSettings, name: 'jacobiLiquid', returnType:'Float', argumentTypes: {
       pressure: 'Array', tempScalar: 'Array', boundaryBuf: 'Array', levelSet: 'Array', levelEpsilon: 'Float'
     }});
 
     this.projectLiquidVelocity = this.gpu.createKernel(function(pressure, vel, boundaryBuf, levelSet, levelEpsilon, modulate) {
       const [x,y,z] = xyzLookup();
-      
 
       // NOTE: If the boundary has a velocity, return it here!
       if (boundaryBuf[x][y][z] > this.constants.BOUNDARY || x < 1 || y < 1 || z < 1 || 
@@ -1188,7 +1187,7 @@ class GPUKernelManager {
         velxyz[2] - modulate * (0.5 * (pU - pD) - surfaceN[0]*kCurv)
       ];
       return [vMask[0]*vNew[0]+obstV[0], vMask[1]*vNew[1]+obstV[1], vMask[2]*vNew[2]+obstV[2]];
-    }, {...pipelineFuncSettings, returnType:'Array(3)', argumentTypes: {
+    }, {...pipelineFuncSettings, name: 'projectLiquidVelocity', returnType:'Array(3)', argumentTypes: {
       pressure:'Array', vel:'Array3D(3)', boundaryBuf:'Array', levelSet: 'Array', 
       levelEpsilon: 'Float', modulate: 'Float'
     }});
@@ -1221,16 +1220,16 @@ class GPUKernelManager {
 
     this.initBarVisualizerBuffer3Func = this.gpu.createKernel(function(valueX, valueY, valueZ, valueW) {
       return [valueX, valueY, valueZ, valueW];
-    }, {...barVisFuncSettings, immutable: true, argumentTypes: {valueX: 'Float', valueY: 'Float', valueZ: 'Float', valueW: 'Float'}});
+    }, {...barVisFuncSettings, name: 'initBarVisualizerBuffer3Func', immutable: true, argumentTypes: {valueX: 'Float', valueY: 'Float', valueZ: 'Float', valueW: 'Float'}});
 
     this.gpu.addFunction(function calcAudioCutoff(audioIntensity, levelMax, height) {
       return (Math.log10(audioIntensity) / levelMax) * height;
-    });
+    }, {name: 'calcAudioCutoff'});
     this.gpu.addFunction(function barVisCutoff(audioLevels, levelMax, height) {
       //const levelIdx = Math.floor((this.constants.numAudioLevels / this.constants.gridSizeSqr) * (this.thread.z*this.constants.gridSize + this.thread.x));
       const levelIdx  = this.constants.sqrtNumAudioLevels*Math.floor(this.thread.z/this.constants.chunkSize) +  Math.floor(this.thread.x/this.constants.chunkSize);
       return calcAudioCutoff(audioLevels[levelIdx], levelMax, height);
-    });
+    }, {name: 'barVisCutoff'});
     this.gpu.addFunction(function barVisCutoffCentered(audioLevels, levelMax, height) {
 
       // How far from the center are we? Project the current vector from the center onto the x or z axis...
@@ -1256,7 +1255,8 @@ class GPUKernelManager {
       const numLevelsPerSlot = this.constants.numAudioLevels / this.constants.totalNumTieredSlots;
       const levelIdx = Math.floor((4*(projectedTierIdxMinus1*projectedTierIdxMinus1 + 2*projectedTierIdxMinus1 + 1) + tierSlotIdx) * numLevelsPerSlot);
       return calcAudioCutoff(audioLevels[levelIdx], levelMax, height);
-    });
+    }, {name: 'barVisCutoffCentered'});
+
     this.gpu.addFunction(function drawBarVis(prevVisTex, levelColours, cutoff, cutoffClampSize, fadeFactor, dt, yIdx, glowMultiplier) {
       const prevVoxelRGBA = prevVisTex[this.thread.z][this.thread.y][this.thread.x];
       const fadeFactorAdjusted = Math.pow(fadeFactor, dt);
@@ -1270,31 +1270,31 @@ class GPUKernelManager {
         levelColours[yIdx][1],
         levelColours[yIdx][2], alpha
       ];
-    });
+    }, {name: 'drawBarVis'});
 
     const barVisArgs = {audioLevels: 'Array', levelMax: 'Float', fadeFactor: 'Float', levelColours: 'Array', prevVisTex: 'Array3D(4)', dt: 'Float'};
 
     this.staticBarVisFunc = this.gpu.createKernel(function(audioLevels, levelMax, fadeFactor, levelColours, prevVisTex, dt) {
       const cutoff = barVisCutoff(audioLevels, levelMax, this.constants.gridSize);
       return drawBarVis(prevVisTex, levelColours, cutoff, this.constants.gridSize, fadeFactor, dt, this.thread.y, 0.02);
-    }, {...barVisFuncSettings, immutable: true, argumentTypes: barVisArgs});
+    }, {...barVisFuncSettings, name: 'staticBarVisFunc', immutable: true, argumentTypes: barVisArgs});
 
     this.staticSplitLevelBarVisFunc = this.gpu.createKernel(function(audioLevels, levelMax, fadeFactor, levelColours, prevVisTex, dt) {
       const cutoff = barVisCutoff(audioLevels, levelMax, this.constants.halfGridSize);
       const yIndex = Math.floor(Math.abs(this.thread.y + 1 - this.constants.halfGridSize));
       return drawBarVis(prevVisTex, levelColours, cutoff, this.constants.halfGridSize, fadeFactor, dt, yIndex, 0.02);
-    }, {...barVisFuncSettings, immutable: true, argumentTypes: barVisArgs});
+    }, {...barVisFuncSettings, name: 'staticSplitLevelBarVisFunc', immutable: true, argumentTypes: barVisArgs});
 
     this.staticCenteredBarVisFunc = this.gpu.createKernel(function(audioLevels, levelMax, fadeFactor, levelColours, prevVisTex, dt) {
       const cutoff = barVisCutoffCentered(audioLevels, levelMax, this.constants.gridSize);
       return drawBarVis(prevVisTex, levelColours, cutoff, this.constants.gridSize, fadeFactor, dt, this.thread.y, 0.01);
-    }, {...barVisFuncSettings, immutable: true, argumentTypes: barVisArgs});
+    }, {...barVisFuncSettings, name: 'staticCenteredBarVisFunc', immutable: true, argumentTypes: barVisArgs});
 
     this.staticCenteredSplitLevelBarVisFunc = this.gpu.createKernel(function(audioLevels, levelMax, fadeFactor, levelColours, prevVisTex, dt) {
       const cutoff = barVisCutoffCentered(audioLevels, levelMax, this.constants.halfGridSize);
       const yIndex = Math.floor(Math.abs(this.thread.y + 1 - this.constants.halfGridSize));
       return drawBarVis(prevVisTex, levelColours, cutoff, this.constants.halfGridSize, fadeFactor, dt, yIndex, 0.01);
-    }, {...barVisFuncSettings, immutable: true, argumentTypes: barVisArgs});
+    }, {...barVisFuncSettings, name: 'staticCenteredSplitLevelBarVisFunc', immutable: true, argumentTypes: barVisArgs});
 
 
     const historyBarVisArgs = {audioHistoryLevels: 'Array', directionVec: 'Array', levelMax: 'Float', fadeFactor: 'Float', levelColours: 'Array', prevVisTex: 'Array3D(4)', dt: 'Float'};
@@ -1309,7 +1309,7 @@ class GPUKernelManager {
 
       const cutoff = calcAudioCutoff(audioHistoryLevels[historyIdx][levelIdx], levelMax, this.constants.gridSize);
       return drawBarVis(prevVisTex, levelColours, cutoff, this.constants.gridSize, fadeFactor, dt, this.thread.y, 0.02);
-    }, {...barVisFuncSettings, immutable: true, argumentTypes: historyBarVisArgs});
+    }, {...barVisFuncSettings, name: 'historyBarVisFunc', immutable: true, argumentTypes: historyBarVisArgs});
 
     this.renderBarVisualizerAlphaFunc = this.gpu.createKernel(function(barVisTex) {
       const currVoxel = barVisTex[this.thread.z][this.thread.y][this.thread.x];
@@ -1318,7 +1318,7 @@ class GPUKernelManager {
         clampValue(currVoxel[1]*currVoxel[3], 0, 1), 
         clampValue(currVoxel[2]*currVoxel[3], 0, 1)
       ];
-    }, {...barVisFuncSettings, returnType: 'Array(3)', argumentTypes: {barVisTex: 'Array3D(4)'}});
+    }, {...barVisFuncSettings, name: 'renderBarVisualizerAlphaFunc', returnType: 'Array(3)', argumentTypes: {barVisTex: 'Array3D(4)'}});
 
     this._barVisKernelsInit = true;
   }
@@ -1340,29 +1340,29 @@ class GPUKernelManager {
     };
     this.gpu.addFunction(function xyzLookup() {
       return [this.thread.z, this.thread.y, this.thread.x];
-    });
+    }, {name: 'xyzLookup'});
     this.gpu.addFunction(function cellLiquidVol(cell) {
       return cell[this.constants.CELL_VOL_IDX];
-    });
+    }, {name: 'cellLiquidVol'});
     this.gpu.addFunction(function cellType(cell) {
       return cell[this.constants.CELL_TYPE_IDX];
-    });
+    }, {name: 'cellType'});
     this.gpu.addFunction(function cellSettled(cell) {
       return cell[this.constants.CELL_SETTLED_IDX];
-    });
+    }, {name: 'cellSettled'});
     this.gpu.addFunction(function absCSFlow(ui) {
       return Math.abs(ui * this.constants.unitArea);
-    });
+    }, {name: 'absCSFlow'});
 
     this.buildSimpleWaterBufferScalar = this.gpu.createKernel(function() {
       return 0;
-    }, {...settings, returnType:'Float'});
+    }, {...settings, name: 'buildSimpleWaterBufferScalar', returnType:'Float'});
     this.buildSimpleWaterBufferVec3 = this.gpu.createKernel(function() {
       return [0,0,0];
-    }, {...settings, returnType:'Array(3)'});
+    }, {...settings, name: 'buildSimpleWaterBufferVec3', returnType:'Array(3)'});
     this.buildSimpleWaterBufferVec4 = this.gpu.createKernel(function() {
       return [0,0,0,0];
-    }, {...settings, returnType:'Array(4)'});
+    }, {...settings, name: 'buildSimpleWaterBufferVec4', returnType:'Array(4)'});
     this.buildSimpleWaterCellBuffer = this.gpu.createKernel(function() {
       const [x,y,z] = xyzLookup();
       // Set the boundaries along the outside in all dimensions
@@ -1388,7 +1388,7 @@ class GPUKernelManager {
       // ...otherwise it's just an empty cell
       return [0, this.constants.EMPTY_CELL_TYPE, 0];
 
-    }, {...settings, returnType:'Array(3)'});
+    }, {...settings, name: 'buildSimpleWaterCellBuffer', returnType:'Array(3)'});
 
     const VEL_TYPE  = 'Array3D(3)';
     const CELL_TYPE = 'Array3D(3)';
@@ -1421,7 +1421,7 @@ class GPUKernelManager {
         result[i] = sz0*v0 + sz1*v1;
       }
       return result;
-    }, {...settings, returnType:'Array(3)', argumentTypes:{dt:'Float', vel:VEL_TYPE, cellData:CELL_TYPE}});
+    }, {...settings, name: 'simpleWaterAdvectVel', returnType:'Array(3)', argumentTypes:{dt:'Float', vel:VEL_TYPE, cellData:CELL_TYPE}});
 
     this.simpleWaterApplyExtForces = this.gpu.createKernel(function(dt, gravity, vel, cellData) {
       const [x,y,z] = xyzLookup();
@@ -1491,7 +1491,8 @@ class GPUKernelManager {
 
       return result;
 
-    }, {...settings, returnType:'Array(3)', argumentTypes:{
+    }, {...settings, name: 'simpleWaterApplyExtForces', 
+      returnType:'Array(3)', argumentTypes:{
       dt:'Float', gravity:'Float', vel:VEL_TYPE, cellData:CELL_TYPE
     }});
 
@@ -1513,7 +1514,8 @@ class GPUKernelManager {
       const dir = [x-center[0], y-center[1], z-center[2]];
       const len = length3(dir);
       return len > size ? u : [u[0] + force*dir[0], u[1] + force*dir[1], u[2] + force*dir[2]];
-    }, {...settings, returnType: 'Array(3)', argumentTypes: {
+    }, {...settings, name: 'simpleWaterInjectForceBlob', 
+      returnType: 'Array(3)', argumentTypes: {
       center: 'Array', impulseStrength: 'Float', size: 'Float', vel:VEL_TYPE, cellData:CELL_TYPE
     }});
 
@@ -1533,12 +1535,12 @@ class GPUKernelManager {
         ((U[0] - D[0]) - (R[2] - L[2])) / (2*this.constants.unitSize),
         ((R[1] - L[1]) - (T[0] - B[0])) / (2*this.constants.unitSize)
       ];
-    }, {...settings, returnType:'Array(3)', argumentTypes:{vel:VEL_TYPE, cellData:CELL_TYPE}});
+    }, {...settings, name: 'simpleWaterCurl', returnType:'Array(3)', argumentTypes:{vel:VEL_TYPE, cellData:CELL_TYPE}});
 
     this.simpleWaterCurlLen = this.gpu.createKernel(function(curl) {
       const [x,y,z] = xyzLookup();
       return length3(curl[x][y][z]);
-    }, {...settings, returnType:'Float', argumentTypes:{curl:'Array3D(3)'}});
+    }, {...settings, name: 'simpleWaterCurlLen', returnType:'Float', argumentTypes:{curl:'Array3D(3)'}});
 
     this.simpleWaterApplyVC = this.gpu.createKernel(function(dtVC, vel, cellData, curl, curlLen) {
       const [x,y,z] = xyzLookup();
@@ -1565,9 +1567,9 @@ class GPUKernelManager {
         u[1] + dtVC * (eta[2]*omega[0] - eta[0]*omega[2]),
         u[2] + dtVC * (eta[0]*omega[1] - eta[1]*omega[0])
       ];
-    }, {...settings, returnType:'Array(3)', argumentTypes:{
-      dtVC:'Float', vel:VEL_TYPE, cellData:CELL_TYPE, curl:'Array3D(3)', curlLen:'Array'
-    }});
+    }, {...settings, name: 'simpleWaterApplyVC', returnType:'Array(3)', 
+      argumentTypes: {dtVC:'Float', vel:VEL_TYPE, cellData:CELL_TYPE, curl:'Array3D(3)', curlLen:'Array'}
+    });
 
     this.simpleWaterDiv = this.gpu.createKernel(function(vel, cellData) {
       const [x,y,z] = xyzLookup();
@@ -1591,7 +1593,7 @@ class GPUKernelManager {
       return ((fieldR[0]-fieldL[0]) + (fieldT[1]-fieldB[1]) + (fieldU[2]-fieldD[2])) / 
         (this.constants.NDIM*this.constants.N);
 
-    }, {...settings, returnType:'Float', argumentTypes:{vel:VEL_TYPE, cellData:CELL_TYPE}});
+    }, {...settings, name: 'simpleWaterDiv', returnType:'Float', argumentTypes:{vel:VEL_TYPE, cellData:CELL_TYPE}});
 
     this.simpleWaterComputePressure = this.gpu.createKernel(function(pressure, cellData, div) {
       // NOTE: The pressure buffer MUST be cleared before calling this!!
@@ -1620,7 +1622,7 @@ class GPUKernelManager {
 
       return (pL + pR + pB + pT + pU + pD - bC) / 6.0;
 
-    }, {...settings, returnType:'Float', argumentTypes:{pressure:'Array', cellData:CELL_TYPE, div:'Array'}});
+    }, {...settings, name: 'simpleWaterComputePressure', returnType:'Float', argumentTypes:{pressure:'Array', cellData:CELL_TYPE, div:'Array'}});
 
     this.simpleWaterProjVel = this.gpu.createKernel(function(pressure, vel, cellData) {
       const [x,y,z] = xyzLookup();
@@ -1662,7 +1664,7 @@ class GPUKernelManager {
       result[2] = Math.min(result[2]*vMaskPos[2], Math.max(result[2]*vMaskNeg[2], result[2]));
       return result;
 
-    }, {...settings, returnType:'Array(3)', argumentTypes:{
+    }, {...settings, name: 'simpleWaterProjVel', returnType:'Array(3)', argumentTypes:{
       pressure:'Array', vel:VEL_TYPE, cellData:CELL_TYPE
     }});
 
@@ -1696,7 +1698,7 @@ class GPUKernelManager {
       }
       return result;
 
-    }, {...settings, returnType:'Array(3)', argumentTypes:{
+    }, {...settings, name: 'simpleWaterDiffuseVel', returnType:'Array(3)', argumentTypes:{
       vel0:VEL_TYPE, vel:VEL_TYPE, cellData:CELL_TYPE, a:'Float'
     }});
 
@@ -1778,7 +1780,7 @@ class GPUKernelManager {
       flowToL *= maskL; flowToR *= maskR;
       flowToD *= maskD; flowToU *= maskU;
       return [flowToL, flowToR, flowToD, flowToU];
-    }, {returnType:'Array(4)'});
+    }, {name: 'simpleWaterFlowHelperLRDU', returnType:'Array(4)'});
 
     this.gpu.addFunction(function simpleWaterFlowHelperBT(dt, vel, cellData) {
       const [x,y,z] = xyzLookup();
@@ -1808,7 +1810,7 @@ class GPUKernelManager {
       flowToB *= maskB; flowToT *= maskT;
       return [flowToB, flowToT];
 
-    }, {returnType:'Array(2)'});
+    }, {name: 'simpleWaterFlowHelperBT', returnType:'Array(2)'});
 
     this.simpleWaterCalcFlowsLRB = this.gpu.createKernel(function(dt, vel, cellData) {
       const [x,y,z] = xyzLookup();
@@ -1834,7 +1836,7 @@ class GPUKernelManager {
         Math.min(Math.max(0.5*(liquidVol-liquidVolR),0), Math.min(liquidVol*(flowToR/totalFlow), flowToR)),
         Math.min(0.5*(liquidVol+liquidVolB), Math.min(liquidVol*(flowToB/totalFlow), flowToB))
       ];
-    }, {...settings, returnType:'Array(3)', argumentTypes:{dt:'Float', vel:VEL_TYPE, cellData:CELL_TYPE }});
+    }, {...settings, name: 'simpleWaterCalcFlowsLRB', returnType:'Array(3)', argumentTypes:{dt:'Float', vel:VEL_TYPE, cellData:CELL_TYPE }});
 
     this.simpleWaterCalcFlowsDUT = this.gpu.createKernel(function(dt, vel, cellData) {
       const [x,y,z] = xyzLookup();
@@ -1860,7 +1862,7 @@ class GPUKernelManager {
         Math.min(Math.max(0.5*(liquidVol-liquidVolU),0), Math.min(liquidVol*(flowToU/totalFlow), flowToU)),
         Math.min(Math.max(0.5*(liquidVol-liquidVolT),0), Math.min(liquidVol*(flowToT/totalFlow), flowToT))
       ];
-    }, {...settings, returnType:'Array(3)', argumentTypes:{dt:'Float', vel:VEL_TYPE, cellData:CELL_TYPE }});
+    }, {...settings, name: 'simpleWaterCalcFlowsDUT', returnType:'Array(3)', argumentTypes:{dt:'Float', vel:VEL_TYPE, cellData:CELL_TYPE }});
 
     this.simpleWaterSumFlows = this.gpu.createKernel(function(cellFlowsLRB, cellFlowsDUT, cellData) {
       const [x,y,z] = xyzLookup();
@@ -1884,9 +1886,9 @@ class GPUKernelManager {
         (fC_LRB[0] + fC_LRB[1] + fC_LRB[2] + fC_DUT[0] + fC_DUT[1] + fC_DUT[2])
       );
       
-    }, {...settings, returnType:'Float', argumentTypes:{
-      cellFlowsLRB: 'Array3D(3)', cellFlowsDUT: 'Array3D(3)', cellData:CELL_TYPE
-    }});
+    }, {...settings, name: 'simpleWaterSumFlows', returnType:'Float', 
+      argumentTypes:{cellFlowsLRB: 'Array3D(3)', cellFlowsDUT: 'Array3D(3)', cellData:CELL_TYPE}
+    });
 
     this.simpleWaterAdjustFlows = this.gpu.createKernel(function(cellFlowSums, cellData) {
       const [x,y,z] = xyzLookup();
@@ -1921,10 +1923,9 @@ class GPUKernelManager {
       }
       return cell;
 
-    }, {...settings, returnType:'Array(3)', argumentTypes:{
-      cellFlowSums: 'Array', cellData:CELL_TYPE
-    }});
-
+    }, {...settings, name: 'simpleWaterAdjustFlows', returnType:'Array(3)', 
+      argumentTypes:{cellFlowSums: 'Array', cellData:CELL_TYPE}
+    });
 
     this._simpleWaterInit = true;
   }

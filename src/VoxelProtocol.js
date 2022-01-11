@@ -240,7 +240,7 @@ class VoxelProtocol {
       const VOXEL_MODULE_X_SIZE = VoxelConstants.VOXEL_GRID_SIZE;
       const VOXEL_MODULE_Y_SIZE = VoxelConstants.VOXEL_GRID_SIZE;
       const VOXEL_MODULE_Z_SIZE = VoxelConstants.VOXEL_GRID_SIZE;
-      const startX = slaveId * VOXEL_MODULE_X_SIZE;
+      const startX = slaveId * NUM_OCTO_DATA_PINS;
       const endX = startX + NUM_OCTO_DATA_PINS;
       const octoVoxels = new Array(NUM_OCTO_DATA_PINS).fill(0);
 

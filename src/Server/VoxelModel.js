@@ -21,7 +21,7 @@ import GPUKernelManager from './GPUKernelManager';
 export const BLEND_MODE_OVERWRITE = 0;
 export const BLEND_MODE_ADDITIVE  = 1;
 
-const DEFAULT_POLLING_FREQUENCY_HZ = 45; // Render Frames per second - if this is too high then we overwhelm our clients
+const DEFAULT_POLLING_FREQUENCY_HZ = 38; // Render Frames per second - if this is too high then we overwhelm our clients
 const DEFAULT_POLLING_INTERVAL_MS  = 1000 / DEFAULT_POLLING_FREQUENCY_HZ;
 
 class VoxelModel {

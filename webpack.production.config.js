@@ -8,7 +8,7 @@ const commonConfig = {
   mode: 'production',
   watch: false,
   optimization: {
-    minimize: true,
+    minimize: false, // This can't be true, if true gpu.js poops itself
   },
   node: {
     //fs: 'empty',

@@ -68,7 +68,6 @@ class VoxelServer {
 
   start() {
     const self = this;
-    const parser = new Readline();
 
     setInterval(function() {
 
@@ -130,8 +129,8 @@ class VoxelServer {
                   self.connectedSerialPorts.splice(self.connectedSerialPorts.indexOf(newSerialPort), 1);
                 });
 
-               
                 newSerialPort.on('open', () => {
+                  const parser = new Readline();
                   newSerialPort.pipe(parser);
                   newSerialPort.lastWriteResult = true;
 
@@ -145,12 +144,15 @@ class VoxelServer {
                   parser.on('data', (data) => {
                     if (isDataSerial) {
                       const slaveInfoMatch = data.match(/SLAVE_ID (\d)/);
+                      
                       if (slaveInfoMatch) {
                         if (!(availablePort.path in self.slaveDataMap)) {
                           const slaveDataObj = {
                             id: parseInt(slaveInfoMatch[1])
                           };
                           self.slaveDataMap[availablePort.path] = slaveDataObj;
+                          //console.log("Parsing match: "); console.log(slaveInfoMatch);
+                          //console.log("Parsed slave ID: " + slaveDataObj.id + ", for serial path: " + availablePort.path);
             
                           // First time getting information from the current serial port, send a welcome packet
                           console.log("Slave ID at " + availablePort.path + " = " + self.slaveDataMap[availablePort.path].id);
@@ -204,6 +206,7 @@ class VoxelServer {
 
   sendClientSocketVoxelData(voxelData) {
     if (this.connectedSerialPorts.length > 0) {
+      //console.log("Number of serial ports connected: " +this.connectedSerialPorts.length);
       // Send data frames out through all connected serial ports
       this.connectedSerialPorts.forEach((currSerialPort) => {
         if (!currSerialPort.isOpen) {
@@ -213,9 +216,8 @@ class VoxelServer {
         }
         else if (currSerialPort.isVoxelDataConnection) {
           const slaveData = this.slaveDataMap[currSerialPort.path];
-          //console.log(slaveData);
           if (slaveData && currSerialPort.lastWriteResult) {
-            //console.log("Sending slave data.");
+            //console.log("Sending slave data for " + currSerialPort.path + ", id: " + slaveData.id);
             const voxelDataSlavePacketBuf = VoxelProtocol.buildVoxelDataPacketForSlaves(voxelData, slaveData.id);
             const encodedPacketBuf = cobs.encode(voxelDataSlavePacketBuf, true);
             currSerialPort.lastWriteResult = currSerialPort.write(encodedPacketBuf);
