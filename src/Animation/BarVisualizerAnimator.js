@@ -153,7 +153,7 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
     // In random colour mode we're animating the colour over time, check to see if it has changed and update it accordingly
     if (colourMode === RANDOM_COLOUR_MODE) {
       const {colourInterpolationType} = this.config;
-      const currColours = this.randomColourCycler.tick(dt, colourInterpolationType);
+      const currColours = this.randomColourCycler.tick(dt, COLOUR_INTERPOLATION_RGB);
       if (this.randomColourCycler.isTransitioning()) {
         this.levelColours = Spectrum.genLowToHighColourSpectrum(currColours.lowTempColour, currColours.highTempColour, colourInterpolationType, this._numLevelColours());
       }

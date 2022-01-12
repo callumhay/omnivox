@@ -160,11 +160,12 @@ export class RandomHighLowColourCycler {
         this.colourTransitionTimeCounter = 0;
         this.colourHoldTimeCounter = 0;
       }
-
-      return {
-        lowTempColour: finalLowTempColour,
-        highTempColour: finalHighTempColour
-      };
+      else {
+        return {
+          lowTempColour: finalLowTempColour,
+          highTempColour: finalHighTempColour
+        };
+      }
     }
     else {
       this.colourHoldTimeCounter += dt;

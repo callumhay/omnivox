@@ -39,7 +39,6 @@ class AnimCP {
     const self = this;
     const settingsInUse = settingsObj || self.settings;
     
-
     if (!settingsInUse || settingsInUse[controlParam] === undefined) {
       console.error("Control parameter '" + controlParam + "' not present in settings.");
       return null;
@@ -57,7 +56,7 @@ class AnimCP {
         return parentFolder.addInput(settingsInUse, controlParam, options).on(CHANGE_EVENT, ev => {
           const configInUse = configObj || self.config;
           configInUse[controlParam] = guiColorToRGBObj(ev.value);
-          self.masterCP.controllerClient.sendAnimatorChangeCommand(self.animatorType(), configInUse);
+          self.masterCP.controllerClient.sendAnimatorChangeCommand(self.animatorType(), self.config);
         });
       }
       else if (control.x !== undefined || control.y !== undefined || control.z !== undefined) {
@@ -75,8 +74,8 @@ class AnimCP {
       }
     }
 
-    const configInUse = configObj || self.config;
     return parentFolder.addInput(settingsInUse, controlParam, options).on(CHANGE_EVENT, ev => {
+      const configInUse = configObj || self.config;
       configInUse[controlParam] = ev.value;
       self.masterCP.controllerClient.sendAnimatorChangeCommand(self.animatorType(), self.config);
     });
