@@ -5,7 +5,7 @@ const FRAMES_OUT_OF_SEQUENCE_BEFORE_RESET = 30;
 class DisplayClient {
   constructor(voxelDisplay) {
     this.voxelDisplay = voxelDisplay;
-    this.socket = new WebSocket('ws://' + VoxelProtocol.WEBSOCKET_HOST + ':' + VoxelProtocol.WEBSOCKET_PORT, VoxelProtocol.WEBSOCKET_PROTOCOL_VIEWER);
+    this.socket = new WebSocket('ws://' + window.location.hostname + ':' + VoxelProtocol.WEBSOCKET_PORT, VoxelProtocol.WEBSOCKET_PROTOCOL_VIEWER);
     this.lastFrameId = 0;
     this.consecutiveFramesOutofSequence = 0;
     this.lastFrameHashCode = -1;
