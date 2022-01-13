@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 
 import VoxelAnimator from './VoxelAnimator';
-import AudioVisualizerAnimator, {RandomHighLowColourCycler} from './AudioVisualizerAnimator';
+import AudioVisualizerAnimator from './AudioVisualizerAnimator';
 import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
-import {Randomizer} from '../Randomizers';
+import {Randomizer, RandomHighLowColourCycler} from '../Randomizers';
 
 import FireGPU from '../FireGPU';
 import Spectrum, {ColourSystems, FIRE_SPECTRUM_WIDTH, COLOUR_INTERPOLATION_RGB} from '../Spectrum';

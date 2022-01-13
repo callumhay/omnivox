@@ -1,8 +1,9 @@
 import VoxelAnimator from '../../Animation/VoxelAnimator';
-import {starShowerDefaultConfig} from '../../Animation/StarShowerAnimator';
+import StarShowerAnimator, {starShowerDefaultConfig} from '../../Animation/StarShowerAnimator';
 import {CHANGE_EVENT} from '../controlpanelfuncs';
 import AnimCP from './AnimCP';
 import VoxelConstants from '../../VoxelConstants';
+import { COLOUR_INTERPOLATION_TYPES } from '../../Spectrum';
 
 class StarShowerAnimCP extends AnimCP {
   constructor(masterCP) {
@@ -12,15 +13,54 @@ class StarShowerAnimCP extends AnimCP {
   animatorType() { return VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER; }
 
   buildFolder() {
+    const self = this;
     const folder = this.masterCP.pane.addFolder({title: "Star Shower Controls"});
 
-    this.addControl(folder, 'colourMin', {label: "Min Colour"});
-    this.addControl(folder, 'colourMax', {label: "Max Colour"});
+    // Colour Mode Subfolders --------
+
+    // Random colour mode
+    const randomColourModeSubfolder = folder.addFolder({title: StarShowerAnimator.RANDOM_COLOUR_MODE + " Colour Mode"});
+    this.addControl(randomColourModeSubfolder, 'randomColourHoldTime', {label: "Hold Time (s)", min: 0.1, max: 30, step: 0.1});
+    this.addControl(randomColourModeSubfolder, 'randomColourTransitionTime', {label: "Transition Time (s)", min: 0.1, max: 30, step: 0.1});
+    this.addList(randomColourModeSubfolder, 'colourInterpolationType', COLOUR_INTERPOLATION_TYPES, "Colour Interpolation");
+    randomColourModeSubfolder.hidden = true;
+    folder.remove(randomColourModeSubfolder);
+
+    // Min max colour mode
+    const minMaxColourModeSubfolder = folder.addFolder({title: StarShowerAnimator.MIN_MAX_COLOUR_MODE + " Colour Mode"});
+    this.addControl(minMaxColourModeSubfolder, 'colourMin', {label: "Min Colour"});
+    this.addControl(minMaxColourModeSubfolder, 'colourMax', {label: "Max Colour"});
+    this.addList(minMaxColourModeSubfolder, 'colourInterpolationType', COLOUR_INTERPOLATION_TYPES, "Colour Interpolation");
+    folder.remove(minMaxColourModeSubfolder);
+    // --------------------------------
+
+    const onColourModeChange = ev => {
+      randomColourModeSubfolder.hidden = true;
+      minMaxColourModeSubfolder.hidden = true;
+      switch (ev.value) {
+        case StarShowerAnimator.RANDOM_COLOUR_MODE:
+          randomColourModeSubfolder.hidden = false;
+          break;
+        case StarShowerAnimator.MIN_MAX_COLOUR_MODE:
+        default:
+          minMaxColourModeSubfolder.hidden = false;
+          break;
+      }
+      self.config.colourMode = ev.value;
+      self.masterCP.controllerClient.sendAnimatorChangeCommand(self.animatorType(), self.config);
+    };
+    this.addList(folder, 'colourMode', StarShowerAnimator.COLOUR_MODES, "Colour Mode", onColourModeChange);
+
+    // Re-add all the subfolders after the selection list widget
+    folder.add(randomColourModeSubfolder);
+    folder.add(minMaxColourModeSubfolder);
+
+
     this.addControl(folder, 'spawnRate', {label: "Spawn Rate", min: 1, max:100, step: 1});
     this.addControl(folder, 'speedMin', {label: "Min Speed", min:1, max:25, step:0.5});
     this.addControl(folder, 'speedMax', {label: "Max Speed", min:1, max:25, step:0.5});
     
-    const self = this;
+    
     // Setup the direction control
     {
       const directionStrs = VoxelConstants.ORTHO_DIR_STRS;

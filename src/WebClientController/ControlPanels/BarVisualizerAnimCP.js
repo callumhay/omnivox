@@ -18,6 +18,7 @@ class BarVisualizerAnimCP extends AnimCP {
     const folder = pane.addFolder({title: "Bar Visualizer Controls"});
 
     // Colour Mode Subfolders --------
+
     // Random colour mode
     const randomColourModeSubfolder = folder.addFolder({title: "Random Colour Mode"});
     this.addControl(randomColourModeSubfolder, 'randomColourHoldTime', {label: "Hold Time (s)", min: 0.1, max: 30, step: 0.1});
@@ -25,12 +26,14 @@ class BarVisualizerAnimCP extends AnimCP {
     this.addList(randomColourModeSubfolder, 'colourInterpolationType', COLOUR_INTERPOLATION_TYPES, "Colour Interpolation");
     randomColourModeSubfolder.hidden = true;
     folder.remove(randomColourModeSubfolder);
+
     // Low-High colour mode
     const lowHighColourModeSubfolder = folder.addFolder({title: "Low High Colour Mode"});
     this.addControl(lowHighColourModeSubfolder, 'lowColour', {label: "Low Colour"});
     this.addControl(lowHighColourModeSubfolder, 'highColour', {label: "High Colour"});
     this.addList(lowHighColourModeSubfolder, 'colourInterpolationType', COLOUR_INTERPOLATION_TYPES, "Colour Interpolation");
     folder.remove(lowHighColourModeSubfolder);
+    // --------------------------------
 
     const onColourModeChange = ev => {
       randomColourModeSubfolder.hidden = true;

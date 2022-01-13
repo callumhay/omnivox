@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 
 import VoxelAnimator from './VoxelAnimator';
-import AudioVisualizerAnimator, {RandomHighLowColourCycler} from './AudioVisualizerAnimator';
+import AudioVisualizerAnimator from './AudioVisualizerAnimator';
 import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 
+import {RandomHighLowColourCycler} from '../Randomizers';
 import Spectrum, {COLOUR_INTERPOLATION_RGB} from '../Spectrum';
 import {clamp} from '../MathUtils';
 
@@ -30,7 +31,6 @@ export const barVisualizerAnimatorDefaultConfig = {
   
   colourInterpolationType: COLOUR_INTERPOLATION_RGB,
   
-
   displayMode: STATIC_BARS_DISPLAY_TYPE,
 
   // Static bar display options

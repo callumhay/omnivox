@@ -2,13 +2,18 @@ import * as THREE from 'three';
 import chroma from 'chroma-js';
 
 import VoxelConstants from './VoxelConstants';
+import Spectrum, {COLOUR_INTERPOLATION_RGB} from './Spectrum';
+import {clamp} from './MathUtils';
 
+// "Abstract" parent class for various random number generators
 export class Randomizer {
   constructor() {
   }
 
   generate() {
+    throw "Randomizer::generate is unimplemented because Randomizer is an abstract class, please use a child class.";
   }
+
   static getRandomFloat(min, max) {
     return THREE.MathUtils.randFloat(min, max);
   }
@@ -144,8 +149,12 @@ export class ColourRandomizer extends Randomizer {
     this.max = max;
   }
 
-  generate() {
-    const temp = chroma.mix(chroma.gl(this.min), chroma.gl(this.max), Randomizer.getRandomIntInclusive(0,1000)/1000).gl();
+  generate(colourInterpolation=COLOUR_INTERPOLATION_RGB) {
+    return ColourRandomizer.getRandomColour(this.min, this.max, colourInterpolation);
+  }
+
+  static getRandomColour(minColour, maxColour, colourInterpolation) {
+    const temp = chroma.mix(chroma.gl(minColour), chroma.gl(maxColour), Randomizer.getRandomIntInclusive(0,1000)/1000, colourInterpolation).gl();
     return new THREE.Color(temp[0], temp[1], temp[2]);
   }
 
@@ -159,6 +168,70 @@ export class ColourRandomizer extends Randomizer {
   toString() {
     return "min: (" + this.min.r + ", " + this.min.g + ", " + this.min.b + "), max: (" + this.max.r + ", " + this.max.g + ", " + this.max.b + ")";
   }
-
 }
 
+export class RandomHighLowColourCycler {
+  constructor(config=RandomHighLowColourCycler.randomColourCyclerDefaultConfig) {
+    this.reset();
+    this.setConfig(config);
+  }
+
+  static get randomColourCyclerDefaultConfig() {
+    return {
+      randomColourHoldTime: 5,
+      randomColourTransitionTime: 2,
+    };
+  }
+
+  setConfig(c) {
+    this.config = c;
+  }
+  reset() {
+    this.colourTransitionTimeCounter = 0;
+    this.colourHoldTimeCounter = 0;
+    this.currRandomColours = Spectrum.genRandomHighLowColours();
+    this.nextRandomColours = Spectrum.genRandomHighLowColours(this.currRandomColours);
+  }
+
+  isTransitioning() {
+    const {randomColourHoldTime} = this.config;
+    return this.colourHoldTimeCounter >= randomColourHoldTime;
+  }
+
+  tick(dt, colourInterpolationType) {
+    const {randomColourTransitionTime} = this.config;
+
+    if (this.isTransitioning()) {
+      // We're transitioning between random colours, interpolate from the previous to the next
+      const interpolationVal = clamp(this.colourTransitionTimeCounter / randomColourTransitionTime, 0, 1);
+
+      const {lowTempColour:currLowTC, highTempColour:currHighTC} = this.currRandomColours;
+      const {lowTempColour:nextLowTC, highTempColour:nextHighTC} = this.nextRandomColours;
+
+      const tempLowTempColour = chroma.mix(chroma.gl([currLowTC.r, currLowTC.g, currLowTC.b, 1]), chroma.gl([nextLowTC.r, nextLowTC.g, nextLowTC.b, 1]), interpolationVal, colourInterpolationType).gl();
+      const tempHighTempColour = chroma.mix(chroma.gl([currHighTC.r, currHighTC.g, currHighTC.b, 1]), chroma.gl([nextHighTC.r, nextHighTC.g, nextHighTC.b, 1]), interpolationVal, colourInterpolationType).gl();
+      
+      const finalLowTempColour = new THREE.Color(tempLowTempColour[0], tempLowTempColour[1], tempLowTempColour[2]);
+      const finalHighTempColour = new THREE.Color(tempHighTempColour[0], tempHighTempColour[1], tempHighTempColour[2]);
+
+      this.colourTransitionTimeCounter += dt;
+      if (this.colourTransitionTimeCounter >= randomColourTransitionTime) {
+        this.currRandomColours = {lowTempColour: finalLowTempColour, highTempColour: finalHighTempColour};
+        this.nextRandomColours = Spectrum.genRandomHighLowColours(this.currRandomColours);
+        this.colourTransitionTimeCounter = 0;
+        this.colourHoldTimeCounter = 0;
+      }
+      else {
+        return {
+          lowTempColour: finalLowTempColour,
+          highTempColour: finalHighTempColour
+        };
+      }
+    }
+    else {
+      this.colourHoldTimeCounter += dt;
+    }
+
+    return this.currRandomColours;
+  }
+}
