@@ -5,7 +5,7 @@ import VoxelConstants from '../VoxelConstants';
 import VoxelAnimator from './VoxelAnimator';
 import ShootingStarAnimator from './ShootingStarAnimator';
 import {UniformVector3Randomizer, Vector3DirectionRandomizer, UniformFloatRandomizer, ColourRandomizer, RandomHighLowColourCycler} from '../Randomizers';
-import {COLOUR_INTERPOLATION_RGB} from '../Spectrum';
+import {COLOUR_INTERPOLATION_LRGB} from '../Spectrum';
 
 const MIN_MAX_COLOUR_MODE = "Min Max";
 const RANDOM_COLOUR_MODE = "Random";
@@ -25,7 +25,7 @@ export const starShowerDefaultConfig = {
   // Random Colour Mode
   ...RandomHighLowColourCycler.randomColourCyclerDefaultConfig,
 
-  colourInterpolationType: COLOUR_INTERPOLATION_RGB,
+  colourInterpolationType: COLOUR_INTERPOLATION_LRGB,
 
   spawnRate: 10.0 * Math.pow(VoxelConstants.VOXEL_GRID_SIZE / 8.0, 2), // Spawn rate in stars / second
 };
@@ -103,7 +103,6 @@ class StarShowerAnimator extends VoxelAnimator {
     // Check whether it's time to spawn a new shooting star
     const spawnTime = (1.0 / this.currSpawnRate);
     while (this.currSpawnTimer >= spawnTime) {
-
       let starColour = null;
       switch (colourMode) {
         case MIN_MAX_COLOUR_MODE:
@@ -111,7 +110,7 @@ class StarShowerAnimator extends VoxelAnimator {
           starColour = this.colourRandomizer.generate(colourInterpolationType);
           break;
         case RANDOM_COLOUR_MODE:
-          const {lowTempColour, highTempColour}  = this.randomColourCycler.tick(this.currSpawnTimer, COLOUR_INTERPOLATION_RGB);
+          const {lowTempColour, highTempColour}  = this.randomColourCycler.tick(this.currSpawnTimer, colourInterpolationType);
           starColour = ColourRandomizer.getRandomColour(lowTempColour, highTempColour, colourInterpolationType);
           break;
       }

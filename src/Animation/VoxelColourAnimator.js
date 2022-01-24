@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import chroma from 'chroma-js';
 
 import VoxelAnimator, {REPEAT_INFINITE_TIMES} from './VoxelAnimator';
-import {COLOUR_INTERPOLATION_RGB} from '../Spectrum';
+import {COLOUR_INTERPOLATION_LRGB} from '../Spectrum';
 import VoxelConstants from '../VoxelConstants';
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
@@ -38,7 +38,7 @@ export const voxelColourAnimatorDefaultConfig = {
   },
   colourStart: {r:0, g:0, b:0},
   colourEnd: {r:0.5, g:0.5, b:0.5},
-  colourInterpolationType: COLOUR_INTERPOLATION_RGB,
+  colourInterpolationType: COLOUR_INTERPOLATION_LRGB,
   interpolationType: INTERPOLATION_LERP,
   startTimeSecs: 0.0,
   endTimeSecs: 10.0,
@@ -135,7 +135,7 @@ class VoxelColourAnimator extends VoxelAnimator {
       const isFinishedCurrentLoop = (this.currTime >= endTimeSecs);
       if (isFinishedCurrentLoop) {
         this.incrementPlayCounter();
-        if (this.repeat !== REPEAT_INFINITE_TIMES && this.getPlayCounter() >= this.repeat) {
+        if (this.repeat !== REPEAT_INFINITE_TIMES && this.playCounter >= this.repeat) {
           this.animationFinished = true;
         }
         else {

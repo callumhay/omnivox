@@ -6,7 +6,7 @@ import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 import {Randomizer, RandomHighLowColourCycler} from '../Randomizers';
 
 import FireGPU from '../FireGPU';
-import Spectrum, {ColourSystems, FIRE_SPECTRUM_WIDTH, COLOUR_INTERPOLATION_RGB} from '../Spectrum';
+import Spectrum, {ColourSystems, FIRE_SPECTRUM_WIDTH, COLOUR_INTERPOLATION_LRGB} from '../Spectrum';
 import {PI2, clamp} from '../MathUtils';
 
 const REINIT_FLUID_TIME_SECS = 0.1;
@@ -25,7 +25,7 @@ export const fireAnimatorDefaultConfig = {
   vorticityConfinement: 8.0,
 
   colourMode: TEMPERATURE_COLOUR_MODE,
-  colourInterpolationType: COLOUR_INTERPOLATION_RGB,
+  colourInterpolationType: COLOUR_INTERPOLATION_LRGB,
 
   // Temperature Colour Mode
   spectrumTempMin: 500,
@@ -167,9 +167,13 @@ class FireAnimator extends AudioVisualizerAnimator {
     // In random colour mode we're animating the colour over time, check to see if it has changed and update it accordingly
     if (colourMode === RANDOM_COLOUR_MODE) {
       const {colourInterpolationType} = this.config;
+
+      const prevColours = this.randomColourCycler.currRandomColours;
       const currColours = this.randomColourCycler.tick(clampDt, colourInterpolationType);
-      if (this.randomColourCycler.isTransitioning()) {
-        this.fireLookup = FireAnimator._adjustSpectrumAlpha(Spectrum.genLowToHighColourSpectrum(currColours.lowTempColour, currColours.highTempColour, colourInterpolationType));
+      if (!prevColours.lowTempColour.equals(currColours.lowTempColour) || !prevColours.highTempColour.equals(currColours.highTempColour)) {
+        this.fireLookup = FireAnimator._adjustSpectrumAlpha(
+          Spectrum.genLowToHighColourSpectrum(currColours.lowTempColour, currColours.highTempColour, colourInterpolationType)
+        );
       }
     }
 

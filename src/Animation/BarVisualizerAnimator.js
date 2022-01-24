@@ -5,7 +5,7 @@ import AudioVisualizerAnimator from './AudioVisualizerAnimator';
 import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 
 import {RandomHighLowColourCycler} from '../Randomizers';
-import Spectrum, {COLOUR_INTERPOLATION_RGB} from '../Spectrum';
+import Spectrum, {COLOUR_INTERPOLATION_LRGB} from '../Spectrum';
 import {clamp} from '../MathUtils';
 
 const STATIC_BARS_DISPLAY_TYPE         = "Static";
@@ -29,7 +29,7 @@ export const barVisualizerAnimatorDefaultConfig = {
   // Random colour mode
   ...RandomHighLowColourCycler.randomColourCyclerDefaultConfig,
   
-  colourInterpolationType: COLOUR_INTERPOLATION_RGB,
+  colourInterpolationType: COLOUR_INTERPOLATION_LRGB,
   
   displayMode: STATIC_BARS_DISPLAY_TYPE,
 
@@ -122,8 +122,8 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
         this.levelColours = Spectrum.genLowToHighColourSpectrum(lowColour, highColour, colourInterpolationType, this._numLevelColours());
         break;
       case RANDOM_COLOUR_MODE:
-        const {lowTempColour, highTempColour} = this.randomColourCycler.currRandomColours;
-        this.levelColours = Spectrum.genLowToHighColourSpectrum(lowTempColour, highTempColour, colourInterpolationType, this._numLevelColours());
+        //const {lowTempColour, highTempColour} = this.randomColourCycler.currRandomColours;
+        //this.levelColours = Spectrum.genLowToHighColourSpectrum(lowTempColour, highTempColour, colourInterpolationType, this._numLevelColours());
         break;
     }
 
@@ -153,10 +153,8 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
     // In random colour mode we're animating the colour over time, check to see if it has changed and update it accordingly
     if (colourMode === RANDOM_COLOUR_MODE) {
       const {colourInterpolationType} = this.config;
-      const currColours = this.randomColourCycler.tick(dt, COLOUR_INTERPOLATION_RGB);
-      if (this.randomColourCycler.isTransitioning()) {
-        this.levelColours = Spectrum.genLowToHighColourSpectrum(currColours.lowTempColour, currColours.highTempColour, colourInterpolationType, this._numLevelColours());
-      }
+      const currColours = this.randomColourCycler.tick(dt, colourInterpolationType);
+      this.levelColours = Spectrum.genLowToHighColourSpectrum(currColours.lowTempColour, currColours.highTempColour, colourInterpolationType, this._numLevelColours());
     }
 
     let temp = this.prevVisTex;

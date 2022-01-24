@@ -13,6 +13,8 @@ export const shootingStarAnimatorDefaultConfig = {
   repeat: -1,
 };
 
+const tempVec3 = new THREE.Vector3();
+
 /**
  * The ShootingStarAnimator will animate a single "shooting star", a voxel
  * that has a tail which moves from a given starting position in a given
@@ -42,17 +44,20 @@ class ShootingStarAnimator extends VoxelAnimator {
   }
 
   addPositionToAnimatorMap(pos) {
-    const {colour, fadeTimeSecs} = this.config;
+    // The animator map cannot be longer than the longest sequence of voxels in the cube
+    if (this.currAnimatorMap.length >= Math.ceil(VoxelConstants.VOXEL_DIAGONAL_GRID_SIZE)) { return false; }
 
     // Check to see if the current position has an animator yet...
     for (let i = 0; i < this.currAnimatorMap.length; i++) {
-      if (this.currAnimatorMap[i].voxelPosition.distanceToSquared(pos) < VoxelConstants.VOXEL_EPSILON) {
+      if (this.currAnimatorMap[i].voxelPosition.distanceToSquared(pos) < VoxelConstants.VOXEL_ERR_UNITS) {
         return false;
       }
     }
 
+    const {colour, fadeTimeSecs} = this.config;
+
     // No animator exists for the given position / voxel, create one.
-    const animatorObj = {
+    this.currAnimatorMap.push({
       voxelPosition: pos,
       animator: new VoxelColourAnimator(this.voxelModel, {
         shapeType: VOXEL_COLOUR_SHAPE_TYPE_POINT,
@@ -64,8 +69,7 @@ class ShootingStarAnimator extends VoxelAnimator {
         interpolation: INTERPOLATION_SMOOTHER,
         colourInterpolationType: COLOUR_INTERPOLATION_LRGB,
       }),
-    };
-    this.currAnimatorMap.push(animatorObj);
+    });
 
     return true;
   }
@@ -102,18 +106,16 @@ class ShootingStarAnimator extends VoxelAnimator {
       const nVelocity = this.velocity.clone().normalize();
       const velocityRay = new THREE.Ray(this.currPosition, nVelocity);
       const voxelsBox = this.voxelModel.getBoundingBox();
-
-      const target = new THREE.Vector3();
-      if (velocityRay.intersectBox(voxelsBox, target) === null) {
+      
+      if (velocityRay.intersectBox(voxelsBox, tempVec3) === null) {
         // This loop has finished... check to see if there are repeats
         this.incrementPlayCounter();
-        if (this.repeat !== REPEAT_INFINITE_TIMES && this.getPlayCounter() >= this.repeat) {
+        if (this.repeat !== REPEAT_INFINITE_TIMES && this.playCounter >= this.repeat) {
           this.animationFinished = true;
         }
         else {
           this.resetLoop();
         }
-
         return;
       }
     }
@@ -125,8 +127,8 @@ class ShootingStarAnimator extends VoxelAnimator {
 
     // Perform sampling along the velocity addition in increments equal to a properly sized interval
     // to ensure we don't skip voxels
-    if (sqLenIncVel > sqSampleStepSize) {
-      const numSamples = Math.floor(incVelocity.length() / sampleStepSize);
+    if (sqLenIncVel > sqSampleStepSize && this.currAnimatorMap.length < Math.ceil(VoxelConstants.VOXEL_DIAGONAL_GRID_SIZE)) {
+      const numSamples = Math.min(Math.floor(incVelocity.length() / sampleStepSize), 2*VoxelConstants.VOXEL_GRID_SIZE+1);
       const nVelocity = this.velocity.clone().normalize();
       for (let i = 1; i <= numSamples; i++) {
         const samplePos = this.currPosition.clone().add(nVelocity.clone().multiplyScalar(i*sampleStepSize));

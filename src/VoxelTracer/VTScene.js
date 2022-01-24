@@ -13,8 +13,6 @@ class VTScene {
 
     this.childProcesses = [];
 
-    // TODO: Octree: Split up among the child processes, who then perform the collision detection to determine what they should draw.
-
     this.renderables = [];
     this.shadowCasters = [];
     this.lights = [];
@@ -280,7 +278,6 @@ class VTScene {
   }
 
   static getRenderableVoxels(visibleRenderables, boundingBox) {
-
     let renderableVoxels = [];
     for (let i = 0; i < visibleRenderables.length; i++) {
       // Get all of the voxels that collide with the renderable object
@@ -330,7 +327,13 @@ class VTScene {
     // Tell each of the child processes which voxel indices they're responsible for
     for (let i = 0; i < this.childProcesses.length; i++) {
       const currChildProc = this.childProcesses[i];
-      currChildProc.send({type: VTRenderProc.TO_PROC_INIT, data: {voxelIndexRange: [i*numVoxelsPerProc, i*numVoxelsPerProc + numVoxelsPerProc - 1], gridSize: this.voxelModel.gridSize}});
+      currChildProc.send({
+        type: VTRenderProc.TO_PROC_INIT, 
+        data: {
+          voxelIndexRange: [i*numVoxelsPerProc, i*numVoxelsPerProc + numVoxelsPerProc - 1], 
+          gridSize: this.voxelModel.gridSize
+        }
+      });
     }
 
     this._updateChildRenderProcsFromScene(true);

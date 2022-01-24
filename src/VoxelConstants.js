@@ -8,8 +8,11 @@ const POS_Z_VEC3 = new THREE.Vector3(0,0,1);
 const NEG_Z_VEC3 = new THREE.Vector3(0,0,-1);
 
 class VoxelConstants {
+  static get PROJECT_NAME() { return "Omnivox"; }
+
   static get VOXEL_GRID_SIZE() { return 16; }
   static get VOXEL_HALF_GRID_SIZE() { return VoxelConstants.VOXEL_GRID_SIZE/2; }
+  static get VOXEL_DIAGONAL_GRID_SIZE() { return Math.sqrt(2*VoxelConstants.VOXEL_GRID_SIZE*VoxelConstants.VOXEL_GRID_SIZE); }
 
   static get VOXEL_GRID_MAX_IDX() { return VoxelConstants.VOXEL_GRID_SIZE-1; }
   static get VOXEL_HALF_GRID_IDX() { return VoxelConstants.VOXEL_GRID_MAX_IDX/2; }

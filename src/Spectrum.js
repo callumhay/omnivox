@@ -74,16 +74,17 @@ class Spectrum {
     const highColourGL = chroma.gl(highColour.r, highColour.g, highColour.b, 1);
     const spectrum = new Array(size);
     for (let i = 0; i < size; i++) {
-      spectrum[i] = chroma.mix(lowColourGL, highColourGL, i / (size - 1), colourInterpolationType).gl();
+      spectrum[i] = chroma.mix(lowColourGL, highColourGL, i / (size - 1.0), colourInterpolationType).gl();
     }
     return spectrum;
   }
 
   static genRandomHighLowColours(currRandomColours=null) {
 
+    const HUE_MIN_DIST = 60.0;
+    const HUE_LOW_TO_HIGH_TEMP_DIST = 90;
     const LOW_TEMP_SATURATION = [0.75, 1.0];
     const LOW_TEMP_INTENSITY  = [0.33, 0.66];
-    const HUE_DISTANCE_FROM_LOW_TEMP = [90,270];
 
     let nextHighTempColour = null;
     let nextLowTempColour  = null;
@@ -93,11 +94,11 @@ class Spectrum {
       const {lowTempColour} = currRandomColours;
       const lowTempChromaHsl = chroma(chroma.gl(lowTempColour.r, lowTempColour.g, lowTempColour.b, 1)).hsl();
 
-      lowTempChromaHsl[0] = (lowTempChromaHsl[0] + Randomizer.getRandomFloat(60,300)) % 360;
+      lowTempChromaHsl[0] = (lowTempChromaHsl[0] + Randomizer.getRandomFloat(HUE_MIN_DIST, 360-HUE_MIN_DIST)) % 360;
       lowTempChromaHsl[1] = Randomizer.getRandomFloat(LOW_TEMP_SATURATION[0], LOW_TEMP_SATURATION[1]);
       lowTempChromaHsl[2] = Randomizer.getRandomFloat(LOW_TEMP_INTENSITY[0], LOW_TEMP_INTENSITY[1]);
 
-      const highTempHue = (lowTempChromaHsl[0] + Randomizer.getRandomFloat(HUE_DISTANCE_FROM_LOW_TEMP[0], HUE_DISTANCE_FROM_LOW_TEMP[1])) % 360;
+      const highTempHue = (lowTempChromaHsl[0] + Randomizer.getRandomFloat(HUE_LOW_TO_HIGH_TEMP_DIST, 360-HUE_LOW_TO_HIGH_TEMP_DIST)) % 360;
       const highTempChromaHsl = [highTempHue, 1, lowTempChromaHsl[2]];
       nextLowTempColour = chroma(lowTempChromaHsl, 'hsl').gl();
       nextLowTempColour = new THREE.Color(nextLowTempColour[0], nextLowTempColour[1], nextLowTempColour[2]);

@@ -28,13 +28,9 @@ class VoxelAnimator {
 
     this.voxelModel = voxelModel;
     this.repeat = 0;
+    this.playCounter = 0;
     this.config = {};
     
-    let _playCounter = 0;
-    this.setPlayCounter = (val) => { _playCounter = val; };
-    this.getPlayCounter = () => (_playCounter);
-    this.incrementPlayCounter = () => { _playCounter++; };
-
     this.setConfig(config);
   }
 
@@ -52,7 +48,8 @@ class VoxelAnimator {
   static get VOXEL_ANIM_TYPES() {return VOXEL_ANIM_TYPES;}
 
   getType() { return null; }
-  
+
+  incrementPlayCounter() { this.playCounter++; }
 
   setConfig(c) {
     this.config = c ? c : {};
@@ -68,7 +65,7 @@ class VoxelAnimator {
   rendersToCPUOnly() { return false; }
 
   reset() {
-    this.setPlayCounter(0);
+    this.playCounter = 0;
   }
   stop() {}
 }

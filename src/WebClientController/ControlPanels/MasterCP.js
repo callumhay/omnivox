@@ -23,24 +23,17 @@ class MasterCP {
     this.soundManager = soundManager;
 
     this.pane = new Pane({
-      title: "Omnivox Controller",
+      title: VoxelConstants.PROJECT_NAME + " Controller",
       container: document.getElementById("controlContainer"), 
       expanded: true
     });
 
-    /*
-    this.sceneAnimatorConfig = {...sceneAnimatorDefaultConfig};
-    this.sceneAnimatorConfig.sceneOptions = {...sceneAnimatorDefaultConfig.sceneOptions};
-    this.barVisAnimatorConfig = {...barVisualizerAnimatorDefaultConfig};
-    */
-
     this.settings = {...this.settings,
       animatorType: VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR,
-      //showWireFrame: this.voxelDisplay.outlinesEnabled,
-      //orbitMode: this.voxelDisplay.orbitModeEnabled,
       crossfadeTime: DEFAULT_CROSSFADE_TIME_SECS,
       brightness: VoxelConstants.DEFAULT_BRIGHTNESS_MULTIPLIER,
     };
+    
     this.childControlPanels = {};
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR] = new ColourAnimCP(this);
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_TEXT] = new TextAnimCP(this);

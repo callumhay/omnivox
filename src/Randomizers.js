@@ -190,6 +190,7 @@ export class RandomHighLowColourCycler {
     this.colourTransitionTimeCounter = 0;
     this.colourHoldTimeCounter = 0;
     this.currRandomColours = Spectrum.genRandomHighLowColours();
+    this.prevRandomColours = this.currRandomColours;
     this.nextRandomColours = Spectrum.genRandomHighLowColours(this.currRandomColours);
   }
 
@@ -205,7 +206,7 @@ export class RandomHighLowColourCycler {
       // We're transitioning between random colours, interpolate from the previous to the next
       const interpolationVal = clamp(this.colourTransitionTimeCounter / randomColourTransitionTime, 0, 1);
 
-      const {lowTempColour:currLowTC, highTempColour:currHighTC} = this.currRandomColours;
+      const {lowTempColour:currLowTC, highTempColour:currHighTC} = this.prevRandomColours;
       const {lowTempColour:nextLowTC, highTempColour:nextHighTC} = this.nextRandomColours;
 
       const tempLowTempColour = chroma.mix(chroma.gl([currLowTC.r, currLowTC.g, currLowTC.b, 1]), chroma.gl([nextLowTC.r, nextLowTC.g, nextLowTC.b, 1]), interpolationVal, colourInterpolationType).gl();
@@ -214,18 +215,14 @@ export class RandomHighLowColourCycler {
       const finalLowTempColour = new THREE.Color(tempLowTempColour[0], tempLowTempColour[1], tempLowTempColour[2]);
       const finalHighTempColour = new THREE.Color(tempHighTempColour[0], tempHighTempColour[1], tempHighTempColour[2]);
 
-      this.colourTransitionTimeCounter += dt;
-      if (this.colourTransitionTimeCounter >= randomColourTransitionTime) {
-        this.currRandomColours = {lowTempColour: finalLowTempColour, highTempColour: finalHighTempColour};
+      this.colourTransitionTimeCounter += clamp(dt, 0, 1.0/30.0);
+      this.currRandomColours = {lowTempColour: finalLowTempColour, highTempColour: finalHighTempColour};
+
+      if (interpolationVal >= 1) {
+        this.prevRandomColours = this.currRandomColours;
         this.nextRandomColours = Spectrum.genRandomHighLowColours(this.currRandomColours);
         this.colourTransitionTimeCounter = 0;
         this.colourHoldTimeCounter = 0;
-      }
-      else {
-        return {
-          lowTempColour: finalLowTempColour,
-          highTempColour: finalHighTempColour
-        };
       }
     }
     else {

@@ -237,12 +237,16 @@ class VoxelProtocol {
 
     if (slaveId !== null) {
       // For Teensy OctoWS2812 clients...
-      const VOXEL_MODULE_X_SIZE = VoxelConstants.VOXEL_GRID_SIZE;
       const VOXEL_MODULE_Y_SIZE = VoxelConstants.VOXEL_GRID_SIZE;
       const VOXEL_MODULE_Z_SIZE = VoxelConstants.VOXEL_GRID_SIZE;
       const startX = slaveId * NUM_OCTO_DATA_PINS;
       const endX = startX + NUM_OCTO_DATA_PINS;
       const octoVoxels = new Array(NUM_OCTO_DATA_PINS).fill(0);
+
+      // NOTE: THIS CODE'S OPTIMIZATION IS VERY IMPORTANT: IT RUNS FOR EVERY TEENSY FOR EVERY SIMULATED FRAME.
+      // IF YOU EXPERIENCE LAG IN THE SIMULATIION THIS IS LIKELY A CULPRIT/BOTTLENECK.
+      let octoVoxIdx = 0;
+      let b = 0;
 
       // Go through z-coords first
       for (let z = 0; z < VOXEL_MODULE_Z_SIZE; z++) {
@@ -251,24 +255,30 @@ class VoxelProtocol {
 
           // We interleave the voxel data by fetching 8 voxels from the cube, each one is from an individual board and corresponds
           // to a different pin on the Teensy's Octo
-          let octoVoxIdx = 0;
+          octoVoxIdx = 0;
           for (let x = startX; x < endX; x++) { // Always NUM_OCTO_DATA_PINS iterations!
             const voxelColour = data[x][y][z];
-            const r = GAMMA_MAP_RGB123[parseInt(brightnessMultiplier*voxelColour[0]*255)];
-            const g = GAMMA_MAP_RGB123[parseInt(brightnessMultiplier*voxelColour[1]*255)];
-            const b = GAMMA_MAP_RGB123[parseInt(brightnessMultiplier*voxelColour[2]*255)];
+            const r = GAMMA_MAP_RGB123[Math.round(brightnessMultiplier*voxelColour[0]*255)];
+            const g = GAMMA_MAP_RGB123[Math.round(brightnessMultiplier*voxelColour[1]*255)];
+            const b = GAMMA_MAP_RGB123[Math.round(brightnessMultiplier*voxelColour[2]*255)];
             // Store as a hex/int colour as one of the NUM_OCTO_DATA_PINS colour values
             octoVoxels[octoVoxIdx++] = (0xFF0000 & (r << 16)) | (0x00FF00 & (g << 8)) | (0x0000FF & b);
           }
 
           // Now convert the 8 voxel colour integers to 24 bytes and store it in the packetBuf
-          for (let mask = 0x800000; mask != 0; mask >>= 1) {
-            let b = 0;
-            for (let i = 0; i < 8; i++) {
-              if ((octoVoxels[i] & mask) != 0) {
-                b |= (1 << i);
-              }
-            }
+          for (let mask = 0x800000; mask !== 0; mask >>= 1) {
+            b = 0;
+            // We unrolled this loop and removed the if statement because .. optimization? profit?
+            //for (let i = 0; i < NUM_OCTO_DATA_PINS; i++) { if ((octoVoxels[i] & mask) !== 0) { b |= (1 << i); } }
+            b |= (Number((octoVoxels[0] & mask) !== 0));
+            b |= (Number((octoVoxels[1] & mask) !== 0) << 1);
+            b |= (Number((octoVoxels[2] & mask) !== 0) << 2);
+            b |= (Number((octoVoxels[3] & mask) !== 0) << 3);
+            b |= (Number((octoVoxels[4] & mask) !== 0) << 4);
+            b |= (Number((octoVoxels[5] & mask) !== 0) << 5);
+            b |= (Number((octoVoxels[6] & mask) !== 0) << 6);
+            b |= (Number((octoVoxels[7] & mask) !== 0) << 7);
+            
             packetBuf[byteCount++] = b;
           }
         }
@@ -282,10 +292,9 @@ class VoxelProtocol {
           const zLen = data[x][y].length;
           for (let z = 0; z < zLen; z++) {
             const voxelColour = data[x][y][z];
-
-            packetBuf[byteCount]   = parseInt(brightnessMultiplier*voxelColour[0]*255);
-            packetBuf[byteCount+1] = parseInt(brightnessMultiplier*voxelColour[1]*255);
-            packetBuf[byteCount+2] = parseInt(brightnessMultiplier*voxelColour[2]*255);
+            packetBuf[byteCount]   = Math.round(brightnessMultiplier*voxelColour[0]*255);
+            packetBuf[byteCount+1] = Math.round(brightnessMultiplier*voxelColour[1]*255);
+            packetBuf[byteCount+2] = Math.round(brightnessMultiplier*voxelColour[2]*255);
             byteCount += 3;
           }
         }

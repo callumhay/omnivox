@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {DEFAULT_NUM_FFT_SAMPLES, DEFAULT_FFT_BUFFER_SIZE} from '../WebClientController/SoundManager';
-import {COLOUR_INTERPOLATION_RGB} from '../Spectrum';
+import {COLOUR_INTERPOLATION_LRGB} from '../Spectrum';
 
 const DEFAULT_LEVEL_MAX = 1.75;
 const DEFAULT_GAMMA = 1.6;
@@ -13,7 +13,7 @@ const DEFAULT_SPLIT_LEVELS  = false;
 const basicBarsAudioVisDefaultConfig = {
   lowColour:    DEFAULT_LOW_COLOUR,
   highColour:   DEFAULT_HIGH_COLOUR,
-  colourInterpolationType: COLOUR_INTERPOLATION_RGB,
+  colourInterpolationType: COLOUR_INTERPOLATION_LRGB,
   centerSorted: DEFAULT_CENTER_SORTED,
   splitLevels:  DEFAULT_SPLIT_LEVELS,
 };

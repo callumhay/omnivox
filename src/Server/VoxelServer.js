@@ -32,11 +32,11 @@ class VoxelServer {
       console.log("Websocket opened...");
       switch (socket.protocol) {
         case VoxelProtocol.WEBSOCKET_PROTOCOL_VIEWER:
-          console.log("Viewer websocket detected.");
+          console.log(VoxelConstants.PROJECT_NAME + " Viewer detected.");
           self.viewerWS = socket;
           break;
         case VoxelProtocol.WEBSOCKET_PROTOCOL_CONTROLLER:
-          console.log("Controller websocket detected.");
+          console.log(VoxelConstants.PROJECT_NAME + " Controller detected.");
           self.controllerWS = socket;
           break;
         default:
@@ -210,7 +210,7 @@ class VoxelServer {
     if (this.connectedSerialPorts.length > 0) {
       //console.log("Number of serial ports connected: " +this.connectedSerialPorts.length);
       // Send data frames out through all connected serial ports
-      this.connectedSerialPorts.forEach((currSerialPort) => {
+      for (const currSerialPort of this.connectedSerialPorts) {
         if (!currSerialPort.isOpen) {
           // Try to reconnect...
           console.log("Serial port (" + currSerialPort.port + ") no longer open, attempting to reconnect...");
@@ -218,6 +218,7 @@ class VoxelServer {
         }
         else if (currSerialPort.isVoxelDataConnection) {
           const slaveData = this.slaveDataMap[currSerialPort.path];
+          // Make sure there's a slave to send the data to and that the serial port has been drained after the previous write
           if (slaveData && currSerialPort.lastWriteResult) {
             //console.log("Sending slave data for " + currSerialPort.path + ", id: " + slaveData.id);
             const voxelDataSlavePacketBuf = VoxelProtocol.buildVoxelDataPacketForSlaves(voxelData, slaveData.id);
@@ -226,20 +227,18 @@ class VoxelServer {
             currSerialPort.drain((err) => {
               if (err) {  console.error(err); }
               currSerialPort.lastWriteResult = true;
-              //console.log("Drained.");
             });
           }
           else {
             //console.log("Failed to send slave data: " + (slaveData ? "" : "Data empty") + " " + (currSerialPort.lastWriteResult ? "" : "Not finished writing."));
           }
         }
-      });
+      }
     }
 
     // Send voxel data to the viewer websocket client
-    const voxelDataPacketBuf = VoxelProtocol.buildVoxelDataPacket(voxelData);
     if (this.viewerWS && this.viewerWS.bufferedAmount === 0) {
-      this.viewerWS.send(voxelDataPacketBuf);
+      this.viewerWS.send(VoxelProtocol.buildVoxelDataPacket(voxelData));
     }
   }
 
