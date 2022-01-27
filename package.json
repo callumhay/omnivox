@@ -34,7 +34,7 @@
     "minimist": ">=1.2.3",
     "seedrandom": "^3.0.5",
     "serialport": "^8.0.8",
-    "three": "^0.125.0",
+    "three": "^0.137.0",
     "three-mesh-bvh": "^0.3.7",
     "tweakpane": "^3.0.2",
     "utf-8-validate": "^5.0.2",
