@@ -25,7 +25,7 @@ const POINTS_FRAGMENT_SHADER = `
   varying vec3 vColor;
 
   void main() {
-    gl_FragColor = vec4(color * vColor, 1);
+    gl_FragColor = vec4(color * vColor, 1.0);
     gl_FragColor = gl_FragColor * texture2D(pointTexture, gl_PointCoord);
     if (gl_FragColor.a < 0.5 || (gl_FragColor.r+gl_FragColor.g+gl_FragColor.b) < 0.01 ) { discard; }
   }
@@ -105,7 +105,8 @@ class VoxelDisplay {
       },
       vertexShader: POINTS_VERTEX_SHADER,
       fragmentShader: POINTS_FRAGMENT_SHADER,
-      alphaTest: 0.5,
+      blending: THREE.AdditiveBlending,
+      depthTest: false,
       //opacity: 0.75,
       //transparent: true,
     });
