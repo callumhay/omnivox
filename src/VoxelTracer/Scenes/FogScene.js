@@ -5,7 +5,7 @@ import SceneRenderer from './SceneRenderer';
 import VTAmbientLight from '../VTAmbientLight';
 import VTPointLight from '../VTPointLight';
 import VTSpotLight from '../VTSpotLight';
-import VTFog, { fogDefaultOptions } from '../VTFog';
+import {VTFogBox, fogDefaultOptions } from '../VTFog';
 import { MathUtils } from 'three';
 
 class FogScene extends SceneRenderer {
@@ -49,7 +49,7 @@ class FogScene extends SceneRenderer {
       );
 
       this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
-      this.fog = new VTFog(new THREE.Vector3(0,0,0), new THREE.Vector3(size, size, size), fogOptions);
+      this.fog = new VTFogBox(new THREE.Vector3(0,0,0), new THREE.Vector3(size, size, size), fogOptions);
 
       this._objectsBuilt = true;
     }

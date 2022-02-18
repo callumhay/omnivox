@@ -7,7 +7,8 @@ class VTObject {
   static get POINT_LIGHT_TYPE() { return 'p'; }
   static get SPOT_LIGHT_TYPE() { return 's'; }
   static get VOXEL_TYPE() { return 'v'; }
-  static get FOG_TYPE() { return 'f'; }
+  static get FOG_BOX_TYPE() { return 'fb'; }
+  static get FOG_SPHERE_TYPE() { return 'fs'; }
   static get ISOFIELD_TYPE() { return 'i'; }
   
   constructor(type) {

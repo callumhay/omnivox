@@ -106,7 +106,9 @@ class SoundManager {
       'spectralRolloff',
       //'loudness',
       'rms',
-      //'mfcc'
+      'zcr',
+      //'mfcc',
+      'chroma',
     ]);
 
     if (!this.features) {
@@ -120,8 +122,10 @@ class SoundManager {
     client.sendAudioInfo({
       fft: this.ffts[0],
       rms: this.features.rms,
+      zcr: this.features.zcr,
       spectralRolloff: this.features.spectralRolloff,
       spectralCentroid: this.features.spectralCentroid,
+      //mfcc: this.features.mfcc,
     });
   }
 

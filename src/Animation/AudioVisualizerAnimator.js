@@ -1,9 +1,15 @@
 import VoxelAnimator from "./VoxelAnimator";
 import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 
-import {clamp} from '../MathUtils';
+const RMS_BUFFER_SIZE = 3;
+const MIN_MAX_RMS = 0.1;
 
-const MAX_AVG_BEATS_PER_SEC = 120;
+const ZCR_BUFFER_SIZE = 3;
+const MIN_MAX_ZCR = 50;
+
+const MAX_RESET_WINDOW_TIME_S = 3;
+const DIMINISH_WEIGHT = 0.8;
+const ONEM_DIMINISH_WEIGHT = (1-DIMINISH_WEIGHT);
 
 class AudioVisualizerAnimator extends VoxelAnimator {
   constructor(voxelModel, config={...soundVisDefaultConfig}) {
@@ -11,45 +17,52 @@ class AudioVisualizerAnimator extends VoxelAnimator {
   }
 
   setAudioInfo(audioInfo) {
-    const {rms} = audioInfo;
+    const currAudioFrameTime = Date.now();
+    this.dtAudioFrame = Math.max(0.000001, (currAudioFrameTime - this.lastAudioFrameTime) / 1000);
+    this.lastAudioFrameTime = currAudioFrameTime;
 
-    this.currAudioFrameTime = Date.now();
-    this.dtAudioFrame=  Math.max(0.000001, (this.currAudioFrameTime - this.lastAudioFrameTime) / 1000);
-    this.lastAudioFrameTime = this.currAudioFrameTime;
+    const {rms, zcr} = audioInfo;
 
-    const denoisedRMS = rms < 0.01 ? 0 : rms;
-    this.avgRMS = (this.avgRMS + denoisedRMS) / 2.0;
+    this.rmsBuffer.shift();
+    this.rmsBuffer.push(rms);
+    this.avgRMS = (this.rmsBuffer.reduce((a,b) => a+b, 0) / Math.max(1,this.rmsBuffer.length)) || 0;
 
-    this.dRMSAvg = (this.dRMSAvg + (denoisedRMS - this.lastRMS) / this.dtAudioFrame) / 2.0;
-    if (this.timeSinceLastBeat > 0.001 && (this.dRMSAvg < 0 && this.lastdRMS > 0) || (this.dRMSAvg > 0 && this.lastdRMS < 0)) {
-      // We crossed zero, count the beat
-      this.avgBeatsPerSec = clamp((this.avgBeatsPerSec + 1.0 / this.timeSinceLastBeat) / 2.0, 0, MAX_AVG_BEATS_PER_SEC);
-      this.timeSinceLastBeat = 0;
+    this.zcrBuffer.shift();
+    this.zcrBuffer.push(zcr);
+    this.avgZCR = (this.zcrBuffer.reduce((a,b) => a+b, 0) / Math.max(1,this.zcrBuffer.length)) || 0;
+
+    // Reset the maximum values within a window to avoid making the max too high
+    // i.e., accomodate if a new song plays or the mic is moved or the levels change etc.
+    if (this.currMaxResetTimeCounter >= MAX_RESET_WINDOW_TIME_S) {
+      this.currMaxRMS = Math.max(MIN_MAX_RMS, this.currMaxRMS*DIMINISH_WEIGHT + this.avgRMS*ONEM_DIMINISH_WEIGHT);
+      this.currMaxZCR = Math.max(MIN_MAX_ZCR, this.currMaxZCR*DIMINISH_WEIGHT + this.avgZCR*ONEM_DIMINISH_WEIGHT);
+      
+      this.currMaxResetTimeCounter = 0;
     }
     else {
-      this.timeSinceLastBeat += this.dtAudioFrame;
-      if (this.timeSinceLastBeat > 1) {
-        this.avgBeatsPerSec = clamp((this.avgBeatsPerSec + 0.01) / 2.0, 0, MAX_AVG_BEATS_PER_SEC);
-      }
+      this.currMaxRMS = Math.max(MIN_MAX_RMS, this.currMaxRMS*DIMINISH_WEIGHT + Math.max(this.avgRMS, this.currMaxRMS)*ONEM_DIMINISH_WEIGHT);
+      this.currMaxZCR = Math.max(MIN_MAX_ZCR, this.currMaxZCR*DIMINISH_WEIGHT + Math.max(this.avgZCR, this.currMaxZCR)*ONEM_DIMINISH_WEIGHT);
+
+      this.currMaxResetTimeCounter += this.dtAudioFrame;
     }
-    
-    this.lastRMS  = denoisedRMS;
-    this.lastdRMS = this.dRMSAvg;
+
   }
 
   reset() {
     super.reset();
 
+    this.currMaxResetTimeCounter = 0;
+
+    this.rmsBuffer = Array(RMS_BUFFER_SIZE).fill(0);
     this.avgRMS = 0;
+    this.currMaxRMS = MIN_MAX_RMS;
+
+    this.zcrBuffer = Array(ZCR_BUFFER_SIZE).fill(0);
+    this.avgZCR = 0;
+    this.currMaxZCR = MIN_MAX_ZCR;
+
     this.dtAudioFrame = 0;
     this.lastAudioFrameTime = Date.now();
-    this.currAudioFrameTime = this.lastAudioFrameTime;
-    this.dRMSAvg = 0;
-    this.avgBeatsPerSec = 0;
-    this.lastdRMS = 0;
-    this.lastRMS = 0;
-    this.avgBeatsPerSec = 0;
-    this.timeSinceLastBeat = 1;
   }
 
   static buildBinIndexLookup(numFreqs, numBins, gamma) {

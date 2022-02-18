@@ -93,47 +93,6 @@ class DisplayClient {
         break;
     }
   }
-
-  sendRequestFullStateUpdate() {
-    if (this.socket.readyState === WebSocket.OPEN) {
-      //this.socket.send(VoxelProtocol.buildClientPacketStr(VoxelProtocol.FULL_STATE_UPDATE_HEADER, null, null));
-    }
-  }
-  sendAnimatorChangeCommand(animatorType, config) {
-    if (this.socket.readyState === WebSocket.OPEN) {
-      //this.socket.send(VoxelProtocol.buildClientPacketStr(VoxelProtocol.VOXEL_ROUTINE_CHANGE_HEADER, animatorType, config));
-    }
-  }
-  sendConfigUpdateCommand(config) {
-    if (this.socket.readyState === WebSocket.OPEN) {
-      //this.socket.send(VoxelProtocol.buildClientPacketStr(VoxelProtocol.VOXEL_ROUTINE_CONFIG_UPDATE_HEADER, null, config));
-    }
-  }
-  sendRoutineResetCommand() {
-    if (this.socket.readyState === WebSocket.OPEN) {
-      //this.socket.send(VoxelProtocol.buildClientPacketStr(VoxelProtocol.VOXEL_ROUTINE_RESET_HEADER, null, null));
-    }
-  }
-  sendClearCommand(r, g, b) {
-    if (this.socket.readyState === WebSocket.OPEN) {
-      //this.socket.send(VoxelProtocol.buildClientPacketStr(VoxelProtocol.VOXEL_CLEAR_COMMAND_HEADER, null, {r: r, g: g, b: b}));
-    }
-  }
-  sendAudioInfo(audioInfo) {
-    if (this.socket.bufferedAmount === 0 && this.socket.readyState === WebSocket.OPEN && !this.audioOnQueue) {
-      //this.socket.send(VoxelProtocol.buildClientPacketStrAudio(audioInfo));
-    }
-  }
-  sendCrossfadeTime(crossfadeTimeInSecs) {
-    if (this.socket.readyState === WebSocket.OPEN) {
-      //this.socket.send(VoxelProtocol.buildClientCrossfadePacketStr(crossfadeTimeInSecs));
-    }
-  }
-  sendGlobalBrightness(brightness) {
-    if (this.socket.readyState === WebSocket.OPEN) {
-      //this.socket.send(VoxelProtocol.buildClientBrightnessPacketStr(brightness));
-    }
-  }
 }
 
 export default DisplayClient;

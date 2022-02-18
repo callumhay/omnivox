@@ -212,7 +212,7 @@ class VTScene {
     return (VTScene.debugInspectIsOn()) ? 1 : os.cpus().length;
   }
 
-  _killChildProcesses() {
+  killChildProcesses() {
     for (let i = 0; i < this.childProcesses.length; i++) {
       if (!this.childProcesses[i].kill()) {
         console.error("Failed to properly kill child process.");

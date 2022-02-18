@@ -159,7 +159,7 @@ class FireAnimator extends AudioVisualizerAnimator {
     }
 
     const clampDt = clamp(dt, 0.0, 1.0/30.0); // Make sure our timesteps aren't too big or it will cause instability in the fire simulation
-    const currSpeed = audioVisualizationOn ? speed + audioSpeedMultiplier*(1 + THREE.MathUtils.lerp(0, 0.5, this.avgBeatsPerSec/MAX_AVG_BEATS_PER_SEC)) : speed;
+    const currSpeed = audioVisualizationOn ? speed + audioSpeedMultiplier*(1 + Math.min(1, this.avgRMS/this.currMaxRMS)) : speed;
     const dtSpeed = clampDt*currSpeed;
     this.fluidModel.step(dtSpeed);
     this.t += dtSpeed;

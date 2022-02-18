@@ -5,7 +5,7 @@ import SceneRenderer from './SceneRenderer';
 import VTMesh from '../VTMesh';
 import VTLambertMaterial from '../VTLambertMaterial';
 import VTPointLight from '../VTPointLight';
-import VTFog, { fogDefaultOptions } from '../VTFog';
+import {VTFogBox, fogDefaultOptions } from '../VTFog';
 
 class GodRayScene extends SceneRenderer {
   constructor(scene, voxelModel) {
@@ -31,7 +31,7 @@ class GodRayScene extends SceneRenderer {
 
     if (!this._objectsBuilt) {
       const size = this.voxelModel.xSize();
-      this.fog = new VTFog(new THREE.Vector3(0,0,0), new THREE.Vector3(size, size, size), fogOptions);
+      this.fog = new VTFogBox(new THREE.Vector3(0,0,0), new THREE.Vector3(size, size, size), fogOptions);
 
       const {shapeSize, shapeColour, shapeEmission} = options;
       this.shapeGeom = new THREE.BoxBufferGeometry(shapeSize.x, shapeSize.y, shapeSize.z, 1, 1, 1);

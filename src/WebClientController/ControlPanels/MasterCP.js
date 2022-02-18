@@ -13,6 +13,7 @@ import ShapeWaveAnimCP from './ShapeWaveAnimCP';
 import FireAnimCP from './FireAnimCP';
 import BarVisualizerAnimCP from './BarVisualizerAnimCP';
 import SceneAnimCP from './SceneAnimCP';
+import GamepadDJCP from './GamepadDJCP';
 
 
 class MasterCP {
@@ -42,6 +43,7 @@ class MasterCP {
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_FIRE] = new FireAnimCP(this);
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER] = new BarVisualizerAnimCP(this);
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_SCENE] = new SceneAnimCP(this);
+    this.childControlPanels[VoxelAnimator.VOXEL_ANIM_GAMEPAD_DJ] = new GamepadDJCP(this);
 
     this._hideSubFolders();
     this._removeSubFolders();

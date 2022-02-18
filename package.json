@@ -27,6 +27,7 @@
     "cobs": "^0.2.1",
     "express": "^4.17.1",
     "fs": "0.0.1-security",
+    "gamepad.js": "^1.0.4",
     "get-pixels": "^3.3.2",
     "gl": "^4.6.1",
     "gpu.js": "^2.11.4",

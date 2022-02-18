@@ -114,7 +114,7 @@ class ControllerClient {
     }
   }
   sendAudioInfo(audioInfo) {
-    if (this.socket.bufferedAmount === 0 && this.socket.readyState === WebSocket.OPEN) {
+    if (this.socket.readyState === WebSocket.OPEN/* && this.socket.bufferedAmount === 0*/) {
       this.socket.send(VoxelProtocol.buildClientPacketStrAudio(audioInfo));
     }
   }
@@ -127,6 +127,21 @@ class ControllerClient {
   sendGlobalBrightness(brightness) {
     if (this.socket.readyState === WebSocket.OPEN && this.commEnabled) {
       this.socket.send(VoxelProtocol.buildClientBrightnessPacketStr(brightness));
+    }
+  }
+  sendGamepadAxisEvent(gamepadEvent) {
+    if (this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(VoxelProtocol.buildClientGamepadAxisStr(gamepadEvent));
+    }
+  }
+  sendGamepadButtonEvent(gamepadEvent) {
+    if (this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(VoxelProtocol.buildClientGamepadButtonStr(gamepadEvent));
+    }
+  }
+  sendGamepadStatusEvent(statusEvent) {
+    if (this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(VoxelProtocol.buildClientGamepadStatusStr(statusEvent));
     }
   }
   

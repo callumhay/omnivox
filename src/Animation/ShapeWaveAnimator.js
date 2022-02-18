@@ -36,11 +36,13 @@ export const RGB_COLOUR_PALETTE = [
 ];
 
 // Wave Shape Constants
-export const WAVE_SHAPE_CUBE   = 'cube';
-export const WAVE_SHAPE_SPHERE = 'sphere';
+export const WAVE_SHAPE_CUBE    = 'cube';
+export const WAVE_SHAPE_SPHERE  = 'sphere';
+export const WAVE_SHAPE_DIAMOND = 'diamond';
 export const WAVE_SHAPE_TYPES = [
   WAVE_SHAPE_CUBE,
   WAVE_SHAPE_SPHERE,
+  WAVE_SHAPE_DIAMOND,
 ];
 
 // Colour selection constants
@@ -76,22 +78,6 @@ class WaveShape {
     this.removeMe = false;
   }
 
-  drawVoxels(drawRadius, brightness) {
-    const adjustedColour = this.colour.clone().multiplyScalar(brightness);
-    switch (this.shape) {
-      case WAVE_SHAPE_CUBE:
-        const minPt = this.getMinPt(drawRadius);
-        const maxPt = this.getMaxPt(drawRadius);
-        this.voxelModel.drawAABB(minPt, maxPt, adjustedColour, true);
-        break;
-      case WAVE_SHAPE_SPHERE:
-        this.voxelModel.drawSphere(this.center, drawRadius, adjustedColour, true);
-        break;
-      default:
-        break;
-    }
-  }
-
   getMinPt(r) {
     return this.center.clone().subScalar(r);
   }
@@ -106,40 +92,35 @@ class WaveShape {
     const maxBoundsPt = new THREE.Vector3(maxValue, maxValue, maxValue);
 
     switch (this.shape) {
+
       case WAVE_SHAPE_CUBE:
         const boundingBox = new THREE.Box3(this.getMinPt(this.radius-1), this.getMaxPt(this.radius-1));
         return !(boundingBox.containsPoint(minBoundsPt) && boundingBox.containsPoint(maxBoundsPt));
-      case WAVE_SHAPE_SPHERE:
+      
+      case WAVE_SHAPE_SPHERE: {
         const boundingSphere = new THREE.Sphere(this.center, this.radius - VoxelConstants.VOXEL_EPSILON);
         return !(boundingSphere.containsPoint(minBoundsPt) && boundingSphere.containsPoint(maxBoundsPt));
+      }
+
+      case WAVE_SHAPE_DIAMOND: {
+        const boundingSphere = new THREE.Sphere(this.center, Math.SQRT1_2*this.radius - VoxelConstants.VOXEL_EPSILON);
+        return !(boundingSphere.containsPoint(minBoundsPt) && boundingSphere.containsPoint(maxBoundsPt));
+      }
+
       default:
         return false;
     }
   }
 
   tick(dt, waveSpeed) {
-    if (this.animationFinished) {
-      return;
-    }
+    if (this.animationFinished) { return; }
+    
     this.radius += dt*waveSpeed;
     if (!this.isInsideVoxels()) {
       this.animationFinished = true;
     }
   }
-
-  render(dt, waveSpeed, brightness) {
-    if (this.animationFinished) {
-      return;
-    }
-
-    this.drawVoxels(this.radius, brightness);
-    this.radius += dt*waveSpeed;
-
-    if (!this.isInsideVoxels()) {
-      this.animationFinished = true;
-    }
-  }
-};
+}
 
 class ShapeWaveAnimator extends VoxelAnimator {
   constructor(voxels, config = shapeWaveAnimatorDefaultConfig) {
@@ -231,6 +212,9 @@ class ShapeWaveAnimator extends VoxelAnimator {
         break;
       case WAVE_SHAPE_SPHERE:
         this.voxelModel.drawSpheres([center.x, center.y, center.z], radii, colours, 1);
+        break;
+      case WAVE_SHAPE_DIAMOND:
+        this.voxelModel.drawDiamonds([center.x, center.y, center.z], radii, colours, 1);
         break;
       default:
         break;

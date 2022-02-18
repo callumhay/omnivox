@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import ControllerClient from './ControllerClient';
 import SoundManager from './SoundManager';
+import GamepadManager from './GamepadManager';
 
 // Setup audio capture and visualization
 const audioVisEl = document.getElementById('audioVisContainer');
@@ -14,10 +15,13 @@ const soundManager = new SoundManager(renderer);
 // Central communication class for the controller
 const client = new ControllerClient(soundManager);
 
+// Setup gamepad controller capture
+const gamepadManager = new GamepadManager(client);
+gamepadManager.start();
 
 let lastFrameTime = Date.now();
 let sampleAudioTime = 0;
-const TIME_BETWEEN_AUDIO_SAMPLES = 1.0 / 30; // 30Hz
+const TIME_BETWEEN_AUDIO_SAMPLES = 1.0 / 20.0; // 20Hz
 
 const render = function () {
   let currFrameTime = Date.now();

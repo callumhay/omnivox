@@ -29,6 +29,9 @@ const VOXEL_CLEAR_COMMAND_HEADER = "L";
 const AUDIO_INFO_HEADER = "A";
 const CROSSFADE_UPDATE_HEADER = "X";
 const BRIGHTNESS_UPDATE_HEADER = "B";
+const GAMEPAD_AXIS_HEADER = "G";
+const GAMEPAD_BUTTON_HEADER = "T";
+const GAMEPAD_STATUS_HEADER = "S";
 
 const PACKET_END = ";";
 
@@ -104,6 +107,9 @@ class VoxelProtocol {
   static get AUDIO_INFO_HEADER() {return AUDIO_INFO_HEADER;}
   static get CROSSFADE_UPDATE_HEADER() {return CROSSFADE_UPDATE_HEADER;}
   static get BRIGHTNESS_UPDATE_HEADER() {return BRIGHTNESS_UPDATE_HEADER;}
+  static get GAMEPAD_AXIS_HEADER() {return GAMEPAD_AXIS_HEADER;}
+  static get GAMEPAD_BUTTON_HEADER() {return GAMEPAD_BUTTON_HEADER;}
+  static get GAMEPAD_STATUS_HEADER() {return GAMEPAD_STATUS_HEADER;}
 
   static buildWelcomePacketForSlaves(voxelModel) {
     const packetDataBuf = new Uint8Array(3); // slaveid (1 byte), type (1 byte), y-size (1 byte)
@@ -164,6 +170,25 @@ class VoxelProtocol {
       },
     });
   }
+  static buildClientGamepadAxisStr(axisEvent) {
+    return JSON.stringify({
+      packetType: GAMEPAD_AXIS_HEADER,
+      axisEvent,
+    });
+  }
+  static buildClientGamepadButtonStr(buttonEvent) {
+    return JSON.stringify({
+      packetType: GAMEPAD_BUTTON_HEADER,
+      buttonEvent,
+    });
+  }
+  static buildClientGamepadStatusStr(statusEvent) {
+    return JSON.stringify({
+      packetType: GAMEPAD_STATUS_HEADER,
+      statusEvent,
+    });
+  }
+
   static readClientPacketStr(packetStr, voxelModel, socket) {
     const dataObj = JSON.parse(packetStr);
     if (!dataObj || !dataObj.packetType) {
@@ -222,6 +247,22 @@ class VoxelProtocol {
       
       case BRIGHTNESS_UPDATE_HEADER:
         voxelModel.setGlobalBrightness(dataObj.brightness);
+        break;
+
+      case GAMEPAD_AXIS_HEADER:
+        if (voxelModel.currentAnimator && voxelModel.currentAnimator.onGamepadAxisEvent) {
+          voxelModel.currentAnimator.onGamepadAxisEvent(dataObj.axisEvent);
+        }
+        break;
+      case GAMEPAD_BUTTON_HEADER:
+        if (voxelModel.currentAnimator && voxelModel.currentAnimator.onGamepadButtonEvent) {
+          voxelModel.currentAnimator.onGamepadButtonEvent(dataObj.buttonEvent);
+        }
+        break;
+      case GAMEPAD_STATUS_HEADER:
+        if (voxelModel.currentAnimator && voxelModel.currentAnimator.onGamepadStatusEvent) {
+          voxelModel.currentAnimator.onGamepadStatusEvent(dataObj.statusEvent);
+        }
         break;
 
       default:

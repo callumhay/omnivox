@@ -4,7 +4,7 @@ import SceneRenderer from './SceneRenderer';
 
 import VTAmbientLight from '../VTAmbientLight';
 import VTSpotLight from '../VTSpotLight';
-import VTFog from '../VTFog';
+import {VTFogBox} from '../VTFog';
 
 const beaconSpot1StartDir = new THREE.Vector3(0,-1,0);
 const beaconSpot2StartDir = new THREE.Vector3(0,1,0);
@@ -41,7 +41,7 @@ class BeaconsScene extends SceneRenderer {
       } = options;
       const size = this.voxelModel.xSize();
 
-      this.fog = new VTFog(new THREE.Vector3(0,0,0), new THREE.Vector3(size, size, size), fogOptions);
+      this.fog = new VTFogBox(new THREE.Vector3(0,0,0), new THREE.Vector3(size, size, size), fogOptions);
       this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
       
       const innerRadians = THREE.MathUtils.degToRad(beaconSpotAngles.inner);

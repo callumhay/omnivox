@@ -105,7 +105,7 @@ class GPUKernelManager {
       const sqrDist = Math.pow(currVoxelPos[0]-c[0],2) + Math.pow(currVoxelPos[1]-c[1],2) + Math.pow(currVoxelPos[2]-c[2],2);
       
       // Check each radius to see which one the voxel is inside last
-      for (let i = 0; i < this.constants.gridSizex2; i++) {
+      for (let i = 0; i < this.constants.gridSize; i++) {
         if (sqrDist <= (radiiSqr[i] + this.constants.VOXEL_ERR_UNITS_SQR)) {
           const currColour = colours[i];
           return [brightness*currColour[0], brightness*currColour[1], brightness*currColour[2]];
@@ -134,6 +134,23 @@ class GPUKernelManager {
       }
       return [framebufColour[0], framebufColour[1], framebufColour[2]];
     }, {...shapesDrawSettings, name: 'cubesFillOverwrite'});
+
+    this.diamondsFillOverwrite = this.gpu.createKernel(function(framebufTex, c, radii, colours, brightness) {
+      const currVoxelPos = [this.thread.z, this.thread.y, this.thread.x];
+      const framebufColour = framebufTex[this.thread.z][this.thread.y][this.thread.x];
+      const manhattanDist = Math.abs(currVoxelPos[0] - c[0]) + Math.abs(currVoxelPos[1] - c[1]) + Math.abs(currVoxelPos[2] - c[2]);
+
+      for (let i = 0; i < this.constants.gridSize; i++) {
+        // We're inside the diamond if the Manhattan distance of the point to the center is 
+        // less than or equal to the current diamond's radius
+        const radius = radii[i];
+        if (manhattanDist <= radius) {
+          const currColour = colours[i];
+          return [brightness*currColour[0], brightness*currColour[1], brightness*currColour[2]];
+        }
+      }
+      return [framebufColour[0], framebufColour[1], framebufColour[2]];
+    }, {...shapesDrawSettings, name: 'diamondsFillOverwrite'});
 
     const fireLookupSettings = {
       output: [FIRE_SPECTRUM_WIDTH],

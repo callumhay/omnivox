@@ -11,12 +11,12 @@ import ShapeWaveAnimator from '../Animation/ShapeWaveAnimator';
 import FireAnimator from '../Animation/FireAnimator';
 import SceneAnimator from '../Animation/SceneAnimator';
 import BarVisualizerAnimator from '../Animation/BarVisualizerAnimator';
+import GamepadDJAnimator from '../Animation/GamepadDJAnimator';
 
 import VTScene from '../VoxelTracer/VTScene';
 import VoxelFramebufferCPU from './VoxelFramebufferCPU';
 import VoxelFramebufferGPU from './VoxelFramebufferGPU';
 import GPUKernelManager from './GPUKernelManager';
-
 
 export const BLEND_MODE_OVERWRITE = 0;
 export const BLEND_MODE_ADDITIVE  = 1;
@@ -73,6 +73,7 @@ class VoxelModel {
       [VoxelAnimator.VOXEL_ANIM_FIRE]              : new FireAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_SCENE]             : new SceneAnimator(this, this.vtScene),
       [VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER]    : new BarVisualizerAnimator(this),
+      [VoxelAnimator.VOXEL_ANIM_GAMEPAD_DJ]        : new GamepadDJAnimator(this, this.vtScene),
     };
 
     this.currentAnimator = this._animators[VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR];
@@ -222,6 +223,10 @@ class VoxelModel {
     setTimeout(renderLoop, DEFAULT_POLLING_INTERVAL_MS);
     framesOnQueue = 1;
   }
+
+  cleanup() {
+    this.vtScene.killChildProcesses();
+  }
  
   /**
    * Check whether the given point is in the local space bounds of the voxels.
@@ -289,6 +294,9 @@ class VoxelModel {
   }
   drawCubes(center=[0,0,0], radii, colours, brightness) {
     this.framebuffer.drawCubes(center, radii, colours, brightness);
+  }
+  drawDiamonds(center=[0,0,0], radii, colours, brightness) {
+    this.framebuffer.drawDiamonds(center, radii, colours, brightness);
   }
 }
 

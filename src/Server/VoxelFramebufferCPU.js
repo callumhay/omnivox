@@ -1,7 +1,11 @@
+import * as THREE from 'three';
+
 import VoxelFramebuffer from './VoxelFramebuffer';
-import VoxelModel, {BLEND_MODE_ADDITIVE, BLEND_MODE_OVERWRITE} from './VoxelModel';
+import {BLEND_MODE_ADDITIVE, BLEND_MODE_OVERWRITE} from './VoxelModel';
 import {clamp} from '../MathUtils';
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
+
+const tempVec3 = new THREE.Vector3();
 
 class VoxelFramebufferCPU extends VoxelFramebuffer {
   constructor(index, gridSize, gpuKernelMgr) {
@@ -129,6 +133,31 @@ class VoxelFramebufferCPU extends VoxelFramebuffer {
     spherePts.forEach((pt) => {
       blendDrawPointFunc([pt.x, pt.y, pt.z], colourArr);
     });
+  }
+
+  drawSpheres(center, radii, colours, brightness) { 
+    const blendDrawPointFunc = this._getBlendFuncNoCheck(BLEND_MODE_OVERWRITE);
+    const VOXEL_ERR_UNITS_SQR = VoxelConstants.VOXEL_ERR_UNITS*VoxelConstants.VOXEL_ERR_UNITS;
+    const radiiSqr = radii.map(r => r*r);
+    const centerVec3 = new THREE.Vector3(center[0], center[1], center[2]);
+
+    for (let x = 0; x < this.gridSize; x++) {
+      for (let y = 0; y < this.gridSize; y++) {
+        for (let z = 0; z < this.gridSize; z++) {
+          // Find the sqr dist to the current voxel
+          tempVec3.set(x,y,z);
+          const sqrDist = centerVec3.distanceToSquared(tempVec3);
+          // Find the smallest coloured sphere to draw in the current voxel
+          for (let i = 0; i < radii.length; i++) {
+            if (sqrDist <= (radiiSqr[i] + VOXEL_ERR_UNITS_SQR)) {
+              const currColour = colours[i];
+              blendDrawPointFunc([x,y,z], [brightness*currColour[0], brightness*currColour[1], brightness*currColour[2]]);
+              break;
+            }
+          }
+        }
+      }
+    }
   }
 
   drawBox(center, eulerRot, size, colour, fill, blendMode) {

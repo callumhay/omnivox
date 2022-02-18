@@ -199,7 +199,7 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
     switch (displayMode) {
       case MOVING_HISTORY_BARS_DISPLAY_TYPE: {
         const {speed, tempoMultiplier} = this.config;
-        const tempoBeat = clamp(THREE.MathUtils.smootherstep(this.avgBeatsPerSec, 0, 80), 0, 1)*tempoMultiplier;
+        const tempoBeat = THREE.MathUtils.smootherstep(Math.min(1, this.avgRMS), 0, 1)*tempoMultiplier;
         const oneOverSpeed = 1.0 / Math.max(1, speed + tempoBeat);
     
         if (this.timeCounter >= oneOverSpeed) {

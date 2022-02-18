@@ -32,6 +32,7 @@ class VoxelFramebuffer {
   drawSphere(center, radius, colour, fill, blendMode) { console.error("drawSphere abstract method call."); }
   drawSpheres(center, radii, colours, brightness) { console.error("drawSpheres abstract method call."); }
   drawCubes(center, radii, colours, brightness) { console.error("drawCubes abstract method call."); }
+  drawDiamonds(center, radii, colours, brightness) { console.error("drawDiamonds abstract method call."); }
 }
 
 export default VoxelFramebuffer;

@@ -10,7 +10,7 @@ import VTSpotLight from '../VTSpotLight';
 
 import VTRenderProc from './VTRenderProc';
 import VTRPMesh from './VTRPMesh';
-import VTRPFog from './VTRPFog';
+import {VTRPFogBox, VTRPFogSphere} from './VTRPFog';
 import VTRPVoxel from './VTRPVoxel';
 import VTRPIsofield from './VTRPIsofield';
 
@@ -34,17 +34,21 @@ class VTRPScene {
     this.lights = {};
     this.shadowCasters = {};
     this.ambientLight = null;
+    this._tempVoxelMap = {};
   }
 
   render(renderableToVoxelMapping) {
     const result = [];
     const currVoxelPt = new THREE.Vector3();
+    this._tempVoxelMap = {};
+
     Object.entries(renderableToVoxelMapping).forEach(entry => {
       const [id, voxelPts] = entry;
-      const renderable = this._getRenderable(id);
+      const renderable = this.getRenderable(id);
       for (let i = 0; i < voxelPts.length; i++) {
         const {x,y,z} = voxelPts[i];
         currVoxelPt.set(x, y, z);
+
         const calcColour = renderable.calculateVoxelColour(currVoxelPt, this);
         if (calcColour.r > 0 || calcColour.g > 0 || calcColour.b > 0) {
           result.push({
@@ -58,7 +62,7 @@ class VTRPScene {
     process.send({type: VTRenderProc.FROM_PROC_RENDERED, data: result});
   }
 
-  _getRenderable(id) {
+  getRenderable(id) {
     let result = this.renderables[id];
     if (!result) { result = this.lights[id]; }
     return result;
@@ -148,9 +152,14 @@ class VTRPScene {
       case VTObject.VOXEL_TYPE:
         buildFunc = VTRPVoxel.build;
         break;
-      case VTObject.FOG_TYPE:
-        buildFunc = VTRPFog.build;
+        
+      case VTObject.FOG_BOX_TYPE:
+        buildFunc = VTRPFogBox.build;
         break;
+      case VTObject.FOG_SPHERE_TYPE:
+        buildFunc = VTRPFogSphere.build;
+        break;
+
       case VTObject.ISOFIELD_TYPE:
         buildFunc = VTRPIsofield.build;
         break;
@@ -238,7 +247,13 @@ class VTRPScene {
     }
 
     if (this.ambientLight) {
-      finalColour.add(material.basicBrdfAmbient(null, this.ambientLight.emission()));
+      // Don't add ambient light more than once to the same voxel!
+      const {x,y,z} = point;
+      const voxelPtId = `${x}_${y}_${z}`;
+      if (!(voxelPtId in this._tempVoxelMap)) { 
+        finalColour.add(material.basicBrdfAmbient(null, this.ambientLight.emission()));
+        this._tempVoxelMap[voxelPtId] = true;
+      }
     }
 
     finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
@@ -318,8 +333,16 @@ class VTRPScene {
     if (this.ambientLight) {
       sampleLightContrib.set(0,0,0);
       for (let i = 0; i < samples.length; i++) {
-        const {uv, falloff} = samples[i];
-        sampleLightContrib.add(material.basicBrdfAmbient(uv, this.ambientLight.emission()).multiplyScalar(falloff));
+        const {point, uv, falloff} = samples[i];
+
+        // Don't add ambient light more than once to the same voxel!
+        const {x,y,z} = point;
+        const voxelPtId = `${x}_${y}_${z}`;
+        if (!(voxelPtId in this._tempVoxelMap)) {
+          sampleLightContrib.add(material.basicBrdfAmbient(uv, this.ambientLight.emission()).multiplyScalar(falloff));
+          this._tempVoxelMap[voxelPtId] = true;
+        }
+
       }
       sampleLightContrib.multiplyScalar(factorPerSample);
       finalColour.add(sampleLightContrib);

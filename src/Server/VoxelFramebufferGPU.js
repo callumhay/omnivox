@@ -89,6 +89,10 @@ class VoxelFramebufferGPU extends VoxelFramebuffer {
     const originalBuffer = this._bufferTexture;
     this._bufferTexture = this.gpuKernelMgr.cubesFillOverwrite(originalBuffer, center, radii, colours, brightness);
   }
+  drawDiamonds(center, radii, colours, brightness) {
+    const originalBuffer = this._bufferTexture;
+    this._bufferTexture = this.gpuKernelMgr.diamondsFillOverwrite(originalBuffer, center, radii, colours, brightness);
+  }
 
   drawFire(fireLookup, temperatureArr, offsetXYZ) {
     this._bufferTexture = this.gpuKernelMgr.fireOverwrite(fireLookup, temperatureArr, offsetXYZ);
