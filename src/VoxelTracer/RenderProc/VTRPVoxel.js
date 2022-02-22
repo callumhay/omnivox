@@ -26,14 +26,12 @@ class VTRPVoxel extends VTVoxelAbstract  {
     };
   }
 
-  calculateVoxelColour(voxelIdxPt=null, scene) {
+  calculateVoxelColour(voxelIdxPt, scene) {
     // Fast-out if we can't even see this voxel
-    if (!this._material.isVisible()) {
-      return new THREE.Color(0,0,0);
-    }
+    if (!this._material.isVisible()) { return new THREE.Color(0,0,0); }
 
     this._getWorldSpacePosition(this._tempVec3);
-    return scene.calculateVoxelLighting(this._tempVec3, this._material, this._receivesShadow);
+    return scene.calculateVoxelLighting(voxelIdxPt, this._tempVec3, this._material, this._receivesShadow);
   }
 }
 

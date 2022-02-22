@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 import VoxelConstants from '../../VoxelConstants';
 import {clamp} from '../../MathUtils';
+import VoxelGeometryUtils from '../../VoxelGeometryUtils';
 
 import VTObject from '../VTObject';
 import VTAmbientLight from '../VTAmbientLight';
@@ -10,6 +11,7 @@ import VTSpotLight from '../VTSpotLight';
 
 import VTRenderProc from './VTRenderProc';
 import VTRPMesh from './VTRPMesh';
+import VTRPSphere from './VTRPSphere';
 import {VTRPFogBox, VTRPFogSphere} from './VTRPFog';
 import VTRPVoxel from './VTRPVoxel';
 import VTRPIsofield from './VTRPIsofield';
@@ -40,26 +42,41 @@ class VTRPScene {
   render(renderableToVoxelMapping) {
     const result = [];
     const currVoxelPt = new THREE.Vector3();
-    this._tempVoxelMap = {};
+
+    const voxelDrawOrderMap = {};
+
+    this._tempVoxelMap = {}; // Used to keep track of which voxels have already been ambient-lit
 
     Object.entries(renderableToVoxelMapping).forEach(entry => {
       const [id, voxelPts] = entry;
       const renderable = this.getRenderable(id);
       for (let i = 0; i < voxelPts.length; i++) {
         const {x,y,z} = voxelPts[i];
-        currVoxelPt.set(x, y, z);
+        currVoxelPt.set(x,y,z);
 
         const calcColour = renderable.calculateVoxelColour(currVoxelPt, this);
+
         if (calcColour.r > 0 || calcColour.g > 0 || calcColour.b > 0) {
-          result.push({
-            pt: currVoxelPt.clone(),
-            colour: calcColour
-          });
+          const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(currVoxelPt, VoxelConstants.VOXEL_GRID_SIZE);
+          if (!(voxelPtId in voxelDrawOrderMap)) {
+            voxelDrawOrderMap[voxelPtId] = {drawOrder: renderable.drawOrder, colour: calcColour, point: currVoxelPt.clone()};
+          }
+          else {
+            const currMapObj = voxelDrawOrderMap[voxelPtId];
+            if (renderable.drawOrder > currMapObj.drawOrder) {
+              currMapObj.drawOrder = renderable.drawOrder;
+              currMapObj.colour = calcColour;
+            }
+            else if (renderable.drawOrder === currMapObj.drawOrder) {
+              // Mix the colours together if the draw order is the same...
+              currMapObj.colour.add(calcColour);
+            }
+          }
         }
       }
     });
 
-    process.send({type: VTRenderProc.FROM_PROC_RENDERED, data: result});
+    process.send({type: VTRenderProc.FROM_PROC_RENDERED, data: Object.values(voxelDrawOrderMap).map(v => ({pt: v.point, colour: v.colour})) });
   }
 
   getRenderable(id) {
@@ -143,6 +160,10 @@ class VTRPScene {
       case VTObject.MESH_TYPE:
         buildFunc = VTRPMesh.build;
         break;
+      case VTObject.SPHERE_TYPE:
+        buildFunc = VTRPSphere.build;
+        break;
+
       case VTObject.POINT_LIGHT_TYPE:
         buildFunc = VTPointLight.build;
         break;
@@ -218,7 +239,7 @@ class VTRPScene {
     return lightMultiplier;
   }
 
-  calculateVoxelLighting(point, material, receivesShadow) {
+  calculateVoxelLighting(voxelIdxPt, point, material, receivesShadow) {
     // We treat voxels as perfect inifintesmial spheres centered at a given voxel position
     // they can be shadowed and have materials like meshes
     const finalColour = material.emission(null);
@@ -248,8 +269,7 @@ class VTRPScene {
 
     if (this.ambientLight) {
       // Don't add ambient light more than once to the same voxel!
-      const {x,y,z} = point;
-      const voxelPtId = `${x}_${y}_${z}`;
+      const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, VoxelConstants.VOXEL_GRID_SIZE);
       if (!(voxelPtId in this._tempVoxelMap)) { 
         finalColour.add(material.basicBrdfAmbient(null, this.ambientLight.emission()));
         this._tempVoxelMap[voxelPtId] = true;
@@ -278,7 +298,7 @@ class VTRPScene {
 
         // Fog will not catch the light if it's behind or inside of an object...
         const lightMultiplier = this._calculateShadowCasterLightMultiplier(light.position, nLightToFogVec, distanceFromLight);
-        if (lightMultiplier > 0) {
+        if (distanceFromLight > VoxelConstants.VOXEL_ERR_UNITS && lightMultiplier > 0) {
           const lightEmission = light.emission(point, distanceFromLight).multiplyScalar(lightMultiplier);
           finalColour.add(lightEmission);
         }
@@ -289,7 +309,7 @@ class VTRPScene {
     return finalColour;
   }
 
-  calculateLightingSamples(samples, material, recievesShadows=true) {
+  calculateLightingSamples(voxelIdxPt, samples, material, recievesShadows=true) {
     const finalColour = new THREE.Color(0,0,0);
     const sampleLightContrib = new THREE.Color(0,0,0);
 
@@ -336,8 +356,7 @@ class VTRPScene {
         const {point, uv, falloff} = samples[i];
 
         // Don't add ambient light more than once to the same voxel!
-        const {x,y,z} = point;
-        const voxelPtId = `${x}_${y}_${z}`;
+        const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, VoxelConstants.VOXEL_GRID_SIZE);
         if (!(voxelPtId in this._tempVoxelMap)) {
           sampleLightContrib.add(material.basicBrdfAmbient(uv, this.ambientLight.emission()).multiplyScalar(falloff));
           this._tempVoxelMap[voxelPtId] = true;
@@ -351,8 +370,6 @@ class VTRPScene {
     finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
     return finalColour;
   }
-
-  
 
 }
 

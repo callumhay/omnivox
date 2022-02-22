@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SQRT3 } from './MathUtils';
 
 const POS_X_VEC3 = new THREE.Vector3(1,0,0);
 const NEG_X_VEC3 = new THREE.Vector3(-1,0,0);
@@ -22,6 +23,7 @@ class VoxelConstants {
 
   static get VOXEL_EPSILON()   { return 0.00001 };
   static get VOXEL_ERR_UNITS() { return VoxelConstants.VOXEL_UNIT_SIZE / (2.0 + VoxelConstants.VOXEL_EPSILON); }
+  static get VOXEL_DIAGONAL_ERR_UNITS() { return SQRT3*this.VOXEL_ERR_UNITS; }
 
   static get ORTHO_DIR_STRS() { return ['+x', '-x', '+y', '-y', '+z', '-z']; }
   static get ORTHO_DIR_VEC3S() { return [POS_X_VEC3, NEG_X_VEC3, POS_Y_VEC3, NEG_Y_VEC3, POS_Z_VEC3, NEG_Z_VEC3]; }

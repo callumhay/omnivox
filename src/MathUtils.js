@@ -1,4 +1,5 @@
 export const SQRT3   = 1.73205080757;
+export const SQRT5   = 2.23606797749;
 export const SQRT2PI = 4.44288293816;
 export const PI2 = Math.PI*2;
 
@@ -27,4 +28,17 @@ export const hashCode = (arr) => {
     hash = hash & hash;
   }
   return hash;
+}
+
+/**
+ * Get the theta and phi angles for a given position on the surface of a sphere.
+ * https://en.wikipedia.org/wiki/Spherical_coordinate_system
+ * @param {Number} r The radius of the sphere.
+ * @param {THREE.Vector3} pt The coordinate on the surface of the sphere.
+ * @returns An array of the radian angles [theta, phi] corresponding to the given pt.
+ */
+export const spherePtToThetaPhi = (r, pt)  => {
+  const theta = Math.acos(pt.z / r);
+  const phi = Math.atan2(pt.y, pt.z);
+  return [theta, phi];
 }

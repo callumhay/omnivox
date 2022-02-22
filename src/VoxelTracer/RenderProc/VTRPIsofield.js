@@ -112,7 +112,7 @@ class VTRPIsofield extends VTObject {
         falloff: fieldXYZ //THREE.MathUtils.smoothstep(fieldXYZ,0,1), // fieldXYZ > 0.5 ? 1 : 0,
       };
 
-      return scene.calculateLightingSamples([voxelSample], this._material, this._receivesShadow);
+      return scene.calculateLightingSamples(voxelIdxPt, [voxelSample], this._material, this._receivesShadow);
     }
 
     // Otherwise there is nothing to render

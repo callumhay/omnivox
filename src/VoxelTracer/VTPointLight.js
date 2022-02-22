@@ -60,8 +60,7 @@ class VTPointLight extends VTObject {
   isShadowCaster() { return false; }
 
   emission(pos, distance) {
-    const emissionColour = this._colour.clone().multiplyScalar(this.calculateAttenuation(distance));
-    emissionColour.setRGB(emissionColour.r, emissionColour.g, emissionColour.b);
+    const emissionColour = this._colour.clone().multiplyScalar(Math.min(1, this.calculateAttenuation(distance)));
     return emissionColour;
   }
 

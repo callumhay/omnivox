@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import {computeBoundsTree, disposeBoundsTree, acceleratedRaycast, MeshBVH, SAH} from 'three-mesh-bvh';
 
-import {SQRT2PI, SQRT3} from '../../MathUtils';
+import {SQRT2PI} from '../../MathUtils';
 import VoxelGeometryUtils from '../../VoxelGeometryUtils';
 
 import VTObject from '../VTObject';
 import VTMaterialFactory from '../VTMaterialFactory';
+import VoxelConstants from '../../VoxelConstants';
 
 // Add the extension functions for calculating bounding volumes for THREE.Mesh/THREE.Geometry
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -95,9 +96,7 @@ class VTRPMesh extends VTObject {
       // We need to build a set of new triangle samples for the given voxel
       const voxelBoundingBox = VoxelGeometryUtils.singleVoxelBoundingBox(voxelIdxPt);
       voxelBoundingBox.getCenter(this._voxelCenterPt);
-  
-      const furthestPossibleDistFromCenter = SQRT3*Math.SQRT1_2;
-  
+
       // Start by finding all triangles in this mesh that may intersect with the given voxel
       triSamples = [];
       this.threeMesh.geometry.boundsTree.shapecast(
@@ -158,7 +157,7 @@ class VTRPMesh extends VTObject {
           target.copy(this._uv0);
         };
   
-        const sigma = furthestPossibleDistFromCenter / 10.0;
+        const sigma = VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS / 10.0;
         const valueAtZero = (1.0 / SQRT2PI*sigma);
   
         for (let i = 0; i < triSamples.length; i++) {
@@ -200,15 +199,13 @@ class VTRPMesh extends VTObject {
     let finalColour = new THREE.Color(0,0,0);
 
     // Fast-out if we can't even see this mesh
-    if (!this.material.isVisible()) {
-      return finalColour;
-    }
+    if (!this.material.isVisible()) { return finalColour; }
     
     // Grab a list of all the samples
     const VTRPTriSamples = this._preRender(voxelIdxPt, voxelId);
     if (VTRPTriSamples.length > 0) {
       const samples = VTRPTriSamples.map(triSample => triSample.sample);
-      finalColour.add(scene.calculateLightingSamples(samples, this.material));
+      finalColour.add(scene.calculateLightingSamples(voxelIdxPt, samples, this.material));
     }
     
     return finalColour;
@@ -218,11 +215,6 @@ class VTRPMesh extends VTObject {
     raycaster.firstHitOnly = true;
     return raycaster.intersectObjects([this.threeMesh]).length > 0;
   }
-
-  //getCollidingVoxels(voxelGridBoundingBox) {
-  //  const worldSpaceBB = this.geometry.boundingBox.clone().applyMatrix4(this.threeMesh.matrixWorld);
-  //  return VoxelGeometryUtils.voxelAABBList(worldSpaceBB.min, worldSpaceBB.max, true, voxelGridBoundingBox);
-  //}
 }
 
 export default VTRPMesh;

@@ -125,6 +125,7 @@ class SoundManager {
       zcr: this.features.zcr,
       spectralRolloff: this.features.spectralRolloff,
       spectralCentroid: this.features.spectralCentroid,
+      chroma: this.features.chroma,
       //mfcc: this.features.mfcc,
     });
   }

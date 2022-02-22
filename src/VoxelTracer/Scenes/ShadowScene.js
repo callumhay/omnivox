@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import SceneRenderer from './SceneRenderer';
 
 import VTMesh from '../VTMesh';
+import {VTSphere} from '../VTSphere';
 import VTLambertMaterial from '../VTLambertMaterial';
 import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';
@@ -39,6 +40,8 @@ class ShadowScene extends SceneRenderer {
       this.boxMesh = new VTMesh(this.boxGeometry, new VTLambertMaterial(new THREE.Color(1,1,1)));
       this.boxMesh.setPosition(halfXSize, size-1, halfZSize);
 
+      this.sphere = new VTSphere(new THREE.Vector3(halfXSize-0.5, halfXSize-0.5, halfXSize-0.5), 3.0, new VTLambertMaterial(new THREE.Color(1,1,1)));
+
       this.ptLight = new VTPointLight(
         new THREE.Vector3(pointLightPosition.x, pointLightPosition.y, pointLightPosition.z), 
         new THREE.Color(pointLightColour.r, pointLightColour.g, pointLightColour.b), 
@@ -49,10 +52,13 @@ class ShadowScene extends SceneRenderer {
 
       this._objectsBuilt = true;
     }
+    const {sphereRadius} = options;
+    this.sphere.setRadius(sphereRadius);
 
     this.scene.addLight(this.ptLight);
     this.scene.addObject(this.movingBoxMesh);
     this.scene.addObject(this.boxMesh);
+    this.scene.addObject(this.sphere);
     this.scene.addLight(this.ambientLight);
   }
 
@@ -69,6 +75,7 @@ class ShadowScene extends SceneRenderer {
     const RADIUS = halfXSize-2;
     const t = this.timeCounter*movingBoxSpeed;
     this.movingBoxMesh.setPosition((RADIUS)*Math.cos(t) + halfXSize, halfYSize-1, (RADIUS)*Math.sin(t) + halfZSize);
+    this.sphere.setCenter(new THREE.Vector3((RADIUS)*Math.sin(t) + halfXSize, halfYSize-1, (RADIUS)*Math.cos(t) + halfZSize));
     this.timeCounter += dt;
 
     this.movingBoxMesh.setRotationFromEuler(new THREE.Euler(0, t/10.0, 0));
