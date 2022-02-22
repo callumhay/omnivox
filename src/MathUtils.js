@@ -34,7 +34,7 @@ export const hashCode = (arr) => {
  * Get the theta and phi angles for a given position on the surface of a sphere.
  * https://en.wikipedia.org/wiki/Spherical_coordinate_system
  * @param {Number} r The radius of the sphere.
- * @param {THREE.Vector3} pt The coordinate on the surface of the sphere.
+ * @param {THREE.Vector3} pt The coordinate on the surface of the sphere in the local space of the sphere.
  * @returns An array of the radian angles [theta, phi] corresponding to the given pt.
  */
 export const spherePtToThetaPhi = (r, pt)  => {

@@ -56,7 +56,7 @@ class ShadowScene extends SceneRenderer {
     this.sphere.setRadius(sphereRadius);
 
     this.scene.addLight(this.ptLight);
-    this.scene.addObject(this.movingBoxMesh);
+    //this.scene.addObject(this.movingBoxMesh);
     this.scene.addObject(this.boxMesh);
     this.scene.addObject(this.sphere);
     this.scene.addLight(this.ambientLight);
@@ -75,7 +75,7 @@ class ShadowScene extends SceneRenderer {
     const RADIUS = halfXSize-2;
     const t = this.timeCounter*movingBoxSpeed;
     this.movingBoxMesh.setPosition((RADIUS)*Math.cos(t) + halfXSize, halfYSize-1, (RADIUS)*Math.sin(t) + halfZSize);
-    this.sphere.setCenter(new THREE.Vector3((RADIUS)*Math.sin(t) + halfXSize, halfYSize-1, (RADIUS)*Math.cos(t) + halfZSize));
+    //this.sphere.setCenter(new THREE.Vector3((RADIUS)*Math.sin(t) + halfXSize, halfYSize-1, (RADIUS)*Math.cos(t) + halfZSize));
     this.timeCounter += dt;
 
     this.movingBoxMesh.setRotationFromEuler(new THREE.Euler(0, t/10.0, 0));

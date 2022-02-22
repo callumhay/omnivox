@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import VoxelConstants from '../VoxelConstants';
 
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
@@ -18,7 +19,10 @@ export class VTSphereAbstract extends VTObject {
   isShadowCaster() { return true; }
 
   intersectsRay(raycaster) {
-    return raycaster.ray.intersectSphere(this._sphere, this._tempVec3) !== null;
+    this._sphere.radius -= VoxelConstants.VOXEL_EPSILON;
+    const result = raycaster.ray.intersectSphere(this._sphere, this._tempVec3) !== null;
+    this._sphere.radius += VoxelConstants.VOXEL_EPSILON;
+    return result;
   }
 
   getCollidingVoxels(voxelBoundingBox=null) {

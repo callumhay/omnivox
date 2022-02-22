@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import {SQRT5} from './MathUtils';
 
-export class Sampler {
+class Sampler {
 
   /**
    * Produces a fibonacci spiral sphere sample.
@@ -26,5 +26,7 @@ export class Sampler {
       Math.sin(theta) * Math.sin(phi),
       Math.cos(phi)
     )).multiplyScalar(radius);
+  }
 }
-}
+
+export default Sampler;

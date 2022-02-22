@@ -320,6 +320,7 @@ class VTRPScene {
     
     for (let i = 0; i < samples.length; i++) {
       const {point, normal, uv, falloff} = samples[i];
+      if (falloff === 0) { continue; }
 
       sampleLightContrib.copy(material.emission(uv));
       sampleLightContrib.multiplyScalar(falloff);
@@ -350,21 +351,22 @@ class VTRPScene {
       finalColour.add(sampleLightContrib);
     }
 
+
+
     if (this.ambientLight) {
-      sampleLightContrib.set(0,0,0);
-      for (let i = 0; i < samples.length; i++) {
-        const {point, uv, falloff} = samples[i];
-
-        // Don't add ambient light more than once to the same voxel!
-        const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, VoxelConstants.VOXEL_GRID_SIZE);
-        if (!(voxelPtId in this._tempVoxelMap)) {
+      // Don't add ambient light more than once to the same voxel!
+      const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, VoxelConstants.VOXEL_GRID_SIZE);
+      if (!(voxelPtId in this._tempVoxelMap)) {
+        sampleLightContrib.set(0,0,0);
+        for (let i = 0; i < samples.length; i++) {
+          const {uv, falloff} = samples[i];
           sampleLightContrib.add(material.basicBrdfAmbient(uv, this.ambientLight.emission()).multiplyScalar(falloff));
-          this._tempVoxelMap[voxelPtId] = true;
         }
+        sampleLightContrib.multiplyScalar(factorPerSample);
+        finalColour.add(sampleLightContrib);
 
+        this._tempVoxelMap[voxelPtId] = true;
       }
-      sampleLightContrib.multiplyScalar(factorPerSample);
-      finalColour.add(sampleLightContrib);
     }
 
     finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));

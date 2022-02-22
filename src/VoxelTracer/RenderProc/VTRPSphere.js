@@ -1,15 +1,19 @@
 import * as THREE from 'three';
 
-import {SQRT2PI} from '../../MathUtils';
+import {SQRT2PI, spherePtToThetaPhi} from '../../MathUtils';
 import VoxelConstants from '../../VoxelConstants';
 import VoxelGeometryUtils from '../../VoxelGeometryUtils';
+import Sampler from '../../Samplers';
 
 import {VTSphereAbstract} from '../VTSphere';
 import VTMaterialFactory from '../VTMaterialFactory';
 
 const defaultSphereOptions = {
   samplesPerVoxel: 6,
-}
+};
+
+const sigma = (2*VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS) / 10.0;
+const valueAtZero = (1.0 / (SQRT2PI*sigma));
 
 class VTRPSphere extends VTSphereAbstract  {
 
@@ -18,10 +22,15 @@ class VTRPSphere extends VTSphereAbstract  {
     
     // Calculate and memoize info for performing voxel sampling during rendering:
     const {samplesPerVoxel} = options;
-    const maxSampleAngle = Math.asin(0.5*VoxelConstants.VOXEL_UNIT_SIZE/radius); // *2
-    const anglePct = maxSampleAngle / Math.PI; // *2
-    this._fibSampleN = Math.ceil(samplesPerVoxel / anglePct); // The number of sphere samples needed for fibonacci sampling
+    const maxSampleAngle = Math.asin(0.5*VoxelConstants.VOXEL_UNIT_SIZE/radius);
+    const maxSampleSr = 2*Math.PI*(1-Math.cos(maxSampleAngle));
+    const srPercentage = maxSampleSr / (4*Math.PI);
+
+    this._fibSampleN = Math.ceil(samplesPerVoxel / srPercentage); // The number of sphere samples needed for fibonacci sampling
     this._samplesPerVoxel = samplesPerVoxel;
+
+    //console.log("Steridian percent: " + srPercentage);
+    //console.log("Fib Sample N: " + this._fibSampleN);
   }
 
   static build(jsonData) {
@@ -44,62 +53,38 @@ class VTRPSphere extends VTSphereAbstract  {
     if (!this._material.isVisible()) { return finalColour; }
 
     const {center, radius} = this._sphere;
+    const sqRadius = radius*radius;
     const voxelBoundingBox = VoxelGeometryUtils.singleVoxelBoundingBox(voxelIdxPt);
     const voxelCenterPt = new THREE.Vector3();
     voxelBoundingBox.getCenter(voxelCenterPt);
 
     const centerToVoxelVec = voxelCenterPt.clone();
     centerToVoxelVec.sub(center);
-    const distCenterToVoxel = centerToVoxelVec.length();
-    centerToVoxelVec.divideScalar(distCenterToVoxel);
+    const sqDistCenterToVoxel = centerToVoxelVec.lengthSq();
+    if (sqDistCenterToVoxel <= VoxelConstants.VOXEL_ERR_UNITS) { return finalColour; }
 
-    const closestSamplePt = centerToVoxelVec.clone().multiplyScalar(radius);
+    centerToVoxelVec.normalize();
+
+    const localSpaceSamplePt = centerToVoxelVec.clone().multiplyScalar(radius);
+    const closestSamplePt = localSpaceSamplePt.clone();
     closestSamplePt.add(center);
 
+    if (sqDistCenterToVoxel <= sqRadius && sqDistCenterToVoxel >= Math.pow(radius-1.25*VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS,2)) {
+      const [closestTheta, closestPhi] = spherePtToThetaPhi(radius, localSpaceSamplePt);
+      const samples = [{point: closestSamplePt, normal: centerToVoxelVec, uv: null, falloff: 1}]; // Always include the closest surface point to the center of the voxel
 
-    /*
-    if (voxelBoundingBox.containsPoint(closestSamplePt)) {
-      const [closestTheta, closestPhi] = spherePtToThetaPhi(radius, closestSamplePt);
-
-      const samples = [];
       for (let i = 0; i < this._samplesPerVoxel; i++) {
-        const samplePt = Sampler.fibSphere(i, this._fibSampleN, radius, closestTheta, closestPhi);
-        const sqrDist = samplePt.distanceToSquared(voxelCenterPt);  // Square distance from the voxel center to the sample
+        const samplePt = Sampler.fibSphere(i, this._fibSampleN, radius, closestTheta, closestPhi).add(center);
+        if (!voxelBoundingBox.containsPoint(samplePt)) { continue; } // No sample taken if the sample point isn't inside the voxel
         const sampleNormal = samplePt.clone().sub(center).normalize();
-        const sampleFalloff = 
-        samples.push({point: samplePt, normal: sampleNormal, uv: null, falloff: sampleFalloff});
+      
+        const sqrDist = samplePt.distanceToSquared(voxelCenterPt);  // Square distance from the voxel center to the sample
+        const sampleFalloff = sqDistCenterToVoxel <= sqRadius ? 1 : ((1.0 / (SQRT2PI*sigma)) * Math.exp(-0.5 * (sqrDist / (2*sigma*sigma))) / valueAtZero);
 
+        samples.push({point: samplePt, normal: sampleNormal, uv: null, falloff: sampleFalloff});
       }
 
-    }
-    else {
-      // If the closest possible point on the sphere's surface is not inside the current voxel, 
-      // we may still render something in this voxel.
-      // In order to preserve the appearance of the sphere's surface at a proper level of brightness:
-      // If the surface is barely touching the next voxel outward then we will want to render this voxel.
-
-
-    }
-    */
-
-
-    // The interval here is pretty finicky... only sampling a single point is the issue. The proper solution is
-    // to do multi sub-voxel sampling i.e., monte carlo (+ importance sampling would be the best solution)...
-    // That would definitely be more expensive. I'm also lazy.
-    if (distCenterToVoxel <= radius+VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS && distCenterToVoxel >= radius-1.5*VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS) {
-
-      // Find the square distance from the voxel center to the actual sphere boundary sample
-      const sqrDist = closestSamplePt.distanceToSquared(voxelCenterPt);
-
-      // If we're inside/on the boundary of the sphere we set a full falloff,
-      // otherwise it's outside - in this case we use a gaussian falloff to dim the voxel.
-      const sigma = VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS / 10.0;
-      const valueAtZero = (1.0 / SQRT2PI*sigma);
-      const falloff = distCenterToVoxel <= (radius+VoxelConstants.VOXEL_EPSILON) ?  1.0 : ((1.0 / SQRT2PI*sigma) * Math.exp(-0.5 * (sqrDist / (2*sigma*sigma))) / valueAtZero);
-
-      // Create a sample and calculate its contribution to the voxel colour
-      const sample = { point: closestSamplePt, normal: centerToVoxelVec, uv: null, falloff };
-      finalColour.add(scene.calculateLightingSamples(voxelIdxPt, [sample], this._material));
+      finalColour.add(scene.calculateLightingSamples(voxelIdxPt, samples, this._material));
     }
 
     return finalColour;
