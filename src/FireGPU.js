@@ -1,7 +1,7 @@
 import FluidGPU from './FluidGPU';
 
-const DIFFUSE_PER_FRAME_LOOPS = 12; 
-const PROJECT_PER_FRAME_LOOPS = 14;
+const DIFFUSE_PER_FRAME_LOOPS = 10; 
+const PROJECT_PER_FRAME_LOOPS = 12;
 
 class FireGPU extends FluidGPU {
   constructor(gridSize, gpuManager, initVel=[0,0.5,0]) {

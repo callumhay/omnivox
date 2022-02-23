@@ -5,11 +5,17 @@ import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 import VTObject from './VTObject';
 
+export const defaultSphereOptions = {
+  samplesPerVoxel: 6,
+  fill: false,
+};
+
 export class VTSphereAbstract extends VTObject {
-  constructor(center, radius, material) {
+  constructor(center, radius, material, options) {
     super(VTObject.SPHERE_TYPE);
     this._sphere = new THREE.Sphere(center, radius);
     this._material = material;
+    this._options = options;
 
     // Temp variable for calculations
     this._tempVec3 = new THREE.Vector3();
@@ -33,8 +39,8 @@ export class VTSphereAbstract extends VTObject {
 
 export class VTSphere extends VTSphereAbstract {
 
-  constructor(center, radius, material) {
-    super(center, radius, material);
+  constructor(center, radius, material, options={...defaultSphereOptions}) {
+    super(center, radius, material, options);
     this.makeDirty();
   }
 
@@ -56,9 +62,9 @@ export class VTSphere extends VTSphereAbstract {
   }
 
   toJSON() {
-    const {id, type, _sphere, _material} = this;
+    const {id, type, _sphere, _material, _options} = this;
     const {center, radius} = _sphere;
-    return {id, type, center, radius, material: _material};
+    return {id, type, center, radius, material: _material, options: _options};
   }
 
   intersectsBox(box) {

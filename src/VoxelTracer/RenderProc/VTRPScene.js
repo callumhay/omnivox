@@ -57,7 +57,7 @@ class VTRPScene {
         const calcColour = renderable.calculateVoxelColour(currVoxelPt, this);
 
         if (calcColour.r > 0 || calcColour.g > 0 || calcColour.b > 0) {
-          const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(currVoxelPt, VoxelConstants.VOXEL_GRID_SIZE);
+          const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(currVoxelPt, this.gridSize);
           if (!(voxelPtId in voxelDrawOrderMap)) {
             voxelDrawOrderMap[voxelPtId] = {drawOrder: renderable.drawOrder, colour: calcColour, point: currVoxelPt.clone()};
           }
@@ -269,7 +269,7 @@ class VTRPScene {
 
     if (this.ambientLight) {
       // Don't add ambient light more than once to the same voxel!
-      const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, VoxelConstants.VOXEL_GRID_SIZE);
+      const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, this.gridSize);
       if (!(voxelPtId in this._tempVoxelMap)) { 
         finalColour.add(material.basicBrdfAmbient(null, this.ambientLight.emission()));
         this._tempVoxelMap[voxelPtId] = true;
@@ -355,7 +355,7 @@ class VTRPScene {
 
     if (this.ambientLight) {
       // Don't add ambient light more than once to the same voxel!
-      const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, VoxelConstants.VOXEL_GRID_SIZE);
+      const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, this.gridSize);
       if (!(voxelPtId in this._tempVoxelMap)) {
         sampleLightContrib.set(0,0,0);
         for (let i = 0; i < samples.length; i++) {

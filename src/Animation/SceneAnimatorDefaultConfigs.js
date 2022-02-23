@@ -73,12 +73,14 @@ const simpleSceneControlOptions = {
 };
 
 const shadowSceneDefaultOptions = {
-  movingBoxSize: {x:5, y:2, z:5},
-  movingBoxSpeed: 1.25*Math.PI,
-  sphereRadius: 4,
+  movingBoxSize: {x:3, y:2, z:4},
+  movingBoxSpeed: 0.5*Math.PI,
+  sphereRadius: 3,
+  sphereFill: false,
+  sphereSpeed: 0.5*Math.PI,
   ambientLightColour: {r:0.1, g:0.1, b:0.1},
   pointLightColour: {r:1, g:1, b:1},
-  pointLightPosition: {x:4, y:0, z:4},
+  pointLightPosition: {x:VoxelConstants.VOXEL_HALF_GRID_SIZE-1, y:0, z:VoxelConstants.VOXEL_HALF_GRID_SIZE-1},
   pointLightAtten: {quadratic:0, linear:0},
 };
 const shadowSceneControlOptions = {
@@ -88,8 +90,10 @@ const shadowSceneControlOptions = {
     y: {min:0.5, max:5, step:0.25}, 
     z: {min:0.5, max:5, step:0.25}
   },
-  movingBoxSpeed: {label: "Moving Box Speed", min:0, max:4*Math.PI, step:0.1},
+  movingBoxSpeed: {label: "Box Speed", min:0, max:4*Math.PI, step:0.1},
   sphereRadius: {label: "Sphere Radius", min:1, max:VoxelConstants.VOXEL_GRID_SIZE, step:0.5},
+  sphereFill: {label: "Sphere Fill?"},
+  sphereSpeed: {label: "Sphere Speed", min:0, max:4*Math.PI, step:0.1},
   ambientLightColour: {label: "Ambient Light Colour"},
   pointLightColour: {label: "Point Light Colour"},
   pointLightPosition: {...positionCtrlOpt, label: "Light Position"},
