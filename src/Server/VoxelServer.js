@@ -1,6 +1,6 @@
 import ws from 'ws';
-import SerialPort from 'serialport';
-import Readline from '@serialport/parser-readline';
+import {SerialPort} from 'serialport';
+import {ReadlineParser} from '@serialport/parser-readline';
 import cobs from 'cobs';
 
 import VoxelProtocol from '../VoxelProtocol';
@@ -101,7 +101,8 @@ class VoxelServer {
               
               if (isDebugSerial) {
                 console.log("Attempting connection with debug/info serial port '" + availablePort.path + "'...");
-                newSerialPort = new SerialPort(availablePort.path, {
+                newSerialPort = new SerialPort({
+                  path: availablePort.path,
                   autoOpen: false,
                   baudRate: DEFAULT_TEENSY_USB_SERIAL_BAUD
                 });
@@ -111,7 +112,8 @@ class VoxelServer {
                 // Hardware serial
                 console.log("Attempting connection with data streaming serial port '" + availablePort.path + "'...");
 
-                newSerialPort = new SerialPort(availablePort.path, {
+                newSerialPort = new SerialPort({
+                  path: availablePort.path,
                   autoOpen: false,
                   baudRate: DEFAULT_TEENSY_HW_SERIAL_BAUD,
                   rtscts: true,
@@ -132,7 +134,7 @@ class VoxelServer {
                 });
 
                 newSerialPort.on('open', () => {
-                  const parser = new Readline();
+                  const parser = new ReadlineParser();
                   newSerialPort.pipe(parser);
                   newSerialPort.lastWriteResult = true;
 

@@ -95,7 +95,6 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
       this._objectsBuilt = true;
     }
 
-
     for (const sp of this.spherePulses) { this.scene.addObject(sp.sphere); }
     this.scene.addLight(this.cursorPtLight);
     this.scene.addFog(this.cursorFog);
@@ -179,7 +178,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
 
         pulse.currAlpha -= dt*alphaFadeSpeed;
         sphere.material.alpha = Math.max(0, pulse.currAlpha*Math.max(0.5, rmsEffect));
-        sphere.material.colour.copy(this.cursorPtLight.colour);//.multiplyScalar(0.25+rmsEffect);
+        sphere.material.colour.copy(this.cursorPtLight.colour);
         sphere.setMaterial(sphere.material);
       }
     }
@@ -211,8 +210,6 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     if (this.avgRMS >= 0.95*this.currMaxRMS) {
       colourBlendSpeed = 0.5/Math.max(0.001, this.dtAudioFrame);
       tempColour1.setRGB(1,1,1);
-
-      //console.log(`${mfcc[0]} ${mfcc[1]}`);
 
       if (mfcc[0] >= 225 && (perceptualSharpness >= 0.6 || perceptualSharpness <= 0.15) && this.timeSinceLastSpherePulse >= MIN_TIME_BETWEEN_SPHERE_PULSES) {
         // Add an intensity pulse
@@ -254,7 +251,6 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
       tempColour1.multiplyScalar(Math.max(2, 1+this.avgRMS));
     }
     
-
     const currCursorColour = this.cursorPtLight.colour;
     
     tempColour1.setRGB(
