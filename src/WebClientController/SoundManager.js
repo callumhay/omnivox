@@ -104,11 +104,13 @@ class SoundManager {
       'amplitudeSpectrum',
       'spectralCentroid',
       'spectralRolloff',
+      //'spectralFlux',
       //'loudness',
       'rms',
       'zcr',
-      //'mfcc',
+      'mfcc',
       'chroma',
+      'perceptualSharpness',
     ]);
 
     if (!this.features) {
@@ -125,8 +127,11 @@ class SoundManager {
       zcr: this.features.zcr,
       spectralRolloff: this.features.spectralRolloff,
       spectralCentroid: this.features.spectralCentroid,
+      //spectralFlux: this.features.spectralFlux,
       chroma: this.features.chroma,
-      //mfcc: this.features.mfcc,
+      //perceptualSpread: this.features.perceptualSpread,
+      perceptualSharpness: this.features.perceptualSharpness,
+      mfcc: this.features.mfcc,
     });
   }
 

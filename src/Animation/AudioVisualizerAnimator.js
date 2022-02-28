@@ -23,11 +23,11 @@ class AudioVisualizerAnimator extends VoxelAnimator {
 
     const {rms, zcr} = audioInfo;
 
-    this.rmsBuffer.shift();
+    if (this.rmsBuffer.length === RMS_BUFFER_SIZE) { this.rmsBuffer.shift(); }
     this.rmsBuffer.push(rms);
     this.avgRMS = (this.rmsBuffer.reduce((a,b) => a+b, 0) / Math.max(1,this.rmsBuffer.length)) || 0;
-
-    this.zcrBuffer.shift();
+    
+    if (this.zcrBuffer.length === ZCR_BUFFER_SIZE) { this.zcrBuffer.shift(); }
     this.zcrBuffer.push(zcr);
     this.avgZCR = (this.zcrBuffer.reduce((a,b) => a+b, 0) / Math.max(1,this.zcrBuffer.length)) || 0;
 
@@ -36,13 +36,11 @@ class AudioVisualizerAnimator extends VoxelAnimator {
     if (this.currMaxResetTimeCounter >= MAX_RESET_WINDOW_TIME_S) {
       this.currMaxRMS = Math.max(MIN_MAX_RMS, this.currMaxRMS*DIMINISH_WEIGHT + this.avgRMS*ONEM_DIMINISH_WEIGHT);
       this.currMaxZCR = Math.max(MIN_MAX_ZCR, this.currMaxZCR*DIMINISH_WEIGHT + this.avgZCR*ONEM_DIMINISH_WEIGHT);
-      
       this.currMaxResetTimeCounter = 0;
     }
     else {
       this.currMaxRMS = Math.max(MIN_MAX_RMS, this.currMaxRMS*DIMINISH_WEIGHT + Math.max(this.avgRMS, this.currMaxRMS)*ONEM_DIMINISH_WEIGHT);
       this.currMaxZCR = Math.max(MIN_MAX_ZCR, this.currMaxZCR*DIMINISH_WEIGHT + Math.max(this.avgZCR, this.currMaxZCR)*ONEM_DIMINISH_WEIGHT);
-
       this.currMaxResetTimeCounter += this.dtAudioFrame;
     }
 
@@ -53,11 +51,11 @@ class AudioVisualizerAnimator extends VoxelAnimator {
 
     this.currMaxResetTimeCounter = 0;
 
-    this.rmsBuffer = Array(RMS_BUFFER_SIZE).fill(0);
+    this.rmsBuffer = [];
     this.avgRMS = 0;
     this.currMaxRMS = MIN_MAX_RMS;
 
-    this.zcrBuffer = Array(ZCR_BUFFER_SIZE).fill(0);
+    this.zcrBuffer = [];
     this.avgZCR = 0;
     this.currMaxZCR = MIN_MAX_ZCR;
 

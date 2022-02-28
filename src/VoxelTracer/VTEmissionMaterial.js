@@ -26,7 +26,7 @@ class VTEmissionMaterial extends VTMaterial {
   }
 
   emission(uv) {
-    return this.albedo(uv);
+    return this.albedo(uv).multiplyScalar(this.alpha);
   }
 
   isVisible() {

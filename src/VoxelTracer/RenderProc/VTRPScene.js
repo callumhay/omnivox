@@ -40,11 +40,8 @@ class VTRPScene {
   }
 
   render(renderableToVoxelMapping) {
-    const result = [];
     const currVoxelPt = new THREE.Vector3();
-
     const voxelDrawOrderMap = {};
-
     this._tempVoxelMap = {}; // Used to keep track of which voxels have already been ambient-lit
 
     Object.entries(renderableToVoxelMapping).forEach(entry => {
@@ -94,12 +91,10 @@ class VTRPScene {
     else if (removedIds) {
       for (let i = 0; i < removedIds.length; i++) {
         const removedId = removedIds[i];
-        delete this.renderables[removedId];
-        delete this.lights[removedId];
-        delete this.shadowCasters[removedId];
-        if (this.ambientLight.id === removedId) {
-          this.ambientLight = null;
-        }
+        if (removedId in this.renderables) { delete this.renderables[removedId]; }
+        if (removedId in this.lights) { delete this.lights[removedId]; }
+        if (removedId in this.shadowCasters) { delete this.shadowCasters[removedId]; }
+        if (this.ambientLight && this.ambientLight.id === removedId) { this.ambientLight = null; }
       }
     }
 
@@ -244,35 +239,38 @@ class VTRPScene {
     // they can be shadowed and have materials like meshes
     const finalColour = material.emission(null);
     
-    const lights = Object.values(this.lights);
-    if (lights.length > 0) {
+    // Fast-out: If the final colour is already blown-out then there's no point rendering anything further
+    if (finalColour.r < 1 || finalColour.g < 1 || finalColour.b < 1) {
+      const lights = Object.values(this.lights);
+      if (lights.length > 0) {
 
-      const nVoxelToLightVec = new THREE.Vector3();
-      for (let j = 0; j < lights.length; j++) {
-        const light = lights[j];
+        const nVoxelToLightVec = new THREE.Vector3();
+        for (let j = 0; j < lights.length; j++) {
+          const light = lights[j];
+          
+          nVoxelToLightVec.set(light.position.x, light.position.y, light.position.z);
+          nVoxelToLightVec.sub(point);
+          const distanceToLight = Math.max(VoxelConstants.VOXEL_EPSILON, nVoxelToLightVec.length());
+          nVoxelToLightVec.divideScalar(distanceToLight); // Normalize
 
-        nVoxelToLightVec.set(light.position.x, light.position.y, light.position.z);
-        nVoxelToLightVec.sub(point);
-        const distanceToLight = Math.max(VoxelConstants.VOXEL_EPSILON, nVoxelToLightVec.length());
-        nVoxelToLightVec.divideScalar(distanceToLight); // Normalize
-
-        const lightMultiplier = receivesShadow ? this._calculateShadowCasterLightMultiplier(point, nVoxelToLightVec, distanceToLight) : 1.0;
-        if (lightMultiplier > 0) {
-          // The voxel is not in total shadow, do the lighting - since it's a "infitesimal sphere" the normal is always
-          // in the direction of the light, so it's always ambiently lit (unless it's in shadow)
-          const lightEmission = light.emission(point, distanceToLight).multiplyScalar(lightMultiplier);
-          const materialLightingColour = material.brdfAmbient(null, lightEmission);
-          finalColour.add(materialLightingColour);
+          const lightMultiplier = receivesShadow ? this._calculateShadowCasterLightMultiplier(point, nVoxelToLightVec, distanceToLight) : 1.0;
+          if (lightMultiplier > 0) {
+            // The voxel is not in total shadow, do the lighting - since it's a "infitesimal sphere" the normal is always
+            // in the direction of the light, so it's always ambiently lit (unless it's in shadow)
+            const lightEmission = light.emission(point, distanceToLight).multiplyScalar(lightMultiplier);
+            const materialLightingColour = material.brdfAmbient(null, lightEmission);
+            finalColour.add(materialLightingColour);
+          }
         }
       }
-    }
 
-    if (this.ambientLight) {
-      // Don't add ambient light more than once to the same voxel!
-      const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, this.gridSize);
-      if (!(voxelPtId in this._tempVoxelMap)) { 
-        finalColour.add(material.basicBrdfAmbient(null, this.ambientLight.emission()));
-        this._tempVoxelMap[voxelPtId] = true;
+      if (this.ambientLight) {
+        // Don't add ambient light more than once to the same voxel!
+        const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, this.gridSize);
+        if (!(voxelPtId in this._tempVoxelMap)) { 
+          finalColour.add(material.basicBrdfAmbient(null, this.ambientLight.emission()));
+          this._tempVoxelMap[voxelPtId] = true;
+        }
       }
     }
 
@@ -283,28 +281,27 @@ class VTRPScene {
 
   calculateFogLighting(point) {
     const finalColour = new THREE.Color(0,0,0);
+    if (this.lights.length === 0) { return finalColour; }
+
     const nLightToFogVec = new THREE.Vector3(0,0,0);
-
     const lights = Object.values(this.lights);
-    if (lights.length > 0) {
-      for (let j = 0; j < lights.length; j++) {
-        const light = lights[j];
+    for (let j = 0; j < lights.length && (finalColour.r < 1 || finalColour.g < 1 || finalColour.b < 1); j++) {
+      const light = lights[j];
 
-        // We use the light to the fog (and not vice versa) since the fog can't be inside objects
-        nLightToFogVec.set(point.x, point.y, point.z);
-        nLightToFogVec.sub(light.position);
-        const distanceFromLight = Math.max(VoxelConstants.VOXEL_EPSILON, nLightToFogVec.length());
-        nLightToFogVec.divideScalar(distanceFromLight);
+      // We use the light to the fog (and not vice versa) since the fog can't be inside objects
+      nLightToFogVec.set(point.x, point.y, point.z);
+      nLightToFogVec.sub(light.position);
+      const distanceFromLight = Math.max(VoxelConstants.VOXEL_EPSILON, nLightToFogVec.length());
+      nLightToFogVec.divideScalar(distanceFromLight);
 
-        // Fog will not catch the light if it's behind or inside of an object...
-        const lightMultiplier = this._calculateShadowCasterLightMultiplier(light.position, nLightToFogVec, distanceFromLight);
-        if (distanceFromLight > VoxelConstants.VOXEL_ERR_UNITS && lightMultiplier > 0) {
-          const lightEmission = light.emission(point, distanceFromLight).multiplyScalar(lightMultiplier);
-          finalColour.add(lightEmission);
-        }
+      // Fog will not catch the light if it's behind or inside of an object...
+      const lightMultiplier = this._calculateShadowCasterLightMultiplier(light.position, nLightToFogVec, distanceFromLight);
+      if (distanceFromLight > VoxelConstants.VOXEL_ERR_UNITS && lightMultiplier > 0) {
+        const lightEmission = light.emission(point, distanceFromLight).multiplyScalar(lightMultiplier);
+        finalColour.add(lightEmission);
       }
-      finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
     }
+    finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
 
     return finalColour;
   }
@@ -318,7 +315,7 @@ class VTRPScene {
     const factorPerSample = 1.0 / samples.length;
     const lights = Object.values(this.lights);
     
-    for (let i = 0; i < samples.length; i++) {
+    for (let i = 0; i < samples.length && (finalColour.r < 1 || finalColour.g < 1 || finalColour.b < 1); i++) {
       const {point, normal, uv, falloff} = samples[i];
       if (falloff === 0) { continue; }
 
@@ -351,9 +348,7 @@ class VTRPScene {
       finalColour.add(sampleLightContrib);
     }
 
-
-
-    if (this.ambientLight) {
+    if (this.ambientLight && (finalColour.r < 1 || finalColour.g < 1 || finalColour.b < 1)) {
       // Don't add ambient light more than once to the same voxel!
       const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, this.gridSize);
       if (!(voxelPtId in this._tempVoxelMap)) {

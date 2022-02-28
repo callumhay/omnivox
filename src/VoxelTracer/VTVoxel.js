@@ -71,9 +71,9 @@ class VTVoxel extends VTVoxelAbstract  {
   }
 
   toJSON() {
-    const {id, type, _voxelIdxPt, _material, _matrixWorld, _receivesShadow} = this;
+    const {id, drawOrder, type, _voxelIdxPt, _material, _matrixWorld, _receivesShadow} = this;
     const matrixArray = _matrixWorld.toArray();
-    return {id, type, _voxelIdxPt, _material, matrixArray, _receivesShadow};
+    return {id, drawOrder, type, _voxelIdxPt, _material, matrixArray, _receivesShadow};
   }
 
   intersectsBox(box) {

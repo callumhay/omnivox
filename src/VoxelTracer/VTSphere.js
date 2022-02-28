@@ -8,6 +8,7 @@ import VTObject from './VTObject';
 export const defaultSphereOptions = {
   samplesPerVoxel: 6,
   fill: false,
+  castsShadows: true,
 };
 
 export class VTSphereAbstract extends VTObject {
@@ -21,8 +22,10 @@ export class VTSphereAbstract extends VTObject {
     this._tempVec3 = new THREE.Vector3();
   }
 
+  getBoundingSphere() { return this._sphere; }
+
   dispose() { this._material.dispose(); }
-  isShadowCaster() { return true; }
+  isShadowCaster() { return this._options.castsShadows; }
 
   intersectsRay(raycaster) {
     this._sphere.radius -= VoxelConstants.VOXEL_EPSILON;
@@ -62,9 +65,9 @@ export class VTSphere extends VTSphereAbstract {
   }
 
   toJSON() {
-    const {id, type, _sphere, _material, _options} = this;
+    const {id, drawOrder, type, _sphere, _material, _options} = this;
     const {center, radius} = _sphere;
-    return {id, type, center, radius, material: _material, options: _options};
+    return {id, drawOrder, type, center, radius, material: _material, options: _options};
   }
 
   intersectsBox(box) {

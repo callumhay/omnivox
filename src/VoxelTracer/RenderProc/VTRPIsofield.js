@@ -46,9 +46,10 @@ class VTRPIsofield extends VTObject {
   }
 
   static build(jsonVTIsofield) {
-    const {id, _size, _material, _metaballs, _walls, _castsShadows, _recievesShadows} = jsonVTIsofield;
+    const {id, drawOrder, _size, _material, _metaballs, _walls, _castsShadows, _recievesShadows} = jsonVTIsofield;
     const result = new VTRPIsofield(_size, _metaballs, _walls, _material, _castsShadows, _recievesShadows);
     result.id = id;
+    result.drawOrder = drawOrder;
     return result;
   }
 

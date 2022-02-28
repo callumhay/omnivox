@@ -52,10 +52,11 @@ class VTRPMesh extends VTObject {
   }
 
   static build(jsonVTMesh) {
-    const {id, threeMesh, material} = jsonVTMesh;
+    const {id, drawOrder, threeMesh, material} = jsonVTMesh;
 
     const result = new VTRPMesh(VTMaterialFactory.build(material));
     result.id = id;
+    result.drawOrder = drawOrder;
     
     const loader = new THREE.ObjectLoader();
     const loadedMesh = loader.parse(threeMesh);

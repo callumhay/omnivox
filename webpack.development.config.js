@@ -21,6 +21,19 @@ const commonConfig = {
     new webpack.DefinePlugin({ DEBUG: true }),
     //new webpack.HotModuleReplacementPlugin(),
   ],
+  resolve: {
+    fallback: {
+      "fs": false,
+      "tls": false,
+      "net": false,
+      "path": false,
+      "zlib": false,
+      "http": false,
+      "https": false,
+      "stream": false,
+      "crypto": false,
+    } 
+  }
 };
 
 const webClientViewerConfig = {...commonConfig,

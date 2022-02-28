@@ -9,13 +9,15 @@ class VTRPVoxel extends VTVoxelAbstract  {
   }
 
   static build(jsonVTVoxel) {
-    const {id, _voxelIdxPt, _material, matrixArray, _receivesShadow} = jsonVTVoxel;
+    const {id, drawOrder, _voxelIdxPt, _material, matrixArray, _receivesShadow} = jsonVTVoxel;
     const result = new VTRPVoxel(
       new THREE.Vector3(_voxelIdxPt.x, _voxelIdxPt.y, _voxelIdxPt.z), 
       VTMaterialFactory.build(_material), 
       {receivesShadow: _receivesShadow, matrixWorld: (new THREE.Matrix4()).fromArray(matrixArray)}
     );
     result.id = id;
+    result.drawOrder = drawOrder;
+    
     return result;
   }
 

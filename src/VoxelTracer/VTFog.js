@@ -34,8 +34,8 @@ class VTFog extends VTObject {
   isShadowCaster() { return true; }
 
   toJSON() {
-    const {id, type, _colour, _scattering} = this;
-    return {id, type, _colour, _scattering};
+    const {id, drawOrder, type, _colour, _scattering} = this;
+    return {id, drawOrder, type, _colour, _scattering};
   }
 }
 

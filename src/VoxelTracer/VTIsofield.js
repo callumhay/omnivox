@@ -30,8 +30,8 @@ class VTIsofield extends VTObject {
   isShadowCaster() { return this._castsShadows; }
 
   toJSON() {
-    const {id, type, _material, _size, _metaballs, _walls, _castsShadows, _recievesShadows} = this;
-    return {id, type, _material, _size, _metaballs, _walls, _castsShadows, _recievesShadows};
+    const {id, drawOrder, type, _material, _size, _metaballs, _walls, _castsShadows, _recievesShadows} = this;
+    return {id, drawOrder, type, _material, _size, _metaballs, _walls, _castsShadows, _recievesShadows};
   }
 
   dispose() {}

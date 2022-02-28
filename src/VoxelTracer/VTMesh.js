@@ -26,8 +26,8 @@ class VTMesh extends VTObject {
   }
 
   toJSON() {
-    const {id, type, threeMesh, material} = this;
-    return {id, type, threeMesh, material};
+    const {id, drawOrder, type, threeMesh, material} = this;
+    return {id, drawOrder, type, threeMesh, material};
   }
 
   dispose() {

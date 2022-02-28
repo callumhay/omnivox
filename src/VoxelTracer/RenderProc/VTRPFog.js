@@ -49,13 +49,14 @@ export class VTRPFogBox extends VTRPFog {
   }
 
   static build(json) {
-    const {id, _colour, _boundingBox, _scattering} = json;
+    const {id, drawOrder, _colour, _boundingBox, _scattering} = json;
     const colour = (new THREE.Color()).setHex(_colour);
     const {min, max} = _boundingBox;
     const minPt = new THREE.Vector3(min.x, min.y, min.z);
     const maxPt = new THREE.Vector3(max.x, max.y, max.z);
     const result = new VTRPFogBox(new THREE.Box3(minPt, maxPt), {fogColour: colour, scattering: _scattering});
     result.id = id;
+    result.drawOrder = drawOrder;
     return result;
   }
 
@@ -79,12 +80,13 @@ export class VTRPFogSphere extends VTRPFog {
   }
 
   static build(json) {
-    const {id, _colour, _boundingSphere, _scattering} = json;
+    const {id, drawOrder, _colour, _boundingSphere, _scattering} = json;
     const colour = (new THREE.Color()).setHex(_colour);
     const {center, radius} = _boundingSphere;
     const c = new THREE.Vector3(center.x, center.y, center.z);
     const result = new VTRPFogSphere(new THREE.Sphere(c, radius), {fogColour: colour, scattering: _scattering});
     result.id = id;
+    result.drawOrder = drawOrder;
     return result;
   }
 
