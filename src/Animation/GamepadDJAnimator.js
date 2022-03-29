@@ -29,22 +29,21 @@ const SCRIABIN_NOTE_COLOURS = [
   {r: 0.565, g: 0.796, b: 0.996}, // B: Sky Blue (#90cbfe)
 ];
 
-
 export const gamepadDJAnimatorDefaultConfig = {
   noteColourPalette: [...SCRIABIN_NOTE_COLOURS],
 };
 
-const CURSOR_MIN_PULSE_ATTEN = 0.2;
-const CURSOR_MAX_PULSE_ATTEN = 2.5;
-const CURSOR_MAX_SPEED = VoxelConstants.VOXEL_GRID_SIZE*1.8;
+const CURSOR_MIN_PULSE_ATTEN = 0.1;
+const CURSOR_MAX_PULSE_ATTEN = 1.8;
+const CURSOR_MAX_SPEED = VoxelConstants.VOXEL_GRID_SIZE*1.6;
 
-const MIN_TIME_BETWEEN_SPHERE_PULSES = 0.5;
+const MIN_TIME_BETWEEN_SPHERE_PULSES = 1.0;
 
 const MAX_TRAIL_SPHERE_RADIUS = 6;
 
 const tempVec3 = new THREE.Vector3();
-const tempColour1 = new THREE.Color();
-const tempColour2 = new THREE.Color();
+const newPulseColour = new THREE.Color();
+const tempColour = new THREE.Color();
 
 class GamepadDJAnimator extends AudioVisualizerAnimator {
   constructor(voxelModel, scene, config=gamepadDJAnimatorDefaultConfig) {
@@ -82,8 +81,8 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
       for (let i = 0; i < SPHERE_PULSE_BUFFER_SIZE; i++) {
         const pulse = {
           active: false,
-          growSpeed: gridSize*0.666,
-          alphaFadeSpeed: 1.25,
+          growSpeed: gridSize*0.5,
+          alphaFadeSpeed: 0.5,
           sphere: new VTSphere(
             new THREE.Vector3(gridSize,gridSize,gridSize), 0, 
             new VTEmissionMaterial(new THREE.Color(1,1,1), 0), 
@@ -106,6 +105,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     const halfGridSizeIdx = VoxelConstants.VOXEL_HALF_GRID_SIZE-1;
     this.cursorPos = new THREE.Vector3(halfGridSizeIdx,halfGridSizeIdx,halfGridSizeIdx);
     this.timeCounter = 0;
+    this.updatePulseColour = false;
 
     this.prevBassTotal = 0;
     this.prevBaseDerivative = 0;
@@ -151,8 +151,13 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     const zcrEffect = THREE.MathUtils.clamp(this.avgZCR/this.currMaxZCR, 0, 1);
     const pulseRMS = 1 - rmsEffect;
     const pulseZCR = 1 - zcrEffect;
-    const pulse = CURSOR_MIN_PULSE_ATTEN + (0.6*pulseZCR + 0.4*pulseRMS)*(CURSOR_MAX_PULSE_ATTEN-CURSOR_MIN_PULSE_ATTEN);
+    const pulse = CURSOR_MIN_PULSE_ATTEN + Math.max(this.currButtonState.rightTrigger, (0.6*pulseZCR + 0.4*pulseRMS)) * (CURSOR_MAX_PULSE_ATTEN-CURSOR_MIN_PULSE_ATTEN);
     this.cursorPtLight.setAttenuation({quadratic:pulse, linear:0});
+
+    if (this.updatePulseColour) {
+      this.cursorPtLight.setColour(newPulseColour.clone());
+      this.updatePulseColour = false;
+    }
 
     // Sphere Pulse Updates: When the music gets really intense suddenly we trigger a bright sphere pulse that eminates from the cursor
     const {gridSize} = this.voxelModel;
@@ -173,16 +178,22 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
       }
       else {
         // Update the sphere dimensions and material to animate its pulse
-        pulse.currRadius += growSpeed*dt;
-        sphere.setRadius(pulse.currRadius + dt*growSpeed*(rmsEffect-0.5));
-
+        pulse.currRadius += growSpeed * dt * (0.5 + rmsEffect);
         pulse.currAlpha -= dt*alphaFadeSpeed;
-        sphere.material.alpha = Math.max(0, pulse.currAlpha*Math.max(0.5, rmsEffect));
-        sphere.material.colour.copy(this.cursorPtLight.colour);
-        sphere.setMaterial(sphere.material);
+
+        if (Math.abs(sphere.radius-pulse.currRadius) > VoxelConstants.VOXEL_ERR_UNITS) {
+          sphere.setRadius(pulse.currRadius);
+          sphere.material.alpha = Math.max(0.25, pulse.currAlpha*Math.max(0.5, rmsEffect));
+          sphere.material.colour.copy(this.cursorPtLight.colour);
+          sphere.material.colour.addScalar(THREE.MathUtils.clamp(1.0-pulse.currAlpha,0,1));
+          sphere.setMaterial(sphere.material);
+        }
       }
     }
 
+
+
+    /*
     // Sphere Trail Updating
     if (this.currButtonState.rightTrigger > 0) {
       // Update the current voxel data for the sphere trail based on how much the trigger is being held down
@@ -192,6 +203,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
       const trailMagnitude = THREE.MathUtils.clamp((this.sphereTrailMap[currVoxelId] || 0) + this.currButtonState.rightTrigger, 0, MAX_TRAIL_SPHERE_RADIUS);
       this.sphereTrailMap[currVoxelId] = trailMagnitude;
     }
+    */
 
     this.timeCounter += dt;
     this.timeSinceLastSpherePulse += dt;
@@ -209,31 +221,14 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     let colourBlendSpeed = 2; // Number of blends per second
     if (this.avgRMS >= 0.95*this.currMaxRMS) {
       colourBlendSpeed = 0.5/Math.max(0.001, this.dtAudioFrame);
-      tempColour1.setRGB(1,1,1);
+      newPulseColour.setRGB(1,1,1);
 
-      if (mfcc[0] >= 225 && (perceptualSharpness >= 0.6 || perceptualSharpness <= 0.15) && this.timeSinceLastSpherePulse >= MIN_TIME_BETWEEN_SPHERE_PULSES) {
-        // Add an intensity pulse
-        const spherePulse = this.spherePulses[this.currSpherePulseIdx];
-        this.currSpherePulseIdx = (this.currSpherePulseIdx+1) % this.spherePulses.length;
-
-        const {sphere} = spherePulse;
-        sphere.setCenter(this.cursorPos.clone().addScalar(VoxelConstants.VOXEL_HALF_UNIT_SIZE)); // Center it on the cursor's voxel exactly
-        sphere.setRadius(VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS);
-
-        const sphereMaterial = sphere.material;
-        sphereMaterial.alpha = 1;
-        sphereMaterial.colour.copy(this.cursorPtLight.colour);
-        sphere.setMaterial(sphereMaterial);
-        spherePulse.currAlpha  = sphereMaterial.alpha;
-        spherePulse.currRadius = sphere.radius;
-
-        spherePulse.active = true;
-        this.timeSinceLastSpherePulse = 0;
+      if (mfcc[0] >= 220 && (perceptualSharpness >= 0.5 || perceptualSharpness <= 0.2) && this.timeSinceLastSpherePulse >= MIN_TIME_BETWEEN_SPHERE_PULSES) {
+        this._addIntensitySpherePulse();
       }
-
     }
     else {
-      tempColour1.setRGB(0,0,0);
+      newPulseColour.setRGB(0,0,0);
       const chromaSum = chroma.reduce((a,b) => a+b, 0) || 1;
       const chromaMean = chromaSum / chroma.length;
       let chromaAdjusted = chroma.map(val => val-chromaMean);
@@ -244,21 +239,23 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
       // Chroma is an array of the following note order: [C, C♯, D, D♯, E, F, F♯, G, G♯, A, A♯, B], values in [0,1]
       // Perform a dot product of the chroma vector with the rgb vectors in the current note palette...
       for (let i = 0; i < chroma.length; i++) {
-        tempColour2.setRGB(noteColourPalette[i].r, noteColourPalette[i].g, noteColourPalette[i].b);
-        tempColour2.multiplyScalar(chromaAdjusted[i]);
-        tempColour1.add(tempColour2);
+        tempColour.setRGB(noteColourPalette[i].r, noteColourPalette[i].g, noteColourPalette[i].b);
+        tempColour.multiplyScalar(chromaAdjusted[i]);
+        newPulseColour.add(tempColour);
       }
-      tempColour1.multiplyScalar(Math.max(2, 1+this.avgRMS));
+      newPulseColour.multiplyScalar(Math.max(2, 1+this.avgRMS));
     }
     
     const currCursorColour = this.cursorPtLight.colour;
-    
-    tempColour1.setRGB(
-      THREE.MathUtils.clamp(currCursorColour.r + this.dtAudioFrame*colourBlendSpeed*(Math.min(1, tempColour1.r)-currCursorColour.r),0,1),
-      THREE.MathUtils.clamp(currCursorColour.g + this.dtAudioFrame*colourBlendSpeed*(Math.min(1, tempColour1.g)-currCursorColour.g),0,1),
-      THREE.MathUtils.clamp(currCursorColour.b + this.dtAudioFrame*colourBlendSpeed*(Math.min(1, tempColour1.b)-currCursorColour.b),0,1)
+    newPulseColour.setRGB(
+      THREE.MathUtils.clamp(currCursorColour.r + this.dtAudioFrame*colourBlendSpeed*(Math.min(1, newPulseColour.r)-currCursorColour.r),0,1),
+      THREE.MathUtils.clamp(currCursorColour.g + this.dtAudioFrame*colourBlendSpeed*(Math.min(1, newPulseColour.g)-currCursorColour.g),0,1),
+      THREE.MathUtils.clamp(currCursorColour.b + this.dtAudioFrame*colourBlendSpeed*(Math.min(1, newPulseColour.b)-currCursorColour.b),0,1)
     );
-    this.cursorPtLight.setColour(tempColour1.clone());
+    if (!newPulseColour.equals(this.cursorPtLight.colour)) {
+      this.updatePulseColour = true;
+    }
+    
   }
 
   onGamepadAxisEvent(axisEvent) {
@@ -266,10 +263,10 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     // axisEvent.axis  Values: 0,1: X,Y Axis
     // axisEvent.value Values: Negative is left or up, Positive is right or down
     const {leftStick,rightStick} = this.currAxisState;
-    leftStick.x  = (axisEvent.stick === 0 && axisEvent.axis === 0) ? axisEvent.value : leftStick.x;
+    leftStick.x  = (axisEvent.stick === 0 && axisEvent.axis === 0) ? axisEvent.value  : leftStick.x;
     leftStick.y  = (axisEvent.stick === 0 && axisEvent.axis === 1) ? -axisEvent.value : leftStick.y;
-    rightStick.x = (axisEvent.stick === 1 && axisEvent.axis === 0) ? axisEvent.value : rightStick.x;
-    rightStick.y = (axisEvent.stick === 1 && axisEvent.axis === 1) ? axisEvent.value : rightStick.y;
+    rightStick.x = (axisEvent.stick === 1 && axisEvent.axis === 0) ? axisEvent.value  : rightStick.x;
+    rightStick.y = (axisEvent.stick === 1 && axisEvent.axis === 1) ? axisEvent.value  : rightStick.y;
   }
   onGamepadButtonEvent(buttonEvent) {
     // buttonEvent.button Values:
@@ -314,17 +311,38 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
   }
 
 
-  _updateOnOffButton(buttonName, buttonEvent) {
+  _updateOnOffButton(buttonName, buttonEvent, buttonPressedFunc = () => (null), buttonUnpressedFunc = () => (null)) {
     if (!this.currButtonState[buttonName] && buttonEvent.value) {
       // Button was just pressed
-
+      buttonPressedFunc();
     }
     else if (this.currButtonState[buttonName] && !buttonEvent.value) {
       // Button was just unpressed
-
+      buttonUnpressedFunc();
     }
     this.currButtonState[buttonName] = buttonEvent.value;
   }
+
+
+  _addIntensitySpherePulse() {
+    const spherePulse = this.spherePulses[this.currSpherePulseIdx];
+    this.currSpherePulseIdx = (this.currSpherePulseIdx+1) % this.spherePulses.length;
+
+    const {sphere} = spherePulse;
+    sphere.setCenter(this.cursorPos.clone().addScalar(VoxelConstants.VOXEL_HALF_UNIT_SIZE)); // Center it on the cursor's voxel exactly
+    sphere.setRadius(VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS);
+
+    const sphereMaterial = sphere.material;
+    sphereMaterial.alpha = 1;
+    sphereMaterial.colour.copy(this.cursorPtLight.colour);
+    sphere.setMaterial(sphereMaterial);
+    spherePulse.currAlpha  = sphereMaterial.alpha;
+    spherePulse.currRadius = sphere.radius;
+
+    spherePulse.active = true;
+    this.timeSinceLastSpherePulse = 0;
+  }
+
 }
 
 export default GamepadDJAnimator;

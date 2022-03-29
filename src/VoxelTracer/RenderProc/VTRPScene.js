@@ -238,42 +238,35 @@ class VTRPScene {
     // We treat voxels as perfect inifintesmial spheres centered at a given voxel position
     // they can be shadowed and have materials like meshes
     const finalColour = material.emission(null);
-    
-    // Fast-out: If the final colour is already blown-out then there's no point rendering anything further
-    if (finalColour.r < 1 || finalColour.g < 1 || finalColour.b < 1) {
-      const lights = Object.values(this.lights);
-      if (lights.length > 0) {
+    const lights = Object.values(this.lights);
+    const nVoxelToLightVec = new THREE.Vector3();
+    for (let j = 0; j < lights.length && (finalColour.r < 1 || finalColour.g < 1 || finalColour.b < 1); j++) {
+      const light = lights[j];
+      
+      nVoxelToLightVec.set(light.position.x, light.position.y, light.position.z);
+      nVoxelToLightVec.sub(point);
+      const distanceToLight = Math.max(VoxelConstants.VOXEL_EPSILON, nVoxelToLightVec.length());
+      nVoxelToLightVec.divideScalar(distanceToLight); // Normalize
 
-        const nVoxelToLightVec = new THREE.Vector3();
-        for (let j = 0; j < lights.length; j++) {
-          const light = lights[j];
-          
-          nVoxelToLightVec.set(light.position.x, light.position.y, light.position.z);
-          nVoxelToLightVec.sub(point);
-          const distanceToLight = Math.max(VoxelConstants.VOXEL_EPSILON, nVoxelToLightVec.length());
-          nVoxelToLightVec.divideScalar(distanceToLight); // Normalize
-
-          const lightMultiplier = receivesShadow ? this._calculateShadowCasterLightMultiplier(point, nVoxelToLightVec, distanceToLight) : 1.0;
-          if (lightMultiplier > 0) {
-            // The voxel is not in total shadow, do the lighting - since it's a "infitesimal sphere" the normal is always
-            // in the direction of the light, so it's always ambiently lit (unless it's in shadow)
-            const lightEmission = light.emission(point, distanceToLight).multiplyScalar(lightMultiplier);
-            const materialLightingColour = material.brdfAmbient(null, lightEmission);
-            finalColour.add(materialLightingColour);
-          }
-        }
-      }
-
-      if (this.ambientLight) {
-        // Don't add ambient light more than once to the same voxel!
-        const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, this.gridSize);
-        if (!(voxelPtId in this._tempVoxelMap)) { 
-          finalColour.add(material.basicBrdfAmbient(null, this.ambientLight.emission()));
-          this._tempVoxelMap[voxelPtId] = true;
-        }
+      const lightMultiplier = receivesShadow ? this._calculateShadowCasterLightMultiplier(point, nVoxelToLightVec, distanceToLight) : 1.0;
+      if (lightMultiplier > 0) {
+        // The voxel is not in total shadow, do the lighting - since it's a "infitesimal sphere" the normal is always
+        // in the direction of the light, so it's always ambiently lit (unless it's in shadow)
+        const lightEmission = light.emission(point, distanceToLight).multiplyScalar(lightMultiplier);
+        const materialLightingColour = material.brdfAmbient(null, lightEmission);
+        finalColour.add(materialLightingColour);
       }
     }
 
+    if (this.ambientLight) {
+      // Don't add ambient light more than once to the same voxel!
+      const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, this.gridSize);
+      if (!(voxelPtId in this._tempVoxelMap)) { 
+        finalColour.add(material.basicBrdfAmbient(null, this.ambientLight.emission()));
+        this._tempVoxelMap[voxelPtId] = true;
+      }
+    }
+ 
     finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
 
     return finalColour;
@@ -322,7 +315,7 @@ class VTRPScene {
       sampleLightContrib.copy(material.emission(uv));
       sampleLightContrib.multiplyScalar(falloff);
 
-      for (let j = 0; j < lights.length; j++) {
+      for (let j = 0; j < lights.length && (sampleLightContrib.r < 1 || sampleLightContrib.g < 1 || sampleLightContrib.b < 1); j++) {
         const light = lights[j];
 
         nObjToLightVec.set(light.position.x, light.position.y, light.position.z);

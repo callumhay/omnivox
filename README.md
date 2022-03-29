@@ -5,7 +5,6 @@ A 3D LED display server and client made to drive fun and novel visualizations.
 
 ## Deployment
 
-- Currently working well with node version 12.18.3
 - Run `npm install` to get all the required node packages.
 - Run `npm run dev|prod` for dev or production mode (leave this running for the watch).
 - In parallel, run `npm start` to run server.js in production, or `npm run start_dev` to use nodemon while running the server during development.

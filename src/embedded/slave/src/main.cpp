@@ -29,9 +29,10 @@ const int octoConfig = WS2811_800kHz; // All other settings are done on the serv
 const int voxelCubeSize = DEFAULT_VOXEL_CUBE_SIZE;
 const int ledsPerModule = NUM_OCTO_PINS * voxelCubeSize * voxelCubeSize;
 const int ledsPerStrip  = voxelCubeSize * voxelCubeSize;
+const int memBuffLen = ledsPerStrip*6;
 
-DMAMEM int displayMemory[ledsPerStrip*6];
-int drawingMemory[ledsPerStrip*6];
+DMAMEM int displayMemory[memBuffLen] = {0};
+int drawingMemory[memBuffLen] = {0};
 
 OctoWS2811 leds(ledsPerStrip, displayMemory, drawingMemory, octoConfig);
 // **************************************************************************************
@@ -138,6 +139,20 @@ void onSerialPacketReceived(const void* sender, const uint8_t* buffer, size_t si
         }
         break;
 
+      case GOODBYE_HEADER:
+        // Clear the display buffer / drawing memory
+        memcpy((uint8_t*)drawingMemory, 0, sizeof(drawingMemory));
+        leds.show();
+
+        // Re/De-initialize variables
+        lastKnownFrameId = -1;
+        lastFrameTimeMicroSecs = 0;
+        frameDiffMicroSecs = 0;
+        statusUpdateFrameCounter = 0;
+
+        DEBUG_SERIAL.printf("[Slave %i] Goodbye header received, bye!", MY_SLAVE_ID); DEBUG_SERIAL.println();
+        break;
+
       case VOXEL_DATA_ALL_TYPE:
         bufferIdx += 2; // Frame ID
         readFullVoxelData(buffer, static_cast<size_t>(size-bufferIdx), bufferIdx, getFrameId(buffer, size));
@@ -176,7 +191,6 @@ void setup() {
   myPacketSerial.setStream(&DATA_SERIAL);
   myPacketSerial.setPacketHandler(&onSerialPacketReceived);
 
-  lastKnownFrameId = 0;
   leds.begin();
   leds.show();
 }

@@ -63,7 +63,6 @@ class VoxelServer {
       console.log("Websocket server closed.");
     });
 
-    this.availableSerialPorts = [];
     this.connectedSerialPorts = [];
     this.slaveDataMap = {};
   }
@@ -71,30 +70,32 @@ class VoxelServer {
   start() {
     const self = this;
 
-    setInterval(function() {
+    const serialPoll = function() {
+      //console.log("RUNNING SERIAL LOOP.");
+
+      // Max 4 serial connections, no need to keep polling for serial ports if they're all connected.
+      // NOTE: The connectedSerialPorts array will get smaller when serial connections are dropped, 
+      // this will then fall through and reinitialize new connections again
+      if (self.connectedSerialPorts.length >= 4) { return; }
 
       SerialPort.list().then(
         ports => {
-          self.availableSerialPorts = ports;
-         
           //console.log("Available serial ports:");
-          //self.availableSerialPorts.forEach((availablePort) => {
+          //ports.forEach((availablePort) => {
           //  console.log(availablePort);
           //});
-         
-          // Attempt to connect to each of the serial ports that might be teensies...
+
+          // Attempt to connect to each of the serial ports...
           try {
-            self.availableSerialPorts.forEach((availablePort) => {
+            for (const availablePort of ports) {
               //console.log("exploring port: " + availablePort.manufacturer);
-              // Check whether we've already opened the port...
-              if (self.connectedSerialPorts.filter(item => item.path === availablePort.path).length > 0) {
-                //console.log("Already opened port.");
-                return;
-              }
+
+              // Check whether we've already opened this port...
+              if (self.connectedSerialPorts.filter(item => item.path === availablePort.path).length > 0) { continue; }
 
               // There are two possibilities:
-              // 1. USB serial for the teensy, this is used to recieve user messages and debug information.
-              // 2. Hardware serial for the teensy, this is used for super fast comm for streaming voxel data.
+              // - USB serial for the teensy, this is used to recieve user messages and debug information.
+              // - Hardware serial for the teensy, this is used for fast comm for streaming voxel data.
               let isDebugSerial = availablePort.manufacturer && availablePort.manufacturer.match(/(PJRC|Teensy)/i);
               let isDataSerial  = availablePort.manufacturer && availablePort.manufacturer.match(/(FTDI)/i);
               let newSerialPort = null;
@@ -117,7 +118,7 @@ class VoxelServer {
                   autoOpen: false,
                   baudRate: DEFAULT_TEENSY_HW_SERIAL_BAUD,
                   rtscts: true,
-                  highWaterMark: (8*VoxelConstants.VOXEL_GRID_SIZE*VoxelConstants.VOXEL_GRID_SIZE*3+4+64),
+                  highWaterMark: (8*VoxelConstants.VOXEL_GRID_SIZE*VoxelConstants.VOXEL_GRID_SIZE*3+4+64), // 8 boards, each board is grid*grid voxels, each colour is 3 bytes, plus extra for headers/protocol
                 });
                 newSerialPort.isVoxelDataConnection = true;
               }
@@ -125,12 +126,16 @@ class VoxelServer {
               if (newSerialPort) {
                 newSerialPort.on('error', (spErr) => {
                   console.error("Serial port error: " + spErr);
+                  delete self.slaveDataMap[availablePort.path];
+                  const spIdx = self.connectedSerialPorts.indexOf(newSerialPort);
+                  if (spIdx !== -1) { self.connectedSerialPorts.splice(spIdx, 1); }
                 });
 
                 newSerialPort.on('close', () => {
                   console.log("Serial port closed: " + availablePort.path);
                   delete self.slaveDataMap[availablePort.path];
-                  self.connectedSerialPorts.splice(self.connectedSerialPorts.indexOf(newSerialPort), 1);
+                  const spIdx = self.connectedSerialPorts.indexOf(newSerialPort);
+                  if (spIdx !== -1) { self.connectedSerialPorts.splice(spIdx, 1); }
                 });
 
                 newSerialPort.on('open', () => {
@@ -173,9 +178,10 @@ class VoxelServer {
                     }
                     else {
                       console.log(data);
-                      console.log("Current Server Frame#: " + (self.voxelModel.frameCounter % 65536));
+                      console.log("Current Server Frame: #" + (self.voxelModel.frameCounter % 65536));
                     }
                   });
+
                   self.connectedSerialPorts.push(newSerialPort);
                 });
 
@@ -189,17 +195,22 @@ class VoxelServer {
                   }
                 });
               }
-            });
-          }
+
+            } // for ports
+          } // try
           catch (err) {
             console.error(err);
           }
+
+          setTimeout(serialPoll, SERIAL_POLLING_INTERVAL_MS); // Poll again soon...
         },
         err => {
           console.error(err);
         }
       );
-    }, SERIAL_POLLING_INTERVAL_MS);
+    };
+
+    setImmediate(serialPoll);
   }
 
   stop() {
@@ -211,6 +222,7 @@ class VoxelServer {
   sendClientSocketVoxelData(voxelData) {
     if (this.connectedSerialPorts.length > 0) {
       //console.log("Number of serial ports connected: " +this.connectedSerialPorts.length);
+
       // Send data frames out through all connected serial ports
       for (const currSerialPort of this.connectedSerialPorts) {
         if (!currSerialPort.isOpen) {

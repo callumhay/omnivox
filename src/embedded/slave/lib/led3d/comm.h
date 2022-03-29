@@ -18,6 +18,7 @@
 // Packet Header/Identifier Constants
 #define WELCOME_HEADER 'W'
 #define VOXEL_DATA_ALL_TYPE 'A'
+#define GOODBYE_HEADER 'G'
 
 #define EMPTY_SLAVE_ID 255
 
