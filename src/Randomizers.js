@@ -27,6 +27,9 @@ export class Randomizer {
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min + 1)) + min; // The maximum is inclusive and the minimum is inclusive 
   }
+  static getRandomPositiveOrNegative() {
+    return Math.random() > 0.5 ? 1 : -1;
+  }
 
   static getRandomFloats(size, min=0, max=1) {
     let result = new Array(size);

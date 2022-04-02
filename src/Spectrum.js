@@ -3,6 +3,24 @@ import chroma from 'chroma-js';
 
 import {Randomizer} from './Randomizers';
 
+// Default note-to-colour palette:
+// [C, C♯, D, D♯, E, F, F♯, G, G♯, A, A♯, B]
+// Based on Alexander Scriabin's synethesthetic scheme, see: https://en.wikipedia.org/wiki/Chromesthesia
+export const SCRIABIN_NOTE_COLOURS = [
+  {r: 1.000, g: 0.008, b: 0.000}, // C: Intense Red (#ff0200)
+  {r: 0.569, g: 0.008, b: 0.996}, // C♯: Violet (#9102fe)
+  {r: 0.992, g: 1.000, b: 0.000}, // D: Yellow (#fdff00)
+  {r: 0.725, g: 0.267, b: 0.545}, // D♯: Mulberry (#b9448b)
+  {r: 0.776, g: 0.949, b: 0.996}, // E: Pale Blue/Cobalt (#c6f2fe)
+  {r: 0.678, g: 0.000, b: 0.188}, // F: Rose (#ad0030)
+  {r: 0.502, g: 0.549, b: 0.992}, // F♯ Cornflower Blue (#808cfd)
+  {r: 1.000, g: 0.502, b: 0.004}, // G: Orange (#ff8001)
+  {r: 0.737, g: 0.463, b: 0.988}, // G♯: Mauve (#bc76fc)
+  {r: 0.196, g: 0.804, b: 0.180}, // A: Green (#32cd2e)
+  {r: 0.671, g: 0.400, b: 0.486}, // A♯: Puce (#ab667c)
+  {r: 0.565, g: 0.796, b: 0.996}, // B: Sky Blue (#90cbfe)
+];
+
 export const COLOUR_INTERPOLATION_RGB  = 'rgb';
 export const COLOUR_INTERPOLATION_HSL  = 'hsl';
 export const COLOUR_INTERPOLATION_LAB  = 'lab';

@@ -6,6 +6,7 @@ export const SCENE_TYPE_FOG       = "Fog";
 export const SCENE_TYPE_GODRAY    = "GodRays";
 export const SCENE_TYPE_BEACONS   = "Beacons";
 export const SCENE_TYPE_METABALLS = "Metaballs";
+export const SCENE_TYPE_BOUNCY    = "Bouncy";
 
 export const SCENE_TYPES = [
   SCENE_TYPE_SIMPLE,
@@ -14,6 +15,7 @@ export const SCENE_TYPES = [
   SCENE_TYPE_GODRAY,
   SCENE_TYPE_BEACONS,
   SCENE_TYPE_METABALLS,
+  SCENE_TYPE_BOUNCY,
 ];
 
 const fogScatteringCtrlOpt = {label: "Fog Scattering", min:0, max:1, step:0.01};
@@ -225,14 +227,46 @@ const metaballSceneControlOptions = {
   showLights: {label: "Show Lights?"},
 };
 
+const bouncySceneDefaultOptions = {
+  ambientLightColour: {r:0.25, g:0.25, b:0.25},
+  dirLight1Colour: {r:1, g:1, b:1},
+  dirLight1Dir: {x:1, y:-1, z:1},
+  dirLight2Colour: {r:0.66, g:0.66, b:0.66},
+  dirLight2Dir: {x:-0.75, y:-0.2, z:-0.5},
+  numSpheres: 3,
+  minSphereRadius: 3,
+  maxSphereRadius: 3.5,
+  sphereDensity: 2,
+  gravity: -9.8,
+  bounciness: 1,
+  friction: 0.1,
+  maxInitialVelocity: 7,
+};
+const bouncySceneControlOptions = {
+  ambientLightColour: {label: "Ambient Light Colour"},
+  dirLight1Colour: {label: "Light 1 Colour"},
+  dirLight1Dir: {label: "Light 1 Direction"},
+  dirLight2Colour: {label: "Light 2 Colour"},
+  dirLight2Dir: {label: "Light 2 Direction"},
+  numSpheres: {label: "Number of Spheres", min:1, max:10, step:1},
+  minSphereRadius: {label: "Min Sphere Radius", min:1, max:5, step:0.5},
+  maxSphereRadius: {label: "Max Sphere Radius", min:1, max:5, step:0.5},
+  sphereDensity: {label: "Sphere Density (kg/voxel)", min:0.1, max:10, step:0.1},
+  gravity: {label: "Gravity (voxel/s^2)", min:-20, max:20, step:0.2},
+  bounciness: {label: "Bounciness", min:0, max:1, step:0.01},
+  friction: {label: "Friction", min:0, max:1, step:0.01},
+  maxInitialVelocity: {label: "Max Initial Velocity", min:1, max:20, step:0.25},
+};
+
 
 export const sceneDefaultOptionsMap = {
-  [SCENE_TYPE_SIMPLE]:    {options: simpleSceneDefaultOptions,  constraints: simpleSceneControlOptions},
-  [SCENE_TYPE_SHADOW]:    {options: shadowSceneDefaultOptions,  constraints: shadowSceneControlOptions},
-  [SCENE_TYPE_FOG]:       {options: fogSceneDefaultOptions,     constraints: fogSceneControlOptions},
-  [SCENE_TYPE_GODRAY]:    {options: godRaySceneDefaultOptions,  constraints: godRaySceneControlOptions},
-  [SCENE_TYPE_BEACONS]:   {options: beaconsSceneDefaultOptions, constraints: beaconsSceneControlOptions},
+  [SCENE_TYPE_SIMPLE]:    {options: simpleSceneDefaultOptions,   constraints: simpleSceneControlOptions},
+  [SCENE_TYPE_SHADOW]:    {options: shadowSceneDefaultOptions,   constraints: shadowSceneControlOptions},
+  [SCENE_TYPE_FOG]:       {options: fogSceneDefaultOptions,      constraints: fogSceneControlOptions},
+  [SCENE_TYPE_GODRAY]:    {options: godRaySceneDefaultOptions,   constraints: godRaySceneControlOptions},
+  [SCENE_TYPE_BEACONS]:   {options: beaconsSceneDefaultOptions,  constraints: beaconsSceneControlOptions},
   [SCENE_TYPE_METABALLS]: {options: metaballSceneDefaultOptions, constraints: metaballSceneControlOptions},
+  [SCENE_TYPE_BOUNCY]:    {options: bouncySceneDefaultOptions,   constraints: bouncySceneControlOptions},
 };
 
 export const sceneAnimatorDefaultConfig = {

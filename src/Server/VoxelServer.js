@@ -8,7 +8,7 @@ import VoxelConstants from '../VoxelConstants';
 
 const DEFAULT_TEENSY_USB_SERIAL_BAUD = 9600;
 const DEFAULT_TEENSY_HW_SERIAL_BAUD  = 3000000;
-const SERIAL_POLLING_INTERVAL_MS = 10000;
+const SERIAL_POLLING_INTERVAL_MS     = 5000;
 
 class VoxelServer {
 
@@ -72,6 +72,7 @@ class VoxelServer {
 
     const serialPoll = function() {
       //console.log("RUNNING SERIAL LOOP.");
+      console.log("Number of connected ports: " + self.connectedSerialPorts.length);
 
       // Max 4 serial connections, no need to keep polling for serial ports if they're all connected.
       // NOTE: The connectedSerialPorts array will get smaller when serial connections are dropped, 
@@ -99,6 +100,7 @@ class VoxelServer {
               let isDebugSerial = availablePort.manufacturer && availablePort.manufacturer.match(/(PJRC|Teensy)/i);
               let isDataSerial  = availablePort.manufacturer && availablePort.manufacturer.match(/(FTDI)/i);
               let newSerialPort = null;
+              //let serialPortIdx = self.connectedSerialPorts.length;
               
               if (isDebugSerial) {
                 console.log("Attempting connection with debug/info serial port '" + availablePort.path + "'...");
@@ -128,14 +130,22 @@ class VoxelServer {
                   console.error("Serial port error: " + spErr);
                   delete self.slaveDataMap[availablePort.path];
                   const spIdx = self.connectedSerialPorts.indexOf(newSerialPort);
-                  if (spIdx !== -1) { self.connectedSerialPorts.splice(spIdx, 1); }
+                  if (spIdx !== -1) {
+                    self.connectedSerialPorts.splice(spIdx, 1);
+                    console.log("Removed serial port: " + availablePort.path);
+                    setTimeout(serialPoll, SERIAL_POLLING_INTERVAL_MS); // Poll again soon...
+                  }
                 });
 
                 newSerialPort.on('close', () => {
                   console.log("Serial port closed: " + availablePort.path);
                   delete self.slaveDataMap[availablePort.path];
                   const spIdx = self.connectedSerialPorts.indexOf(newSerialPort);
-                  if (spIdx !== -1) { self.connectedSerialPorts.splice(spIdx, 1); }
+                  if (spIdx !== -1) { 
+                    self.connectedSerialPorts.splice(spIdx, 1);
+                    console.log("Removed serial port: " + availablePort.path); 
+                    setTimeout(serialPoll, SERIAL_POLLING_INTERVAL_MS); // Poll again soon...
+                  }
                 });
 
                 newSerialPort.on('open', () => {
@@ -146,8 +156,10 @@ class VoxelServer {
                   if (isDataSerial) {
                     const welcomePacketBuf = VoxelProtocol.buildWelcomePacketForSlaves(self.voxelModel);
                     welcomePacketBuf[0] = 255;
-                    newSerialPort.write(cobs.encode(welcomePacketBuf, true));
-                    console.log("Sent welcome packet to " + availablePort.path);
+                    try {
+                      newSerialPort.write(cobs.encode(welcomePacketBuf, true));
+                      console.log("Sent welcome packet to " + availablePort.path);
+                    } catch (err) { console.error("Failed to send welcome packet on open: "); console.error(err); }
                   }
                   
                   parser.on('data', (data) => {
@@ -156,20 +168,18 @@ class VoxelServer {
                       
                       if (slaveInfoMatch) {
                         if (!(availablePort.path in self.slaveDataMap)) {
-                          const slaveDataObj = {
-                            id: parseInt(slaveInfoMatch[1])
-                          };
+                          const slaveDataObj = { id: parseInt(slaveInfoMatch[1]) };
                           self.slaveDataMap[availablePort.path] = slaveDataObj;
-                          //console.log("Parsing match: "); console.log(slaveInfoMatch);
-                          //console.log("Parsed slave ID: " + slaveDataObj.id + ", for serial path: " + availablePort.path);
-            
+
                           // First time getting information from the current serial port, send a welcome packet
                           console.log("Slave ID at " + availablePort.path + " = " + self.slaveDataMap[availablePort.path].id);
                           console.log("Sending welcome packet to " + availablePort.path + "...");
             
                           const welcomePacketBuf = VoxelProtocol.buildWelcomePacketForSlaves(self.voxelModel);
                           welcomePacketBuf[0] = slaveDataObj.id;
-                          newSerialPort.write(cobs.encode(welcomePacketBuf, true));
+                          try {
+                            newSerialPort.write(cobs.encode(welcomePacketBuf, true));
+                          } catch (err) { console.error("Failed to send welcome packet on data: "); console.error(err); }
                         }
                         else {
                           self.slaveDataMap[availablePort.path].id = parseInt(slaveInfoMatch[1]);
@@ -199,12 +209,20 @@ class VoxelServer {
             } // for ports
           } // try
           catch (err) {
+            console.error("Serial port try-catch error:");
             console.error(err);
+            
+            console.log("Resetting and closing all serial ports...");
+            try {
+              for (const port of self.connectedSerialPorts) { port.close(); }
+            } catch (err) {}
+            self.connectedSerialPorts = [];
           }
 
           setTimeout(serialPoll, SERIAL_POLLING_INTERVAL_MS); // Poll again soon...
         },
         err => {
+          console.error("SerialPort.list() promise error:");
           console.error(err);
         }
       );
@@ -215,7 +233,7 @@ class VoxelServer {
 
   stop() {
     this.connectedSerialPorts.forEach((currSerialPort) => {
-      currSerialPort.close();
+      try { currSerialPort.close(); } catch (err) {}
     });
   }
 
@@ -223,31 +241,33 @@ class VoxelServer {
     if (this.connectedSerialPorts.length > 0) {
       //console.log("Number of serial ports connected: " +this.connectedSerialPorts.length);
 
-      // Send data frames out through all connected serial ports
-      for (const currSerialPort of this.connectedSerialPorts) {
-        if (!currSerialPort.isOpen) {
-          // Try to reconnect...
-          console.log("Serial port (" + currSerialPort.port + ") no longer open, attempting to reconnect...");
-          currSerialPort.open();
-        }
-        else if (currSerialPort.isVoxelDataConnection) {
-          const slaveData = this.slaveDataMap[currSerialPort.path];
-          // Make sure there's a slave to send the data to and that the serial port has been drained after the previous write
-          if (slaveData && currSerialPort.lastWriteResult) {
-            //console.log("Sending slave data for " + currSerialPort.path + ", id: " + slaveData.id);
-            const voxelDataSlavePacketBuf = VoxelProtocol.buildVoxelDataPacketForSlaves(voxelData, slaveData.id);
-            const encodedPacketBuf = cobs.encode(voxelDataSlavePacketBuf, true);
-            currSerialPort.lastWriteResult = currSerialPort.write(encodedPacketBuf);
-            currSerialPort.drain((err) => {
-              if (err) {  console.error(err); }
-              currSerialPort.lastWriteResult = true;
-            });
+      try {
+        // Send data frames out through all connected serial ports
+        for (const currSerialPort of this.connectedSerialPorts) {
+          if (!currSerialPort.isOpen) {
+            // Try to reconnect...
+            console.log("Serial port (" + currSerialPort.port + ") no longer open, attempting to reconnect...");
+            currSerialPort.open();
           }
-          else {
-            //console.log("Failed to send slave data: " + (slaveData ? "" : "Data empty") + " " + (currSerialPort.lastWriteResult ? "" : "Not finished writing."));
+          else if (currSerialPort.isVoxelDataConnection) {
+            const slaveData = this.slaveDataMap[currSerialPort.path];
+            // Make sure there's a slave to send the data to and that the serial port has been drained after the previous write
+            if (slaveData && currSerialPort.lastWriteResult) {
+              //console.log("Sending slave data for " + currSerialPort.path + ", id: " + slaveData.id);
+              const voxelDataSlavePacketBuf = VoxelProtocol.buildVoxelDataPacketForSlaves(voxelData, slaveData.id);
+              const encodedPacketBuf = cobs.encode(voxelDataSlavePacketBuf, true);
+              currSerialPort.lastWriteResult = currSerialPort.write(encodedPacketBuf);
+              currSerialPort.drain((err) => {
+                if (err) {  console.error(err); }
+                currSerialPort.lastWriteResult = true;
+              });
+            }
+            else {
+              //console.log("Failed to send slave data: " + (slaveData ? "" : "Data empty") + " " + (currSerialPort.lastWriteResult ? "" : "Not finished writing."));
+            }
           }
         }
-      }
+      } catch (err) {}
     }
 
     // Send voxel data to the viewer websocket client

@@ -1,6 +1,5 @@
 
 import * as THREE from 'three';
-import fs from 'fs';
 
 import SceneRenderer from './SceneRenderer';
 
@@ -8,7 +7,6 @@ import VTMesh from '../VTMesh';
 import VTLambertMaterial from '../VTLambertMaterial';
 import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';
-import VTTexture from '../VTTexture';
 
 class SimpleScene extends SceneRenderer {
   constructor(scene, voxelModel) {

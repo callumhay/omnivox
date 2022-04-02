@@ -9,8 +9,12 @@
 #define DATA_SERIAL Serial1
 #define MY_SLAVE_ID 1
 
+
+#define RX_PIN 0
+#define TX_PIN 1
 #define CTS_PIN 18
 #define RTS_PIN 17
+#define TRANSMIT_ENABLE_PIN 22
 #define FRAME_SYNC_PIN 12
 
 led3d::LED3DPacketSerial myPacketSerial;
@@ -139,6 +143,7 @@ void onSerialPacketReceived(const void* sender, const uint8_t* buffer, size_t si
         }
         break;
 
+      /*
       case GOODBYE_HEADER:
         // Clear the display buffer / drawing memory
         memcpy((uint8_t*)drawingMemory, 0, sizeof(drawingMemory));
@@ -152,6 +157,7 @@ void onSerialPacketReceived(const void* sender, const uint8_t* buffer, size_t si
 
         DEBUG_SERIAL.printf("[Slave %i] Goodbye header received, bye!", MY_SLAVE_ID); DEBUG_SERIAL.println();
         break;
+      */
 
       case VOXEL_DATA_ALL_TYPE:
         bufferIdx += 2; // Frame ID
@@ -165,25 +171,15 @@ void onSerialPacketReceived(const void* sender, const uint8_t* buffer, size_t si
   }
 }
 
-/*
-void setup() {
-  Serial.begin(9600);
-  Serial1.begin(921600);
-}
-
-void loop() {
-  Serial.println("testing usb serial.");
-  Serial1.println("testing hw serial 1.");
-  delay(5000);
-}
-*/
-
 void setup() {
   //TODO: pinMode(FRAME_SYNC_PIN, INPUT_PULLUP); // Frame Sync
 
   // Serial for receiving render data
   DEBUG_SERIAL.begin(USB_SERIAL_BAUD);
   
+  //DATA_SERIAL.setRX(RX_PIN);
+  //DATA_SERIAL.setTX(TX_PIN);
+  DATA_SERIAL.transmitterEnable(TRANSMIT_ENABLE_PIN);
   DATA_SERIAL.begin(HW_SERIAL_BAUD);
   DATA_SERIAL.attachCts(CTS_PIN);
   DATA_SERIAL.attachRts(RTS_PIN);

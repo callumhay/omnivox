@@ -11,20 +11,9 @@ A 3D LED display server and client made to drive fun and novel visualizations.
 - Navigate to http://locahost:4000/controller and http://localhost:4000/viewer have fun!
 
 
-## Controller
-COMING SOON
+## Hardware
 
-### Basic Mode (No context button held down)
-- Left analog stick – Moves the cursor: Up/down is the y-axis, left/right is the x-axis
-- Right analog stick – Moves the cursor: Up/down is the z-axis
-- ??? – Expanding sphere (single event)
-- ??? – Shoot a light in the direction you were travelling in, or random direction and speed (dependant on music) if still (max 8 lights)
-- Right trigger - Excrete a sphere of expanding fog, with density dependant on how far down the trigger is pressed
-- Left trigger - Paint a line, line density depends on how far down the trigger is pressed, line fades over time
-
-### Left Bumper Context Mode
-
-### Right Bumper Context Mode
+- The USB-to-serial uses a FTDI chip, see OS-specific instructions / downloads here: https://ftdichip.com/document/installation-guides/
 
 
 ## Authors

@@ -2,7 +2,8 @@ import VoxelAnimator, {DEFAULT_CROSSFADE_TIME_SECS} from './VoxelAnimator';
 import {
   sceneAnimatorDefaultConfig, 
   SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG, 
-  SCENE_TYPE_GODRAY, SCENE_TYPE_BEACONS, SCENE_TYPE_METABALLS
+  SCENE_TYPE_GODRAY, SCENE_TYPE_BEACONS, SCENE_TYPE_METABALLS,
+  SCENE_TYPE_BOUNCY,
 } from './SceneAnimatorDefaultConfigs';
 
 import {clamp} from '../MathUtils';
@@ -14,6 +15,7 @@ import FogScene from '../VoxelTracer/Scenes/FogScene';
 import GodRayScene from '../VoxelTracer/Scenes/GodRayScene';
 import BeaconsScene from '../VoxelTracer/Scenes/BeaconsScene';
 import MetaballScene from '../VoxelTracer/Scenes/MetaballScene';
+import BouncyScene from '../VoxelTracer/Scenes/BouncyScene';
 
 class SceneAnimator extends VoxelAnimator {
   constructor(voxelModel, vtScene, config={...sceneAnimatorDefaultConfig}) {
@@ -32,6 +34,7 @@ class SceneAnimator extends VoxelAnimator {
       [SCENE_TYPE_GODRAY]    : new GodRayScene(this._scene, this.voxelModel),
       [SCENE_TYPE_BEACONS]   : new BeaconsScene(this._scene, this.voxelModel),
       [SCENE_TYPE_METABALLS] : new MetaballScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_BOUNCY]    : new BouncyScene(this._scene, this.voxelModel),
     };
 
     this.setConfig(config);
@@ -117,6 +120,12 @@ class SceneAnimator extends VoxelAnimator {
 
   reset() {
     this._sceneMap.forEach(s => s.clear());
+    /*
+    if (this._sceneMap) {
+      const currScene = this._sceneMap[this.config.sceneType];
+      currScene.clear();
+    }
+    */
   }
 }
 

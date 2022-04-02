@@ -8,8 +8,6 @@ import VTLambertMaterial from '../VTLambertMaterial';
 import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';
 
-import {shadowSceneDefaultOptions} from '../../Animation/SceneAnimatorDefaultConfigs';
-
 class ShadowScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);

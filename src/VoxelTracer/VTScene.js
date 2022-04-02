@@ -137,7 +137,7 @@ class VTScene {
       dirty = [...this.renderables];
     }
     else {
-      // N.B., All lights are renderables as well (so we don't need to loop through and add those)
+      // N.B., Any lights that are renderables as well are already in the renderables (so we don't need to loop through and add those)
       for (let i = 0; i < this.renderables.length; i++) {
         const renderable = this.renderables[i];
         if (renderable.isDirty()) {
