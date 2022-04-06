@@ -9,6 +9,7 @@ import VTLambertMaterial from '../VTLambertMaterial';
 import VTDirectionalLight from '../VTDirectionalLight';
 import VTAmbientLight from '../VTAmbientLight';
 
+import PhysicsUtils from '../../PhysicsUtils';
 import {Randomizer} from '../../Randomizers';
 import {SCRIABIN_NOTE_COLOURS} from '../../Spectrum';
 
@@ -51,53 +52,10 @@ class BouncyScene extends SceneRenderer {
 
       // Create walls (collision planes) along the edges of the voxel box
       const wallMaterial = new CANNON.Material('wall');
-
-      const wallYNegShape = new CANNON.Plane();
-      const wallYPosShape = new CANNON.Plane();
-      const wallXNegShape = new CANNON.Plane();
-      const wallXPosShape = new CANNON.Plane();
-      const wallZNegShape = new CANNON.Plane();
-      const wallZPosShape = new CANNON.Plane();
-
-      const wallYNegBody = new CANNON.Body({mass: 0, material: wallMaterial});
-      const wallYPosBody = new CANNON.Body({mass: 0, material: wallMaterial});
-      const wallXNegBody = new CANNON.Body({mass: 0, material: wallMaterial});
-      const wallXPosBody = new CANNON.Body({mass: 0, material: wallMaterial});
-      const wallZNegBody = new CANNON.Body({mass: 0, material: wallMaterial});
-      const wallZPosBody = new CANNON.Body({mass: 0, material: wallMaterial});
-
-      wallYNegBody.addShape(wallYNegShape);
-      wallYNegBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-      wallYNegBody.position.set(0,0,0);
-      this.world.addBody(wallYNegBody);
-
-      wallYPosBody.addShape(wallYPosShape);
-      wallYPosBody.quaternion.setFromEuler(Math.PI / 2, 0, 0);
-      wallYPosBody.position.set(0,size,0);
-      this.world.addBody(wallYPosBody);
-      
-      wallXNegBody.addShape(wallXNegShape);
-      wallXNegBody.quaternion.setFromEuler(0, Math.PI / 2, 0);
-      wallXNegBody.position.set(0,0,0);
-      this.world.addBody(wallXNegBody);
-
-      wallXPosBody.addShape(wallXPosShape);
-      wallXPosBody.quaternion.setFromEuler(0, -Math.PI / 2, 0);
-      wallXPosBody.position.set(size,0,0);
-      this.world.addBody(wallXPosBody);
-
-      wallZNegBody.addShape(wallZNegShape);
-      wallZNegBody.quaternion.setFromEuler(0,0,0);
-      wallZNegBody.position.set(0,0,0);
-      this.world.addBody(wallZNegBody);
-
-      wallZPosBody.addShape(wallZPosShape);
-      wallZPosBody.quaternion.setFromEuler(0, Math.PI, 0);
-      wallZPosBody.position.set(0,0,size);
-      this.world.addBody(wallZPosBody);
+      const wallBodies = PhysicsUtils.buildSideWalls(size, wallMaterial);
+      for (const wallBody of wallBodies) { this.world.addBody(wallBody); }
 
       const sphereMaterial = new CANNON.Material('sphere');
-
       const avgRandRadius = (minSphereRadius+maxSphereRadius)/2;
       const partitionSize = 2*avgRandRadius;
       const numPartitionsPerDim = Math.floor(size / partitionSize);

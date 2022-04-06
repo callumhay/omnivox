@@ -3,8 +3,10 @@ import os from 'os';
 import path from 'path';
 import {fork} from 'child_process';
 
+import VTObject from './VTObject';
 import VTAmbientLight from './VTAmbientLight';
 import VTRenderProc from './RenderProc/VTRenderProc';
+
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 class VTScene {
@@ -53,11 +55,14 @@ class VTScene {
       this.ambientLight = l;
     }
     else {
-      this.renderables.push(l);
+      if (l.type !== VTObject.DIRECTIONAL_LIGHT_TYPE) {
+        this.renderables.push(l);
+      }
       this.lights.push(l);
     }
     l.id = this.nextId++;
   }
+
   addObject(o) {
     o.makeDirty();
     this.renderables.push(o);
@@ -66,17 +71,25 @@ class VTScene {
     }
     o.id = this.nextId++;
   }
+
   addFog(f) {
     this.addObject(f);
   }
 
-  removeObject(o) {
-    let index = this.renderables.indexOf(o);
+  removeLight(l) {
+    let index = this.renderables.indexOf(l);
     if (index > -1) {
       this.renderables.splice(index, 1);
-      this._dirtyRemovedObjIds.push(o.id);
+      this._dirtyRemovedObjIds.push(l.id);
     }
-    index = this.shadowCasters.indexOf(o);
+    index = this.lights.indexOf(l);
+    if (index > -1) {
+      this.lights.splice(index, 1);
+    }
+  }
+  removeObject(o) {
+    this.removeLight(o);
+    let index = this.shadowCasters.indexOf(o);
     if (index > -1) {
       this.shadowCasters.splice(index, 1);
     }

@@ -51,6 +51,8 @@ class VTEmissionMaterial extends VTMaterial {
     albedoColour.add(lightColour).multiplyScalar(this.alpha);
     return albedoColour;
   }
+
+  basicBrdfAmbient(uv, lightColour) { return this.brdfAmbient(uv, lightColour); }
 }
 
 export default VTEmissionMaterial;

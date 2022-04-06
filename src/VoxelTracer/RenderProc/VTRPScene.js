@@ -69,7 +69,9 @@ class VTRPScene {
             }
             else if (renderable.drawOrder === currMapObj.drawOrder) {
               // Mix the colours together if the draw order is the same...
-              currMapObj.colour.add(calcColour);
+              const {colour} = currMapObj;
+              colour.add(calcColour);
+              colour.setRGB(Math.min(1,colour.r), Math.min(1,colour.g), Math.min(1,colour.b));
             }
           }
         }
@@ -322,7 +324,7 @@ class VTRPScene {
 
       // Fog will not catch the light if it's behind or inside of an object...
       const lightMultiplier = this._calculateShadowCasterLightMultiplier(light.position, nLightToFogVec, distanceFromLight);
-      if (distanceFromLight > VoxelConstants.VOXEL_ERR_UNITS && lightMultiplier > 0) {
+      if (lightMultiplier > 0) {
         const lightEmission = light.emission(point, distanceFromLight).multiplyScalar(lightMultiplier);
         finalColour.add(lightEmission);
       }
