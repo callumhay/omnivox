@@ -36,7 +36,7 @@ export class VTPColourArraySpan {
       const colourB = this._checkAndCreateRandom(secondColour);
       const chromaA = chroma.gl(colourA.r, colourA.g, colourA.b, 1);
       const chromaB = chroma.gl(colourB.r, colourB.g, colourB.b, 1);
-      const chromaMix = chroma.mix(chromaA, chromaB, Randomizer.getRandomFloat(0,1), 'lrgb').gl();
+      const chromaMix = chroma.mix(chromaA, chromaB, Randomizer.getRandomFloat(0,1), 'hsl').gl();
       colour = new THREE.Color(chromaMix[0], chromaMix[1], chromaMix[2]);
     }
     else {
@@ -106,7 +106,7 @@ class VTPColour extends VTPBehaviour {
       const {colourStart, colourEnd} = particle.transform;
       const glStartColour = chroma.gl(colourStart.r, colourStart.g, colourStart.b, 1);
       const glEndColour   = chroma.gl(colourEnd.r, colourEnd.g, colourEnd.b, 1);
-      const glColourMix   = chroma.mix(glEndColour, glStartColour, this.energy, 'lrgb').gl(); // NOTE: energy goes from 1 to 0, so the mix is flipped
+      const glColourMix   = chroma.mix(glEndColour, glStartColour, this.energy, 'rgb').gl(); // NOTE: energy goes from 1 to 0, so the mix is flipped
       particle.colour.setRGB(glColourMix[0], glColourMix[1], glColourMix[2]);
     }
   }

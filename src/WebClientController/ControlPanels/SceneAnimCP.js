@@ -8,7 +8,6 @@ import AnimCP from "./AnimCP";
 class SceneAnimCP extends AnimCP {
   constructor(masterCP) {
     super(masterCP, {...sceneAnimatorDefaultConfig});
-    this.sceneTypeSubfolders = {};
   }
 
   animatorType() { return VoxelAnimator.VOXEL_ANIM_SCENE; }
@@ -44,8 +43,8 @@ class SceneAnimCP extends AnimCP {
 
     const initSettings = (sceneOptionsObj, settingsObj) => {
       for (let [key, value] of Object.entries(sceneOptionsObj)) {
-        if (Array.isArray(value)) { return; }
-        if (typeof value === 'object') {
+        if (Array.isArray(value)) {}
+        else if (typeof value === 'object') {
           // Is the current property a colour?
           if (value.r !== undefined && value.g !== undefined && value.b !== undefined) {
             settingsObj[key] = colourToGui(value);
@@ -62,10 +61,17 @@ class SceneAnimCP extends AnimCP {
       }
     };
 
-    //for (const [sceneType, sceneSettings] of this.settings) {
-    //  initSettings(this.config[sceneType], sceneSettings);
-   // }
+
     initSettings(this.config.sceneOptions, this.settings[this.config.sceneType]);
+
+    this.configSceneOptionCache = {};
+    this.configSceneOptionCache[this.config.sceneType] = this.config.sceneOptions;
+
+    // Build the rest of the config scene option cache
+    for (const sceneType of SCENE_TYPES) {
+      if (sceneType === this.config.sceneType) { continue; }
+      this._buildOrUpdateSceneOptionsFromSettings(sceneType);
+    }
   }
 
   buildFolder() {
@@ -73,72 +79,30 @@ class SceneAnimCP extends AnimCP {
     const {pane} = this.masterCP;
     const folder = pane.addFolder({title: "Scene Controls"});
 
-    const buildSubfolder = (sceneType) => {
-      const subfolder = folder.addFolder({title: sceneType + " Settings"});
-      const sceneSettings = self.settings[sceneType];
-      self._addSceneControls(subfolder, sceneSettings, sceneDefaultOptionsMap[sceneType].constraints);
-      subfolder.hidden = true;
-      folder.remove(subfolder);
-      return subfolder;
-    }
-
-    /*
     // Build each scene type's subfolder
     const sceneTypeSubfolders = SCENE_TYPES.map(sceneType => {
       const subfolder = folder.addFolder({title: sceneType + " Settings"});
       const sceneSettings = self.settings[sceneType];
-      self._addSceneControls(subfolder, sceneSettings, sceneDefaultOptionsMap[sceneType].constraints);
+      const sceneOptions  = self.configSceneOptionCache[sceneType];
+      self._addSceneControls(subfolder, sceneSettings, sceneOptions, sceneDefaultOptionsMap[sceneType].constraints);
       subfolder.hidden = true;
       folder.remove(subfolder);
       return subfolder;
     });
-    */
 
     const onSceneTypeChanged = ev => {
       const sceneType = ev.value;
       self.config.sceneType = sceneType;
 
-      if (!(sceneType in this.sceneTypeSubfolders)) {
-        this.sceneTypeSubfolders[sceneType] = buildSubfolder(sceneType);
-      }
-
       sceneTypeSubfolders.forEach(subfolder => { subfolder.hidden = true; });
       sceneTypeSubfolders[SCENE_TYPES.indexOf(ev.value)].hidden = false;
 
-      const sceneTypeSettings = self.settings[sceneType];
-      // We need to be very careful here not to reassign the object of the config.sceneOptions
-      // instead we need to keep the object the same and delete then reinsert new scene options
-      // If we don't do this then all of the controls will not change the config properly!
-      for (const key of Object.keys(self.config.sceneOptions)) {
-        delete self.config.sceneOptions[key];
-      }
-      for (const [key,value] of Object.entries(sceneTypeSettings)) {
+      for (const [key,value] of Object.entries(this.settings[sceneType])) {
         self.config.sceneOptions[key] = value;
       }
 
-      const updateSceneOptions = (sceneSettingsObj, sceneOptionsObj) => {
-        for (let [key, value] of Object.entries(sceneSettingsObj)) {
-          if (Array.isArray(value)) { return; }
-          if (typeof value === 'object') {
-            // Is the current property a colour?
-            if (value.r !== undefined && value.g !== undefined && value.b !== undefined) {
-              sceneOptionsObj[key] = guiColorToRGBObj(value);
-            }
-            else {
-              // If not a colour then go down into the object
-              updateSceneOptions(sceneSettingsObj[key], sceneOptionsObj[key]);
-            }
-          }
-          else {
-            // Otherwise assume it's a basic property and overwrite it
-            sceneOptionsObj[key] = value;
-          }
-        }
-      };
-      updateSceneOptions(sceneTypeSettings, self.config.sceneOptions);
-
-
-
+      self._buildOrUpdateSceneOptionsFromSettings(sceneType);
+      self.config.sceneOptions = this.configSceneOptionCache[sceneType];
 
       self.masterCP.controllerClient.sendAnimatorChangeCommand(self.animatorType(), self.config);
     };
@@ -150,10 +114,38 @@ class SceneAnimCP extends AnimCP {
     return folder;
   }
 
-  _addSceneControls(parentFolder, settingsObj, constraintsObj) {
+  _buildOrUpdateSceneOptionsFromSettings(sceneType) {
+    
+    const updateSceneOptions = (sceneSettingsObj, sceneOptionsObj) => {
+      for (let [key, value] of Object.entries(sceneSettingsObj)) {
+        if (Array.isArray(value)) {}
+        else if (typeof value === 'object') {
+          // Is the current property a colour?
+          if (value.r !== undefined && value.g !== undefined && value.b !== undefined) {
+            sceneOptionsObj[key] = guiColorToRGBObj(value);
+          }
+          else {
+            if (!(key in sceneOptionsObj)) { sceneOptionsObj[key] = {}; }
+            updateSceneOptions(sceneSettingsObj[key], sceneOptionsObj[key]);
+          }
+        }
+        else {
+          // Otherwise assume it's a basic property and overwrite it
+          sceneOptionsObj[key] = value;
+        }
+      }
+    };
+
+    const sceneOptions = (sceneType in this.configSceneOptionCache) ? this.configSceneOptionCache[sceneType] : {};
+    const sceneTypeSettings = this.settings[sceneType];
+    updateSceneOptions(sceneTypeSettings, sceneOptions);
+    this.configSceneOptionCache[sceneType] = sceneOptions;
+  }
+
+  _addSceneControls(parentFolder, settingsObj, optionsObj, constraintsObj) {
     for (const settingsKey of Object.keys(settingsObj)) {
       this.addControl(parentFolder, settingsKey, 
-        (settingsKey in constraintsObj) ? constraintsObj[settingsKey] : {}, settingsObj, this.config.sceneOptions
+        (settingsKey in constraintsObj) ? constraintsObj[settingsKey] : {}, settingsObj, optionsObj
       );
     }
   }

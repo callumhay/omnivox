@@ -18,6 +18,7 @@ class VTPEmitter extends VTPParticle {
     this.damping = 0.006; // The friction coefficient for all particles emitted this
     this.bindEmitter = true; // Binds all particles output by this emitter to the transform of this emitter
     this.rate = new VTPRate(1, 0.1);
+    this.blendParticles = false;
 
     this._initializers = [];
     this._particles    = [];

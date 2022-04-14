@@ -261,7 +261,8 @@ const bouncySceneControlOptions = {
 };
 
 const particleSceneDefaultOptions = {
-  ambientLightColour: {r:0.25, g:0.25, b:0.25},
+  ambientLightColour: {r:0.0, g:0.0, b:0.0},
+  totalEmitTimes: {num: 1, isInfinity: true},
   particleSpawn: {numMin: 5, numMax: 10, interval: 0.05},
   particleLifeSpan: {min: 0.4, max: 0.75},
   particleSpeed: {min: VoxelConstants.VOXEL_DIAGONAL_GRID_SIZE/2, max: VoxelConstants.VOXEL_DIAGONAL_GRID_SIZE},
@@ -269,9 +270,15 @@ const particleSceneDefaultOptions = {
   particleColourEnd: {colourA: {r:0, g:0, b:1}, colourB: {r:0.53, g:0.81, b:0.92}},
   particleAlphaStart: {min: 0.5, max: 1},
   particleAlphaEnd: {min: 0, max: 0},
+  particleMaterial: "VTEmissionMaterial",
 };
 const particleSceneControlOptions = {
   ambientLightColour: {label: "Ambient Light Colour"},
+  totalEmitTimes: {
+    label: "Emitter Cycles",
+    num: {label: "Number of Cycles", min:1, max:10, step:1}, 
+    isInfinity: {label: "Infinite Cycles?"}
+  },
   particleSpawn: {
     label: "Particle Spawning", 
     numMin: {label: "Min Particles", min:0, max:50, step:1}, 
@@ -306,6 +313,10 @@ const particleSceneControlOptions = {
     min: {label: "Min Alpha", min: 0, max: 1, step: 0.01}, 
     max: {label: "Max Alpha", min: 0, max: 1, step: 0.01}
   },
+  particleMaterial: {
+    label: "Particle Material Type",
+    list: ["VTEmissionMaterial", "VTLambertMaterial"],
+  }
 };
 
 

@@ -34,7 +34,7 @@ class ParticleScene extends SceneRenderer {
       const halfGridDist = (this.voxelModel.gridSize/2) - 0.5;
 
       const {
-        particleSpawn, particleLifeSpan, particleSpeed, 
+        totalEmitTimes, particleSpawn, particleLifeSpan, particleSpeed, 
         particleAlphaStart, particleAlphaEnd, particleColourStart, particleColourEnd
       } = options;
 
@@ -47,7 +47,7 @@ class ParticleScene extends SceneRenderer {
       this.emitter.addBehaviour(new VTPAlpha(new VTPSpan(particleAlphaStart.min, particleAlphaStart.end), new VTPSpan(particleAlphaEnd.min, particleAlphaEnd.max)));
       this.emitter.addBehaviour(new VTPColour(['mix', particleColourStart.colourA, particleColourStart.colourB], ['mix', particleColourEnd.colourA, particleColourEnd.colourB]));
       this.emitter.p.set(halfGridDist,halfGridDist,halfGridDist);
-      this.emitter.emit();
+      this.emitter.emit(totalEmitTimes.isInfinity ? Infinity : totalEmitTimes.num);
       
       this.emitterMgr = new VTPEmitterManager(this.scene);
       this.emitterMgr.addEmitter(this.emitter);

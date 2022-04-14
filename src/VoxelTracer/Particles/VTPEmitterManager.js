@@ -38,6 +38,9 @@ class VTPEmitterManager {
         particle.target.setMaterial(VTPUtils.classApply(particle.materialType));
       }
     }
+    if (!emitter.blendParticles) {
+      particle.target.drawOrder = emitter.cID + 1;
+    }
     
     particle.target.setWorldPosition(particle.p);
     this.scene.addObject(particle.target);

@@ -65,13 +65,17 @@ class AnimCP {
       else {
         // Special kind of object, this will require its own subfolder (e.g., attenuation)
         const configInUse = configObj || self.config;
-        const title = 'label' in options ? options.label : controlParam.charAt(0).toUpperCase() + controlParam.slice(1);
+        const title = this._titleLabelFromOptions(options);
         const subfolder = parentFolder.addFolder({title: title});
         for (const key of Object.keys(settingsInUse[controlParam])) {
           this.addControl(subfolder, key, (key in options) ? options[key] : {}, settingsInUse[controlParam], configInUse[controlParam]);
         }
         return subfolder;
       }
+    }
+    else if (typeof control === 'string' && 'list' in options && Array.isArray(options.list)) {
+      const title = this._titleLabelFromOptions(options);
+      return this.addList(parentFolder, controlParam, options.list, title, null, settingsInUse[controlParam], configObj);
     }
 
     return parentFolder.addInput(settingsInUse, controlParam, options).on(CHANGE_EVENT, ev => {
@@ -81,7 +85,11 @@ class AnimCP {
     });
   }
 
-  addList(parentFolder, controlParam, listOptions, label, onChange=null, initialValue=null) {
+  _titleLabelFromOptions(options) {
+    return ('label' in options) ? options.label : controlParam.charAt(0).toUpperCase() + controlParam.slice(1);
+  }
+
+  addList(parentFolder, controlParam, listOptions, label, onChange=null, initialValue=null, configObj=null) {
     const self = this;
     const blade = parentFolder.addBlade({
       view: 'list',
@@ -89,7 +97,8 @@ class AnimCP {
       options: listOptions.map(a => ({text: a, value: a})),
       value: '',
     }).on(CHANGE_EVENT, onChange || (ev => {
-      self.config[controlParam] = ev.value;
+      const configInUse = configObj || self.config;
+      configInUse[controlParam] = ev.value;
       self.masterCP.controllerClient.sendAnimatorChangeCommand(self.animatorType(), self.config);
     }));
 
