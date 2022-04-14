@@ -57,10 +57,10 @@ class FogScene extends SceneRenderer {
       this.fog.options = fogOptions;
     }
 
-    this.scene.addLight(this.ptLight);
-    this.scene.addLight(this.spotLight);
-    this.scene.addLight(this.ambientLight);
-    this.scene.addFog(this.fog);
+    this.scene.addObject(this.ptLight);
+    this.scene.addObject(this.spotLight);
+    this.scene.addObject(this.ambientLight);
+    this.scene.addObject(this.fog);
   }
 
   async render(dt) {

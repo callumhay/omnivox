@@ -23,6 +23,7 @@ class VTRenderProc {
         case VTRenderProc.TO_PROC_INIT: {
           const {gridSize, voxelIndexRange} = data;
           this.rpScene.gridSize = parseInt(gridSize);
+          this.rpScene.voxelBoundingBox = VoxelGeometryUtils.voxelBoundingBox(gridSize);
           this.voxelIndexRange = voxelIndexRange;
           break;
         }

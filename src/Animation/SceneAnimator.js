@@ -3,7 +3,7 @@ import {
   sceneAnimatorDefaultConfig, 
   SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG, 
   SCENE_TYPE_GODRAY, SCENE_TYPE_BEACONS, SCENE_TYPE_METABALLS,
-  SCENE_TYPE_BOUNCY,
+  SCENE_TYPE_BOUNCY, SCENE_TYPE_PARTICLE
 } from './SceneAnimatorDefaultConfigs';
 
 import {clamp} from '../MathUtils';
@@ -16,6 +16,7 @@ import GodRayScene from '../VoxelTracer/Scenes/GodRayScene';
 import BeaconsScene from '../VoxelTracer/Scenes/BeaconsScene';
 import MetaballScene from '../VoxelTracer/Scenes/MetaballScene';
 import BouncyScene from '../VoxelTracer/Scenes/BouncyScene';
+import ParticleScene from '../VoxelTracer/Scenes/ParticleScene';
 
 class SceneAnimator extends VoxelAnimator {
   constructor(voxelModel, vtScene, config={...sceneAnimatorDefaultConfig}) {
@@ -35,6 +36,7 @@ class SceneAnimator extends VoxelAnimator {
       [SCENE_TYPE_BEACONS]   : new BeaconsScene(this._scene, this.voxelModel),
       [SCENE_TYPE_METABALLS] : new MetaballScene(this._scene, this.voxelModel),
       [SCENE_TYPE_BOUNCY]    : new BouncyScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_PARTICLE]  : new ParticleScene(this._scene, this.voxelModel),
     };
 
     this.setConfig(config);

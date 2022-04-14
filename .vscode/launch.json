@@ -1,0 +1,24 @@
+{
+  "configurations": [
+  {
+    "console": "integratedTerminal",
+    "internalConsoleOptions": "neverOpen",
+    "name": "nodemon debug server",
+    "program": "${workspaceFolder}/dist/server.js",
+    "address": "127.0.0.1",
+    "port": 9229,
+    "request": "launch",
+    "restart": true,
+    "runtimeExecutable": "${workspaceFolder}/node_modules/nodemon/bin/nodemon.js",
+    "runtimeArgs": [
+      "--inspect=9229"
+    ],
+    "skipFiles": [
+      "<node_internals>/**"
+    ],
+    "type": "node",
+    "autoAttachChildProcesses": true,
+    "trace": true,
+  }
+  ]
+}

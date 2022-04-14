@@ -7,6 +7,7 @@ export const SCENE_TYPE_GODRAY    = "GodRays";
 export const SCENE_TYPE_BEACONS   = "Beacons";
 export const SCENE_TYPE_METABALLS = "Metaballs";
 export const SCENE_TYPE_BOUNCY    = "Bouncy";
+export const SCENE_TYPE_PARTICLE  = "Particle";
 
 export const SCENE_TYPES = [
   SCENE_TYPE_SIMPLE,
@@ -16,6 +17,7 @@ export const SCENE_TYPES = [
   SCENE_TYPE_BEACONS,
   SCENE_TYPE_METABALLS,
   SCENE_TYPE_BOUNCY,
+  SCENE_TYPE_PARTICLE,
 ];
 
 const fogScatteringCtrlOpt = {label: "Fog Scattering", min:0, max:1, step:0.01};
@@ -258,6 +260,54 @@ const bouncySceneControlOptions = {
   maxInitialVelocity: {label: "Max Initial Velocity", min:1, max:20, step:0.25},
 };
 
+const particleSceneDefaultOptions = {
+  ambientLightColour: {r:0.25, g:0.25, b:0.25},
+  particleSpawn: {numMin: 5, numMax: 10, interval: 0.05},
+  particleLifeSpan: {min: 0.4, max: 0.75},
+  particleSpeed: {min: VoxelConstants.VOXEL_DIAGONAL_GRID_SIZE/2, max: VoxelConstants.VOXEL_DIAGONAL_GRID_SIZE},
+  particleColourStart: {colourA: {r:0, g:1, b:0}, colourB: {r:0, g:1, b:0.5}},
+  particleColourEnd: {colourA: {r:0, g:0, b:1}, colourB: {r:0.53, g:0.81, b:0.92}},
+  particleAlphaStart: {min: 0.5, max: 1},
+  particleAlphaEnd: {min: 0, max: 0},
+};
+const particleSceneControlOptions = {
+  ambientLightColour: {label: "Ambient Light Colour"},
+  particleSpawn: {
+    label: "Particle Spawning", 
+    numMin: {label: "Min Particles", min:0, max:50, step:1}, 
+    numMax: {label: "Max Particles", min:0, max:50, step:1}, 
+    interval: {label: "Interval (s)", min:0.01, max:2, step:0.01},
+  },
+  particleLifeSpan: {
+    label: "Particle Life Span", 
+    min: {label: "Min Life (s)", min: 0.1, max: 10, step:0.1}, 
+    max: {label: "Max Life (s)", min: 0.1, max: 10, step:0.1}
+  },
+  particleSpeed: {
+    label: "Particle Speed", 
+    min: {label: "Min Speed (voxel/s)", min: 0.1, max: 32, step:0.1}, 
+    max: {label: "Max Speed (voxel/s)", min: 0.1, max: 32, step:0.1}
+  },
+  particleColourStart: {
+    label: "Particle Starting Colour Mix",
+    colourA: {label: "Colour A"}, colourB: {label: "Colour B"},
+  },
+  particleColourEnd: {
+    label: "Particle Ending Colour Mix",
+    colourA: {label: "Colour A"}, colourB: {label: "Colour B"},
+  },
+  particleAlphaStart: {
+    label: "Particle Alpha Start Range", 
+    min: {label: "Min Alpha", min: 0, max: 1, step: 0.01}, 
+    max: {label: "Max Alpha", min: 0, max: 1, step: 0.01}
+  },
+  particleAlphaEnd: {
+    label: "Particle Alpha End Range", 
+    min: {label: "Min Alpha", min: 0, max: 1, step: 0.01}, 
+    max: {label: "Max Alpha", min: 0, max: 1, step: 0.01}
+  },
+};
+
 
 export const sceneDefaultOptionsMap = {
   [SCENE_TYPE_SIMPLE]:    {options: simpleSceneDefaultOptions,   constraints: simpleSceneControlOptions},
@@ -267,6 +317,7 @@ export const sceneDefaultOptionsMap = {
   [SCENE_TYPE_BEACONS]:   {options: beaconsSceneDefaultOptions,  constraints: beaconsSceneControlOptions},
   [SCENE_TYPE_METABALLS]: {options: metaballSceneDefaultOptions, constraints: metaballSceneControlOptions},
   [SCENE_TYPE_BOUNCY]:    {options: bouncySceneDefaultOptions,   constraints: bouncySceneControlOptions},
+  [SCENE_TYPE_PARTICLE]:  {options: particleSceneDefaultOptions, constraints: particleSceneControlOptions},
 };
 
 export const sceneAnimatorDefaultConfig = {

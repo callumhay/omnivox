@@ -5,7 +5,7 @@ import VTTexture from './VTTexture';
 import {clamp} from '../MathUtils';
 
 class VTLambertMaterial extends VTMaterial {
-  constructor(colour = new THREE.Color(1,1,1), emissive = new THREE.Color(0,0,0), alpha=1, texture=null, reflect=false) {
+  constructor(colour=new THREE.Color(1,1,1), emissive=new THREE.Color(0,0,0), alpha=1, texture=null, reflect=false) {
     super(VTMaterial.LAMBERT_TYPE);
     this.colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
     this.emissive = emissive instanceof THREE.Color ? emissive : new THREE.Color(emissive.r, emissive.g, emissive.b);

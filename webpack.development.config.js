@@ -21,6 +21,7 @@ const commonConfig = {
     new webpack.DefinePlugin({ DEBUG: true }),
     //new webpack.HotModuleReplacementPlugin(),
   ],
+  devtool: "source-map",
   resolve: {
     fallback: {
       "fs": false,
@@ -80,6 +81,9 @@ const serverConfig = {...commonConfig,
   output: {
     filename: 'server.js',
     path: distPath,
+  },
+  devServer: {
+    writeToDisk: true,
   },
 };
 

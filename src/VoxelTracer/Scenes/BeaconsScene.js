@@ -96,11 +96,11 @@ class BeaconsScene extends SceneRenderer {
     }
 
     this.beaconList.forEach(beaconObj => {
-      this.scene.addLight(beaconObj.spot1);
-      this.scene.addLight(beaconObj.spot2);
+      this.scene.addObject(beaconObj.spot1);
+      this.scene.addObject(beaconObj.spot2);
     });
-    this.scene.addLight(this.ambientLight);
-    this.scene.addFog(this.fog);
+    this.scene.addObject(this.ambientLight);
+    this.scene.addObject(this.fog);
   }
 
   async render(dt) {

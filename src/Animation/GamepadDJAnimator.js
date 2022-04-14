@@ -119,11 +119,11 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     }
 
     for (const sp of this.spherePulses) { this.scene.addObject(sp.sphere); }
-    this.scene.addLight(this.cursorPtLight);
-    this.scene.addLight(this.dirLight1);
-    this.scene.addLight(this.dirLight2);
-    this.scene.addFog(this.fog);
-    this.scene.addLight(this.ambientLight);
+    this.scene.addObject(this.cursorPtLight);
+    this.scene.addObject(this.dirLight1);
+    this.scene.addObject(this.dirLight2);
+    this.scene.addObject(this.fog);
+    this.scene.addObject(this.ambientLight);
   }
 
   reset() {
@@ -215,7 +215,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
       if (bounceLight.currLifeTimeInSecs > bounceLight.totalLifeTimeInSecs) {
         // Remove from the physics world and rendering scene
         this.world.removeBody(lightBody);
-        this.scene.removeLight(ptLight);
+        this.scene.removeObject(ptLight);
         continue;
       }
 
@@ -340,7 +340,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
         //console.log("ZCRRMS AVG: " + weightedRmsZcrPct);
         const w0 = (weightedRmsZcrPct-0.65) / 0.45;
         if (this.bounceLights.length > 0 && w0 >= 0) {
-          const maxLights = Math.min(3, this.bounceLights.length);
+          const maxLights = Math.min(3, this.bounceLights.length); // NOTE: Too many pulses will cause things to slow down a lot!
           const numLights = THREE.MathUtils.clamp(Math.round(THREE.MathUtils.lerp(1, maxLights, w0)), 1, maxLights);
           for (let i = 0; i < numLights; i++) {
             const {ptLight} = this.bounceLights[i];
@@ -583,7 +583,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     lightBody.linearDamping  = 0.0;
     this.world.addBody(lightBody);
 
-    this.scene.addLight(ptLight);
+    this.scene.addObject(ptLight);
     this.bounceLights.push({
       currLifeTimeInSecs:0, 
       totalLifeTimeInSecs:10+Randomizer.getRandomFloat(0,5), 

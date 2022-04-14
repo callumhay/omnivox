@@ -54,11 +54,11 @@ class ShadowScene extends SceneRenderer {
     const {sphereRadius} = options;
     this.sphere.setRadius(sphereRadius);
 
-    this.scene.addLight(this.ptLight);
+    this.scene.addObject(this.ptLight);
     this.scene.addObject(this.movingBoxMesh);
     this.scene.addObject(this.boxMesh);
     this.scene.addObject(this.sphere);
-    this.scene.addLight(this.ambientLight);
+    this.scene.addObject(this.ambientLight);
   }
 
   async render(dt) {

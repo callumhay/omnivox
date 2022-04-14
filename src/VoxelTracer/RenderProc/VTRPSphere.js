@@ -56,7 +56,7 @@ class VTRPSphere extends VTSphereAbstract  {
     centerToVoxelVec.sub(center);
     const sqDistCenterToVoxel = centerToVoxelVec.lengthSq();
     if (sqDistCenterToVoxel <= VoxelConstants.VOXEL_ERR_UNITS) { 
-      // Special case: We illuminate the center voxel as if it were a singluar VTRPVoxel if it is the only
+      // Special case: We illuminate the center voxel as if it were a singluar voxel if it is the only
       // thing being rendered in this case it's an early exit and there are no samples
       return radius <= VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS ? scene.calculateVoxelLighting(voxelIdxPt, voxelCenterPt, this._material, true) : finalColour;
     }

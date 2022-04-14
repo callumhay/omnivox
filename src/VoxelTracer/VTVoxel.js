@@ -1,20 +1,19 @@
 import * as THREE from 'three';
 
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
+import VTMaterialFactory from './VTMaterialFactory';
 
 import VTObject from './VTObject';
 
 export class VTVoxelAbstract extends VTObject {
-  constructor(voxelIdxPt, material, options={}) {
+  constructor(position, material, options={}) {
     super(VTObject.VOXEL_TYPE);
-    if (this.constructor === VTVoxelAbstract) {
-      throw new Error("VTVoxelAbstract is an abstract class.");
-    }
+    if (this.constructor === VTVoxelAbstract) { throw new Error("VTVoxelAbstract is an abstract class."); }
 
-    this._voxelIdxPt = voxelIdxPt;
-    this._material = material;
-    this._matrixWorld = (options.matrixWorld !== undefined) ? options.matrixWorld : new THREE.Matrix4();
+    this._position = position || new THREE.Vector3(0,0,0);
+    this._material = (typeof material === 'string' || material instanceof String) ? VTMaterialFactory.build(material) : material;
     this._receivesShadow = (options.receivesShadow !== undefined) ? options.receivesShadow : true;
+    this._castsShadow    = (options.castsShadow !== undefined) ? options.castsShadow : true;
 
     // Temp variable for calculations
     this._tempVec3 = new THREE.Vector3();
@@ -22,43 +21,51 @@ export class VTVoxelAbstract extends VTObject {
     this.computeBoundingBox();
   }
 
-  dispose() {
-    this._material.dispose();
-  }
+  dispose() { this._material.dispose(); }
 
-  isShadowCaster() { return true; }
+  isShadowCaster() { return this._castsShadow; }
 
-  _getWorldSpacePosition(target) {
-    target.copy(this._voxelIdxPt);
-    target.applyMatrix4(this._matrixWorld);
-    return target;
-  }
+  //_getWorldSpacePosition(target) {
+  //  target.copy(this._position);
+  //  target.applyMatrix4(this._matrixWorld);
+  //  return target;
+  //}
 
   computeBoundingBox() {
-    this._getWorldSpacePosition(this._tempVec3);
-    this._boundingBox = VoxelGeometryUtils.singleVoxelBoundingBox(VoxelGeometryUtils.closestVoxelIdxPt(this._tempVec3));
+    //this._getWorldSpacePosition(this._tempVec3);
+    this._boundingBox = VoxelGeometryUtils.singleVoxelBoundingBox(this._position);
   }
 
-  intersectsRay(raycaster) {
-    return raycaster.ray.intersectsBox(this._boundingBox, this._tempVec3) !== null;
-  }
+  intersectsRay(raycaster) { return raycaster.ray.intersectsBox(this._boundingBox, this._tempVec3) !== null; }
 
-  getCollidingVoxels(voxelBoundingBox=null) {
-    return [VoxelGeometryUtils.closestVoxelIdxPt(this._voxelIdxPt)];
+  getCollidingVoxels(voxelGridBoundingBox) {
+    const closestPt = VoxelGeometryUtils.closestVoxelIdxPt(this._position);
+    return voxelGridBoundingBox.containsPoint(closestPt) ? [closestPt] : [];
   }
 }
 
+export const defaultVTVoxelOptions = {
+  receivesShadow: true,
+  castsShadow: true,
+};
+
 class VTVoxel extends VTVoxelAbstract  {
 
-  constructor(voxelIdxPt, material, options={}) {
-    super(voxelIdxPt, material, options);
+  constructor(position=null, material=null, options={...defaultVTVoxelOptions}) {
+    super(position, material, options);
     this.makeDirty();
   }
 
   get material() { return this._material; }
   setMaterial(m) { this._material = m; this.makeDirty(); }
-  setMatrixWorld(m) { this._matrixWorld = m; this.computeBoundingBox(); this.makeDirty(); }
+
   setReceivesShadow(r) { this._receivesShadow = r; this.makeDirty(); }
+  setCastsShadow(c) { this._castsShadow = c; this.makeDirty(); }
+
+  // Transform methods
+  setWorldPosition(p) { this._position.copy(p); this.makeDirty(); }
+  setLocalRotationEuler(r) {}  // NOTE: Single voxels have no local orientation
+  setLocalScale(sX, sY, sZ) {} // NOTE: Single voxels have no scale
 
   isDirty() { return this._isDirty; }
   makeDirty() { this._isDirty = true; }
@@ -71,14 +78,12 @@ class VTVoxel extends VTVoxelAbstract  {
   }
 
   toJSON() {
-    const {id, drawOrder, type, _voxelIdxPt, _material, _matrixWorld, _receivesShadow} = this;
-    const matrixArray = _matrixWorld.toArray();
-    return {id, drawOrder, type, _voxelIdxPt, _material, matrixArray, _receivesShadow};
+    const {id, drawOrder, type, _position, _material, _receivesShadow, _castsShadow} = this;
+    //const matrixArray = _matrixWorld.toArray();
+    return {id, drawOrder, type, _position, _material, _receivesShadow, _castsShadow};
   }
 
-  intersectsBox(box) {
-    return this._boundingBox.intersectsBox(box);
-  }
+  intersectsBox(box) { return this._boundingBox.intersectsBox(box); }
 }
 
 export default VTVoxel;

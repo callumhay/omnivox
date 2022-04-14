@@ -19,19 +19,21 @@ class VTObject {
   static get DRAW_ORDER_DEFAULT() { return this.DRAW_ORDER_LOWEST + 1; }
   
   constructor(type) {
-    if (this.constructor === VTObject) {
-      throw new Error("VTObject is an abstract class.");
-    }
+    if (this.constructor === VTObject) { throw new Error("VTObject is an abstract class."); }
     this.id = VTConstants.INVALID_RENDERABLE_ID;
     this.type = type;
-    this.drawOrder = this.DRAW_ORDER_DEFAULT;
+    this.drawOrder = VTObject.DRAW_ORDER_DEFAULT;
   }
+
+  clone() { console.error("clone unimplemented abstract method called."); return null; }
 
   isDirty() { console.error("isDirty unimplemented abstract method called."); return false; }
   unDirty() { console.error("unDirty unimplemented abstract method called."); return true; }
 
   dispose() { console.error("dispose unimplemented abstract method called."); }
   isShadowCaster() { console.error("isShadowCaster unimplemented abstract method called."); return false; }
+
+  // NOTE: The result of this method MUST be inside the voxelGridBoundingBox!
   getCollidingVoxels(voxelGridBoundingBox=null) { console.error("getCollidingVoxels unimplemented abstract method called."); return []; }
 
   calculateShadow(raycaster=null) { console.error("calculateShadow unimplemented abstract method called."); return null; }

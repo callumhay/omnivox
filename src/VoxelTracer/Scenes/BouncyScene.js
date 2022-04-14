@@ -133,9 +133,9 @@ class BouncyScene extends SceneRenderer {
     }
 
     for (const vtSphere of this.vtSpheres) { this.scene.addObject(vtSphere); }
-    this.scene.addLight(this.directionalLight1);
-    this.scene.addLight(this.directionalLight2);
-    this.scene.addLight(this.ambientLight);
+    this.scene.addObject(this.directionalLight1);
+    this.scene.addObject(this.directionalLight2);
+    this.scene.addObject(this.ambientLight);
   }
 
   async render(dt) {

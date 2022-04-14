@@ -4,10 +4,10 @@ import path from 'path';
 import {fork} from 'child_process';
 
 import VTObject from './VTObject';
-import VTAmbientLight from './VTAmbientLight';
 import VTRenderProc from './RenderProc/VTRenderProc';
 
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
+import VTConstants from './VTConstants';
 
 class VTScene {
   constructor(voxelModel) {
@@ -16,12 +16,10 @@ class VTScene {
     this.childProcesses = [];
 
     this.renderables = [];
-    this.shadowCasters = [];
     this.lights = [];
+    this.ambientLight = null; // Special kind of light, only one instance of it is allowed
 
-    this.ambientLight = null;
     this.nextId = 0;
-
     this._dirtyRemovedObjIds = [];
 
     this._renderCount = 0;
@@ -41,7 +39,6 @@ class VTScene {
   clear() {
     this.renderables = [];
     this.lights = [];
-    this.shadowCasters = [];
     this.ambientLight = null;
     this.nextId = 0;
 
@@ -49,50 +46,38 @@ class VTScene {
     this._dirtyRemovedObjIds = [];
   }
 
-  addLight(l) {
-    l.makeDirty();
-    if (l instanceof VTAmbientLight) {
-      this.ambientLight = l;
-    }
-    else {
-      if (l.type !== VTObject.DIRECTIONAL_LIGHT_TYPE) {
-        this.renderables.push(l);
-      }
-      this.lights.push(l);
-    }
-    l.id = this.nextId++;
-  }
-
   addObject(o) {
-    o.makeDirty();
-    this.renderables.push(o);
-    if (o.isShadowCaster()) {
-      this.shadowCasters.push(o);
+    if (!(o instanceof VTObject)) { console.error("Cannot add an object that doesn't inherit from VTObject."); return; }
+    switch (o.type) {
+      case VTObject.AMBIENT_LIGHT_TYPE:
+        this.ambientLight = o;
+        break;
+      case VTObject.POINT_LIGHT_TYPE:
+      case VTObject.SPOT_LIGHT_TYPE:
+        this.renderables.push(o);
+      case VTObject.DIRECTIONAL_LIGHT_TYPE: // N.B., Directional lights are not rendered as objects
+        this.lights.push(o);
+        break;
+
+      default:
+        this.renderables.push(o);
+        break;
     }
+    o.makeDirty();
     o.id = this.nextId++;
   }
 
-  addFog(f) {
-    this.addObject(f);
-  }
-
-  removeLight(l) {
-    let index = this.renderables.indexOf(l);
+  removeObject(o) {
+    let index = this.renderables.indexOf(o);
     if (index > -1) {
       this.renderables.splice(index, 1);
-      this._dirtyRemovedObjIds.push(l.id);
+      this._dirtyRemovedObjIds.push(o.id);
     }
-    index = this.lights.indexOf(l);
+    index = this.lights.indexOf(o);
     if (index > -1) {
       this.lights.splice(index, 1);
     }
-  }
-  removeObject(o) {
-    this.removeLight(o);
-    let index = this.shadowCasters.indexOf(o);
-    if (index > -1) {
-      this.shadowCasters.splice(index, 1);
-    }
+    o.id = VTConstants.INVALID_RENDERABLE_ID;
   }
 
   async render() {

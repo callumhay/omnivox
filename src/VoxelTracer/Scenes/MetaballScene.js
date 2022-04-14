@@ -50,8 +50,8 @@ class MetaballScene extends SceneRenderer {
     }
 
     this.scene.addObject(this.isofield);
-    this.scene.addLight(this.ambientLight);
-    this.scene.addLight(this.pointLight1);
+    this.scene.addObject(this.ambientLight);
+    this.scene.addObject(this.pointLight1);
   }
 
   async render(dt) {

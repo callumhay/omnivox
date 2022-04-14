@@ -57,8 +57,8 @@ class GodRayScene extends SceneRenderer {
     }
 
     this.scene.addObject(this.shapeMesh);
-    this.scene.addLight(this.ptLight);
-    this.scene.addFog(this.fog);
+    this.scene.addObject(this.ptLight);
+    this.scene.addObject(this.fog);
   }
 
   async render(dt) {

@@ -13,7 +13,7 @@ export class Randomizer {
   generate() {
     throw "Randomizer::generate is unimplemented because Randomizer is an abstract class, please use a child class.";
   }
-
+  
   static getRandomFloat(min, max) {
     return THREE.MathUtils.randFloat(min, max);
   }

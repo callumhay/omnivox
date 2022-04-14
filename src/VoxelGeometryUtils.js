@@ -23,7 +23,11 @@ class VoxelGeometryUtils {
     return voxelPt.x*gridSize*gridSize + voxelPt.y*gridSize + voxelPt.z;
   }
   static closestVoxelIdxPt(pt) {
-    return new THREE.Vector3(Math.floor(pt.x), Math.floor(pt.y), Math.floor(pt.z));
+    return VoxelGeometryUtils.copyToClosestVoxelIdxPt(new THREE.Vector3(), pt);
+  }
+  static copyToClosestVoxelIdxPt(target, pt) {
+    target.set(Math.floor(pt.x), Math.floor(pt.y), Math.floor(pt.z));
+    return target;
   }
   static voxelIdStr(voxelPt) {
     return voxelPt.x.toFixed(0) + "_" + voxelPt.y.toFixed(0) + "_" + voxelPt.z.toFixed(0);

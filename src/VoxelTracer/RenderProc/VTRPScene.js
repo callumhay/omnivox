@@ -47,8 +47,7 @@ class VTRPScene {
     const voxelDrawOrderMap = {};
     this._tempVoxelMap = {}; // Used to keep track of which voxels have already been ambient-lit
 
-    Object.entries(renderableToVoxelMapping).forEach(entry => {
-      const [id, voxelPts] = entry;
+    for (const [id, voxelPts] of Object.entries(renderableToVoxelMapping)) {
       const renderable = this.getRenderable(id);
       for (let i = 0; i < voxelPts.length; i++) {
         const {x,y,z} = voxelPts[i];
@@ -76,7 +75,7 @@ class VTRPScene {
           }
         }
       }
-    });
+    }
 
     process.send({type: VTRenderProc.FROM_PROC_RENDERED, data: Object.values(voxelDrawOrderMap).map(v => ({pt: v.point, colour: v.colour})) });
   }

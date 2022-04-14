@@ -78,10 +78,10 @@ class SimpleScene extends SceneRenderer {
       this._objectsBuilt = true;
     }
 
-    this.scene.addLight(this.ptLight1);
-    this.scene.addLight(this.ptLight2);
-    this.scene.addLight(this.ptLight3);
-    this.scene.addLight(this.ambientLight);
+    this.scene.addObject(this.ptLight1);
+    this.scene.addObject(this.ptLight2);
+    this.scene.addObject(this.ptLight3);
+    this.scene.addObject(this.ambientLight);
     this.scene.addObject(this.sphereMesh);
 
     if (wallX) {

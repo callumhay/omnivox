@@ -71,8 +71,7 @@ class VoxelServer {
     const self = this;
 
     const serialPoll = function() {
-      //console.log("RUNNING SERIAL LOOP.");
-      console.log("Number of connected ports: " + self.connectedSerialPorts.length);
+      //console.log("Number of connected ports: " + self.connectedSerialPorts.length);
 
       // Max 4 serial connections, no need to keep polling for serial ports if they're all connected.
       // NOTE: The connectedSerialPorts array will get smaller when serial connections are dropped, 

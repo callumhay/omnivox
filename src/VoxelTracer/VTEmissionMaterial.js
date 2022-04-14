@@ -5,7 +5,7 @@ import VTTexture from './VTTexture';
 import {clamp} from '../MathUtils';
 
 class VTEmissionMaterial extends VTMaterial {
-  constructor(colour, alpha=1, texture=null) {
+  constructor(colour=new THREE.Color(1,1,1), alpha=1, texture=null) {
     super(VTMaterial.EMISSION_TYPE);
     this.colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
     this.alpha = alpha;
