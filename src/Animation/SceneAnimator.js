@@ -69,6 +69,9 @@ class SceneAnimator extends VoxelAnimator {
   }
 
   rendersToCPUOnly() { return true; }
+    //const currScene = this._sceneMap[this.config.sceneType];
+    //return currScene ? currScene.rendersToCPUOnly() : true;
+  //}
 
   async render(dt) {
     const currScene = this._sceneMap[this.config.sceneType];

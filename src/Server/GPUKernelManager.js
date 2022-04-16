@@ -230,6 +230,72 @@ class GPUKernelManager {
     });
   }
 
+  initGaussianBlurPPKernels(gridSize, kernelSize) {
+    const postProcPipelineSettings = {
+      output: [gridSize, gridSize, gridSize],
+      pipeline: true,
+      constants: {
+        gridSize: gridSize,
+        gridSizeMinus1: gridSize-1,
+        kernelSize: kernelSize,
+        kernelOffsetExtent: Math.floor((kernelSize-1)/2),
+        TWOPI: 2*Math.PI,
+      },
+      immutable: true,
+      returnType: 'Array(3)',
+    };
+
+    this.gpu.addFunction(function gaussian(offset, sqrSigma) {
+      return (1.0 / Math.sqrt(this.constants.TWOPI*sqrSigma)) * Math.pow(2.71828, -((1.0*offset*offset)/(2.0*sqrSigma)));
+    },  {name: 'gaussian', argumentTypes: {offset: "Float", sqrSigma: "Float"}});
+
+    const gaussBlurArgTypes = {fbTex: "Array3D(3)", sqrSigma: "Float", conserveEnergy: "Boolean"};
+    this.gpu.addFunction(function gaussianBlur(fbTex, sqrSigma, isXYZ, conserveEnergy) {
+      const x = this.thread.z; const y = this.thread.y; const z = this.thread.x;
+      if (sqrSigma === 0) { return fbTex[x][y][z]; } // Safe out if there's no blur
+
+      // NOTE: Be VERY careful about integer vs. floating point math, be sure to add decimals to any numbers
+      // where you want a float result!! Any for loop counter will be an integer.
+      const result = [0.0, 0.0, 0.0];
+      let sum = 0.0;
+      for (let offset = -this.constants.kernelOffsetExtent; offset <= this.constants.kernelOffsetExtent; offset++) {
+        const gaussCoeff = gaussian(offset, sqrSigma); // Gaussian Distribution
+        sum += gaussCoeff;
+        const offsetLookup = [
+          Math.trunc(clampValue(x + offset*isXYZ[0], 0, this.constants.gridSizeMinus1)), 
+          Math.trunc(clampValue(y + offset*isXYZ[1], 0, this.constants.gridSizeMinus1)),
+          Math.trunc(clampValue(z + offset*isXYZ[2], 0, this.constants.gridSizeMinus1))
+        ];
+        const currSample = fbTex[offsetLookup[0]][offsetLookup[1]][offsetLookup[2]];
+        result[0] += currSample[0] * gaussCoeff;
+        result[1] += currSample[1] * gaussCoeff;
+        result[2] += currSample[2] * gaussCoeff;
+      }
+      const gaussian0 = gaussian(0, sqrSigma);
+      return conserveEnergy ? [result[0]/sum, result[1]/sum, result[2]/sum] :
+       [
+        clampValue(result[0]/gaussian0, 0.0, 1.0), 
+        clampValue(result[1]/gaussian0, 0.0, 1.0), 
+        clampValue(result[2]/gaussian0, 0.0, 1.0)
+      ];
+    }, {name: 'gassianBlur'}); 
+
+    
+    this.blurXFunc = this.gpu.createKernel(function(fbTex, sqrSigma, conserveEnergy) {
+      //return [0,1,0];
+      return gaussianBlur(fbTex, sqrSigma, [1.0, 0.0, 0.0], conserveEnergy);
+    }, {...postProcPipelineSettings, name: "blurXFunc", argumentTypes: gaussBlurArgTypes});
+    this.blurYFunc = this.gpu.createKernel(function(fbTex, sqrSigma, conserveEnergy) {
+      //return [0,1,0];
+      return gaussianBlur(fbTex, sqrSigma, [0.0, 1.0, 0.0], conserveEnergy);
+    }, {...postProcPipelineSettings, name: "blurYFunc", argumentTypes: gaussBlurArgTypes});
+    this.blurZFunc = this.gpu.createKernel(function(fbTex, sqrSigma, conserveEnergy) {
+      //return [0,1,0];
+      return gaussianBlur(fbTex, sqrSigma, [0.0, 0.0, 1.0], conserveEnergy);
+    }, {...postProcPipelineSettings, name: "blurZFunc", argumentTypes: gaussBlurArgTypes});
+
+  }
+
   initFluidKernels(N) {
     if (this._fluidKernelsInit) { return; }
 
@@ -1273,7 +1339,6 @@ class GPUKernelManager {
       const levelIdx = Math.floor((4*(projectedTierIdxMinus1*projectedTierIdxMinus1 + 2*projectedTierIdxMinus1 + 1) + tierSlotIdx) * numLevelsPerSlot);
       return calcAudioCutoff(audioLevels[levelIdx], levelMax, height);
     }, {name: 'barVisCutoffCentered'});
-
     this.gpu.addFunction(function drawBarVis(prevVisTex, levelColours, cutoff, cutoffClampSize, fadeFactor, dt, yIdx, glowMultiplier) {
       const prevVoxelRGBA = prevVisTex[this.thread.z][this.thread.y][this.thread.x];
       const fadeFactorAdjusted = Math.pow(fadeFactor, dt);

@@ -19,6 +19,7 @@ const commonConfig = {
   ],
   resolve: {
     fallback: {
+      "os": require.resolve("os-browserify/browser"),
       "fs": false,
       "tls": false,
       "net": false,

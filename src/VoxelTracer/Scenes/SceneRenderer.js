@@ -10,6 +10,8 @@ class SceneRenderer {
     this._options = null;
   }
 
+  rendersToCPUOnly() { return true; }
+
   build(options) {}
 
   rebuild(options) {

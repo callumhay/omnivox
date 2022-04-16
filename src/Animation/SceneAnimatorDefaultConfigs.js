@@ -262,6 +262,9 @@ const bouncySceneControlOptions = {
 
 const particleSceneDefaultOptions = {
   ambientLightColour: {r:0.0, g:0.0, b:0.0},
+  blurSqrSigma: 0.2,
+  blurKernelSize: 3,
+  blurConserveEnergy: false,
   totalEmitTimes: {num: 1, isInfinity: true},
   particleSpawn: {numMin: 5, numMax: 10, interval: 0.05},
   particleLifeSpan: {min: 0.4, max: 0.75},
@@ -274,6 +277,9 @@ const particleSceneDefaultOptions = {
 };
 const particleSceneControlOptions = {
   ambientLightColour: {label: "Ambient Light Colour"},
+  blurSqrSigma: {label: "Blur Squared Std. Dev", min:0, max:2, step:0.001},
+  blurKernelSize: {label: "Blur Kernel Size", min:3, max:15, step:1},
+  blurConserveEnergy: {label: "Blur Conserve Energy?"},
   totalEmitTimes: {
     label: "Emitter Cycles",
     num: {label: "Number of Cycles", min:1, max:10, step:1}, 
@@ -314,7 +320,7 @@ const particleSceneControlOptions = {
     max: {label: "Max Alpha", min: 0, max: 1, step: 0.01}
   },
   particleMaterial: {
-    label: "Particle Material Type",
+    label: "Particle Material",
     list: ["VTEmissionMaterial", "VTLambertMaterial"],
   }
 };

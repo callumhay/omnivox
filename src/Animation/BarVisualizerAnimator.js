@@ -6,7 +6,6 @@ import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 
 import {RandomHighLowColourCycler} from '../Randomizers';
 import Spectrum, {COLOUR_INTERPOLATION_LRGB} from '../Spectrum';
-import {clamp} from '../MathUtils';
 
 const STATIC_BARS_DISPLAY_TYPE         = "Static";
 const MOVING_HISTORY_BARS_DISPLAY_TYPE = "Moving History";

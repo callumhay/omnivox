@@ -29,8 +29,9 @@ class VoxelModel {
   // Framebuffer index constants
   static get GPU_FRAMEBUFFER_IDX_0() { return 0; }
   static get GPU_FRAMEBUFFER_IDX_1() { return 1; }
-  static get CPU_FRAMEBUFFER_IDX_0() { return 2; }
-  static get CPU_FRAMEBUFFER_IDX_1() { return 3; }
+  static get GPU_FRAMEBUFFER_IDX_2() { return 2; }
+  static get CPU_FRAMEBUFFER_IDX_0() { return 3; }
+  static get CPU_FRAMEBUFFER_IDX_1() { return 4; }
 
   static getOtherFramebufferIndex(idx) {
     switch (idx) {
@@ -56,10 +57,12 @@ class VoxelModel {
 
     // Note: Indices MUST match up with the constants for *_FRAMEBUFFER_IDX_* !!!!
     this._framebuffers = [
-      new VoxelFramebufferGPU(0, this.gpuKernelMgr),
-      new VoxelFramebufferGPU(1, this.gpuKernelMgr),
-      new VoxelFramebufferCPU(2, gridSize, this.gpuKernelMgr),
-      new VoxelFramebufferCPU(3, gridSize, this.gpuKernelMgr),
+      new VoxelFramebufferGPU(VoxelModel.GPU_FRAMEBUFFER_IDX_0, this.gpuKernelMgr),
+      new VoxelFramebufferGPU(VoxelModel.GPU_FRAMEBUFFER_IDX_1, this.gpuKernelMgr),
+      new VoxelFramebufferGPU(VoxelModel.GPU_FRAMEBUFFER_IDX_2, this.gpuKernelMgr), // Used for Post Processing ONLY
+      
+      new VoxelFramebufferCPU(VoxelModel.CPU_FRAMEBUFFER_IDX_0, gridSize, this.gpuKernelMgr),
+      new VoxelFramebufferCPU(VoxelModel.CPU_FRAMEBUFFER_IDX_1, gridSize, this.gpuKernelMgr),
     ];
     this._framebufferIdx = VoxelModel.GPU_FRAMEBUFFER_IDX_0;
 
@@ -256,13 +259,12 @@ class VoxelModel {
     this.framebuffer.addToVoxelFast([pt.x, pt.y, pt.z], [colour.r, colour.g, colour.b]);
   }
 
-  drawFramebuffer(idx) {
+  drawFramebuffer(idx, blendMode=undefined) {
     if (idx === this._framebufferIdx) {
       console.error("Attempting to draw a framebuffer into itself, ignoring.");
       return;
     }
-
-    this.framebuffer.drawFramebuffer(this._framebuffers[idx], this.blendMode);
+    this.framebuffer.drawFramebuffer(this._framebuffers[idx], (blendMode===undefined || blendMode===null) ? this.blendMode : blendMode);
   }
 
   drawCombinedFramebuffers(fb1Idx, fb2Idx, options) {

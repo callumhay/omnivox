@@ -60,7 +60,7 @@ class VoxelAnimator {
     }
   }
 
-  setAudioInfo(audioInfo) { /* Just ignore this */ }
+  setAudioInfo(audioInfo) {}
 
   render(dt) {}
   rendersToCPUOnly() { return false; }
