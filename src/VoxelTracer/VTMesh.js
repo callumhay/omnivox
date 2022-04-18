@@ -37,20 +37,7 @@ class VTMesh extends VTObject {
     this.makeDirty();
   }
 
-  isDirty() {
-    return this._isDirty;
-  }
-  makeDirty() {
-    this._isDirty = true;
-  }
-  unDirty() {
-    if (this._isDirty) {
-      this.updateMatrixWorld();
-      this._isDirty = false;
-      return true;
-    }
-    return false;
-  }
+  unDirty() { if (super.unDirty()) { this.updateMatrixWorld(); } }
 
   isShadowCaster() { return true; }
 

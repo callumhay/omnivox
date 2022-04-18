@@ -5,12 +5,6 @@ import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 import VTObject from './VTObject';
 
-export const defaultSphereOptions = {
-  samplesPerVoxel: 6,
-  fill: false,
-  castsShadows: true,
-};
-
 export class VTSphereAbstract extends VTObject {
   constructor(center, radius, material, options) {
     super(VTObject.SPHERE_TYPE);
@@ -40,6 +34,12 @@ export class VTSphereAbstract extends VTObject {
   }
 }
 
+export const defaultSphereOptions = {
+  samplesPerVoxel: 6,
+  fill: false,
+  castsShadows: true,
+};
+
 export class VTSphere extends VTSphereAbstract {
 
   constructor(center, radius, material, options={...defaultSphereOptions}) {
@@ -53,16 +53,6 @@ export class VTSphere extends VTSphereAbstract {
   setCenter(c) { this._sphere.set(c, this._sphere.radius); this.makeDirty(); }
   get radius() { return this._sphere.radius; }
   setRadius(r) { this._sphere.set(this._sphere.center, r); this.makeDirty(); }
-
-  isDirty() { return this._isDirty; }
-  makeDirty() { this._isDirty = true; }
-  unDirty() {
-    if (this._isDirty) {
-      this._isDirty = false;
-      return true;
-    }
-    return false;
-  }
 
   toJSON() {
     const {id, drawOrder, type, _sphere, _material, _options} = this;

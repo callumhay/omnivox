@@ -5,6 +5,7 @@ class VTObject {
   // Object Type Definitions
   static get MESH_TYPE() { return 'm'; }
   static get SPHERE_TYPE() { return 'sp'; }
+  static get BOX_TYPE() { return 'b'; }
   static get AMBIENT_LIGHT_TYPE() { return 'a'; }
   static get POINT_LIGHT_TYPE() { return 'p'; }
   static get SPOT_LIGHT_TYPE() { return 's'; }
@@ -27,8 +28,15 @@ class VTObject {
 
   clone() { console.error("clone unimplemented abstract method called."); return null; }
 
-  isDirty() { console.error("isDirty unimplemented abstract method called."); return false; }
-  unDirty() { console.error("unDirty unimplemented abstract method called."); return true; }
+  isDirty() { return this._isDirty; }
+  makeDirty() { this._isDirty = true; }
+  unDirty() {
+    if (this._isDirty) {
+      this._isDirty = false;
+      return true;
+    }
+    return false;
+  }
 
   dispose() { console.error("dispose unimplemented abstract method called."); }
   isShadowCaster() { console.error("isShadowCaster unimplemented abstract method called."); return false; }

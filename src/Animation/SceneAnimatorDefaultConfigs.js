@@ -9,6 +9,8 @@ export const SCENE_TYPE_METABALLS = "Metaballs";
 export const SCENE_TYPE_BOUNCY    = "Bouncy";
 export const SCENE_TYPE_PARTICLE  = "Particle";
 
+export const SCENE_TYPE_BOX_TEST = "Box Test";
+
 export const SCENE_TYPES = [
   SCENE_TYPE_SIMPLE,
   SCENE_TYPE_SHADOW,
@@ -18,6 +20,8 @@ export const SCENE_TYPES = [
   SCENE_TYPE_METABALLS,
   SCENE_TYPE_BOUNCY,
   SCENE_TYPE_PARTICLE,
+
+  SCENE_TYPE_BOX_TEST,
 ];
 
 const fogScatteringCtrlOpt = {label: "Fog Scattering", min:0, max:1, step:0.01};
@@ -144,9 +148,9 @@ const godRaySceneControlOptions = {
   shapeEmission: {label: "Shape Emission"},
   shapeSize: {
     label: "Shape Size",
-    x: {min:1, max:VoxelConstants.VOXEL_GRID_SIZE/2, step:1}, 
-    y: {min:1, max:VoxelConstants.VOXEL_GRID_SIZE/2, step:1}, 
-    z: {min:1, max:VoxelConstants.VOXEL_GRID_SIZE/2, step:1},
+    x: {min:1, max:VoxelConstants.VOXEL_HALF_GRID_IDX, step:1}, 
+    y: {min:1, max:VoxelConstants.VOXEL_HALF_GRID_IDX, step:1}, 
+    z: {min:1, max:VoxelConstants.VOXEL_HALF_GRID_IDX, step:1},
   },
   shapeRotationSpd: {
     label: "Shape Rotation Speed",
@@ -260,31 +264,52 @@ const bouncySceneControlOptions = {
   maxInitialVelocity: {label: "Max Initial Velocity", min:1, max:20, step:0.25},
 };
 
+const boxTestSceneDefaultOptions = {
+  boxFill: false,
+  pointLight1Pos: {x: VoxelConstants.VOXEL_HALF_GRID_UNIT, y:0, z: VoxelConstants.VOXEL_HALF_GRID_UNIT}
+};
+const boxTestSceneControlOptions = {
+  boxFill: {label: "Box Fill?"},
+  pointLight1Pos: {...widePositionCtrlOpt, label: "Point Light 1 Position"},
+};
+
 const particleSceneDefaultOptions = {
   ambientLightColour: {r:0.0, g:0.0, b:0.0},
-  blurSqrSigma: 0.2,
+
+  blurSqrSigma: 0.5,
   blurKernelSize: 3,
   blurConserveEnergy: false,
-  totalEmitTimes: {num: 1, isInfinity: true},
+
+  chromaticAberrationIntensity: 1,
+  
   particleSpawn: {numMin: 5, numMax: 10, interval: 0.05},
   particleLifeSpan: {min: 0.4, max: 0.75},
   particleSpeed: {min: VoxelConstants.VOXEL_DIAGONAL_GRID_SIZE/2, max: VoxelConstants.VOXEL_DIAGONAL_GRID_SIZE},
-  particleColourStart: {colourA: {r:0, g:1, b:0}, colourB: {r:0, g:1, b:0.5}},
+  particleColourStart: {colourA: {r:1, g:1, b:1}, colourB: {r:1, g:1, b:1}},
   particleColourEnd: {colourA: {r:0, g:0, b:1}, colourB: {r:0.53, g:0.81, b:0.92}},
   particleAlphaStart: {min: 0.5, max: 1},
   particleAlphaEnd: {min: 0, max: 0},
   particleMaterial: "VTEmissionMaterial",
+
+  emitterPos: {
+    x:VoxelConstants.VOXEL_HALF_GRID_UNIT,
+    y:VoxelConstants.VOXEL_HALF_GRID_UNIT,
+    z:VoxelConstants.VOXEL_HALF_GRID_UNIT
+  },
+  totalEmitTimes: {num: 1, isInfinity: true},
 };
 const particleSceneControlOptions = {
   ambientLightColour: {label: "Ambient Light Colour"},
+
   blurSqrSigma: {label: "Blur Squared Std. Dev", min:0, max:2, step:0.001},
   blurKernelSize: {label: "Blur Kernel Size", min:3, max:15, step:1},
   blurConserveEnergy: {label: "Blur Conserve Energy?"},
-  totalEmitTimes: {
-    label: "Emitter Cycles",
-    num: {label: "Number of Cycles", min:1, max:10, step:1}, 
-    isInfinity: {label: "Infinite Cycles?"}
+
+  chromaticAberrationIntensity: {
+    label: "Chromatic Abberation Intensity",
+    min:-VoxelConstants.VOXEL_HALF_GRID_SIZE, max:VoxelConstants.VOXEL_HALF_GRID_SIZE, step:1
   },
+
   particleSpawn: {
     label: "Particle Spawning", 
     numMin: {label: "Min Particles", min:0, max:50, step:1}, 
@@ -322,7 +347,14 @@ const particleSceneControlOptions = {
   particleMaterial: {
     label: "Particle Material",
     list: ["VTEmissionMaterial", "VTLambertMaterial"],
-  }
+  },
+
+  emitterPos: { label: "Emitter Position" },
+  totalEmitTimes: {
+    label: "Emitter Cycles",
+    num: {label: "Number of Cycles", min:1, max:10, step:1}, 
+    isInfinity: {label: "Infinite Cycles?"}
+  },
 };
 
 
@@ -335,6 +367,9 @@ export const sceneDefaultOptionsMap = {
   [SCENE_TYPE_METABALLS]: {options: metaballSceneDefaultOptions, constraints: metaballSceneControlOptions},
   [SCENE_TYPE_BOUNCY]:    {options: bouncySceneDefaultOptions,   constraints: bouncySceneControlOptions},
   [SCENE_TYPE_PARTICLE]:  {options: particleSceneDefaultOptions, constraints: particleSceneControlOptions},
+
+  [SCENE_TYPE_BOX_TEST]:  {options: boxTestSceneDefaultOptions,  constraints: boxTestSceneControlOptions},
+
 };
 
 export const sceneAnimatorDefaultConfig = {

@@ -20,10 +20,15 @@ class VoxelGaussianBlurPP extends VoxelPostProcess {
     this._config = this._config ? {...this._config, ...config} : config;
   }
 
+  willRender() {
+    const {sqrSigma} = this._config;
+    return (sqrSigma > 0);
+  }
+
   renderToFramebuffer(framebufferIn, framebufferOut) {
     const {sqrSigma, conserveEnergy} = this._config;
     const {gpuKernelMgr} = this.voxelModel;
-
+    
     const currFBTex = framebufferIn.getGPUBuffer();
     const pingPongFBTex1 = gpuKernelMgr.blurXFunc(currFBTex, sqrSigma, conserveEnergy);
     if (framebufferIn === framebufferOut) { currFBTex.delete(); }

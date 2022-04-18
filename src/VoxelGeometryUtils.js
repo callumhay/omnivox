@@ -81,9 +81,9 @@ class VoxelGeometryUtils {
 
   static voxelAABBList(minPt, maxPt, fill, voxelBoundingBox) {
     const voxelPts = [];
-    const mappedMinPt = minPt.clone().floor();
+    const mappedMinPt = minPt.clone().subScalar(VoxelConstants.VOXEL_ERR_UNITS).floor();
     mappedMinPt.max(voxelBoundingBox.min);
-    const mappedMaxPt = maxPt.clone().ceil();
+    const mappedMaxPt = maxPt.clone().addScalar(VoxelConstants.VOXEL_ERR_UNITS).ceil();
     mappedMaxPt.min(voxelBoundingBox.max);
 
     if (fill) {
@@ -139,16 +139,10 @@ class VoxelGeometryUtils {
     return voxelPts;
   }
 
-  static voxelBoxList(center, eulerRot, size, fill, voxelBoundingBox) {
-    const halfSize = size.clone().multiplyScalar(0.5);
-    // Figure out all the points in the grid that will be inside the box...
-    const minPt = center.clone();
-    const maxPt = center.clone();
-    minPt.sub(halfSize);
-    maxPt.add(halfSize);
 
+  static voxelBoxListMinMax(minPt, maxPt, eulerRot, fill, voxelBoundingBox) {
     const boxPts = VoxelGeometryUtils.voxelAABBList(minPt, maxPt, fill, voxelBoundingBox);
-    if (eulerRot.x === 0 && eulerRot.y === 0 && eulerRot.z === 0) {
+    if (!eulerRot || (eulerRot.x === 0 && eulerRot.y === 0 && eulerRot.z === 0)) {
       return boxPts; // A zero rotation was provided
     }
 
@@ -161,6 +155,17 @@ class VoxelGeometryUtils {
     }
 
     return boxPts;
+  }
+
+  static voxelBoxList(center, eulerRot, size, fill, voxelBoundingBox) {
+    const halfSize = size.clone().multiplyScalar(0.5);
+    // Figure out all the points in the grid that will be inside the box...
+    const minPt = center.clone();
+    const maxPt = center.clone();
+    minPt.sub(halfSize);
+    maxPt.add(halfSize);
+
+    return VoxelGeometryUtils.voxelBoxListMinMax(minPt, maxPt, eulerRot, fill, voxelBoundingBox);
   }
 
 }

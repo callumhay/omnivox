@@ -32,16 +32,6 @@ class VTDirectionalLight extends VTObject {
   
   dispose() {}
 
-  isDirty() { return this._isDirty; }
-  makeDirty() { this._isDirty = true; }
-  unDirty() {
-    if (this._isDirty) {
-      this._isDirty = false;
-      return true;
-    }
-    return false;
-  }
-
   isShadowCaster() { return false; }
 
   emission(pos=null, distance=null) {

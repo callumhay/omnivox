@@ -67,16 +67,6 @@ class VTVoxel extends VTVoxelAbstract  {
   setLocalRotationEuler(r) {}  // NOTE: Single voxels have no local orientation
   setLocalScale(sX, sY, sZ) {} // NOTE: Single voxels have no scale
 
-  isDirty() { return this._isDirty; }
-  makeDirty() { this._isDirty = true; }
-  unDirty() {
-    if (this._isDirty) {
-      this._isDirty = false;
-      return true;
-    }
-    return false;
-  }
-
   toJSON() {
     const {id, drawOrder, type, _position, _material, _receivesShadow, _castsShadow} = this;
     //const matrixArray = _matrixWorld.toArray();

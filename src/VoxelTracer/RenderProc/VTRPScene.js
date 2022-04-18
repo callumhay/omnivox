@@ -16,6 +16,7 @@ import {VTRPFogBox, VTRPFogSphere} from './VTRPFog';
 import VTRPVoxel from './VTRPVoxel';
 import VTRPIsofield from './VTRPIsofield';
 import VTDirectionalLight from '../VTDirectionalLight';
+import VTRPBox from './VTRPBox';
 
 
 class VTRPScene {
@@ -165,6 +166,9 @@ class VTRPScene {
         break;
       case VTObject.SPHERE_TYPE:
         buildFunc = VTRPSphere.build;
+        break;
+      case VTObject.BOX_TYPE:
+        buildFunc = VTRPBox.build;
         break;
 
       case VTObject.POINT_LIGHT_TYPE:
@@ -333,14 +337,14 @@ class VTRPScene {
     return finalColour;
   }
 
-  calculateLightingSamples(voxelIdxPt, samples, material, recievesShadows=true) {
+  calculateLightingSamples(voxelIdxPt, samples, material, recievesShadows=true, factorPerSample=null) {
     const finalColour = new THREE.Color(0,0,0);
     const sampleLightContrib = new THREE.Color(0,0,0);
 
     // Go through each light in the scene and raytrace to them...
     const nObjToLightVec = new THREE.Vector3(0,0,0);
     let distanceToLight = 0;
-    const factorPerSample = 1.0 / samples.length;
+    factorPerSample = factorPerSample || (1.0 / samples.length);
     const lights = Object.values(this.lights);
     
     for (let i = 0; i < samples.length && (finalColour.r < 1 || finalColour.g < 1 || finalColour.b < 1); i++) {
@@ -398,7 +402,7 @@ class VTRPScene {
           const {uv, falloff} = samples[i];
           sampleLightContrib.add(material.basicBrdfAmbient(uv, this.ambientLight.emission()).multiplyScalar(falloff));
         }
-        sampleLightContrib.multiplyScalar(factorPerSample);
+        sampleLightContrib.multiplyScalar(1.0 / samples.length);
         finalColour.add(sampleLightContrib);
 
         this._tempVoxelMap[voxelPtId] = true;

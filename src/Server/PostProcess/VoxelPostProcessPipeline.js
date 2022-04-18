@@ -15,7 +15,7 @@ class VoxelPostProcessPipeline {
   }
 
   render(fbOriginIdx, fbTargetIdx) {
-    if (this._postProcesses.length === 0) {
+    if (this._postProcesses.length === 0 || this._postProcesses.filter(pp => pp.willRender()).length === 0) {
       this.voxelModel.setFramebuffer(fbTargetIdx);
       return;
     } 

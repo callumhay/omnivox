@@ -196,13 +196,13 @@ class VTRPMesh extends VTObject {
   }
 
   calculateVoxelColour(voxelIdxPt, scene) {
-    const voxelId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, scene.gridSize);
-    let finalColour = new THREE.Color(0,0,0);
+    const finalColour = new THREE.Color(0,0,0);
 
     // Fast-out if we can't even see this mesh
     if (!this.material.isVisible()) { return finalColour; }
     
     // Grab a list of all the samples
+    const voxelId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, scene.gridSize);
     const VTRPTriSamples = this._preRender(voxelIdxPt, voxelId);
     if (VTRPTriSamples.length > 0) {
       const samples = VTRPTriSamples.map(triSample => triSample.sample);

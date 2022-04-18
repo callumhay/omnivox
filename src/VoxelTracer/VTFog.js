@@ -21,16 +21,6 @@ class VTFog extends VTObject {
 
   dispose() {}
 
-  makeDirty() { this._isDirty = true; }
-  isDirty() { return this._isDirty; }
-  unDirty() {
-    if (this._isDirty) {
-      this._isDirty = false;
-      return true;
-    }
-    return false;
-  }
-
   isShadowCaster() { return true; }
 
   toJSON() {

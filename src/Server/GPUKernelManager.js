@@ -230,8 +230,40 @@ class GPUKernelManager {
     });
   }
 
+  initChromaticAberrationPPKernels(gridSize) {
+    const chromaticAberrationPPSettings = {
+      output: [gridSize, gridSize, gridSize],
+      pipeline: true,
+      immutable: true,
+      returnType: 'Array(3)',
+      constants: {
+        gridSize,
+      }
+    };
+
+    this.chromaticAberrationFunc = this.gpu.createKernel(function(fbTex, intensity) {
+      const x = this.thread.z; const y = this.thread.y; const z = this.thread.x;
+
+      const rX = clampValue(Math.trunc(x + intensity), 0, this.constants.gridSize);
+      const rY = clampValue(Math.trunc(y + intensity), 0, this.constants.gridSize);
+      const rZ = clampValue(Math.trunc(z + intensity), 0, this.constants.gridSize);
+
+      const bX = clampValue(Math.trunc(x - intensity), 0, this.constants.gridSize);
+      const bY = clampValue(Math.trunc(y - intensity), 0, this.constants.gridSize);
+      const bZ = clampValue(Math.trunc(z - intensity), 0, this.constants.gridSize);
+
+      const rCh = fbTex[rX][rY][rZ];
+      const gCh = fbTex[x][y][z];
+      const bCh = fbTex[bX][bY][bZ];
+
+      return [rCh[0], gCh[1], bCh[2]];
+
+    }, {...chromaticAberrationPPSettings, name: "chromaticAberrationFunc", argumentTypes: {fbTex: "Array3D(3)", intensity: "Float"}});
+
+  }
+
   initGaussianBlurPPKernels(gridSize, kernelSize) {
-    const postProcPipelineSettings = {
+    const gaussianBlurPPSettings = {
       output: [gridSize, gridSize, gridSize],
       pipeline: true,
       constants: {
@@ -284,15 +316,15 @@ class GPUKernelManager {
     this.blurXFunc = this.gpu.createKernel(function(fbTex, sqrSigma, conserveEnergy) {
       //return [0,1,0];
       return gaussianBlur(fbTex, sqrSigma, [1.0, 0.0, 0.0], conserveEnergy);
-    }, {...postProcPipelineSettings, name: "blurXFunc", argumentTypes: gaussBlurArgTypes});
+    }, {...gaussianBlurPPSettings, name: "blurXFunc", argumentTypes: gaussBlurArgTypes});
     this.blurYFunc = this.gpu.createKernel(function(fbTex, sqrSigma, conserveEnergy) {
       //return [0,1,0];
       return gaussianBlur(fbTex, sqrSigma, [0.0, 1.0, 0.0], conserveEnergy);
-    }, {...postProcPipelineSettings, name: "blurYFunc", argumentTypes: gaussBlurArgTypes});
+    }, {...gaussianBlurPPSettings, name: "blurYFunc", argumentTypes: gaussBlurArgTypes});
     this.blurZFunc = this.gpu.createKernel(function(fbTex, sqrSigma, conserveEnergy) {
       //return [0,1,0];
       return gaussianBlur(fbTex, sqrSigma, [0.0, 0.0, 1.0], conserveEnergy);
-    }, {...postProcPipelineSettings, name: "blurZFunc", argumentTypes: gaussBlurArgTypes});
+    }, {...gaussianBlurPPSettings, name: "blurZFunc", argumentTypes: gaussBlurArgTypes});
 
   }
 

@@ -74,6 +74,19 @@ export class UniformSphereDirGenerator {
     return vec3;
   }
 }
+// Produces a random direction from a pre-defined list of static directions
+export class StaticDirGenerator {
+  constructor(dirList) {
+    this._dirList = dirList.map(d => {
+      if (d instanceof THREE.Vector3) { return d.normalize(); }
+      else if (Array.isArray(d) && d.length >= 3) { return (new THREE.Vector3(d[0], d[1], d[2])).normalize(); }
+      return (new THREE.Vector3(d.x, d.y, d.z)).normalize();
+    });
+  }
+  generate(vec3) {
+    vec3.copy(this._dirList[(this._dirList.length * Math.random()) >> 0]);
+  }
+}
 
 export class VTPVelocity extends VTPInitializer {
   constructor(speedSpan, dirGenerator) {

@@ -24,16 +24,6 @@ class VTAmbientLight extends VTObject {
   get colour() { return this._colour; }
   setColour(c) {this._colour = c; this.makeDirty(); }
 
-  makeDirty() { this._isDirty = true; }
-  isDirty() { return this._isDirty; }
-  unDirty() {
-    if (this._isDirty) {
-      this._isDirty = false;
-      return true;
-    }
-    return false;
-  }
-
   dispose() {}
   emission() { return this._colour.clone(); }
   getCollidingVoxels(voxelGridBoundingBox=null) { return []; } // Nothing to draw

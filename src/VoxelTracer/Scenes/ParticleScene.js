@@ -13,13 +13,14 @@ import VTPEmitterManager from '../Particles/VTPEmitterManager';
 import VTPEmitter from '../Particles/VTPEmitter';
 import VTPRate from '../Particles/VTPRate';
 import VTPSpan from '../Particles/VTPSpan';
-import { UniformSphereDirGenerator, VTPBody, VTPLife, VTPVelocity } from '../Particles/Initializers/VTPInitializers';
+import {UniformSphereDirGenerator, VTPBody, VTPLife, VTPVelocity} from '../Particles/Initializers/VTPInitializers';
 import VTPAlpha from '../Particles/Behaviours/VTPAlpha';
 import VTPColour from '../Particles/Behaviours/VTPColour';
 
 import VoxelModel from '../../Server/VoxelModel';
 import VoxelGaussianBlurPP from '../../Server/PostProcess/VoxelGaussianBlurPP';
 import VoxelPostProcessPipeline from '../../Server/PostProcess/VoxelPostProcessPipeline';
+import VoxelChromaticAberrationPP from '../../Server/PostProcess/VoxelChromaticAberrationPP';
 
 class ParticleScene extends SceneRenderer {
   constructor(scene, voxelModel) {
@@ -29,6 +30,9 @@ class ParticleScene extends SceneRenderer {
     this.gaussianBlur = new VoxelGaussianBlurPP(voxelModel);
     this.postProcessPipeline = new VoxelPostProcessPipeline(voxelModel);
     this.postProcessPipeline.addPostProcess(this.gaussianBlur);
+
+    this.chromaticAberration = new VoxelChromaticAberrationPP(voxelModel);
+    this.postProcessPipeline.addPostProcess(this.chromaticAberration);
   }
 
   clear() {
@@ -40,12 +44,11 @@ class ParticleScene extends SceneRenderer {
   build(options) {
     if (!this._objectsBuilt) {
 
-      const halfGridDist = (this.voxelModel.gridSize/2) - 0.5;
-
       const {
-        blurKernelSize, blurSqrSigma, blurConserveEnergy,
-        particleMaterial, totalEmitTimes, particleSpawn, particleLifeSpan, particleSpeed, 
-        particleAlphaStart, particleAlphaEnd, particleColourStart, particleColourEnd
+        blurKernelSize, blurSqrSigma, blurConserveEnergy, chromaticAberrationIntensity,
+        particleMaterial, particleSpawn, particleLifeSpan, particleSpeed, 
+        particleAlphaStart, particleAlphaEnd, particleColourStart, particleColourEnd,
+        emitterPos, totalEmitTimes
       } = options;
 
       const materialNameToClass = {
@@ -61,7 +64,7 @@ class ParticleScene extends SceneRenderer {
       this.emitter.addInitializer(new VTPVelocity(new VTPSpan(particleSpeed.min, particleSpeed.max), new UniformSphereDirGenerator()));
       this.emitter.addBehaviour(new VTPAlpha(new VTPSpan(particleAlphaStart.min, particleAlphaStart.end), new VTPSpan(particleAlphaEnd.min, particleAlphaEnd.max)));
       this.emitter.addBehaviour(new VTPColour(['mix', particleColourStart.colourA, particleColourStart.colourB], ['mix', particleColourEnd.colourA, particleColourEnd.colourB]));
-      this.emitter.p.set(halfGridDist,halfGridDist,halfGridDist);
+      this.emitter.p.set(emitterPos.x, emitterPos.y, emitterPos.z);
       this.emitter.emit(totalEmitTimes.isInfinity ? Infinity : totalEmitTimes.num);
       
       this.emitterMgr = new VTPEmitterManager(this.scene);
@@ -75,9 +78,9 @@ class ParticleScene extends SceneRenderer {
         sqrSigma: blurSqrSigma,
         conserveEnergy: blurConserveEnergy
       });
-
-      //const {gridSize, gpuKernelMgr} = this.voxelModel;
-      //gpuKernelMgr.initGaussianBlurPPKernels(gridSize, Math.floor(blurKernelSize/2)*2+1);
+      this.chromaticAberration.setConfig({
+        intensity: chromaticAberrationIntensity
+      });
 
       this._objectsBuilt = true;
     }
@@ -98,7 +101,6 @@ class ParticleScene extends SceneRenderer {
     
     await this.scene.render();
 
-    // Gaussian blur post-processing effect
     this.postProcessPipeline.render(VoxelModel.CPU_FRAMEBUFFER_IDX_0, VoxelModel.CPU_FRAMEBUFFER_IDX_0);
   }
 
