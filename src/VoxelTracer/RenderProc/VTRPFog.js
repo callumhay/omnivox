@@ -3,27 +3,27 @@ import * as THREE from 'three';
 
 import {clamp} from '../../MathUtils';
 import VoxelGeometryUtils from '../../VoxelGeometryUtils';
+import VTConstants from '../VTConstants';
 
-import VTObject from '../VTObject';
+import VTRPObject from './VTRPObject';
 
-class VTRPFog extends VTObject {
+class VTRPFog extends VTRPObject {
   constructor(type, options) {
     super(type);
-    this._colour = options.fogColour ? options.fogColour : fogDefaultOptions.fogColour;
+    this._colour = options.colour ? options.colour : fogDefaultOptions.colour;
     this._scattering = options.scattering ? options.scattering : fogDefaultOptions.scattering;
   }
 
   dispose() {}
 
   isShadowCaster() { return false; }
+  isShadowReceiver() { return false; }
 
-  // NOT CURRENTLY IN USE.
   calculateShadow(raycaster) {
-    const result = {
+    return {
       inShadow: false,
       lightReduction: 0,
     };
-    return result;
   }
 
   _calcVoxelColourWithShape(voxelIdxPt, shape, scene) {
@@ -44,7 +44,7 @@ class VTRPFog extends VTObject {
 
 export class VTRPFogBox extends VTRPFog {
   constructor(boundingBox, options) {
-    super(VTObject.FOG_BOX_TYPE, options);
+    super(VTConstants.FOG_BOX_TYPE, options);
     this._boundingBox = boundingBox;
   }
 
@@ -54,7 +54,7 @@ export class VTRPFogBox extends VTRPFog {
     const {min, max} = _boundingBox;
     const minPt = new THREE.Vector3(min.x, min.y, min.z);
     const maxPt = new THREE.Vector3(max.x, max.y, max.z);
-    const result = new VTRPFogBox(new THREE.Box3(minPt, maxPt), {fogColour: colour, scattering: _scattering});
+    const result = new VTRPFogBox(new THREE.Box3(minPt, maxPt), {colour: colour, scattering: _scattering});
     result.id = id;
     result.drawOrder = drawOrder;
     return result;
@@ -67,15 +67,11 @@ export class VTRPFogBox extends VTRPFog {
   calculateVoxelColour(voxelIdxPt, scene) {
     return this._calcVoxelColourWithShape(voxelIdxPt, this._boundingBox, scene);
   }
-
-  getCollidingVoxels(voxelGridBoundingBox) {
-    return VoxelGeometryUtils.voxelAABBList(this._boundingBox.min, this._boundingBox.max, true, voxelGridBoundingBox);
-  }
 }
 
 export class VTRPFogSphere extends VTRPFog {
   constructor(boundingSphere, options) {
-    super(VTObject.FOG_SPHERE_TYPE, options);
+    super(VTConstants.FOG_SPHERE_TYPE, options);
     this._boundingSphere = boundingSphere;
   }
 
@@ -84,7 +80,7 @@ export class VTRPFogSphere extends VTRPFog {
     const colour = (new THREE.Color()).setHex(_colour);
     const {center, radius} = _boundingSphere;
     const c = new THREE.Vector3(center.x, center.y, center.z);
-    const result = new VTRPFogSphere(new THREE.Sphere(c, radius), {fogColour: colour, scattering: _scattering});
+    const result = new VTRPFogSphere(new THREE.Sphere(c, radius), {colour: colour, scattering: _scattering});
     result.id = id;
     result.drawOrder = drawOrder;
     return result;
@@ -96,9 +92,5 @@ export class VTRPFogSphere extends VTRPFog {
 
   calculateVoxelColour(voxelIdxPt, scene) {
     return this._calcVoxelColourWithShape(voxelIdxPt, this._boundingSphere, scene);
-  }
-
-  getCollidingVoxels(voxelGridBoundingBox) {
-    return VoxelGeometryUtils.voxelSphereList(this._boundingSphere.center, this._boundingSphere.radius, true, voxelGridBoundingBox);
   }
 }

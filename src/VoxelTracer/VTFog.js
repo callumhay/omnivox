@@ -2,26 +2,23 @@
 import * as THREE from 'three';
 
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
+import VTConstants from './VTConstants';
 import VTObject from './VTObject';
 
 export const fogDefaultOptions = {
   scattering: 0.1, // The amount of light reduction per voxel travelled through of the fog this must be in [0,1]
-  fogColour: new THREE.Color(1,1,1),
+  colour: new THREE.Color(1,1,1),
 };
 
 class VTFog extends VTObject {
   constructor(type, options) {
     super(type);
-    this._colour = options.fogColour ? options.fogColour : fogDefaultOptions.fogColour;
+    this._colour = options.dolour ? options.colour : fogDefaultOptions.colour;
     this._scattering = options.scattering ? options.scattering : fogDefaultOptions.scattering;
   }
 
   setColour(c) { this._colour = c; this.makeDirty(); }
   setScattering(s) {this._scattering = s; this.makeDirty(); }
-
-  dispose() {}
-
-  isShadowCaster() { return true; }
 
   toJSON() {
     const {id, drawOrder, type, _colour, _scattering} = this;
@@ -32,7 +29,7 @@ class VTFog extends VTObject {
 
 export class VTFogBox extends VTFog {
   constructor(minPt=new THREE.Vector3(2,2,2), maxPt=new THREE.Vector3(5,5,5), options={...fogDefaultOptions}) {
-    super(VTObject.FOG_BOX_TYPE, options);
+    super(VTConstants.FOG_BOX_TYPE, options);
     this._boundingBox = new THREE.Box3(minPt, maxPt);
     this.makeDirty();
   }
@@ -55,10 +52,6 @@ export class VTFogBox extends VTFog {
     return {...parentJson, _boundingBox};
   }
 
-  intersectsBox(box) {
-    return this._boundingBox.intersectsBox(box);
-  }
-
   getCollidingVoxels(voxelGridBoundingBox) {
     return VoxelGeometryUtils.voxelAABBList(this._boundingBox.min, this._boundingBox.max, true, voxelGridBoundingBox);
   }
@@ -66,7 +59,7 @@ export class VTFogBox extends VTFog {
 
 export class VTFogSphere extends VTFog {
   constructor(center=new THREE.Vector3(4,4,4), radius=4, options={...fogDefaultOptions}) {
-    super(VTObject.FOG_SPHERE_TYPE, options);
+    super(VTConstants.FOG_SPHERE_TYPE, options);
     this._boundingSphere = new THREE.Sphere(center, radius);
     this.makeDirty();
   }
@@ -89,10 +82,6 @@ export class VTFogSphere extends VTFog {
     const parentJson = super.toJSON();
     const {_boundingSphere} = this;
     return {...parentJson, _boundingSphere};
-  }
-
-  intersectsBox(box) {
-    return this._boundingSphere.intersectsBox(box);
   }
 
   getCollidingVoxels(voxelGridBoundingBox) {

@@ -266,10 +266,14 @@ const bouncySceneControlOptions = {
 
 const boxTestSceneDefaultOptions = {
   boxFill: false,
+  boxCastsShadows: true,
+  boxReceivesShadows: true,
   pointLight1Pos: {x: VoxelConstants.VOXEL_HALF_GRID_UNIT, y:0, z: VoxelConstants.VOXEL_HALF_GRID_UNIT}
 };
 const boxTestSceneControlOptions = {
   boxFill: {label: "Box Fill?"},
+  boxCastsShadows: {label: "Box Casts Shadows?"},
+  boxReceivesShadows: {label: "Box Receives Shadows?"},
   pointLight1Pos: {...widePositionCtrlOpt, label: "Point Light 1 Position"},
 };
 

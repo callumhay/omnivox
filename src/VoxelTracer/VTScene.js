@@ -29,13 +29,6 @@ class VTScene {
   get gridSize() { return this.voxelModel.gridSize; }
   getVoxelGridBoundingBox() { return this.voxelModel.getBoundingBox(); }
 
-  dispose() {
-    this.renderables.forEach(renderable => {
-      renderable.dispose();
-    });
-    this.clear();
-  }
-
   clear() {
     this.renderables = [];
     this.lights = [];
@@ -47,15 +40,15 @@ class VTScene {
   }
 
   addObject(o) {
-    if (!(o instanceof VTObject)) { console.error("Cannot add an object that doesn't inherit from VTObject."); return; }
+    if (!(o instanceof VTObject)) { console.error("Cannot add an object that doesn't inherit from VTObject."); return; } // TODO: Update this to VTRPObject
     switch (o.type) {
-      case VTObject.AMBIENT_LIGHT_TYPE:
+      case VTConstants.AMBIENT_LIGHT_TYPE:
         this.ambientLight = o;
         break;
-      case VTObject.POINT_LIGHT_TYPE:
-      case VTObject.SPOT_LIGHT_TYPE:
+      case VTConstants.POINT_LIGHT_TYPE:
+      case VTConstants.SPOT_LIGHT_TYPE:
         this.renderables.push(o);
-      case VTObject.DIRECTIONAL_LIGHT_TYPE: // N.B., Directional lights are not rendered as objects
+      case VTConstants.DIRECTIONAL_LIGHT_TYPE: // N.B., Directional lights are not rendered as objects
         this.lights.push(o);
         break;
 

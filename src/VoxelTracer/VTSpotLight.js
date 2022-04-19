@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 
 import VTObject from './VTObject';
+import VTConstants from './VTConstants';
 
 import VoxelConstants from '../VoxelConstants';
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
@@ -10,7 +11,7 @@ import {clamp} from '../MathUtils';
 class VTSpotLight extends VTObject {
   // NOTE: Provided angles must be in radians.
   constructor(position, direction, colour, innerConeAngle, outerConeAngle, rangeAtten) {
-    super(VTObject.SPOT_LIGHT_TYPE);
+    super(VTConstants.SPOT_LIGHT_TYPE);
 
     this._position = position;
     this._direction = direction;
@@ -20,8 +21,10 @@ class VTSpotLight extends VTObject {
     this._outerAngle = Math.max(innerConeAngle, outerConeAngle);
     this._rangeAtten = rangeAtten;
 
-    this._isDirty = true;
+    this.makeDirty();
   }
+
+  dispose() {}
 
   static build(jsonData) {
     const {id, _position, _direction, _colour, _innerAngle, _outerAngle, _rangeAtten} = jsonData;
@@ -53,8 +56,6 @@ class VTSpotLight extends VTObject {
 
   setRangeAttenuation(ra) { this._rangeAtten = ra; this.makeDirty(); }
   get rangeAttenuation() { return this._rangeAtten; }
-
-  dispose() {}
 
   isShadowCaster() { return false; }
   

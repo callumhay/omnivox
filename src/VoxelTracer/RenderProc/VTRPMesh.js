@@ -4,9 +4,14 @@ import {computeBoundsTree, disposeBoundsTree, acceleratedRaycast, MeshBVH, SAH} 
 import {SQRT2PI} from '../../MathUtils';
 import VoxelGeometryUtils from '../../VoxelGeometryUtils';
 
-import VTObject from '../VTObject';
 import VTMaterialFactory from '../VTMaterialFactory';
 import VoxelConstants from '../../VoxelConstants';
+import VTConstants from '../VTConstants';
+
+import VTRPObject from './VTRPObject';
+
+const sigma = VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS / 10.0;
+const valueAtZero = (1.0 / SQRT2PI*sigma);
 
 // Add the extension functions for calculating bounding volumes for THREE.Mesh/THREE.Geometry
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -28,10 +33,10 @@ class VTRPTriSample {
   }
 }
 
-class VTRPMesh extends VTObject {
+class VTRPMesh extends VTRPObject {
   // NOTE: All geometry MUST be buffer geometry!
   constructor(material) {
-    super(VTObject.MESH_TYPE);
+    super(VTConstants.MESH_TYPE);
     
     this.material = material;
 
@@ -77,10 +82,11 @@ class VTRPMesh extends VTObject {
   }
 
   isShadowCaster() { return true; }
+  isShadowReceiver() { return true; }
 
   calculateShadow(raycaster) {
     return {
-      inShadow: this.intersectsRay(raycaster),
+      inShadow: this.isShadowReceiver() && this.intersectsRay(raycaster),
       lightReduction: 1.0, // [0,1]: 1 => Completely black out the light if a voxel is in shadow from this object
     };
   }
@@ -158,9 +164,6 @@ class VTRPMesh extends VTObject {
           target.copy(this._uv0);
         };
   
-        const sigma = VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS / 10.0;
-        const valueAtZero = (1.0 / SQRT2PI*sigma);
-  
         for (let i = 0; i < triSamples.length; i++) {
           const vtTri = triSamples[i];
           
@@ -185,7 +188,8 @@ class VTRPMesh extends VTObject {
   
           // If the dot product was positive then the voxel sample point is "inside" the mesh, 
           // otherwise it's outside - in this case we use a gaussian falloff to dim the voxel.
-          sample.falloff = (toTriangleDotNorm >= 0.0) ? 1.0 : ((1.0 / SQRT2PI*sigma) * Math.exp(-0.5 * (sqrDist / (2*sigma*sigma))) / valueAtZero);
+          sample.falloff = (toTriangleDotNorm >= VoxelConstants.VOXEL_EPSILON) ? 1.0 : 
+            ((1.0 / SQRT2PI*sigma) * Math.exp(-0.5 * (sqrDist / (2*sigma*sigma))) / valueAtZero);
         }
       }
 

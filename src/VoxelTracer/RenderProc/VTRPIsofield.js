@@ -3,14 +3,15 @@ import * as THREE from 'three';
 import VTObject from '../VTObject';
 import VTMaterialFactory from '../VTMaterialFactory';
 import VoxelConstants from '../../VoxelConstants';
+import VTConstants from '../VTConstants';
 
 const NO_UV = new THREE.Vector2();
 const tempVec3  = new THREE.Vector3();
 const tempVec3a = new THREE.Vector3();
 
 class VTRPIsofield extends VTObject {
-  constructor(size, balls, walls, material, castsShadows, recievesShadows) {
-    super(VTObject.ISOFIELD_TYPE);
+  constructor(size, balls, walls, material, options) {
+    super(VTConstants.ISOFIELD_TYPE);
 
     this._size = size;
 		this._size2 = size * size;
@@ -23,8 +24,7 @@ class VTRPIsofield extends VTObject {
 
     this._material = VTMaterialFactory.build(material);
     this._baseColour = this._material.colour;
-    this.castsShadows = castsShadows;
-    this.recievesShadows = recievesShadows;
+    this._options = options;
 
     this.reinit();
 
@@ -46,8 +46,8 @@ class VTRPIsofield extends VTObject {
   }
 
   static build(jsonVTIsofield) {
-    const {id, drawOrder, _size, _material, _metaballs, _walls, _castsShadows, _recievesShadows} = jsonVTIsofield;
-    const result = new VTRPIsofield(_size, _metaballs, _walls, _material, _castsShadows, _recievesShadows);
+    const {id, drawOrder, _size, _material, _metaballs, _walls, _options} = jsonVTIsofield;
+    const result = new VTRPIsofield(_size, _metaballs, _walls, _material, _options);
     result.id = id;
     result.drawOrder = drawOrder;
     return result;
@@ -55,7 +55,8 @@ class VTRPIsofield extends VTObject {
 
   dispose() {}
 
-  isShadowCaster() { return this.castsShadows; }
+  isShadowCaster() { return this._options.castsShadows || false; }
+  isShadowReceiver() { return this._options.receivesShadows || false; }
 
   calculateShadow(raycaster) {
     const accumLightReduction = this._getAccumulatedVoxelRayIntersection(raycaster);

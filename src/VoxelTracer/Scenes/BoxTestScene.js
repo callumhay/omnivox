@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 import SceneRenderer from './SceneRenderer';
 
-import {VTBox, defaultBoxOptions} from '../VTBox';
+import {VTBox} from '../VTBox';
 import VTLambertMaterial from '../VTLambertMaterial';
 import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';
@@ -23,13 +23,14 @@ class BoxTestScene extends SceneRenderer {
 
   build(options) {
     if (!this._objectsBuilt) {
-      const {boxFill, pointLight1Pos} = options;
+      const {boxFill, boxCastsShadows, boxReceivesShadows, pointLight1Pos} = options;
 
       const halfSize = VoxelConstants.VOXEL_HALF_GRID_UNIT;
 
       this.box1 = new VTBox(
         new THREE.Vector3(halfSize,halfSize,halfSize), new THREE.Vector3(4,4,4),
-        new VTLambertMaterial(new THREE.Color(1,1,1)), {...defaultBoxOptions, fill: boxFill}
+        new VTLambertMaterial(new THREE.Color(1,1,1)), 
+        {fill: boxFill, castsShadows: boxCastsShadows, receivesShadows: boxReceivesShadows}
       );
       this.ptLight1 = new VTPointLight(
         new THREE.Vector3(pointLight1Pos.x,pointLight1Pos.y,pointLight1Pos.z), 

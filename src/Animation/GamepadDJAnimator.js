@@ -16,7 +16,7 @@ import VTAmbientLight from '../VoxelTracer/VTAmbientLight';
 import VTEmissionMaterial from '../VoxelTracer/VTEmissionMaterial';
 import VTLambertMaterial from '../VoxelTracer/VTLambertMaterial';
 import {VTFogBox} from '../VoxelTracer/VTFog';
-import {defaultSphereOptions, VTSphere} from '../VoxelTracer/VTSphere';
+import VTSphere, {defaultSphereOptions} from '../VoxelTracer/VTSphere';
 
 import VoxelModel from '../Server/VoxelModel';
 import VoxelGaussianBlurPP from '../Server/PostProcess/VoxelGaussianBlurPP';
@@ -68,7 +68,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     super.setConfig(c);
     if (!this.scene) { return; }
 
-    this.scene.dispose();
+    this.scene.clear();
 
     if (!this._objectsBuilt) {
       const {gridSize} = this.voxelModel;
@@ -96,7 +96,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
       }
 
       this.cursorPtLight = new VTPointLight(this.cursorPos, new THREE.Color(1,1,1), {quadratic:CURSOR_MAX_PULSE_ATTEN, linear:0}, true);
-      const fogOptions = {scattering:1, fogColour: new THREE.Color(1,1,1)};
+      const fogOptions = {scattering:1, colour: new THREE.Color(1,1,1)};
       this.fog = new VTFogBox(new THREE.Vector3(0,0,0), new THREE.Vector3(gridSize, gridSize, gridSize), fogOptions);
       this.fog.drawOrder = 5;
       

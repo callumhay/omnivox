@@ -1,40 +1,41 @@
 import * as THREE from 'three';
 
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
+import VTConstants from './VTConstants';
 import VTObject from './VTObject';
 
 const minPt = new THREE.Vector3(0,0,0);
 
+export const defaultIsofieldOptions = {
+  receivesShadows: true,
+  castsShadows: true,
+}
+
 class VTIsofield extends VTObject {
-  constructor(size, material) {
-    super(VTObject.ISOFIELD_TYPE);
+  constructor(size, material, options={...defaultIsofieldOptions}) {
+    super(VTConstants.ISOFIELD_TYPE);
     this._size = size;
     this._material = material;
-    this._castsShadows = true;
-    this._recievesShadows = true;
+    this._options = options;
     this._maxPt = new THREE.Vector3(size-1,size-1,size-1);
     this.reset();
   }
 
-  setCastsShadows(castsShadows) { 
-    if (castsShadows === this._castsShadows) { return; }
-    this._castsShadows = castsShadows; 
+  setReceivesShadows(r) { 
+    if (r === this._options.receivesShadows) { return; }
+    this._options.receivesShadows = r;
     this.makeDirty();
   }
-  setRecievesShadows(recievesShadows) {
-    if (recievesShadows === this._recievesShadows) { return; }
-    this._recievesShadows = recievesShadows;
+  setCastsShadows(c) { 
+    if (c === this._options.castsShadows) { return; }
+    this._options.castsShadows = c;
     this.makeDirty();
   }
-
-  isShadowCaster() { return this._castsShadows; }
 
   toJSON() {
-    const {id, drawOrder, type, _material, _size, _metaballs, _walls, _castsShadows, _recievesShadows} = this;
-    return {id, drawOrder, type, _material, _size, _metaballs, _walls, _castsShadows, _recievesShadows};
+    const {id, drawOrder, type, _material, _size, _metaballs, _walls, _options} = this;
+    return {id, drawOrder, type, _material, _size, _metaballs, _walls, _options};
   }
-
-  dispose() {}
 
   getCollidingVoxels(voxelGridBoundingBox) {
     return VoxelGeometryUtils.voxelAABBList(minPt, this._maxPt, true, voxelGridBoundingBox);

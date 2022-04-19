@@ -3,11 +3,6 @@ import VTPParticle from "./VTPParticle";
 import VTPRate from "./VTPRate";
 import VTPUtils from "./VTPUtils";
 
-export const defaultRenderOptions = {
-  castsShadow: false,
-  receivesShadow: false
-};
-
 export const EMIT_ONCE = "once";
 export const EMIT_NONE = "none";
 

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import SceneRenderer from './SceneRenderer';
 
 import VTMesh from '../VTMesh';
-import {defaultSphereOptions, VTSphere} from '../VTSphere';
+import VTSphere, {defaultSphereOptions} from '../VTSphere';
 import VTLambertMaterial from '../VTLambertMaterial';
 import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';

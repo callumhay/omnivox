@@ -1,13 +1,16 @@
 
 import * as THREE from 'three';
+import VTConstants from './VTConstants';
 import VTObject from './VTObject';
 
 class VTAmbientLight extends VTObject {
   constructor(colour=new THREE.Color(0,0,0)) {
-    super(VTObject.AMBIENT_LIGHT_TYPE);
+    super(VTConstants.AMBIENT_LIGHT_TYPE);
     this._colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
     this.makeDirty();
   }
+
+  dispose() {}
 
   static build(jsonData) {
     const {id, _colour} = jsonData;
@@ -24,8 +27,8 @@ class VTAmbientLight extends VTObject {
   get colour() { return this._colour; }
   setColour(c) {this._colour = c; this.makeDirty(); }
 
-  dispose() {}
   emission() { return this._colour.clone(); }
+  
   getCollidingVoxels(voxelGridBoundingBox=null) { return []; } // Nothing to draw
 };
 

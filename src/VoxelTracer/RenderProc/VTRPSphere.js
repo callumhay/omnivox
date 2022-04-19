@@ -5,17 +5,24 @@ import VoxelConstants from '../../VoxelConstants';
 import VoxelGeometryUtils from '../../VoxelGeometryUtils';
 import Sampler from '../../Samplers';
 
-import {VTSphereAbstract} from '../VTSphere';
 import VTMaterialFactory from '../VTMaterialFactory';
+import VTConstants from '../VTConstants';
+
+import VTRPObject from './VTRPObject';
 
 const sigma = (2*VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS) / 10.0;
 const valueAtZero = (1.0 / (SQRT2PI*sigma));
 
-class VTRPSphere extends VTSphereAbstract  {
+class VTRPSphere extends VTRPObject  {
 
   constructor(center, radius, material, options) {
-    super(center, radius, material, options);
-    
+    super(VTConstants.SPHERE_TYPE);
+    this._sphere = new THREE.Sphere(center, radius);
+    this._material = material;
+    this._options = options;
+
+    this._tempVec3 = new THREE.Vector3();
+
     // Calculate and memoize info for performing voxel sampling during rendering:
     const {samplesPerVoxel} = options;
     const maxSampleAngle = Math.asin(0.5*VoxelConstants.VOXEL_UNIT_SIZE/radius);
@@ -34,9 +41,21 @@ class VTRPSphere extends VTSphereAbstract  {
     return result;
   }
 
+  dispose() { this._material.dispose(); }
+
+  isShadowCaster() { return this._options.castsShadows || true; }
+  isShadowReceiver() { return this._options.receivesShadows || true; }
+
+  intersectsRay(raycaster) {
+    this._sphere.radius -= VoxelConstants.VOXEL_EPSILON;
+    const result = raycaster.ray.intersectSphere(this._sphere, this._tempVec3) !== null;
+    this._sphere.radius += VoxelConstants.VOXEL_EPSILON;
+    return result;
+  }
+
   calculateShadow(raycaster) {
     return {
-      inShadow: this.intersectsRay(raycaster),
+      inShadow: this.isShadowReceiver() && this.intersectsRay(raycaster),
       lightReduction: 1.0, // [0,1]: 1 => Completely black out the light if a voxel is in shadow from this object
     };
   }

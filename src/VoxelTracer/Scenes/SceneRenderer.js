@@ -6,7 +6,7 @@ class SceneRenderer {
     this.timeCounter = 0;
   }
   clear() {
-    this.scene.dispose();
+    this.scene.clear();
     this._options = null;
   }
 

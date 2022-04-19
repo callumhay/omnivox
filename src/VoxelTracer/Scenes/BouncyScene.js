@@ -3,7 +3,7 @@ import * as CANNON from 'cannon-es';
 
 import SceneRenderer from './SceneRenderer';
 
-import {defaultSphereOptions, VTSphere} from '../VTSphere';
+import VTSphere, {defaultSphereOptions} from '../VTSphere';
 import VTLambertMaterial from '../VTLambertMaterial';
 //import VTPointLight from '../VTPointLight';
 import VTDirectionalLight from '../VTDirectionalLight';

@@ -21,10 +21,10 @@ class FogScene extends SceneRenderer {
   }
 
   build(options) {
-    const fogColour = options.fogColour ? options.fogColour : fogDefaultOptions.fogColour;
+    const fogColour = options.fogColour ? options.fogColour : fogDefaultOptions.colour;
     const fogScattering = options.fogScattering ? options.fogScattering : fogDefaultOptions.fogScattering;
     const fogOptions = {
-      fogColour: new THREE.Color(fogColour.r, fogColour.g, fogColour.b), 
+      colour: new THREE.Color(fogColour.r, fogColour.g, fogColour.b), 
       scattering: fogScattering
     };
 

@@ -4,6 +4,7 @@ import VoxelGeometryUtils from '../VoxelGeometryUtils';
 import {clamp} from '../MathUtils';
 
 import VTObject from './VTObject';
+import VTConstants from './VTConstants';
 
 const defaultAttenuation = {
   quadratic:0.04, 
@@ -12,7 +13,7 @@ const defaultAttenuation = {
 
 class VTPointLight extends VTObject {
   constructor(position, colour, attenuation=defaultAttenuation, drawLight=true) {
-    super(VTObject.POINT_LIGHT_TYPE);
+    super(VTConstants.POINT_LIGHT_TYPE);
 
     this._position = position;
     this._colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
@@ -20,6 +21,8 @@ class VTPointLight extends VTObject {
     this._isDirty = true;
     this._drawLight = drawLight;
   }
+
+  dispose() {}
 
   static build(jsonData) {
     const {id, _position, _colour, _attenuation, _drawLight} = jsonData;

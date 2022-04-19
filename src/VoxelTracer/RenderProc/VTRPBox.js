@@ -11,15 +11,11 @@ const nX = new THREE.Vector3(1,0,0);
 const nY = new THREE.Vector3(0,1,0);
 const nZ = new THREE.Vector3(0,0,1);
 
-//const sigma = (2*VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS) / 10.0;
-//const valueAtZero = (1.0 / (SQRT2PI*sigma));
-
 class VTRPBox extends VTBoxAbstract {
   constructor(center, size, material, options) {
     super(center, size, material, options);
 
-    this._center   = center;
-    this._halfSize = size.multiplyScalar(0.5);
+    this._center = center;
 
     this._tempVec3_0 = new THREE.Vector3();
     this._tempVec3_1 = new THREE.Vector3();
@@ -39,6 +35,8 @@ class VTRPBox extends VTBoxAbstract {
     }
   }
 
+  dispose() { this._material.dispose(); }
+
   static build(jsonData) {
     const {id, drawOrder, center, size, material, options} = jsonData;
     const result = new VTRPBox(
@@ -51,9 +49,14 @@ class VTRPBox extends VTBoxAbstract {
     return result;
   }
 
+  isShadowCaster() { return this._options.castsShadows || true; }
+  isShadowReceiver() { return this._options.receivesShadows || true; }
+
+  intersectsRay(raycaster) { return raycaster.ray.intersectsBox(this._box); }
+
   calculateShadow(raycaster) {
     return {
-      inShadow: this.intersectsRay(raycaster),
+      inShadow: this.isShadowReceiver() && this.intersectsRay(raycaster),
       lightReduction: 1.0, // [0,1]: 1 => Completely black out the light if a voxel is in shadow from this object
     };
   }
@@ -64,37 +67,28 @@ class VTRPBox extends VTBoxAbstract {
     const voxelCenterPt = voxelBoundingBox.getCenter(this._tempVec3_0);
 
     // Fast-out if we can't even see this box or the current voxel
-    if (!this._material.isVisible() || this._boxPlanes.length === 0) { return finalColour; }
-
-    // Another fast-out if the voxel isn't on or inside the box
-    const planeSignedDistances = this._boxPlanes.map(boxPlane => boxPlane.distanceToPoint(voxelCenterPt));
-    const insideDistances = planeSignedDistances.filter(d => d <= 0);
-    if (insideDistances.length === 0) { return finalColour; }
+    // NOTE: this._box.containsPoint is super important... for some reason.
+    if (!this._material.isVisible() || this._boxPlanes.length === 0 || !this._box.containsPoint(voxelCenterPt)) { return finalColour; }
 
     // What are the closest planes to the voxel... these will determine the sample(s) that we render
-    const planeDistances = planeSignedDistances.map(d => Math.abs(d));
+    const planeDistances = this._boxPlanes.map(boxPlane => Math.abs(boxPlane.distanceToPoint(voxelCenterPt)));
     const samples = [];
-    let factorPerSample = 1;
     if (this.isFilled()) {
-      // When the box is filled we need to determine what planes will effect the current voxel
-      // based on whether that plane is within half the box's distance projected onto the normal of that plane
-      for (let i = 0; i < this._boxPlanes.length; i++) {
-        // Project the vector from the center of the box to the voxel's center onto the normal of the current plane
+      for (let i = 0, l =  this._boxPlanes.length; i < l; i++) {
+        
         const plane = this._boxPlanes[i];
         const planeNormal = plane.normal;
         const planeDistance = planeDistances[i];
         samples.push({
           point: new THREE.Vector3().copy(voxelCenterPt).addScaledVector(planeNormal, planeDistance + VoxelConstants.VOXEL_EPSILON),
-          normal: planeNormal,
-          uv: null, 
-          falloff: 1//planeDistance <= VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS ? 1 :  ((1.0 / (SQRT2PI*sigma)) * Math.exp(-0.5 * (planeDistance*planeDistance / (2*sigma*sigma))) / valueAtZero),
+          normal: planeNormal, uv: null, falloff: 1
         });
       }
     }
     else {
-      for (let i = 0; i < this._boxPlanes.length; i++) {
+      for (let i = 0, l = this._boxPlanes.length; i < l; i++) {
         const planeDistance = planeDistances[i];
-        if (planeDistance <= VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS) {
+        if (planeDistance < VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS) {
           const plane = this._boxPlanes[i];
           samples.push({
             point: new THREE.Vector3().copy(voxelCenterPt).addScaledVector(plane.normal, planeDistance + VoxelConstants.VOXEL_EPSILON),
@@ -106,7 +100,7 @@ class VTRPBox extends VTBoxAbstract {
 
     // Perform lighting for each of the samples with equal factoring per sample
     if (samples.length > 0) {
-      finalColour.add(scene.calculateLightingSamples(voxelIdxPt, samples, this._material, this.isShadowReceiver(), factorPerSample));
+      finalColour.add(scene.calculateLightingSamples(voxelIdxPt, samples, this._material, this.isShadowReceiver(), 1));
     }
 
     return finalColour;

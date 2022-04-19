@@ -1,38 +1,9 @@
 import * as THREE from 'three';
-import VoxelConstants from '../VoxelConstants';
 
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
+import VTConstants from './VTConstants';
 import VTObject from './VTObject';
-
-export class VTSphereAbstract extends VTObject {
-  constructor(center, radius, material, options) {
-    super(VTObject.SPHERE_TYPE);
-    this._sphere = new THREE.Sphere(center, radius);
-    this._material = material;
-    this._options = options;
-
-    // Temp variable for calculations
-    this._tempVec3 = new THREE.Vector3();
-  }
-
-  getBoundingSphere() { return this._sphere; }
-
-  dispose() { this._material.dispose(); }
-  isShadowCaster() { return this._options.castsShadows; }
-
-  intersectsRay(raycaster) {
-    this._sphere.radius -= VoxelConstants.VOXEL_EPSILON;
-    const result = raycaster.ray.intersectSphere(this._sphere, this._tempVec3) !== null;
-    this._sphere.radius += VoxelConstants.VOXEL_EPSILON;
-    return result;
-  }
-
-  getCollidingVoxels(voxelBoundingBox=null) {
-    const {center, radius} = this._sphere;
-    return VoxelGeometryUtils.voxelSphereList(center, radius, true, voxelBoundingBox);
-  }
-}
 
 export const defaultSphereOptions = {
   samplesPerVoxel: 6,
@@ -40,12 +11,19 @@ export const defaultSphereOptions = {
   castsShadows: true,
 };
 
-export class VTSphere extends VTSphereAbstract {
+class VTSphere extends VTObject {
 
   constructor(center, radius, material, options={...defaultSphereOptions}) {
-    super(center, radius, material, options);
+    super(VTConstants.SPHERE_TYPE);
+    
+    this._sphere = new THREE.Sphere(center, radius);
+    this._material = material;
+    this._options = options;
+
     this.makeDirty();
   }
+
+  getBoundingSphere() { return this._sphere; }
 
   get material() { return this._material; }
   setMaterial(m) { this._material = m; this.makeDirty(); }
@@ -60,7 +38,10 @@ export class VTSphere extends VTSphereAbstract {
     return {id, drawOrder, type, center, radius, material: _material, options: _options};
   }
 
-  intersectsBox(box) {
-    return this._sphere.intersectsBox(box);
+  getCollidingVoxels(voxelBoundingBox=null) {
+    const {center, radius} = this._sphere;
+    return VoxelGeometryUtils.voxelSphereList(center, radius, true, voxelBoundingBox);
   }
 }
+
+export default VTSphere;

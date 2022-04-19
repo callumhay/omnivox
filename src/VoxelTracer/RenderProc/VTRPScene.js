@@ -17,6 +17,7 @@ import VTRPVoxel from './VTRPVoxel';
 import VTRPIsofield from './VTRPIsofield';
 import VTDirectionalLight from '../VTDirectionalLight';
 import VTRPBox from './VTRPBox';
+import VTConstants from '../VTConstants';
 
 
 class VTRPScene {
@@ -133,13 +134,13 @@ class VTRPScene {
 
       switch (obj.type) {
 
-        case VTObject.POINT_LIGHT_TYPE:
-        case VTObject.SPOT_LIGHT_TYPE:
+        case VTConstants.POINT_LIGHT_TYPE:
+        case VTConstants.SPOT_LIGHT_TYPE:
           this.renderables[id] = obj;
           this.lights[id] = obj;
           break;
 
-        case VTObject.DIRECTIONAL_LIGHT_TYPE:
+        case VTConstants.DIRECTIONAL_LIGHT_TYPE:
           this.lights[id] = obj;
           break;
 
@@ -161,38 +162,38 @@ class VTRPScene {
 
     let buildFunc = null;
     switch (type) {
-      case VTObject.MESH_TYPE:
+      case VTConstants.MESH_TYPE:
         buildFunc = VTRPMesh.build;
         break;
-      case VTObject.SPHERE_TYPE:
+      case VTConstants.SPHERE_TYPE:
         buildFunc = VTRPSphere.build;
         break;
-      case VTObject.BOX_TYPE:
+      case VTConstants.BOX_TYPE:
         buildFunc = VTRPBox.build;
         break;
 
-      case VTObject.POINT_LIGHT_TYPE:
+      case VTConstants.POINT_LIGHT_TYPE:
         buildFunc = VTPointLight.build;
         break;
-      case VTObject.SPOT_LIGHT_TYPE:
+      case VTConstants.SPOT_LIGHT_TYPE:
         buildFunc = VTSpotLight.build;
         break;
-      case VTObject.DIRECTIONAL_LIGHT_TYPE:
+      case VTConstants.DIRECTIONAL_LIGHT_TYPE:
         buildFunc = VTDirectionalLight.build;
         break;
         
-      case VTObject.VOXEL_TYPE:
+      case VTConstants.VOXEL_TYPE:
         buildFunc = VTRPVoxel.build;
         break;
         
-      case VTObject.FOG_BOX_TYPE:
+      case VTConstants.FOG_BOX_TYPE:
         buildFunc = VTRPFogBox.build;
         break;
-      case VTObject.FOG_SPHERE_TYPE:
+      case VTConstants.FOG_SPHERE_TYPE:
         buildFunc = VTRPFogSphere.build;
         break;
 
-      case VTObject.ISOFIELD_TYPE:
+      case VTConstants.ISOFIELD_TYPE:
         buildFunc = VTRPIsofield.build;
         break;
 
@@ -213,17 +214,17 @@ class VTRPScene {
     let buildFunc = null;
     switch (type) {
 
-      case VTObject.POINT_LIGHT_TYPE:
+      case VTConstants.POINT_LIGHT_TYPE:
         buildFunc = VTPointLight.build;
         break;
-      case VTObject.SPOT_LIGHT_TYPE:
+      case VTConstants.SPOT_LIGHT_TYPE:
         buildFunc = VTSpotLight.build;
         break;
-      case VTObject.DIRECTIONAL_LIGHT_TYPE:
+      case VTConstants.DIRECTIONAL_LIGHT_TYPE:
         buildFunc = VTDirectionalLight.build;
         break;
 
-      case VTObject.AMBIENT_LIGHT_TYPE:
+      case VTConstants.AMBIENT_LIGHT_TYPE:
         this.ambientLight = VTAmbientLight.build(lightData);
         return;
 
@@ -254,7 +255,7 @@ class VTRPScene {
     return lightMultiplier;
   }
 
-  calculateVoxelLighting(voxelIdxPt, point, material, receivesShadow) {
+  calculateVoxelLighting(voxelIdxPt, point, material, receivesShadows) {
     // We treat voxels as perfect inifintesmial spheres centered at a given voxel position
     // they can be shadowed and have materials like meshes
     const finalColour = material.emission(null);
@@ -265,15 +266,15 @@ class VTRPScene {
       const light = lights[j];
       
       switch (light.type) {
-        case VTObject.DIRECTIONAL_LIGHT_TYPE:
+        case VTConstants.DIRECTIONAL_LIGHT_TYPE:
           // If we're dealing with a directional light then the voxel to light vector is always the same
           // i.e., it's the negative direction of the directional light
           distanceToLight  = 100*VoxelConstants.VOXEL_GRID_SIZE; // Significantly larger than the voxel grid
           nVoxelToLightVec.set(-light.direction.x, -light.direction.y, -light.direction.z);
           break;
 
-        case VTObject.POINT_LIGHT_TYPE:
-        case VTObject.SPOT_LIGHT_TYPE:
+        case VTConstants.POINT_LIGHT_TYPE:
+        case VTConstants.SPOT_LIGHT_TYPE:
           nVoxelToLightVec.set(light.position.x, light.position.y, light.position.z);
           nVoxelToLightVec.sub(point);
           distanceToLight = Math.max(VoxelConstants.VOXEL_EPSILON, nVoxelToLightVec.length());
@@ -284,7 +285,7 @@ class VTRPScene {
           continue;
       }
 
-      const lightMultiplier = receivesShadow ? this._calculateShadowCasterLightMultiplier(point, nVoxelToLightVec, distanceToLight) : 1.0;
+      const lightMultiplier = receivesShadows ? this._calculateShadowCasterLightMultiplier(point, nVoxelToLightVec, distanceToLight) : 1.0;
       if (lightMultiplier > 0) {
         // The voxel is not in total shadow, do the lighting - since it's a "infitesimal sphere" the normal is always
         // in the direction of the light, so it's always ambiently lit (unless it's in shadow)
@@ -317,7 +318,7 @@ class VTRPScene {
     for (let j = 0; j < lights.length && (finalColour.r < 1 || finalColour.g < 1 || finalColour.b < 1); j++) {
       const light = lights[j];
 
-      if (light.type === VTObject.DIRECTIONAL_LIGHT_TYPE) { continue; } // Directional lights don't affect fog for now
+      if (light.type === VTConstants.DIRECTIONAL_LIGHT_TYPE) { continue; } // Directional lights don't affect fog for now
 
       // We use the light to the fog (and not vice versa) since the fog can't be inside objects
       nLightToFogVec.set(point.x, point.y, point.z);
@@ -337,7 +338,7 @@ class VTRPScene {
     return finalColour;
   }
 
-  calculateLightingSamples(voxelIdxPt, samples, material, recievesShadows=true, factorPerSample=null) {
+  calculateLightingSamples(voxelIdxPt, samples, material, receivesShadows=true, factorPerSample=null) {
     const finalColour = new THREE.Color(0,0,0);
     const sampleLightContrib = new THREE.Color(0,0,0);
 
@@ -358,15 +359,15 @@ class VTRPScene {
         const light = lights[j];
 
         switch (light.type) {
-          case VTObject.DIRECTIONAL_LIGHT_TYPE:
+          case VTConstants.DIRECTIONAL_LIGHT_TYPE:
             // If we're dealing with a directional light then the voxel to light vector is always the same
             // i.e., it's the negative direction of the directional light
             distanceToLight  = 100*VoxelConstants.VOXEL_GRID_SIZE; // Significantly larger than the voxel grid
             nObjToLightVec.set(-light.direction.x, -light.direction.y, -light.direction.z);
             break;
   
-          case VTObject.POINT_LIGHT_TYPE:
-          case VTObject.SPOT_LIGHT_TYPE:
+          case VTConstants.POINT_LIGHT_TYPE:
+          case VTConstants.SPOT_LIGHT_TYPE:
             nObjToLightVec.set(light.position.x, light.position.y, light.position.z);
             nObjToLightVec.sub(point);
             distanceToLight = Math.max(VoxelConstants.VOXEL_EPSILON, nObjToLightVec.length());
@@ -380,7 +381,7 @@ class VTRPScene {
         // Early out - is the light vector in the same hemisphere as the normal?
         if (nObjToLightVec.dot(normal) <= 0) { continue; }
 
-        const lightMultiplier = recievesShadows ? this._calculateShadowCasterLightMultiplier(point, nObjToLightVec, distanceToLight) : 1.0;
+        const lightMultiplier = receivesShadows ? this._calculateShadowCasterLightMultiplier(point, nObjToLightVec, distanceToLight) : 1.0;
         if (lightMultiplier > 0) {
           // The voxel is not in total shadow, do the lighting
           const lightEmission = light.emission(point, distanceToLight).multiplyScalar(lightMultiplier*falloff);

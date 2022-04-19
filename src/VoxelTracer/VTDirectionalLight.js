@@ -1,15 +1,18 @@
 import * as THREE from 'three';
+import VTConstants from './VTConstants';
 import VTObject from './VTObject';
 
 class VTDirectionalLight extends VTObject {
 
   constructor(dir=new THREE.Vector3(1,1,1), colour=new THREE.Color(0,0,0)) {
-    super(VTObject.DIRECTIONAL_LIGHT_TYPE);
+    super(VTConstants.DIRECTIONAL_LIGHT_TYPE);
     this._dir = dir instanceof THREE.Vector3 ? dir : new THREE.Vector3(dir.x, dir.y, dir.z);
     this._dir.normalize();
     this._colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
     this._isDirty = true;
   }
+
+  dispose() {}
 
   static build(jsonData) {
     const {id, _dir, _colour} = jsonData;
@@ -29,10 +32,9 @@ class VTDirectionalLight extends VTObject {
 
   setColour(c) { this._colour = c; this.makeDirty(); }
   get colour()  { return this._colour; }
-  
-  dispose() {}
 
   isShadowCaster() { return false; }
+  isShadowReceiver() { return false; }
 
   emission(pos=null, distance=null) {
     // NOTE: Both position and distance are meaningless for a directional light

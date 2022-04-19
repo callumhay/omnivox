@@ -16,7 +16,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 
 // Setup the visualizer for rendering the voxels
 const voxelDisplay = new VoxelDisplay(scene, controls);
-// Setup the client (recieves render messages from the server and sends control messages to the server)
+// Setup the client (receives render messages from the server and sends control messages to the server)
 const displayClient = new DisplayClient(voxelDisplay);
 
 // Make sure the camera is positioned somewhere where we can see everything we need to at initial render

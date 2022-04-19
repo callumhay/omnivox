@@ -1,29 +1,66 @@
+import * as THREE from 'three';
+
 import VTConstants from './VTConstants';
 
-class VTObject {
-  
-  // Object Type Definitions
-  static get MESH_TYPE() { return 'm'; }
-  static get SPHERE_TYPE() { return 'sp'; }
-  static get BOX_TYPE() { return 'b'; }
-  static get AMBIENT_LIGHT_TYPE() { return 'a'; }
-  static get POINT_LIGHT_TYPE() { return 'p'; }
-  static get SPOT_LIGHT_TYPE() { return 's'; }
-  static get DIRECTIONAL_LIGHT_TYPE() { return 'd'; }
-  static get VOXEL_TYPE() { return 'v'; }
-  static get FOG_BOX_TYPE() { return 'fb'; }
-  static get FOG_SPHERE_TYPE() { return 'fs'; }
-  static get ISOFIELD_TYPE() { return 'i'; }
+const _v1 = /*@__PURE__*/ new THREE.Vector3();
+const _q1 = /*@__PURE__*/ new THREE.Quaternion();
+const _m1 = /*@__PURE__*/ new THREE.Matrix4();
+const _xAxis = /*@__PURE__*/ new THREE.Vector3(1, 0, 0);
+const _yAxis = /*@__PURE__*/ new THREE.Vector3(0, 1, 0);
+const _zAxis = /*@__PURE__*/ new THREE.Vector3(0, 0, 1);
 
-  // Draw Order Definitions
-  static get DRAW_ORDER_LOWEST() { return 0; }
-  static get DRAW_ORDER_DEFAULT() { return this.DRAW_ORDER_LOWEST + 1; }
+class VTObject {
   
   constructor(type) {
     if (this.constructor === VTObject) { throw new Error("VTObject is an abstract class."); }
     this.id = VTConstants.INVALID_RENDERABLE_ID;
     this.type = type;
-    this.drawOrder = VTObject.DRAW_ORDER_DEFAULT;
+    this.drawOrder = VTConstants.DRAW_ORDER_DEFAULT;
+
+    /*
+    this.parent = null;
+		this.children = [];
+
+    this.matrix = new THREE.Matrix4();
+		this.matrixWorld = new THREE.Matrix4();
+
+		this.matrixAutoUpdate = true;
+		this.matrixWorldNeedsUpdate = false;
+
+    const position = new THREE.Vector3();
+		const rotation = new THREE.Euler();
+		const quaternion = new THREE.Quaternion();
+		const scale = new THREE.Vector3(1, 1, 1);
+
+		function onRotationChange() { quaternion.setFromEuler(rotation, false); }
+		function onQuaternionChange() { rotation.setFromQuaternion(quaternion, undefined, false); }
+
+    rotation._onChange(onRotationChange);
+		quaternion._onChange(onQuaternionChange);
+
+    Object.defineProperties(this, {
+			position: {
+				configurable: true,
+				enumerable: true,
+				value: position
+			},
+			rotation: {
+				configurable: true,
+				enumerable: true,
+				value: rotation
+			},
+			quaternion: {
+				configurable: true,
+				enumerable: true,
+				value: quaternion
+			},
+			scale: {
+				configurable: true,
+				enumerable: true,
+				value: scale
+			},
+		});
+    */
   }
 
   clone() { console.error("clone unimplemented abstract method called."); return null; }
@@ -38,14 +75,144 @@ class VTObject {
     return false;
   }
 
-  dispose() { console.error("dispose unimplemented abstract method called."); }
-  isShadowCaster() { console.error("isShadowCaster unimplemented abstract method called."); return false; }
+  isShadowCaster() { console.error("isShadowCaster unimplemented abstract method called."); return false; } // TODO: Remove
 
   // NOTE: The result of this method MUST be inside the voxelGridBoundingBox!
   getCollidingVoxels(voxelGridBoundingBox=null) { console.error("getCollidingVoxels unimplemented abstract method called."); return []; }
 
-  calculateShadow(raycaster=null) { console.error("calculateShadow unimplemented abstract method called."); return null; }
-  calculateVoxelColour(voxelIdxPt, scene) { console.error("calculateVoxelColour unimplemented abstract method called."); return null; }
+  calculateShadow(raycaster=null) { console.error("calculateShadow unimplemented abstract method called."); return null; } // TODO: Remove
+  calculateVoxelColour(voxelIdxPt, scene) { console.error("calculateVoxelColour unimplemented abstract method called."); return null; } // TODO: Remove
+
+  //toJSON() { console.error("toJSON unimplemented abstract method called."); return null; } // TODO: Add
+
+  /*
+  // Transform Code ----
+
+  applyMatrix4(matrix) {
+		if (this.matrixAutoUpdate) { this.updateMatrix(); }
+		this.matrix.premultiply(matrix);
+		this.matrix.decompose(this.position, this.quaternion, this.scale);
+	}
+
+	applyQuaternion(q) {
+		this.quaternion.premultiply(q);
+		return this;
+	}
+
+	setRotationFromEuler(euler) {
+		this.quaternion.setFromEuler(euler, true);
+	}
+
+	setRotationFromMatrix(m  {
+		// Assumes the upper 3x3 of m is a pure rotation matrix (i.e, unscaled)
+		this.quaternion.setFromRotationMatrix(m);
+	}
+
+	setRotationFromQuaternion(q) {
+		// Assumes q is normalized
+		this.quaternion.copy(q);
+	}
+
+  rotateOnAxis(axis, angle) {
+		// Rotate object on axis in object space, axis is assumed to be normalized
+		_q1.setFromAxisAngle(axis, angle);
+		this.quaternion.multiply(_q1);
+		return this;
+	}
+
+	rotateX(angle) { return this.rotateOnAxis(_xAxis, angle); }
+	rotateY(angle) { return this.rotateOnAxis(_yAxis, angle); }
+	rotateZ(angle) { return this.rotateOnAxis(_zAxis, angle); }
+
+	translateOnAxis(axis, distance) {
+		// Translate object by distance along axis in object space
+		// axis is assumed to be normalized
+		_v1.copy(axis).applyQuaternion(this.quaternion);
+		this.position.add(_v1.multiplyScalar(distance));
+		return this;
+	}
+
+	translateX(distance) { return this.translateOnAxis(_xAxis, distance); }
+	translateY(distance) { return this.translateOnAxis(_yAxis, distance); }
+	translateZ(distance) { return this.translateOnAxis(_zAxis, distance);	}
+
+  updateMatrix() {
+		this.matrix.compose(this.position, this.quaternion, this.scale);
+		this.matrixWorldNeedsUpdate = true;
+	}
+
+  updateMatrixWorld(force) {
+		if (this.matrixAutoUpdate) { this.updateMatrix(); }
+
+		if (this.matrixWorldNeedsUpdate || force) {
+			if (this.parent === null) {
+				this.matrixWorld.copy(this.matrix);
+			}
+      else {
+				this.matrixWorld.multiplyMatrices(this.parent.matrixWorld, this.matrix);
+			}
+
+			this.matrixWorldNeedsUpdate = false;
+			force = true;
+		}
+
+		// Update children
+		const children = this.children;
+		for (let i = 0, l = children.length; i < l; i++) {
+			children[i].updateMatrixWorld(force);
+		}
+	}
+
+	updateWorldMatrix(updateParents, updateChildren) {
+		const parent = this.parent;
+
+		if (updateParents === true && parent !== null) {
+			parent.updateWorldMatrix(true, false);
+		}
+
+		if (this.matrixAutoUpdate) { this.updateMatrix(); }
+
+		if (this.parent === null) {
+			this.matrixWorld.copy(this.matrix);
+		}
+    else {
+			this.matrixWorld.multiplyMatrices(this.parent.matrixWorld, this.matrix);
+		}
+
+		// Update children
+		if (updateChildren === true) {
+			const children = this.children;
+			for (let i = 0, l = children.length; i < l; i++) {
+				children[ i ].updateWorldMatrix(false, true);
+			}
+		}
+	}
+
+  getWorldPosition(target) {
+		this.updateWorldMatrix(true, false);
+		return target.setFromMatrixPosition(this.matrixWorld);
+	}
+
+	getWorldQuaternion(target) {
+		this.updateWorldMatrix(true, false);
+		this.matrixWorld.decompose(_position, target, _scale);
+		return target;
+	}
+
+	getWorldScale(target) {
+		this.updateWorldMatrix(true, false);
+		this.matrixWorld.decompose(_position, _quaternion, target);
+		return target;
+	}
+
+	getWorldDirection(target) {
+		this.updateWorldMatrix(true, false);
+		const e = this.matrixWorld.elements;
+		return target.set(e[8], e[9], e[10]).normalize();
+	}
+
+
+  */
 }
 
 export default VTObject;

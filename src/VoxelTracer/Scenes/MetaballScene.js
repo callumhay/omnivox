@@ -75,7 +75,7 @@ class MetaballScene extends SceneRenderer {
 
     this.isofield.reset();
     this.isofield.setCastsShadows(hasShadows);
-    this.isofield.setRecievesShadows(hasShadows);
+    this.isofield.setReceivesShadows(hasShadows);
 
     const subtract = subtractAmt;
 		const strength = blobSizeMultiplier / ((Math.sqrt(numBlobs) - 1) / 4.0 + 1);
