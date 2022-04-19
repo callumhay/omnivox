@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+
 import VTConstants from './VTConstants';
 import VTObject from './VTObject';
 
@@ -9,7 +10,7 @@ class VTDirectionalLight extends VTObject {
     this._dir = dir instanceof THREE.Vector3 ? dir : new THREE.Vector3(dir.x, dir.y, dir.z);
     this._dir.normalize();
     this._colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
-    this._isDirty = true;
+    this.makeDirty();
   }
 
   dispose() {}

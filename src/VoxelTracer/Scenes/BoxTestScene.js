@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 import SceneRenderer from './SceneRenderer';
 
-import {VTBox} from '../VTBox';
+import VTBox from '../VTBox';
 import VTLambertMaterial from '../VTLambertMaterial';
 import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';
@@ -23,8 +23,12 @@ class BoxTestScene extends SceneRenderer {
 
   build(options) {
     if (!this._objectsBuilt) {
-      const {boxFill, boxCastsShadows, boxReceivesShadows, pointLight1Pos} = options;
+      const {
+        boxFill, boxCastsShadows, boxReceivesShadows, 
+        ambientLightColour, pointLight1Pos, pointLight1Colour, pointLightsAtten
+      } = options;
 
+      const size = VoxelConstants.VOXEL_GRID_SIZE;
       const halfSize = VoxelConstants.VOXEL_HALF_GRID_UNIT;
 
       this.box1 = new VTBox(
@@ -32,16 +36,23 @@ class BoxTestScene extends SceneRenderer {
         new VTLambertMaterial(new THREE.Color(1,1,1)), 
         {fill: boxFill, castsShadows: boxCastsShadows, receivesShadows: boxReceivesShadows}
       );
+      this.floorBox = new VTBox(
+        new THREE.Vector3(halfSize, 1, halfSize), new THREE.Vector3(size, 2, size),
+        new VTLambertMaterial(new THREE.Color(1,1,1)), 
+        {fill: boxFill, castsShadows: true, receivesShadows: true}
+      );
       this.ptLight1 = new VTPointLight(
         new THREE.Vector3(pointLight1Pos.x,pointLight1Pos.y,pointLight1Pos.z), 
-        new THREE.Color(1,0,1), {quadratic:0.01, linear:0}, true
+        new THREE.Color(pointLight1Colour.r,pointLight1Colour.g,pointLight1Colour.b), 
+        {...pointLightsAtten}, true
       );
-      this.ambientLight = new VTAmbientLight(new THREE.Color(0, 0.25, 0));
+      this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
 
       this._objectsBuilt = true;
     }
     this.scene.addObject(this.ambientLight);
     this.scene.addObject(this.box1);
+    this.scene.addObject(this.floorBox);
     this.scene.addObject(this.ptLight1);
   }
 

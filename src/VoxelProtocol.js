@@ -23,7 +23,6 @@ const SERVER_TO_CLIENT_SCENE_FRAMEBUFFER_HEADER = "F";
 // Client Command / Request Headers
 const FULL_STATE_UPDATE_HEADER = "F";
 const VOXEL_ROUTINE_CHANGE_HEADER = "C";
-const VOXEL_ROUTINE_CONFIG_UPDATE_HEADER = "U";
 const VOXEL_ROUTINE_RESET_HEADER = "R";
 const VOXEL_CLEAR_COMMAND_HEADER = "L";
 const AUDIO_INFO_HEADER = "A";
@@ -101,7 +100,6 @@ class VoxelProtocol {
 
   static get FULL_STATE_UPDATE_HEADER() {return FULL_STATE_UPDATE_HEADER;}
   static get VOXEL_ROUTINE_CHANGE_HEADER() {return VOXEL_ROUTINE_CHANGE_HEADER;}
-  static get VOXEL_ROUTINE_CONFIG_UPDATE_HEADER() {return VOXEL_ROUTINE_CONFIG_UPDATE_HEADER;}
   static get VOXEL_ROUTINE_RESET_HEADER() {return VOXEL_ROUTINE_RESET_HEADER;}
   static get VOXEL_CLEAR_COMMAND_HEADER() {return VOXEL_CLEAR_COMMAND_HEADER;}
   static get AUDIO_INFO_HEADER() {return AUDIO_INFO_HEADER;}
@@ -212,12 +210,6 @@ class VoxelProtocol {
           return false;
         }
         //console.log("Animator routine changed.");
-        break;
-
-      case VOXEL_ROUTINE_CONFIG_UPDATE_HEADER:
-        if (voxelModel.currentAnimator) {
-          voxelModel.currentAnimator.setConfig(dataObj.config);
-        }
         break;
 
       case VOXEL_ROUTINE_RESET_HEADER:

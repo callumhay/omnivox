@@ -18,8 +18,8 @@ class VTPointLight extends VTObject {
     this._position = position;
     this._colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
     this._attenuation = attenuation;
-    this._isDirty = true;
     this._drawLight = drawLight;
+    this.makeDirty();
   }
 
   dispose() {}
@@ -53,8 +53,7 @@ class VTPointLight extends VTObject {
   isShadowCaster() { return false; }
 
   emission(pos, distance) {
-    const emissionColour = this._colour.clone().multiplyScalar(Math.min(1, this.calculateAttenuation(distance)));
-    return emissionColour;
+    return this._colour.clone().multiplyScalar(Math.min(1, this.calculateAttenuation(distance)));
   }
 
   calculateAttenuation(distance) {

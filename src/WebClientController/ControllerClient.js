@@ -95,12 +95,6 @@ class ControllerClient {
       this.socket.send(VoxelProtocol.buildClientPacketStr(VoxelProtocol.VOXEL_ROUTINE_CHANGE_HEADER, animatorType, config));
     }
   }
-  sendConfigUpdateCommand(config) {
-    if (this.socket.readyState === WebSocket.OPEN && this.commEnabled) {
-      //console.log("sendConfigUpdateCommand");
-      this.socket.send(VoxelProtocol.buildClientPacketStr(VoxelProtocol.VOXEL_ROUTINE_CONFIG_UPDATE_HEADER, null, config));
-    }
-  }
   sendRoutineResetCommand() {
     if (this.socket.readyState === WebSocket.OPEN && this.commEnabled) {
       //console.log("sendRoutineResetCommand");

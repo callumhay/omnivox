@@ -1,27 +1,28 @@
 import * as THREE from 'three';
 
-import {VTBoxAbstract} from "../VTBox";
 import VTMaterialFactory from '../VTMaterialFactory';
 
 //import {SQRT2PI} from '../../MathUtils';
 import VoxelConstants from '../../VoxelConstants';
 import VoxelGeometryUtils from '../../VoxelGeometryUtils';
+import VTRPObject from './VTRPObject';
+import VTConstants from '../VTConstants';
 
 const nX = new THREE.Vector3(1,0,0);
 const nY = new THREE.Vector3(0,1,0);
 const nZ = new THREE.Vector3(0,0,1);
 
-class VTRPBox extends VTBoxAbstract {
-  constructor(center, size, material, options) {
-    super(center, size, material, options);
+class VTRPBox extends VTRPObject {
+  constructor(min, max, material, options) {
+    super(VTConstants.BOX_TYPE);
 
-    this._center = center;
+    this._box = new THREE.Box3(min, max); // TODO: Make this the non-transformed box, then have the center be a local translation
+    this._material = material;
+    this._options  = options;
 
     this._tempVec3_0 = new THREE.Vector3();
     this._tempVec3_1 = new THREE.Vector3();
     this._tempVec3_2 = new THREE.Vector3();
-
-    const {min, max} = this._box;
 
     // Build the wall planes that make up the sides of this box...
     this._boxPlanes = [];
@@ -38,10 +39,10 @@ class VTRPBox extends VTBoxAbstract {
   dispose() { this._material.dispose(); }
 
   static build(jsonData) {
-    const {id, drawOrder, center, size, material, options} = jsonData;
+    const {id, drawOrder, min, max, material, options} = jsonData;
     const result = new VTRPBox(
-      new THREE.Vector3(center.x, center.y, center.z), 
-      new THREE.Vector3(size.x, size.y, size.z), 
+      new THREE.Vector3(min.x, min.y, min.z), 
+      new THREE.Vector3(max.x, max.y, max.z),
       VTMaterialFactory.build(material), options
     );
     result.id = id;
@@ -49,8 +50,9 @@ class VTRPBox extends VTBoxAbstract {
     return result;
   }
 
-  isShadowCaster() { return this._options.castsShadows || true; }
-  isShadowReceiver() { return this._options.receivesShadows || true; }
+  isShadowCaster() { return this._options.castsShadows || false; }
+  isShadowReceiver() { return this._options.receivesShadows || false; }
+  isFilled() { return this._options.fill || false; }
 
   intersectsRay(raycaster) { return raycaster.ray.intersectsBox(this._box); }
 

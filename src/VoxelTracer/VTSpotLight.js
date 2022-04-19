@@ -60,9 +60,7 @@ class VTSpotLight extends VTObject {
   isShadowCaster() { return false; }
   
   emission(voxelPos, distance) {
-    const emissionColour = this._colour.clone().multiplyScalar(this.calculateAttenuation(voxelPos, distance));
-    emissionColour.setRGB(emissionColour.r, emissionColour.g, emissionColour.b);
-    return emissionColour;
+    return this._colour.clone().multiplyScalar(this.calculateAttenuation(voxelPos, distance));
   }
 
   calculateAttenuation(voxelPos, distance) {

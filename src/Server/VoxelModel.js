@@ -122,6 +122,7 @@ class VoxelModel {
 
   setAnimator(type, config) {
     if (!(type in this._animators)) {
+      console.error(`Invalid type '${type}' provided.`);
       return false;
     }
 
@@ -133,9 +134,7 @@ class VoxelModel {
       this.crossfadeCounter = 0;
     }
 
-    if (config) {
-      this.currentAnimator.setConfig(config);
-    }
+    if (config) { this.currentAnimator.setConfig(config); }
 
     return true;
   }

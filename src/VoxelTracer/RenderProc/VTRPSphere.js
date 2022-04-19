@@ -43,8 +43,8 @@ class VTRPSphere extends VTRPObject  {
 
   dispose() { this._material.dispose(); }
 
-  isShadowCaster() { return this._options.castsShadows || true; }
-  isShadowReceiver() { return this._options.receivesShadows || true; }
+  isShadowCaster() { return this._options.castsShadows || false; }
+  isShadowReceiver() { return this._options.receivesShadows || false; }
 
   intersectsRay(raycaster) {
     this._sphere.radius -= VoxelConstants.VOXEL_EPSILON;

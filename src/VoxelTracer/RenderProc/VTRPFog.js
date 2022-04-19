@@ -1,8 +1,7 @@
-
 import * as THREE from 'three';
 
 import {clamp} from '../../MathUtils';
-import VoxelGeometryUtils from '../../VoxelGeometryUtils';
+
 import VTConstants from '../VTConstants';
 
 import VTRPObject from './VTRPObject';

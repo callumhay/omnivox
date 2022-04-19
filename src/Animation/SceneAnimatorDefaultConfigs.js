@@ -268,13 +268,19 @@ const boxTestSceneDefaultOptions = {
   boxFill: false,
   boxCastsShadows: true,
   boxReceivesShadows: true,
-  pointLight1Pos: {x: VoxelConstants.VOXEL_HALF_GRID_UNIT, y:0, z: VoxelConstants.VOXEL_HALF_GRID_UNIT}
+  ambientLightColour: {r:0.25, g:0.25, b:0.25},
+  pointLight1Pos: {x: VoxelConstants.VOXEL_GRID_SIZE-3, y:VoxelConstants.VOXEL_GRID_SIZE-5, z: VoxelConstants.VOXEL_GRID_SIZE-4},
+  pointLight1Colour: {r:1, g:0, b:1},
+  pointLightsAtten: {quadratic:0.008, linear:0},
 };
 const boxTestSceneControlOptions = {
   boxFill: {label: "Box Fill?"},
   boxCastsShadows: {label: "Box Casts Shadows?"},
   boxReceivesShadows: {label: "Box Receives Shadows?"},
+  ambientLightColour: {label: "Ambient Light Colour"},
   pointLight1Pos: {...widePositionCtrlOpt, label: "Point Light 1 Position"},
+  pointLight1Colour: {label: "Light 1 Colour"},
+  pointLightsAtten: {...attenuationCtrlOpt, label: "Point Lights Attenuation"},
 };
 
 const particleSceneDefaultOptions = {

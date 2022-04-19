@@ -99,7 +99,7 @@ class SceneAnimator extends VoxelAnimator {
       else {
         // no longer crossfading, reset to just showing the current scene
         this._crossfadeCounter = Infinity;
-        this._prevSceneConfig = null;
+        this._prevSceneConfig = {...this.config};
       }
 
       // Rebuild and render the current scene into a different CPU buffer from the previous scene
