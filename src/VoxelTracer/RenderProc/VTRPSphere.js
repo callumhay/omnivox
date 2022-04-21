@@ -24,7 +24,7 @@ class VTRPSphere extends VTRPObject  {
     this._tempVec3 = new THREE.Vector3();
 
     // Calculate and memoize info for performing voxel sampling during rendering:
-    const {samplesPerVoxel} = options;
+    const samplesPerVoxel = options.samplesPerVoxel || 3;
     const maxSampleAngle = Math.asin(0.5*VoxelConstants.VOXEL_UNIT_SIZE/radius);
     const maxSampleSr = 2*Math.PI*(1-Math.cos(maxSampleAngle));
     const srPercentage = maxSampleSr / (4*Math.PI);

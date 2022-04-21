@@ -215,8 +215,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
       }
       
       const {position:spherePos} = sphereBody;
-      vtSphere.center.set(spherePos.x, spherePos.y, spherePos.z);
-      vtSphere.setCenter(vtSphere.center);
+      vtSphere.position.copy(spherePos);
       vtSphere.material.alpha = 1.0-THREE.MathUtils.smoothstep(bounceSphere.currLifeTimeInSecs, 0, bounceSphere.totalLifeTimeInSecs);
       vtSphere.setMaterial(vtSphere.material);
     }
@@ -277,9 +276,9 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
       const boundingSphere = sphere.getBoundingSphere();
       if (currAlpha <= 0 || boundingSphere.containsPoint(this.minBoundsPt) && boundingSphere.containsPoint(this.maxBoundsPt)) {
         sphere.material.alpha = 0;
+        sphere.position.copy(new THREE.Vector3(gridSize,gridSize,gridSize));
         sphere.setMaterial(sphere.material);
-        sphere.setRadius(0);
-        sphere.setCenter(new THREE.Vector3(gridSize,gridSize,gridSize));
+        sphere.radius = 0;
         pulse.active = false;
         pulse.currAlpha = 0;
         pulse.currRadius = 0;
@@ -290,7 +289,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
         pulse.currAlpha  -= dt*alphaFadeSpeed;
 
         if (Math.abs(sphere.radius-pulse.currRadius) > VoxelConstants.VOXEL_ERR_UNITS) {
-          sphere.setRadius(pulse.currRadius);
+          sphere.radius = pulse.currRadius;
           sphere.material.alpha = pulse.currAlpha;
           //sphere.material.colour.copy(this.cursorPtLight.colour);
           sphere.setMaterial(sphere.material);
@@ -327,7 +326,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     const rmsRadiusChange = Math.round(2*(-0.25+weightedRmsZcrPct)*1.5)/2;
     for (const bounceSphere of this.bounceSpheres) {
       const {vtSphere, initRadius} = bounceSphere;
-      vtSphere.setRadius(initRadius + rmsRadiusChange);
+      vtSphere.radius = initRadius + rmsRadiusChange;
     }
 
     // Update the attenuation of the bounce lights based on the music...
@@ -497,9 +496,9 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     this.currSpherePulseIdx = (this.currSpherePulseIdx+1) % this.spherePulses.length;
 
     const {sphere} = spherePulse;
-    sphere.center.copy(center);
-    sphere.setCenter(sphere.center.addScalar(VoxelConstants.VOXEL_HALF_UNIT_SIZE)); // Center it on the cursor's voxel exactly
-    sphere.setRadius(VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS);
+    sphere.position.copy(center);
+    sphere.position.addScalar(VoxelConstants.VOXEL_HALF_UNIT_SIZE); // Center it on the cursor's voxel exactly
+    sphere.radius = VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS;
     sphere.drawOrder = 5;
 
     const sphereMaterial = sphere.material;

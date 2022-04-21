@@ -161,8 +161,8 @@ class BouncyScene extends SceneRenderer {
       const vtSphere = this.vtSpheres[i];
       
       const {position:spherePos} = sphereBody;
-      vtSphere.center.set(spherePos.x, spherePos.y, spherePos.z);
-      vtSphere.setCenter(vtSphere.center);
+      vtSphere.position.copy(spherePos);
+      vtSphere.makeDirty();
     }
 
     await this.scene.render();

@@ -245,7 +245,7 @@ const bouncySceneDefaultOptions = {
   sphereDensity: 2,
   gravity: -9.8,
   bounciness: 1,
-  friction: 0.1,
+  friction: 0.0,
   maxInitialVelocity: 7,
 };
 const bouncySceneControlOptions = {
