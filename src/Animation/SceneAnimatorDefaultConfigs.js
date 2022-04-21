@@ -268,6 +268,9 @@ const boxTestSceneDefaultOptions = {
   boxFill: false,
   boxCastsShadows: true,
   boxReceivesShadows: true,
+  boxTranslation: {x:VoxelConstants.VOXEL_HALF_GRID_UNIT, y:VoxelConstants.VOXEL_HALF_GRID_UNIT, z:VoxelConstants.VOXEL_HALF_GRID_UNIT},
+  boxRotation: {x:0, y:0, z:0},
+  boxScale: {x:1, y:1, z:1},
   ambientLightColour: {r:0.25, g:0.25, b:0.25},
   pointLight1Pos: {x: VoxelConstants.VOXEL_GRID_SIZE-3, y:VoxelConstants.VOXEL_GRID_SIZE-5, z: VoxelConstants.VOXEL_GRID_SIZE-4},
   pointLight1Colour: {r:1, g:0, b:1},
@@ -277,6 +280,24 @@ const boxTestSceneControlOptions = {
   boxFill: {label: "Box Fill?"},
   boxCastsShadows: {label: "Box Casts Shadows?"},
   boxReceivesShadows: {label: "Box Receives Shadows?"},
+  boxTranslation: {
+    label: "Box Translation",
+    x: {label: "x", min:-VoxelConstants.VOXEL_GRID_SIZE, max:VoxelConstants.VOXEL_GRID_SIZE, step:0.5},
+    y: {label: "y", min:-VoxelConstants.VOXEL_GRID_SIZE, max:VoxelConstants.VOXEL_GRID_SIZE, step:0.5},
+    z: {label: "z", min:-VoxelConstants.VOXEL_GRID_SIZE, max:VoxelConstants.VOXEL_GRID_SIZE, step:0.5}
+  },
+  boxRotation: {
+    label: "Box Rotation",
+    x: {label: "x°", min:0, max:360, step:15},
+    y: {label: "y°", min:0, max:360, step:15},
+    z: {label: "z°", min:0, max:360, step:15}
+  },
+  boxScale: {
+    label: "Box Scale",
+    x: {label: "x", min:0.5, max:VoxelConstants.VOXEL_HALF_GRID_SIZE, step:0.25},
+    y: {label: "y", min:0.5, max:VoxelConstants.VOXEL_HALF_GRID_SIZE, step:0.25},
+    z: {label: "z", min:0.5, max:VoxelConstants.VOXEL_HALF_GRID_SIZE, step:0.25}
+  },
   ambientLightColour: {label: "Ambient Light Colour"},
   pointLight1Pos: {...widePositionCtrlOpt, label: "Point Light 1 Position"},
   pointLight1Colour: {label: "Light 1 Colour"},

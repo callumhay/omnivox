@@ -22,6 +22,8 @@ class GodRayScene extends SceneRenderer {
   }
 
   build(options) {
+    if (!options) { return; }
+    
     const fogColour = options.fogColour ? options.fogColour : fogDefaultOptions.colour;
     const fogScattering = options.fogScattering ? options.fogScattering : fogDefaultOptions.fogScattering;
     const fogOptions = {

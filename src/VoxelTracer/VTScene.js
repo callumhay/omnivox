@@ -40,7 +40,7 @@ class VTScene {
   }
 
   addObject(o) {
-    if (!(o instanceof VTObject)) { console.error("Cannot add an object that doesn't inherit from VTObject."); return; } // TODO: Update this to VTRPObject
+    if (!(o instanceof VTObject)) { console.error("Cannot add an object that doesn't inherit from VTObject."); return; }
     switch (o.type) {
       case VTConstants.AMBIENT_LIGHT_TYPE:
         this.ambientLight = o;

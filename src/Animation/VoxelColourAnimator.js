@@ -87,7 +87,7 @@ class VoxelColourAnimator extends VoxelAnimator {
         );
         const sizeVec3 = new THREE.Vector3(size.x, size.y, size.z);
         this.voxelPositions = VoxelGeometryUtils.voxelBoxList(
-          centerVec3, eulerRot, sizeVec3, fill, VoxelGeometryUtils.voxelBoundingBox(VoxelConstants.VOXEL_GRID_SIZE)
+          centerVec3, sizeVec3, eulerRot, fill, VoxelGeometryUtils.voxelBoundingBox(VoxelConstants.VOXEL_GRID_SIZE)
         );
         break;
       }

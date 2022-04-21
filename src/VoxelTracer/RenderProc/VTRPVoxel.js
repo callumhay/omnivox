@@ -13,6 +13,8 @@ class VTRPVoxel extends VTRPObject  {
     this._material = material;
     this._options  = options;
     this._boundingBox = VoxelGeometryUtils.singleVoxelBoundingBox(this._position);
+
+    this._tempVec3 = new THREE.Vector3();
   }
 
   static build(jsonVTVoxel) {
@@ -33,11 +35,10 @@ class VTRPVoxel extends VTRPObject  {
   isShadowReceiver() { return this._options.receivesShadows || false; }
 
   intersectsRay(raycaster) { return raycaster.ray.intersectsBox(this._boundingBox, this._tempVec3) !== null; }
-  intersectsBox(box) { return this._boundingBox.intersectsBox(box); }
 
   calculateShadow(raycaster) {
     return {
-      inShadow: this.isShadowReceiver() && this.intersectsRay(raycaster),
+      inShadow: this.isShadowCaster() && this.intersectsRay(raycaster),
       lightReduction: 1.0, // [0,1]: 1 => Completely black out the light if a voxel is in shadow from this object
     };
   }
@@ -47,9 +48,7 @@ class VTRPVoxel extends VTRPObject  {
     if (!this._material.isVisible() || !scene.voxelBoundingBox.containsPoint(this._position)) { 
       return new THREE.Color(0,0,0);
     }
-
-    //this._getWorldSpacePosition(this._tempVec3);
-    return scene.calculateVoxelLighting(voxelIdxPt, this._position, this._material, this._receivesShadow);
+    return scene.calculateVoxelLighting(voxelIdxPt, this._position, this._material, this.isShadowReceiver());
   }
 }
 

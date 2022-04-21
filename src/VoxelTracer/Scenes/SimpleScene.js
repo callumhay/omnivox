@@ -20,6 +20,7 @@ class SimpleScene extends SceneRenderer {
   }
 
   build(options) {
+    if (!options) { return; }
     const {wallX, wallY, wallZ} = options;
 
     if (!this._objectsBuilt) {

@@ -1,9 +1,10 @@
 import * as THREE from 'three';
+import VoxelConstants from '../VoxelConstants';
 
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 import VTConstants from './VTConstants';
-import VTObject from "./VTObject";
+import VTTransformable from './VTTransformable';
 
 export const defaultBoxOptions = {
   samplesPerVoxel: 4,
@@ -12,14 +13,18 @@ export const defaultBoxOptions = {
   receivesShadows: true,
 };
 
-class VTBox extends VTObject {
+const _box = new THREE.Box3();
+
+class VTBox extends VTTransformable {
   constructor(center, size, material, options={...defaultBoxOptions}) {
     super(VTConstants.BOX_TYPE);
 
+    this.position.copy(center);
+
     size.multiplyScalar(0.5);
-    this._min = center.clone().sub(size);
-    this._max = center.add(size);
-    this._localRotation = new THREE.Euler(0,0,0);
+    this._min = (new THREE.Vector3()).sub(size);
+    this._max = size;
+    
     this._material = material;
     this._options  = options;
 
@@ -29,16 +34,22 @@ class VTBox extends VTObject {
   get material() { return this._material; }
   setMaterial(m) { this._material = m; this.makeDirty(); }
 
-  get localRotationEuler() { return this._localRotation; }
-  setLocalRotationEuler(r) { this._localRotation = r; this.makeDirty(); }
-
   toJSON() {
-    const {id, drawOrder, type, _min, _max, _material, _options} = this;
-    return {id, drawOrder, type, min: _min, max: _max, material: _material, options: _options};
+    const {id, drawOrder, type, matrixWorld, _min, _max, _material, _options} = this;
+    return {id, drawOrder, type, min: _min, max: _max, matrixWorld: matrixWorld.toArray(), material: _material, options: _options};
   }
 
   getCollidingVoxels(voxelBoundingBox) {
-    return VoxelGeometryUtils.voxelBoxListMinMax(this._min, this._max, this._localRotation, true, voxelBoundingBox);
+    // Draw a box around the world transformed box, make sure it encompases all the
+    // points with some margin of voxel sampling error
+    _box.set(this._min, this._max);
+    _box.applyMatrix4(this.matrixWorld);
+    _box.expandByScalar(VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS);
+    _box.min.roundToZero();
+    _box.max.roundToZero();
+
+    // Get the box points inside the worldspace AABB
+    return VoxelGeometryUtils.voxelAABBList(_box.min, _box.max, true, voxelBoundingBox);
   }
 }
 

@@ -17,7 +17,6 @@ class BouncyScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
     this._objectsBuilt = false;
-    
   }
 
   clear() {
@@ -35,6 +34,7 @@ class BouncyScene extends SceneRenderer {
   }
 
   build(options) {
+    if (!options) { return; }
     const {minSphereRadius, maxSphereRadius, sphereDensity} = options;
 
     if (!this._objectsBuilt) {

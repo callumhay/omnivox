@@ -61,7 +61,7 @@ class VTRPIsofield extends VTObject {
   calculateShadow(raycaster) {
     const accumLightReduction = this._getAccumulatedVoxelRayIntersection(raycaster);
     return {
-      inShadow: accumLightReduction > 0,
+      inShadow: this.isShadowCaster() && accumLightReduction > 0,
       lightReduction: accumLightReduction, // [0,1]: 1 => Completely black out the light if a voxel is in shadow from this object
     };
   }

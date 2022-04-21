@@ -42,6 +42,8 @@ class ParticleScene extends SceneRenderer {
   }
 
   build(options) {
+    if (!options) { return; }
+    
     if (!this._objectsBuilt) {
 
       const {

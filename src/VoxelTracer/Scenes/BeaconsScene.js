@@ -26,7 +26,8 @@ class BeaconsScene extends SceneRenderer {
   }
 
   build(options) {
-
+    if (!options) { return; }
+    
     const {fogColour, fogScattering} = options;
     const fogOptions = {
       fogColour: new THREE.Color(fogColour.r, fogColour.g, fogColour.b), 

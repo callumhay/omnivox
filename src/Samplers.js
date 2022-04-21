@@ -27,6 +27,45 @@ class Sampler {
       Math.cos(phi)
     )).multiplyScalar(radius);
   }
+
+  /**
+	 * Creates a number for index with base in a Halton sequence between [0, 1].
+	 * @param  {Number} index Index to return number for, > 0
+	 * @param  {Number} base  The base to use
+	 * @return {Number}       The halton number for the given index and base
+	 */
+	static halton(index, base) {
+		let result = 0,	frac = 1 / base, i = index + 1;
+		while (i > 0) {
+			result += frac * (i % base);
+			i = Math.floor(i / base);
+			frac = frac / base;
+		}
+		return result;
+	}
+
+  /**
+	 * Generate a sequence of Halton numbers
+	 * @param  {Function} generatorFn The function to use for generating sequences
+	 * @param  {Number}   length Length of sequence
+	 * @return {Number[]}        Sequence of numbers
+	 */
+	static haltonSequence(base, length) {
+    let index = 0;
+    const result = [], haltonGenerator = idx => Sampler.halton(idx, base);
+		const increment = () => haltonGenerator(index++);
+
+		while(length--) {	result.push(increment());	}
+
+		return result;
+	};
 }
+
+const HALTON_SEQ_2_LEN5 = Sampler.haltonSequence(2,5);
+const HALTON_SEQ_3_LEN5 = Sampler.haltonSequence(3,5);
+const HALTON_SEQ_5_LEN5 = Sampler.haltonSequence(5,5);
+
+export const HALTON_5PTS_SEQ_2_3_5 = [0,1,2,3,4].map(i => new THREE.Vector3(HALTON_SEQ_2_LEN5[i], HALTON_SEQ_3_LEN5[i], HALTON_SEQ_5_LEN5[i]));
+
 
 export default Sampler;

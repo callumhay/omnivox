@@ -5,6 +5,7 @@ class SceneRenderer {
     this.voxelModel = voxelModel;
     this.timeCounter = 0;
   }
+  
   clear() {
     this.scene.clear();
     this._options = null;

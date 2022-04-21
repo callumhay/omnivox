@@ -20,7 +20,7 @@ class VTRPFog extends VTRPObject {
 
   calculateShadow(raycaster) {
     return {
-      inShadow: false,
+      inShadow: this.isShadowCaster(),
       lightReduction: 0,
     };
   }

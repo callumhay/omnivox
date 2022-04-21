@@ -30,6 +30,8 @@ class MetaballScene extends SceneRenderer {
   }
 
   build(options) {
+    if (!options) { return; }
+    
     const {showLights, pointLight1Pos, pointLightsAtten, materialColour, ambientLightColour} = options;
 
     if (!this._objectsBuilt) {

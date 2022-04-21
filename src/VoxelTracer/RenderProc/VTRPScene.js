@@ -4,7 +4,6 @@ import VoxelConstants from '../../VoxelConstants';
 import {clamp} from '../../MathUtils';
 import VoxelGeometryUtils from '../../VoxelGeometryUtils';
 
-import VTObject from '../VTObject';
 import VTAmbientLight from '../VTAmbientLight';
 import VTPointLight from '../VTPointLight';
 import VTSpotLight from '../VTSpotLight';
@@ -198,7 +197,7 @@ class VTRPScene {
         break;
 
       default:
-        console.error(`Unknown VTObject renderable type found: ${type}`);
+        console.error(`Unknown renderable type found: ${type}`);
         return;
     }
 
@@ -229,7 +228,7 @@ class VTRPScene {
         return;
 
       default:
-        console.error(`Unknown VTObject light type found: ${type}`);
+        console.error(`Unknown light type found: ${type}`);
         return;
     }
     updatedMap[id] = buildFunc(lightData);

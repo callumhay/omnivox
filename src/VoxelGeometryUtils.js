@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import VoxelConstants from './VoxelConstants';
 
+const _minPt = new THREE.Vector3();
+const _maxPt = new THREE.Vector3();
+const _halfSize = new THREE.Vector3();
+
 class VoxelGeometryUtils {
 
   static voxelBoundingBox(gridSize) {
@@ -139,8 +143,12 @@ class VoxelGeometryUtils {
     return voxelPts;
   }
 
+  static voxelBoxList(center, size, eulerRot, fill, voxelBoundingBox) {
 
-  static voxelBoxListMinMax(minPt, maxPt, eulerRot, fill, voxelBoundingBox) {
+    const halfSize = _halfSize.copy(size).multiplyScalar(0.5);
+    const minPt = _minPt.copy(center).sub(halfSize);
+    const maxPt = _maxPt.copy(center).add(halfSize);
+
     const boxPts = VoxelGeometryUtils.voxelAABBList(minPt, maxPt, fill, voxelBoundingBox);
     if (!eulerRot || (eulerRot.x === 0 && eulerRot.y === 0 && eulerRot.z === 0)) {
       return boxPts; // A zero rotation was provided
@@ -155,17 +163,6 @@ class VoxelGeometryUtils {
     }
 
     return boxPts;
-  }
-
-  static voxelBoxList(center, eulerRot, size, fill, voxelBoundingBox) {
-    const halfSize = size.clone().multiplyScalar(0.5);
-    // Figure out all the points in the grid that will be inside the box...
-    const minPt = center.clone();
-    const maxPt = center.clone();
-    minPt.sub(halfSize);
-    maxPt.add(halfSize);
-
-    return VoxelGeometryUtils.voxelBoxListMinMax(minPt, maxPt, eulerRot, fill, voxelBoundingBox);
   }
 
 }

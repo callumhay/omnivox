@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import VoxelConstants from '../VoxelConstants';
 
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
@@ -9,7 +10,11 @@ export const defaultSphereOptions = {
   samplesPerVoxel: 6,
   fill: false,
   castsShadows: true,
+  receivesShadows: true,
 };
+
+//const _sphere = new THREE.Sphere();
+//const _zeroVec = new THREE.Vector3(0,0,0);
 
 class VTSphere extends VTObject {
 
@@ -17,6 +22,10 @@ class VTSphere extends VTObject {
     super(VTConstants.SPHERE_TYPE);
     
     this._sphere = new THREE.Sphere(center, radius);
+
+    //this.position.copy(center);
+    //this._radius = radius;
+
     this._material = material;
     this._options = options;
 
@@ -24,6 +33,7 @@ class VTSphere extends VTObject {
   }
 
   getBoundingSphere() { return this._sphere; }
+  //getBoundingSphere(target) { target.set(_zeroVec, this._radius); target.applyMatrix4(this.matrixWorld); }
 
   get material() { return this._material; }
   setMaterial(m) { this._material = m; this.makeDirty(); }
@@ -35,12 +45,21 @@ class VTSphere extends VTObject {
   toJSON() {
     const {id, drawOrder, type, _sphere, _material, _options} = this;
     const {center, radius} = _sphere;
+
+    //_sphere.set(_zeroVec, this._radius);
+    //_sphere.applyMatrix4(this.matrixWorld);
+    //const {center, radius} = _sphere;
+
     return {id, drawOrder, type, center, radius, material: _material, options: _options};
   }
 
   getCollidingVoxels(voxelBoundingBox=null) {
     const {center, radius} = this._sphere;
-    return VoxelGeometryUtils.voxelSphereList(center, radius, true, voxelBoundingBox);
+
+    //this.getBoundingSphere(_sphere)
+    //const {center, radius} = _sphere;
+
+    return VoxelGeometryUtils.voxelSphereList(center, radius + VoxelConstants.VOXEL_EPSILON, true, voxelBoundingBox);
   }
 }
 

@@ -18,7 +18,10 @@ class VTVoxel extends VTObject  {
 
     this._position = position || new THREE.Vector3(0,0,0);
     this._material = (typeof material === 'string' || material instanceof String) ? VTMaterialFactory.build(material) : material;
+
     this._options = options;
+    this._options.receivesShadows = (options.receivesShadows !== undefined) ? options.receivesShadows : true;
+    this._options.castsShadows    = (options.castsShadows !== undefined) ? options.castsShadows : true;
 
     this.makeDirty();
   }
@@ -36,12 +39,12 @@ class VTVoxel extends VTObject  {
 
   toJSON() {
     const {id, drawOrder, type, _position, _material, _options} = this;
-    //const matrixArray = _matrixWorld.toArray();
     return {id, drawOrder, type, _position, _material, _options};
   }
 
   getCollidingVoxels(voxelGridBoundingBox) {
     const closestPt = VoxelGeometryUtils.closestVoxelIdxPt(this._position);
+    closestPt.floor();
     return voxelGridBoundingBox.containsPoint(closestPt) ? [closestPt] : [];
   }
 }

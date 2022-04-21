@@ -13,6 +13,8 @@ const _position = /*@__PURE__*/ new THREE.Vector3();
 const _scale = /*@__PURE__*/ new THREE.Vector3();
 const _quaternion = /*@__PURE__*/ new THREE.Quaternion();
 
+// NOTE: If you directly change any core transform properties (position, rotation, scale, quaternion),
+// you must call makeDirty() directly to ensure the object is updated in the VoxelTracer scene/renderer!
 class VTTransformable extends VTObject {
   constructor(type) {
     super(type);
@@ -34,14 +36,15 @@ class VTTransformable extends VTObject {
 		function onRotationChange() { quaternion.setFromEuler(rotation, false); }
 		function onQuaternionChange() { rotation.setFromQuaternion(quaternion, undefined, false); }
 
-    rotation._onChange(onRotationChange);
-		quaternion._onChange(onQuaternionChange);
+    rotation._onChange(onRotationChange.bind(this));
+		quaternion._onChange(onQuaternionChange.bind(this));
 
     Object.defineProperties(this, {
 			position: {
 				configurable: true,
 				enumerable: true,
-				value: position
+				value: position,
+        //set: p => { position.copy(p); this.makeDirty(); }
 			},
 			rotation: {
 				configurable: true,
@@ -56,7 +59,8 @@ class VTTransformable extends VTObject {
 			scale: {
 				configurable: true,
 				enumerable: true,
-				value: scale
+				value: scale,
+        //set: s => { scale.copy(s); this.makeDirty(); } 
 			},
 		});
   }
@@ -73,31 +77,37 @@ class VTTransformable extends VTObject {
 		if (this.matrixAutoUpdate) { this.updateMatrix(); }
 		this.matrix.premultiply(matrix);
 		this.matrix.decompose(this.position, this.quaternion, this.scale);
+    this.makeDirty();
 	}
 
 	applyQuaternion(q) {
 		this.quaternion.premultiply(q);
+    this.makeDirty();
 		return this;
 	}
 
 	setRotationFromEuler(euler) {
 		this.quaternion.setFromEuler(euler, true);
+    this.makeDirty();
 	}
 
 	setRotationFromMatrix(m) {
 		// Assumes the upper 3x3 of m is a pure rotation matrix (i.e, unscaled)
 		this.quaternion.setFromRotationMatrix(m);
+    this.makeDirty();
 	}
 
 	setRotationFromQuaternion(q) {
 		// Assumes q is normalized
 		this.quaternion.copy(q);
+    this.makeDirty();
 	}
 
   rotateOnAxis(axis, angle) {
 		// Rotate object on axis in object space, axis is assumed to be normalized
 		_q1.setFromAxisAngle(axis, angle);
 		this.quaternion.multiply(_q1);
+    this.makeDirty();
 		return this;
 	}
 
@@ -110,6 +120,7 @@ class VTTransformable extends VTObject {
 		// axis is assumed to be normalized
 		_v1.copy(axis).applyQuaternion(this.quaternion);
 		this.position.add(_v1.multiplyScalar(distance));
+    this.makeDirty();
 		return this;
 	}
 
@@ -120,6 +131,7 @@ class VTTransformable extends VTObject {
   updateMatrix() {
 		this.matrix.compose(this.position, this.quaternion, this.scale);
 		this.matrixWorldNeedsUpdate = true;
+    this.makeDirty();
 	}
 
   updateMatrixWorld(force) {

@@ -21,6 +21,8 @@ class ShadowScene extends SceneRenderer {
   }
 
   build(options) {
+    if (!options) { return; }
+
     if (!this._objectsBuilt) {
       const {movingBoxSize, ambientLightColour, pointLightColour, pointLightPosition, pointLightAtten, sphereFill} = options;
 

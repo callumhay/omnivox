@@ -86,7 +86,7 @@ class VTRPMesh extends VTRPObject {
 
   calculateShadow(raycaster) {
     return {
-      inShadow: this.isShadowReceiver() && this.intersectsRay(raycaster),
+      inShadow: this.isShadowCaster() && this.intersectsRay(raycaster),
       lightReduction: 1.0, // [0,1]: 1 => Completely black out the light if a voxel is in shadow from this object
     };
   }

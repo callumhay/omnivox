@@ -9,7 +9,6 @@ import VTAmbientLight from '../VTAmbientLight';
 
 import VoxelConstants from '../../VoxelConstants';
 
-
 class BoxTestScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
@@ -22,9 +21,12 @@ class BoxTestScene extends SceneRenderer {
   }
 
   build(options) {
+    if (!options) { return; }
+    
     if (!this._objectsBuilt) {
       const {
         boxFill, boxCastsShadows, boxReceivesShadows, 
+        boxTranslation, boxRotation, boxScale,
         ambientLightColour, pointLight1Pos, pointLight1Colour, pointLightsAtten
       } = options;
 
@@ -32,10 +34,15 @@ class BoxTestScene extends SceneRenderer {
       const halfSize = VoxelConstants.VOXEL_HALF_GRID_UNIT;
 
       this.box1 = new VTBox(
-        new THREE.Vector3(halfSize,halfSize,halfSize), new THREE.Vector3(4,4,4),
+        new THREE.Vector3(boxTranslation.x,boxTranslation.y,boxTranslation.z), new THREE.Vector3(4,4,4),
         new VTLambertMaterial(new THREE.Color(1,1,1)), 
         {fill: boxFill, castsShadows: boxCastsShadows, receivesShadows: boxReceivesShadows}
       );
+      this.box1.setRotationFromEuler(new THREE.Euler(
+        THREE.MathUtils.degToRad(boxRotation.x),  THREE.MathUtils.degToRad(boxRotation.y),  THREE.MathUtils.degToRad(boxRotation.z))
+      );
+      this.box1.scale.copy(boxScale);
+
       this.floorBox = new VTBox(
         new THREE.Vector3(halfSize, 1, halfSize), new THREE.Vector3(size, 2, size),
         new VTLambertMaterial(new THREE.Color(1,1,1)), 
