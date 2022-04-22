@@ -87,6 +87,11 @@ class DisplayClient {
 
         this.lastFrameId = packetFrameId;
         break;
+      
+      case VoxelProtocol.SERVER_STATE_EVENT_HEADER:
+        break;
+      case VoxelProtocol.SPECIAL_EVENT_HEADER:
+        break;
 
       default:
         console.log("Invalid packet type: " + packetType);

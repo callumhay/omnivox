@@ -11,10 +11,20 @@ const DISCOVERY_ACK_PACKET_HEADER = "ACK";
 const WEBSOCKET_PROTOCOL_CONTROLLER = "controller";
 const WEBSOCKET_PROTOCOL_VIEWER = "viewer";
 
+// NOTE: All packet header constants MUST be a single character string!!!
+
 // Packet Header/Identifier Constants
+const SERVER_STATE_EVENT_HEADER = "S";
+const SPECIAL_EVENT_HEADER = "X";
 const VOXEL_DATA_HEADER = "D";
-// Data type constants
+
+// SERVER_STATE_EVENT_HEADER : Event type constants
+const SERVER_STATE_EVENT_FULL_TYPE  = "F";
+const SERVER_STATE_EVENT_SLAVE_TYPE = "V";
+
+// VOXEL_DATA_HEADER: Data type constants
 const VOXEL_DATA_ALL_TYPE   = "A";
+
 
 // Server-to-Client Headers
 const SERVER_TO_CLIENT_WELCOME_HEADER = "W";
@@ -89,6 +99,8 @@ class VoxelProtocol {
   static get WEBSOCKET_PROTOCOL_CONTROLLER() { return WEBSOCKET_PROTOCOL_CONTROLLER; }
   static get WEBSOCKET_PROTOCOL_VIEWER() { return WEBSOCKET_PROTOCOL_VIEWER; }
 
+  static get SERVER_STATE_EVENT_HEADER() {return SERVER_STATE_EVENT_HEADER;}
+  static get SPECIAL_EVENT_HEADER() {return SPECIAL_EVENT_HEADER;}
   static get VOXEL_DATA_HEADER() {return VOXEL_DATA_HEADER;}
   static get VOXEL_DATA_ALL_TYPE() {return VOXEL_DATA_ALL_TYPE;}
 
@@ -139,6 +151,24 @@ class VoxelProtocol {
     welcomeDataObj['gridSize'] = gridSize;
     return welcomeDataObj;
   }
+
+  static buildServerStateEventPacket(type, eventData) {
+    if (!type || !eventData) {
+      console.error("Invalid server state event found!");
+      return null;
+    }
+    let packetDataStr = null;
+    switch (type) {
+      case SERVER_STATE_EVENT_SLAVE_TYPE:
+        packetDataStr = SERVER_STATE_EVENT_HEADER + SERVER_STATE_EVENT_SLAVE_TYPE + JSON.stringify(eventData) + ";";
+        break;
+      default:
+        console.error("Invalid server event type, could not construct.");
+        break;
+    }
+    return packetDataStr;
+  }
+
 
   static buildClientPacketStr(packetType, voxelAnimType, config) {
     THREE.Color.toJSON = () => ({r: this.r, g: this.g, b: this.b});
@@ -380,7 +410,7 @@ class VoxelProtocol {
     }
     const {type, data, brightnessMultiplier} = voxelData;
     if (!type || !data) {
-      console.log("Invalid voxel data object found!");
+      console.error("Invalid voxel data object found!");
       return null;
     }
 
@@ -411,19 +441,19 @@ class VoxelProtocol {
 
   static readPacketType(packetData) {
     if (typeof packetData === 'string') {
-      return packetData.substr(0,1);
+      return packetData.substring(0,1);
     }
     return String.fromCharCode(packetData[0]);
   }
   static readVoxelDataType(packetData) {
     if (typeof packetData === 'string') {
-      return packetData.substr(1,1);
+      return packetData.substring(1,2);
     }
     return String.fromCharCode(packetData[1]);
   }
   static readFrameId(packetData) {
     if (packetData === 'string') {
-      return (parseInt(packetData.substr(2,1)) << 8) + parseInt(packetData.substr(3,1));
+      return (parseInt(packetData.substring(2,3)) << 8) + parseInt(packetData.substring(3,4));
     }
     return (parseInt(packetData[2]) << 8) + parseInt(packetData[3]);
   }

@@ -39,7 +39,7 @@ class GodRayScene extends SceneRenderer {
       this.shapeGeom = new THREE.BoxBufferGeometry(shapeSize.x, shapeSize.y, shapeSize.z, 1, 1, 1);
       this.shapeMesh = new VTMesh(this.shapeGeom, new VTLambertMaterial(new THREE.Color(shapeColour.r, shapeColour.g, shapeColour.b), 
         new THREE.Color(shapeEmission.r, shapeEmission.g, shapeEmission.b)));
-      this.shapeMesh.setPositionFromVec3(this._shapePosition);
+      this.shapeMesh.position.copy(this._shapePosition);
       this.shapeMesh.setRotationFromEuler(this._shapeRotation);
 
       const pointLightColour = options.pointLightColour ? options.pointLightColour : {x:1,y:1,z:1};

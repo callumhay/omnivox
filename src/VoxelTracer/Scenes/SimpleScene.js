@@ -7,6 +7,7 @@ import VTMesh from '../VTMesh';
 import VTLambertMaterial from '../VTLambertMaterial';
 import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';
+import VTSphere from '../VTSphere';
 
 class SimpleScene extends SceneRenderer {
   constructor(scene, voxelModel) {
@@ -31,8 +32,8 @@ class SimpleScene extends SceneRenderer {
         wallColour,
       } = options;
 
-      this.sphereTexture = null;
       /*
+      this.sphereTexture = null;
       if (textureFilename.length > 0) {
         let textureFilepath = "dist/textures/" + textureFilename;
         if (textureFilepath !== this.prevTextureFilename) {
@@ -45,10 +46,18 @@ class SimpleScene extends SceneRenderer {
       }
       */
 
-      this.sphereGeometry = new THREE.SphereBufferGeometry(sphereRadius, 20, 20);
-      this.sphereMesh = new VTMesh(this.sphereGeometry, new VTLambertMaterial(new THREE.Color(sphereColour.r, sphereColour.g, sphereColour.b), 
-        new THREE.Color(sphereEmission.r, sphereEmission.g, sphereEmission.b), 1, this.sphereTexture || null));
-      this.sphereMesh.setPosition(this.voxelModel.xSize()/2, this.voxelModel.ySize()/2, this.voxelModel.zSize()/2);
+      this.sphere = new VTSphere(
+        new THREE.Vector3(this.voxelModel.xSize()/2, this.voxelModel.ySize()/2, this.voxelModel.zSize()/2), sphereRadius, 
+        new VTLambertMaterial(
+          new THREE.Color(sphereColour.r, sphereColour.g, sphereColour.b),
+          new THREE.Color(sphereEmission.r, sphereEmission.g, sphereEmission.b), 1, null
+        )
+      );
+
+      //this.sphereGeometry = new THREE.SphereBufferGeometry(sphereRadius, 20, 20);
+      //this.sphereMesh = new VTMesh(this.sphereGeometry, new VTLambertMaterial(new THREE.Color(sphereColour.r, sphereColour.g, sphereColour.b), 
+      //  new THREE.Color(sphereEmission.r, sphereEmission.g, sphereEmission.b), 1, this.sphereTexture || null));
+      //this.sphereMesh.position.set(this.voxelModel.xSize()/2, this.voxelModel.ySize()/2, this.voxelModel.zSize()/2);
 
       this.ptLight1 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight1Colour.r, pointLight1Colour.g, pointLight1Colour.b), {...pointLightAtten});
       this.ptLight2 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight2Colour.r, pointLight2Colour.g, pointLight2Colour.b), {...pointLightAtten});
@@ -63,17 +72,17 @@ class SimpleScene extends SceneRenderer {
       if (wallX) {
         this.wallXGeometry = new THREE.BoxBufferGeometry(1,size,size);
         this.wallXMesh = new VTMesh(this.wallXGeometry, new VTLambertMaterial(new THREE.Color(wallColour.r, wallColour.g, wallColour.b)));
-        this.wallXMesh.setPosition(0, halfYSize, halfZSize);
+        this.wallXMesh.position.set(0, halfYSize, halfZSize);
       }
       if (wallY) {
         this.wallYGeometry = new THREE.BoxBufferGeometry(size,1,size);
         this.wallYMesh = new VTMesh(this.wallYGeometry, new VTLambertMaterial(new THREE.Color(wallColour.r, wallColour.g, wallColour.b)));
-        this.wallYMesh.setPosition(halfXSize, 0, halfZSize);
+        this.wallYMesh.position.set(halfXSize, 0, halfZSize);
       }
       if (wallZ) {
         this.wallZGeometry = new THREE.BoxBufferGeometry(size,size,1);
         this.wallZMesh = new VTMesh(this.wallZGeometry, new VTLambertMaterial(new THREE.Color(wallColour.r, wallColour.g, wallColour.b)));
-        this.wallZMesh.setPosition(halfXSize, halfYSize, 0);
+        this.wallZMesh.position.set(halfXSize, halfYSize, 0);
       }
 
       this._objectsBuilt = true;
@@ -83,7 +92,7 @@ class SimpleScene extends SceneRenderer {
     this.scene.addObject(this.ptLight2);
     this.scene.addObject(this.ptLight3);
     this.scene.addObject(this.ambientLight);
-    this.scene.addObject(this.sphereMesh);
+    this.scene.addObject(this.sphere);//this.sphereMesh);
 
     if (wallX) {
       this.scene.addObject(this.wallXMesh);

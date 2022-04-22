@@ -35,7 +35,7 @@ class ShadowScene extends SceneRenderer {
 
       this.boxGeometry = new THREE.BoxBufferGeometry(size,2,size);
       this.boxMesh = new VTMesh(this.boxGeometry, new VTLambertMaterial(new THREE.Color(1,1,1)));
-      this.boxMesh.setPosition(halfXSize, size-1, halfZSize);
+      this.boxMesh.position.set(halfXSize, size-1, halfZSize);
 
       this.sphere = new VTSphere(
         new THREE.Vector3(halfXSize-0.5, halfXSize-0.5, halfXSize-0.5), 
@@ -80,8 +80,10 @@ class ShadowScene extends SceneRenderer {
     this.sphere.position.set((RADIUS)*Math.cos(tSphere) + halfXSize, halfYSize-1, (RADIUS)*Math.sin(tSphere) + halfZSize);
     this.sphere.makeDirty();
 
-    this.movingBoxMesh.setPosition((RADIUS)*Math.cos(tBox) + halfXSize, halfYSize-1, (RADIUS)*Math.sin(tBox) + halfZSize);
+    this.movingBoxMesh.position.set((RADIUS)*Math.cos(tBox) + halfXSize, halfYSize-1, (RADIUS)*Math.sin(tBox) + halfZSize);
     this.movingBoxMesh.setRotationFromEuler(new THREE.Euler(0, tBox/10.0, 0));
+    this.movingBoxMesh.makeDirty();
+    
     this.timeCounter += dt;
 
     await this.scene.render();

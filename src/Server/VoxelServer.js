@@ -181,7 +181,19 @@ class VoxelServer {
                           } catch (err) { console.error("Failed to send welcome packet on data: "); console.error(err); }
                         }
                         else {
-                          self.slaveDataMap[availablePort.path].id = parseInt(slaveInfoMatch[1]);
+                          const slaveId = parseInt(slaveInfoMatch[1]);
+                          self.slaveDataMap[availablePort.path].id = slaveId;
+                          
+                          /*
+                          // TODO: 
+                          // Server event: Slave (slaveId) connected
+                          if (this.viewerWS && this.viewerWS.bufferedAmount === 0) {
+                            this.viewerWS.send(VoxelProtocol.buildServerStateEventPacket(
+                              VoxelProtocol.SERVER_STATE_EVENT_SLAVE_TYPE,
+                              {slaveId, connected: true, message: "Slave added to server."}
+                            ));
+                          }
+                          */
                         }
                       }
                     }

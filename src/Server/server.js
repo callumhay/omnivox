@@ -51,11 +51,9 @@ reload(app).then((reloadReturned) => {
 });
 
 
-
 // Create the voxel model - this maintains all of the voxel states and provides the data
 // that we send to various clients
 const voxelModel = new VoxelModel(VoxelConstants.VOXEL_GRID_SIZE);
-//voxelModel.test();
 
 // Create the voxel server - this will handle discovery and transmission of voxel data to both
 // hardware clients and to the localhost for virtual display of the voxels

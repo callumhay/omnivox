@@ -85,7 +85,6 @@ class VoxelModel {
     this.frameCounter = 0;
     this.globalBrightnessMultiplier = VoxelConstants.DEFAULT_BRIGHTNESS_MULTIPLIER;
     
-
     // Crossfading
     this.totalCrossfadeTime = DEFAULT_CROSSFADE_TIME_SECS;
     this.crossfadeCounter = Infinity;
