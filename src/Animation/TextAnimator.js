@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 
 import {TINYFONT_3x4_DEF} from '../tinyfonts';
+import VoxelProtocol from '../VoxelProtocol';
 
 import VoxelAnimator from './VoxelAnimator';
 
@@ -22,11 +23,31 @@ class TextAnimator extends VoxelAnimator {
   setConfig(c) {
     super.setConfig(c);
     const {colour, text, letterSpacing} = c;
+    //const {voxelServer} = this.voxelModel;
+
     if (!this.font) { this.font = new TinyFont(); }
     
     this.font.colour = new THREE.Color(colour.r, colour.g, colour.b);
     this.font.letterSpacing = letterSpacing;
+    if (text !== this.text) {
+      /*
+      if (voxelServer) {
+        voxelServer.sendViewerPacketStr(VoxelProtocol.buildSoundEventPacketStr(
+          VoxelProtocol.SOUND_EVENT_PLAY_TYPE, "shot"
+        ));
+      }
+      */
+    }
     this.text = text;
+
+    /*
+    if (voxelServer) {
+      voxelServer.sendViewerPacketStr(VoxelProtocol.buildSoundEventPacketStr(
+        VoxelProtocol.SOUND_EVENT_LOAD_TYPE, "shot", "sounds/mmx_charged_shot.wav"
+      ));
+    }
+    */
+
   }
 
   rendersToCPUOnly() { return true; }

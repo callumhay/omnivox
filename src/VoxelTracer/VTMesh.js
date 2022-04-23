@@ -5,6 +5,9 @@ import VoxelGeometryUtils from '../VoxelGeometryUtils';
 import VTConstants from './VTConstants';
 import VTTransformable from './VTTransformable';
 
+// TODO: Stop using a THREE.Mesh and just use the geometry along with the VTTransformable matrixWorld
+// to save on JSON size overhead in communication to child render processes
+
 class VTMesh extends VTTransformable {
   // NOTE: All geometry MUST be buffer geometry!
   constructor(geometry, material) {
@@ -13,29 +16,13 @@ class VTMesh extends VTTransformable {
     this.geometry = geometry;
     this.geometry.computeBoundingBox();
     this.material = material;
-    this._mesh  = new THREE.Mesh(geometry);
 
     this.makeDirty();
   }
 
-  unDirty() {
-    if (super.unDirty()) {
-      // Update the mesh for transfer to the render processes
-      this._mesh.position.copy(this.position);
-      this._mesh.position.copy(this.position);
-      this._mesh.rotation.order = this.rotation.order;
-      this._mesh.quaternion.copy(this.quaternion);
-      this._mesh.scale.copy(this.scale);
-      this._mesh.matrix.copy(this.matrix);
-      this._mesh.matrixWorld.copy(this.matrixWorld);
-      return true;
-    }
-    return false;
-  }
-
   toJSON() {
-    const {id, drawOrder, type, _mesh, material} = this;
-    return {id, drawOrder, type, threeMesh:_mesh , material};
+    const {id, drawOrder, type, geometry, matrixWorld, material} = this;
+    return {id, drawOrder, type, geometry, matrixWorld:matrixWorld.toArray(), material};
   }
 
   getCollidingVoxels(voxelGridBoundingBox) {

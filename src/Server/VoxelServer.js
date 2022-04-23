@@ -188,7 +188,7 @@ class VoxelServer {
                           // TODO: 
                           // Server event: Slave (slaveId) connected
                           if (this.viewerWS && this.viewerWS.bufferedAmount === 0) {
-                            this.viewerWS.send(VoxelProtocol.buildServerStateEventPacket(
+                            this.viewerWS.send(VoxelProtocol.buildServerStateEventPacketStr(
                               VoxelProtocol.SERVER_STATE_EVENT_SLAVE_TYPE,
                               {slaveId, connected: true, message: "Slave added to server."}
                             ));
@@ -285,6 +285,10 @@ class VoxelServer {
     if (this.viewerWS && this.viewerWS.bufferedAmount === 0) {
       this.viewerWS.send(VoxelProtocol.buildVoxelDataPacket(voxelData));
     }
+  }
+
+  sendViewerPacketStr(packetStr) {
+    if (this.viewerWS) { this.viewerWS.send(packetStr); }
   }
 
   /**

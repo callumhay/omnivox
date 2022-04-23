@@ -4,6 +4,7 @@ import {clamp} from '../MathUtils';
 import VoxelConstants from '../VoxelConstants';
 
 import VoxelAnimator, {DEFAULT_CROSSFADE_TIME_SECS} from '../Animation/VoxelAnimator';
+import StartupAnimator from '../Animation/StartupAnimator';
 import VoxelColourAnimator from '../Animation/VoxelColourAnimator';
 import TextAnimator from '../Animation/TextAnimator';
 import StarShowerAnimator from '../Animation/StarShowerAnimator';
@@ -17,6 +18,7 @@ import VTScene from '../VoxelTracer/VTScene';
 import VoxelFramebufferCPU from './VoxelFramebufferCPU';
 import VoxelFramebufferGPU from './VoxelFramebufferGPU';
 import GPUKernelManager from './GPUKernelManager';
+
 
 export const BLEND_MODE_OVERWRITE = 0;
 export const BLEND_MODE_ADDITIVE  = 1;
@@ -69,6 +71,7 @@ class VoxelModel {
     // Build a voxel tracer scene, which will be shared by all animators that use it
     this.vtScene = new VTScene(this);
     this._animators = {
+      [VoxelAnimator.VOXEL_ANIM_TYPE_STARTUP]      : new StartupAnimator(this, this.vtScene),
       [VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR]       : new VoxelColourAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_TEXT]              : new TextAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER]  : new StarShowerAnimator(this),
@@ -153,6 +156,8 @@ class VoxelModel {
     let lastFrameTime = Date.now();
     let dt = 0;
     let framesOnQueue = 0;
+
+    this.voxelServer = voxelServer;
 
     const renderLoop = async function() {
       self.currFrameTime = Date.now();

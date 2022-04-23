@@ -15,15 +15,21 @@ const WEBSOCKET_PROTOCOL_VIEWER = "viewer";
 
 // Packet Header/Identifier Constants
 const SERVER_STATE_EVENT_HEADER = "S";
-const SPECIAL_EVENT_HEADER = "X";
+const SOUND_EVENT_HEADER = "N";
 const VOXEL_DATA_HEADER = "D";
 
 // SERVER_STATE_EVENT_HEADER : Event type constants
 const SERVER_STATE_EVENT_FULL_TYPE  = "F";
 const SERVER_STATE_EVENT_SLAVE_TYPE = "V";
 
+// SOUND_EVENT_HEADER: Event type constants
+const SOUND_EVENT_LOAD_TYPE   = "L";
+const SOUND_EVENT_UNLOAD_TYPE = "U";
+const SOUND_EVENT_PLAY_TYPE   = "P";
+const SOUND_EVENT_STOP_TYPE   = "S";
+
 // VOXEL_DATA_HEADER: Data type constants
-const VOXEL_DATA_ALL_TYPE   = "A";
+const VOXEL_DATA_ALL_TYPE = "A";
 
 
 // Server-to-Client Headers
@@ -100,7 +106,15 @@ class VoxelProtocol {
   static get WEBSOCKET_PROTOCOL_VIEWER() { return WEBSOCKET_PROTOCOL_VIEWER; }
 
   static get SERVER_STATE_EVENT_HEADER() {return SERVER_STATE_EVENT_HEADER;}
-  static get SPECIAL_EVENT_HEADER() {return SPECIAL_EVENT_HEADER;}
+  static get SERVER_STATE_EVENT_FULL_TYPE() {return SERVER_STATE_EVENT_FULL_TYPE;}
+  static get SERVER_STATE_EVENT_SLAVE_TYPE() {return SERVER_STATE_EVENT_SLAVE_TYPE;}
+
+  static get SOUND_EVENT_HEADER() {return SOUND_EVENT_HEADER;}
+  static get SOUND_EVENT_LOAD_TYPE() {return SOUND_EVENT_LOAD_TYPE;}
+  static get SOUND_EVENT_UNLOAD_TYPE() {return SOUND_EVENT_UNLOAD_TYPE;}
+  static get SOUND_EVENT_PLAY_TYPE() {return SOUND_EVENT_PLAY_TYPE;}
+  static get SOUND_EVENT_STOP_TYPE() {return SOUND_EVENT_STOP_TYPE;}
+
   static get VOXEL_DATA_HEADER() {return VOXEL_DATA_HEADER;}
   static get VOXEL_DATA_ALL_TYPE() {return VOXEL_DATA_ALL_TYPE;}
 
@@ -152,23 +166,30 @@ class VoxelProtocol {
     return welcomeDataObj;
   }
 
-  static buildServerStateEventPacket(type, eventData) {
+  static buildServerStateEventPacketStr(type, eventData) {
     if (!type || !eventData) {
       console.error("Invalid server state event found!");
       return null;
     }
     let packetDataStr = null;
     switch (type) {
+      case SERVER_STATE_EVENT_FULL_TYPE:
       case SERVER_STATE_EVENT_SLAVE_TYPE:
-        packetDataStr = SERVER_STATE_EVENT_HEADER + SERVER_STATE_EVENT_SLAVE_TYPE + JSON.stringify(eventData) + ";";
+        packetDataStr = SERVER_STATE_EVENT_HEADER + type + JSON.stringify(eventData) + ";";
         break;
+
       default:
         console.error("Invalid server event type, could not construct.");
         break;
     }
     return packetDataStr;
   }
-
+  static buildSoundEventPacketStr(type, soundName, soundSrc, options={}) {
+    const packetDataStr = SOUND_EVENT_HEADER + type + JSON.stringify({
+      soundSrc, soundName, ...options
+    });
+    return packetDataStr;
+  }
 
   static buildClientPacketStr(packetType, voxelAnimType, config) {
     THREE.Color.toJSON = () => ({r: this.r, g: this.g, b: this.b});
@@ -445,7 +466,7 @@ class VoxelProtocol {
     }
     return String.fromCharCode(packetData[0]);
   }
-  static readVoxelDataType(packetData) {
+  static readDataType(packetData) {
     if (typeof packetData === 'string') {
       return packetData.substring(1,2);
     }
@@ -487,6 +508,10 @@ class VoxelProtocol {
     }
 
     return currFrameHashCode;
+  }
+
+  static readSoundEvent(packetStr) {
+    return JSON.parse(packetStr.substring(SOUND_EVENT_HEADER.length+1, packetStr.length));
   }
 };
 

@@ -3,8 +3,9 @@ import VoxelProtocol from "../VoxelProtocol";
 const FRAMES_OUT_OF_SEQUENCE_BEFORE_RESET = 30;
 
 class DisplayClient {
-  constructor(voxelDisplay) {
+  constructor(voxelDisplay, soundPlayer) {
     this.voxelDisplay = voxelDisplay;
+    this.soundPlayer  = soundPlayer;
     this.socket = new WebSocket('ws://' + window.location.hostname + ':' + VoxelProtocol.WEBSOCKET_PORT, VoxelProtocol.WEBSOCKET_PROTOCOL_VIEWER);
     this.lastFrameId = 0;
     this.consecutiveFramesOutofSequence = 0;
@@ -58,7 +59,7 @@ class DisplayClient {
         break;
         
       case VoxelProtocol.VOXEL_DATA_HEADER:
-        const voxelDataType = VoxelProtocol.readVoxelDataType(messageData);
+        const voxelDataType = VoxelProtocol.readDataType(messageData);
         const packetFrameId = VoxelProtocol.readFrameId(messageData);
 
         if (packetFrameId > 256 && this.lastFrameId >= packetFrameId) {
@@ -73,7 +74,6 @@ class DisplayClient {
         switch (voxelDataType) {
           
           case VoxelProtocol.VOXEL_DATA_ALL_TYPE:
-            //console.log("Recieved frame");
             this.lastFrameHashCode = VoxelProtocol.readAndPaintVoxelDataAll(messageData, this.voxelDisplay, this.lastFrameHashCode);
             if (this.lastFrameHashCode === -1) {
               console.log("Invalid voxel (all) data.");
@@ -81,20 +81,52 @@ class DisplayClient {
             break;
           
           default:
-            console.log("Unimplemented protocol voxel data type: " + voxelDataType);
+            console.error("Unimplemented protocol voxel data type: " + voxelDataType);
             break;
         }
 
         this.lastFrameId = packetFrameId;
         break;
       
-      case VoxelProtocol.SERVER_STATE_EVENT_HEADER:
+      case VoxelProtocol.SERVER_STATE_EVENT_HEADER: {
+        const eventType = VoxelProtocol.readDataType(messageData);
+        switch(eventType) {
+          case VoxelProtocol.SERVER_STATE_EVENT_FULL_TYPE:
+            break;
+          case VoxelProtocol.SERVER_STATE_EVENT_SLAVE_TYPE:
+            break;
+          default:
+            console.error("Unimplemented server state event type: " + eventType);
+            break;
+        }
         break;
-      case VoxelProtocol.SPECIAL_EVENT_HEADER:
+      }
+
+      case VoxelProtocol.SOUND_EVENT_HEADER: {
+        const eventType  = VoxelProtocol.readDataType(messageData);
+        const soundEvent = VoxelProtocol.readSoundEvent(messageData);
+        switch(eventType) {
+          case VoxelProtocol.SOUND_EVENT_LOAD_TYPE:
+            this.soundPlayer.preloadSound(soundEvent);
+            break;
+          case VoxelProtocol.SOUND_EVENT_UNLOAD_TYPE:
+            this.soundPlayer.unloadSound(soundEvent);
+            break;
+          case VoxelProtocol.SOUND_EVENT_PLAY_TYPE:
+            this.soundPlayer.playSound(soundEvent);
+            break;
+          case VoxelProtocol.SOUND_EVENT_STOP_TYPE:
+            this.soundPlayer.stopSound(soundEvent);
+            break;
+          default:
+            console.error("Unimplemented sound event type: " + eventType);
+            break;
+        }
         break;
+      }
 
       default:
-        console.log("Invalid packet type: " + packetType);
+        console.error("Invalid packet type: " + packetType);
         break;
     }
   }

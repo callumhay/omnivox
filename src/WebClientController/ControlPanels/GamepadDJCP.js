@@ -3,7 +3,6 @@ import {gamepadDJAnimatorDefaultConfig} from '../../Animation/GamepadDJAnimator'
 
 import AnimCP from './AnimCP';
 
-
 class GamepadDJCP extends AnimCP {
   constructor(masterCP) {
     super(masterCP, {...gamepadDJAnimatorDefaultConfig});
@@ -12,14 +11,12 @@ class GamepadDJCP extends AnimCP {
   animatorType() { return VoxelAnimator.VOXEL_ANIM_GAMEPAD_DJ; }
 
   buildFolder() {
-    const self = this;
+    //const self = this;
     const {pane} = this.masterCP;
     const folder = pane.addFolder({title: "Gamepad DJ Controls"});
 
     return folder;
   }
-
-
 }
 
 export default GamepadDJCP;

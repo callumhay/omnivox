@@ -3,6 +3,7 @@ import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
 
 import VoxelDisplay from './VoxelDisplay';
 import DisplayClient from './DisplayClient';
+import SoundPlayer from './SoundPlayer';
 
 // Setup THREE library boilerplate for getting a scene + camera + basic controls up and running
 const renderer = new THREE.WebGLRenderer();
@@ -16,8 +17,10 @@ const controls = new OrbitControls(camera, renderer.domElement);
 
 // Setup the visualizer for rendering the voxels
 const voxelDisplay = new VoxelDisplay(scene, controls);
+// Setup the sound player for music/sfx
+const soundPlayer = new SoundPlayer();
 // Setup the client (receives render messages from the server and sends control messages to the server)
-const displayClient = new DisplayClient(voxelDisplay);
+const displayClient = new DisplayClient(voxelDisplay, soundPlayer);
 
 // Make sure the camera is positioned somewhere where we can see everything we need to at initial render
 scene.position.set(0,0,0);

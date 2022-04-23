@@ -5,6 +5,7 @@ import VoxelAnimator, {DEFAULT_CROSSFADE_TIME_SECS} from '../../Animation/VoxelA
 
 import {CHANGE_EVENT, CLICK_EVENT} from '../controlpanelfuncs';
 
+import StartupAnimCP from './StartupAnimCP';
 import SoundCP from './SoundCP';
 import ColourAnimCP from './ColourAnimCP';
 import TextAnimCP from './TextAnimCP';
@@ -36,6 +37,7 @@ class MasterCP {
     };
     
     this.childControlPanels = {};
+    this.childControlPanels[VoxelAnimator.VOXEL_ANIM_TYPE_STARTUP] = new StartupAnimCP(this);
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR] = new ColourAnimCP(this);
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_TEXT] = new TextAnimCP(this);
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_TYPE_STAR_SHOWER] = new StarShowerAnimCP(this);

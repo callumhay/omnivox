@@ -54,25 +54,23 @@ class VTRPScene {
         const {x,y,z} = voxelPts[i];
         currVoxelPt.set(x,y,z);
 
+        // TODO: REFACTOR TO USE ColourRGBA AND BLEND ALPHAS BASED ON DRAW ORDER!!!!
         const calcColour = renderable.calculateVoxelColour(currVoxelPt, this);
-
-        if (calcColour.r > 0 || calcColour.g > 0 || calcColour.b > 0) {
-          const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(currVoxelPt, this.gridSize);
-          if (!(voxelPtId in voxelDrawOrderMap)) {
-            voxelDrawOrderMap[voxelPtId] = {drawOrder: renderable.drawOrder, colour: calcColour, point: currVoxelPt.clone()};
+        const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(currVoxelPt, this.gridSize);
+        if (!(voxelPtId in voxelDrawOrderMap)) {
+          voxelDrawOrderMap[voxelPtId] = {drawOrder: renderable.drawOrder, colour: calcColour, point: currVoxelPt.clone()};
+        }
+        else {
+          const currMapObj = voxelDrawOrderMap[voxelPtId];
+          if (renderable.drawOrder > currMapObj.drawOrder) {
+            currMapObj.drawOrder = renderable.drawOrder;
+            currMapObj.colour = calcColour;
           }
-          else {
-            const currMapObj = voxelDrawOrderMap[voxelPtId];
-            if (renderable.drawOrder > currMapObj.drawOrder) {
-              currMapObj.drawOrder = renderable.drawOrder;
-              currMapObj.colour = calcColour;
-            }
-            else if (renderable.drawOrder === currMapObj.drawOrder) {
-              // Mix the colours together if the draw order is the same...
-              const {colour} = currMapObj;
-              colour.add(calcColour);
-              colour.setRGB(Math.min(1,colour.r), Math.min(1,colour.g), Math.min(1,colour.b));
-            }
+          else if (renderable.drawOrder === currMapObj.drawOrder) {
+            // Mix the colours together if the draw order is the same...
+            const {colour} = currMapObj;
+            colour.add(calcColour);
+            colour.setRGB(Math.min(1,colour.r), Math.min(1,colour.g), Math.min(1,colour.b));
           }
         }
       }

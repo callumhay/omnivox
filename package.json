@@ -29,6 +29,7 @@
     "gamepad.js": "^1.0.4",
     "get-pixels": "^3.3.2",
     "gpu.js": "^2.11.4",
+    "howler": "^2.2.3",
     "meyda": "^5.3.0",
     "ndarray": "^1.0.19",
     "seedrandom": "^3.0.5",

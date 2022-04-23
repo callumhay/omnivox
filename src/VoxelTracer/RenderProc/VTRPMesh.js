@@ -57,20 +57,21 @@ class VTRPMesh extends VTRPObject {
   }
 
   static build(jsonVTMesh) {
-    const {id, drawOrder, threeMesh, material} = jsonVTMesh;
+    const {id, drawOrder, geometry, matrixWorld, material} = jsonVTMesh;
 
     const result = new VTRPMesh(VTMaterialFactory.build(material));
     result.id = id;
     result.drawOrder = drawOrder;
     
     const loader = new THREE.ObjectLoader();
-    const loadedMesh = loader.parse(threeMesh);
-    loadedMesh.geometry.computeBoundingBox();
-    loadedMesh.geometry.boundsTree = new MeshBVH(loadedMesh.geometry, {strategy: SAH});
-    loadedMesh.updateMatrixWorld();
-    
-    result.geometry = loadedMesh.geometry;
-    result.threeMesh = loadedMesh;
+    const loadedGeometryMap = loader.parseGeometries([geometry]);
+    const loadedGeometry = Object.values(loadedGeometryMap)[0];
+    loadedGeometry.computeBoundingBox();
+    loadedGeometry.boundsTree = new MeshBVH(loadedGeometry, {strategy: SAH});
+
+    result.geometry = loadedGeometry;
+    result.threeMesh = new THREE.Mesh(loadedGeometry);
+    result.threeMesh.matrixWorld.fromArray(matrixWorld);
     
     return result;
   }
@@ -106,7 +107,7 @@ class VTRPMesh extends VTRPObject {
 
       // Start by finding all triangles in this mesh that may intersect with the given voxel
       triSamples = [];
-      this.threeMesh.geometry.boundsTree.shapecast(
+      this.geometry.boundsTree.shapecast(
         this.threeMesh,
         box => {
           const worldSpaceBox = box.clone();
@@ -207,9 +208,9 @@ class VTRPMesh extends VTRPObject {
     
     // Grab a list of all the samples
     const voxelId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, scene.gridSize);
-    const VTRPTriSamples = this._preRender(voxelIdxPt, voxelId);
-    if (VTRPTriSamples.length > 0) {
-      const samples = VTRPTriSamples.map(triSample => triSample.sample);
+    const triSamples = this._preRender(voxelIdxPt, voxelId);
+    if (triSamples.length > 0) {
+      const samples = triSamples.map(triSample => triSample.sample);
       finalColour.add(scene.calculateLightingSamples(voxelIdxPt, samples, this.material));
     }
     

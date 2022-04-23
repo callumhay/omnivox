@@ -1,5 +1,6 @@
 export const REPEAT_INFINITE_TIMES = -1;
 
+const VOXEL_ANIM_TYPE_STARTUP       = "Startup";
 const VOXEL_ANIM_TYPE_COLOUR        = "Colour Change";
 const VOXEL_ANIM_TEXT               = "Text";
 const VOXEL_ANIM_TYPE_SHOOTING_STAR = "Shooting Star";
@@ -36,6 +37,7 @@ class VoxelAnimator {
   }
 
   // Constants for various types of animators
+  static get VOXEL_ANIM_TYPE_STARTUP() {return VOXEL_ANIM_TYPE_STARTUP;}
   static get VOXEL_ANIM_TYPE_COLOUR() {return VOXEL_ANIM_TYPE_COLOUR;}
   static get VOXEL_ANIM_TYPE_SHOOTING_STAR() {return VOXEL_ANIM_TYPE_SHOOTING_STAR;}
   static get VOXEL_ANIM_TYPE_STAR_SHOWER() {return VOXEL_ANIM_TYPE_STAR_SHOWER;}
