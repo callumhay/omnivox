@@ -25,34 +25,38 @@ class VTEmissionMaterial extends VTMaterial {
     return {type, colour, alpha, texture};
   }
 
-  emission(uv) {
-    return this.albedo(uv).multiplyScalar(this.alpha);
+  isVisible() { return Math.round(this.alpha*255) >= 1; }
+
+  emission(targetRGBA, uv) {
+    targetRGBA.a = this.alpha;
+    return this.albedo(targetRGBA, uv);
   }
 
-  isVisible() {
-    return Math.round(this.alpha*255) >= 1;
-  }
-
-  albedo(uv) {
-    const albedoColour = this.colour.clone();
+  albedo(targetRGBA, uv) {
+    targetRGBA.copy(this.colour);
     if (uv && this.texture && this.texture.isLoaded()) {
-      albedoColour.multiply(this.texture.sample(uv));
+      targetRGBA.multiply(this.texture.sample(uv));
     }
-    return albedoColour;
+    return targetRGBA;
   }
 
-  brdf(nObjToLightVec, normal, uv, lightColour) {
+  brdf(targetRGBA, nObjToLightVec, normal, uv, lightColour) {
     const dot = clamp(nObjToLightVec.dot(normal), 0, 1);
-    return this.brdfAmbient(uv, lightColour).multiplyScalar(dot);
+    this.brdfAmbient(targetRGBA, uv, lightColour);
+    targetRGBA.multiplyScalar(dot); // Only multiply the rgb, not the alpha.
+    return targetRGBA;
   }
 
-  brdfAmbient(uv, lightColour) {
-    const albedoColour = this.albedo(uv);
-    albedoColour.add(lightColour).multiplyScalar(this.alpha);
-    return albedoColour;
+  brdfAmbient(targetRGBA, uv, lightColour) {
+    targetRGBA.a = this.alpha;
+    this.albedo(targetRGBA, uv);
+    targetRGBA.add(lightColour);
+    return targetRGBA;
   }
 
-  basicBrdfAmbient(uv, lightColour) { return this.brdfAmbient(uv, lightColour); }
+  basicBrdfAmbient(targetRGBA, uv, lightColour) { 
+    return this.brdfAmbient(targetRGBA, uv, lightColour);
+  }
 }
 
 export default VTEmissionMaterial;

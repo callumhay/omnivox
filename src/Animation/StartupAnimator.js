@@ -19,7 +19,7 @@ const boxSliceSize = 8;
 const halfBoxSliceSize = boxSliceSize/2;
 const adjBoxSize = boxSliceSize-1;
 const boxSize = new THREE.Vector3(adjBoxSize, adjBoxSize, adjBoxSize);
-const overlapAmount = 1.5;
+const overlapAmount = 2.5;
 const boxOptions = {samplesPerVoxel: 4, castsShadows: false, receivesShadows: false};
 
 class StartupAnimator extends VoxelAnimator {
@@ -125,13 +125,13 @@ class StartupAnimator extends VoxelAnimator {
 
       const outlineDrawOrder = VTConstants.DRAW_ORDER_DEFAULT+3;
       this._boxOutlineMin = new VTBox(
-        this._boxMin.position.clone(), boxSize.clone().addScalar(2), 
-        new VTLambertMaterial(new THREE.Color(1,0,0)), {...boxOptions, fill:false}
+        this._boxMin.position.clone(), boxSize.clone().addScalar(1.5), 
+        new VTLambertMaterial(new THREE.Color(0,0,0), new THREE.Color(0,0,0)), {...boxOptions, fill:false}
       );
       this._boxOutlineMin.drawOrder = outlineDrawOrder;
       this._boxOutlineMax = new VTBox(
-        this._boxMax.position.clone(), boxSize.clone().addScalar(2), 
-        new VTLambertMaterial(new THREE.Color(1,0,0)), {...boxOptions, fill:false}
+        this._boxMax.position.clone(), boxSize.clone().addScalar(1.5), 
+        new VTLambertMaterial(new THREE.Color(0,0,0), new THREE.Color(0,0,0)), {...boxOptions, fill:false}
       );
       this._boxOutlineMax.drawOrder = outlineDrawOrder;
     }

@@ -66,9 +66,9 @@ class VTRPIsofield extends VTObject {
     };
   }
 
-  calculateVoxelColour(voxelIdxPt, scene) {
+  calculateVoxelColour(targetRGBA, voxelIdxPt, scene) {
     // Fast-out if we can't even see this object
-    if (!this._material.isVisible()) { return new THREE.Color(0,0,0); }
+    if (!this._material.isVisible()) { return targetRGBA; }
 
     const xIdx = Math.floor(voxelIdxPt.x);
     const yIdx = Math.floor(voxelIdxPt.y);
@@ -114,11 +114,11 @@ class VTRPIsofield extends VTObject {
         falloff: fieldXYZ //THREE.MathUtils.smoothstep(fieldXYZ,0,1), // fieldXYZ > 0.5 ? 1 : 0,
       };
 
-      return scene.calculateLightingSamples(voxelIdxPt, [voxelSample], this._material, this._receivesShadow);
+      return scene.calculateLightingSamples(targetRGBA, voxelIdxPt, [voxelSample], this._material, this._receivesShadow);
     }
 
     // Otherwise there is nothing to render
-    return new THREE.Color(0,0,0);
+    return targetRGBA;
   }
 
   _getAccumulatedVoxelRayIntersection(raycaster) {

@@ -200,21 +200,20 @@ class VTRPMesh extends VTRPObject {
     return triSamples;
   }
 
-  calculateVoxelColour(voxelIdxPt, scene) {
-    const finalColour = new THREE.Color(0,0,0);
-
+  calculateVoxelColour(targetRGBA, voxelIdxPt, scene) {
     // Fast-out if we can't even see this mesh
-    if (!this.material.isVisible()) { return finalColour; }
+    if (!this.material.isVisible()) { return targetRGBA; }
     
     // Grab a list of all the samples
     const voxelId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, scene.gridSize);
     const triSamples = this._preRender(voxelIdxPt, voxelId);
     if (triSamples.length > 0) {
       const samples = triSamples.map(triSample => triSample.sample);
-      finalColour.add(scene.calculateLightingSamples(voxelIdxPt, samples, this.material));
+      targetRGBA.a = 1;
+      scene.calculateLightingSamples(targetRGBA, voxelIdxPt, samples, this.material);
     }
     
-    return finalColour;
+    return targetRGBA;
   }
 
   intersectsRay(raycaster) {

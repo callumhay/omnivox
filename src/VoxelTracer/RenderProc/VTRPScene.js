@@ -17,6 +17,7 @@ import VTRPIsofield from './VTRPIsofield';
 import VTDirectionalLight from '../VTDirectionalLight';
 import VTRPBox from './VTRPBox';
 import VTConstants from '../VTConstants';
+import ColourRGBA from '../../ColourRGBA';
 
 
 class VTRPScene {
@@ -47,36 +48,78 @@ class VTRPScene {
     const currVoxelPt = new THREE.Vector3();
     const voxelDrawOrderMap = {};
     this._tempVoxelMap = {}; // Used to keep track of which voxels have already been ambient-lit
+    const currVoxelColourRGBA = new ColourRGBA();
 
     for (const [id, voxelPts] of Object.entries(renderableToVoxelMapping)) {
       const renderable = this.getRenderable(id);
       for (let i = 0; i < voxelPts.length; i++) {
+
         const {x,y,z} = voxelPts[i];
         currVoxelPt.set(x,y,z);
+        currVoxelColourRGBA.setRGBA(0,0,0,0);
 
-        // TODO: REFACTOR TO USE ColourRGBA AND BLEND ALPHAS BASED ON DRAW ORDER!!!!
-        const calcColour = renderable.calculateVoxelColour(currVoxelPt, this);
+        renderable.calculateVoxelColour(currVoxelColourRGBA, currVoxelPt, this);
+        if (currVoxelColourRGBA.a <= 0) { continue; } // Fast-out if we can't see this voxel
+        currVoxelColourRGBA.a = THREE.MathUtils.clamp(currVoxelColourRGBA.a, 0, 1); // Clamp alpha to [0,1] before blending!
+
         const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(currVoxelPt, this.gridSize);
         if (!(voxelPtId in voxelDrawOrderMap)) {
-          voxelDrawOrderMap[voxelPtId] = {drawOrder: renderable.drawOrder, colour: calcColour, point: currVoxelPt.clone()};
+          voxelDrawOrderMap[voxelPtId] = {
+            drawOrder: renderable.drawOrder, 
+            colourRGBA: currVoxelColourRGBA.clone(), 
+            point: currVoxelPt.clone()
+          };
         }
         else {
           const currMapObj = voxelDrawOrderMap[voxelPtId];
-          if (renderable.drawOrder > currMapObj.drawOrder) {
-            currMapObj.drawOrder = renderable.drawOrder;
-            currMapObj.colour = calcColour;
+          // Blend the voxel's colour based on the draw order and the alpha of the colours in the voxel
+          if (renderable.drawOrder === currMapObj.drawOrder) {
+            // Same draw order: Equally blend the two voxels based on their alphas
+            const {colourRGBA} = currMapObj;
+            colourRGBA.setRGBA(
+              colourRGBA.r*colourRGBA.a + currVoxelColourRGBA.r*currVoxelColourRGBA.a,
+              colourRGBA.g*colourRGBA.a + currVoxelColourRGBA.g*currVoxelColourRGBA.a,
+              colourRGBA.b*colourRGBA.a + currVoxelColourRGBA.b*currVoxelColourRGBA.a,
+              Math.min(1, colourRGBA.a + currVoxelColourRGBA.a)
+            );
           }
-          else if (renderable.drawOrder === currMapObj.drawOrder) {
-            // Mix the colours together if the draw order is the same...
-            const {colour} = currMapObj;
-            colour.add(calcColour);
-            colour.setRGB(Math.min(1,colour.r), Math.min(1,colour.g), Math.min(1,colour.b));
+          else if (renderable.drawOrder > currMapObj.drawOrder) {
+            currMapObj.drawOrder = renderable.drawOrder;
+            // The voxel currently has a lower draw order than what we're rendering,
+            // use the alpha of what we're rendering to determine the blend
+            const {colourRGBA} = currMapObj;
+            const blendAlpha = currVoxelColourRGBA.a;
+            const oneMinusBlendAlpha = 1-blendAlpha;
+            colourRGBA.setRGBA(
+              colourRGBA.r*oneMinusBlendAlpha + currVoxelColourRGBA.r*blendAlpha,
+              colourRGBA.g*oneMinusBlendAlpha + currVoxelColourRGBA.g*blendAlpha,
+              colourRGBA.b*oneMinusBlendAlpha + currVoxelColourRGBA.b*blendAlpha,
+              colourRGBA.a*oneMinusBlendAlpha + currVoxelColourRGBA.a*blendAlpha
+            );
+          }
+          else {
+            // The voxel currently has a higher draw order than what was rendered,
+            // use the alpha of what was rendered to determine the blend
+            const {colourRGBA} = currMapObj;
+            const blendAlpha = colourRGBA.a;
+            const oneMinusBlendAlpha = 1-blendAlpha;
+            colourRGBA.setRGBA(
+              currVoxelColourRGBA.r*oneMinusBlendAlpha + colourRGBA.r*blendAlpha,
+              currVoxelColourRGBA.g*oneMinusBlendAlpha + colourRGBA.g*blendAlpha,
+              currVoxelColourRGBA.b*oneMinusBlendAlpha + colourRGBA.b*blendAlpha,
+              currVoxelColourRGBA.a*oneMinusBlendAlpha + colourRGBA.a*blendAlpha
+            );
           }
         }
       }
     }
 
-    process.send({type: VTRenderProc.FROM_PROC_RENDERED, data: Object.values(voxelDrawOrderMap).map(v => ({pt: v.point, colour: v.colour})) });
+    process.send({
+      type: VTRenderProc.FROM_PROC_RENDERED, 
+      data: Object.values(voxelDrawOrderMap).map(v => ({
+        pt: v.point, colour: v.colourRGBA.clampRGBA(0,1).cloneTHREEColor() // TODO: Remove the clamp and create a blowout attribute if we're doing bloom
+      })),
+    });
   }
 
   getRenderable(id) {
@@ -252,14 +295,19 @@ class VTRPScene {
     return lightMultiplier;
   }
 
-  calculateVoxelLighting(voxelIdxPt, point, material, receivesShadows) {
+  calculateVoxelLighting(targetRGBA, voxelIdxPt, point, material, receivesShadows) {
     // We treat voxels as perfect inifintesmial spheres centered at a given voxel position
     // they can be shadowed and have materials like meshes
-    const finalColour = material.emission(null);
+    material.emission(targetRGBA);
+
+    const lightEmission = new THREE.Color(0,0,0);
+    const materialLightingRGBA = new ColourRGBA(0,0,0,0);
+
     const lights = Object.values(this.lights);
     const nVoxelToLightVec = new THREE.Vector3();
     let distanceToLight = 0;
-    for (let j = 0; j < lights.length && (finalColour.r < 1 || finalColour.g < 1 || finalColour.b < 1); j++) {
+
+    for (let j = 0, numLights = lights.length; j < numLights; j++) {
       const light = lights[j];
       
       switch (light.type) {
@@ -286,9 +334,9 @@ class VTRPScene {
       if (lightMultiplier > 0) {
         // The voxel is not in total shadow, do the lighting - since it's a "infitesimal sphere" the normal is always
         // in the direction of the light, so it's always ambiently lit (unless it's in shadow)
-        const lightEmission = light.emission(point, distanceToLight).multiplyScalar(lightMultiplier);
-        const materialLightingColour = material.brdfAmbient(null, lightEmission);
-        finalColour.add(materialLightingColour);
+        light.emission(lightEmission, point, distanceToLight).multiplyScalar(lightMultiplier);
+        material.brdfAmbient(materialLightingRGBA, null, lightEmission);
+        targetRGBA.add(materialLightingRGBA);
       }
     }
 
@@ -296,48 +344,20 @@ class VTRPScene {
       // Don't add ambient light more than once to the same voxel!
       const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, this.gridSize);
       if (!(voxelPtId in this._tempVoxelMap)) { 
-        finalColour.add(material.basicBrdfAmbient(null, this.ambientLight.emission()));
+        this.ambientLight.emission(lightEmission);
+        material.basicBrdfAmbient(materialLightingRGBA, null, lightEmission)
+        targetRGBA.add(materialLightingRGBA);
         this._tempVoxelMap[voxelPtId] = true;
       }
     }
  
-    finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
-
-    return finalColour;
+    return targetRGBA;
   }
 
-  calculateFogLighting(point) {
-    const finalColour = new THREE.Color(0,0,0);
-    if (this.lights.length === 0) { return finalColour; }
-
-    const nLightToFogVec = new THREE.Vector3(0,0,0);
-    const lights = Object.values(this.lights);
-    for (let j = 0; j < lights.length && (finalColour.r < 1 || finalColour.g < 1 || finalColour.b < 1); j++) {
-      const light = lights[j];
-
-      if (light.type === VTConstants.DIRECTIONAL_LIGHT_TYPE) { continue; } // Directional lights don't affect fog for now
-
-      // We use the light to the fog (and not vice versa) since the fog can't be inside objects
-      nLightToFogVec.set(point.x, point.y, point.z);
-      nLightToFogVec.sub(light.position);
-      const distanceFromLight = Math.max(VoxelConstants.VOXEL_EPSILON, nLightToFogVec.length());
-      nLightToFogVec.divideScalar(distanceFromLight);
-
-      // Fog will not catch the light if it's behind or inside of an object...
-      const lightMultiplier = this._calculateShadowCasterLightMultiplier(light.position, nLightToFogVec, distanceFromLight);
-      if (lightMultiplier > 0) {
-        const lightEmission = light.emission(point, distanceFromLight).multiplyScalar(lightMultiplier);
-        finalColour.add(lightEmission);
-      }
-    }
-    finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
-
-    return finalColour;
-  }
-
-  calculateLightingSamples(voxelIdxPt, samples, material, receivesShadows=true, factorPerSample=null) {
-    const finalColour = new THREE.Color(0,0,0);
-    const sampleLightContrib = new THREE.Color(0,0,0);
+  calculateLightingSamples(targetRGBA, voxelIdxPt, samples, material, receivesShadows=true, factorPerSample=null) {
+    const sampleLightContribRGBA = new ColourRGBA(0,0,0,0);
+    const materialLightingRGBA = new ColourRGBA(0,0,0,0);
+    const lightEmission = new THREE.Color(0,0,0);
 
     // Go through each light in the scene and raytrace to them...
     const nObjToLightVec = new THREE.Vector3(0,0,0);
@@ -345,14 +365,14 @@ class VTRPScene {
     factorPerSample = factorPerSample || (1.0 / samples.length);
     const lights = Object.values(this.lights);
     
-    for (let i = 0; i < samples.length && (finalColour.r < 1 || finalColour.g < 1 || finalColour.b < 1); i++) {
+    for (let i = 0, numSamples = samples.length; i < numSamples; i++) {
       const {point, normal, uv, falloff} = samples[i];
       if (falloff === 0) { continue; }
 
-      sampleLightContrib.copy(material.emission(uv));
-      sampleLightContrib.multiplyScalar(falloff);
+      material.emission(sampleLightContribRGBA, uv);
+      sampleLightContribRGBA.multiplyScalar(falloff);
 
-      for (let j = 0; j < lights.length && (sampleLightContrib.r < 1 || sampleLightContrib.g < 1 || sampleLightContrib.b < 1); j++) {
+      for (let j = 0, numLights = lights.length; j < numLights; j++) {
         const light = lights[j];
 
         switch (light.type) {
@@ -381,34 +401,68 @@ class VTRPScene {
         const lightMultiplier = receivesShadows ? this._calculateShadowCasterLightMultiplier(point, nObjToLightVec, distanceToLight) : 1.0;
         if (lightMultiplier > 0) {
           // The voxel is not in total shadow, do the lighting
-          const lightEmission = light.emission(point, distanceToLight).multiplyScalar(lightMultiplier*falloff);
-          const materialLightingColour = material.brdf(nObjToLightVec, normal, uv, lightEmission);
-          sampleLightContrib.add(materialLightingColour.multiplyScalar(falloff));
+          light.emission(lightEmission, point, distanceToLight).multiplyScalar(lightMultiplier*falloff);
+          material.brdf(materialLightingRGBA, nObjToLightVec, normal, uv, lightEmission);
+          sampleLightContribRGBA.add(materialLightingRGBA.multiplyScalar(falloff));
+          //materialLightingRGBA.a += falloff;
+          //sampleLightContribRGBA.add(materialLightingRGBA);
+          
         }
       }
-      
-      sampleLightContrib.multiplyScalar(factorPerSample);
-      finalColour.add(sampleLightContrib);
+      //sampleLightContribRGBA.a /= samples.length;
+      sampleLightContribRGBA.multiplyScalar(factorPerSample);
+      targetRGBA.add(sampleLightContribRGBA);
     }
 
-    if (this.ambientLight && (finalColour.r < 1 || finalColour.g < 1 || finalColour.b < 1)) {
+    if (this.ambientLight) {
       // Don't add ambient light more than once to the same voxel!
       const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, this.gridSize);
       if (!(voxelPtId in this._tempVoxelMap)) {
-        sampleLightContrib.set(0,0,0);
+        sampleLightContribRGBA.setRGBA(0,0,0,0);
         for (let i = 0; i < samples.length; i++) {
           const {uv, falloff} = samples[i];
-          sampleLightContrib.add(material.basicBrdfAmbient(uv, this.ambientLight.emission()).multiplyScalar(falloff));
+          this.ambientLight.emission(lightEmission)
+          material.basicBrdfAmbient(materialLightingRGBA, uv, lightEmission).multiplyScalar(falloff);
+          sampleLightContribRGBA.add(materialLightingRGBA);
         }
-        sampleLightContrib.multiplyScalar(1.0 / samples.length);
-        finalColour.add(sampleLightContrib);
+        sampleLightContribRGBA.multiplyScalar(1.0 / samples.length);
+        targetRGBA.add(sampleLightContribRGBA);
 
         this._tempVoxelMap[voxelPtId] = true;
       }
     }
 
-    finalColour.setRGB(clamp(finalColour.r, 0, 1), clamp(finalColour.g, 0, 1), clamp(finalColour.b, 0, 1));
-    return finalColour;
+    return targetRGBA;
+  }
+
+  calculateFogLighting(targetRGBA, point) {
+    if (this.lights.length === 0) { return targetRGBA; }
+
+    const emissionColour = new THREE.Color(0,0,0);
+    const nLightToFogVec = new THREE.Vector3(0,0,0);
+    const lights = Object.values(this.lights);
+
+    for (let j = 0; j < lights.length; j++) {
+      const light = lights[j];
+
+      if (light.type === VTConstants.DIRECTIONAL_LIGHT_TYPE) { continue; } // Directional lights don't affect fog for now
+
+      // We use the light to the fog (and not vice versa) since the fog can't be inside objects
+      nLightToFogVec.set(point.x, point.y, point.z);
+      nLightToFogVec.sub(light.position);
+      const distanceFromLight = Math.max(VoxelConstants.VOXEL_EPSILON, nLightToFogVec.length());
+      nLightToFogVec.divideScalar(distanceFromLight);
+
+      // Fog will not catch the light if it's behind or inside of an object...
+      const lightMultiplier = this._calculateShadowCasterLightMultiplier(light.position, nLightToFogVec, distanceFromLight);
+      targetRGBA.a += lightMultiplier;
+      if (lightMultiplier > 0) {
+        light.emission(emissionColour, point, distanceFromLight);
+        targetRGBA.add(emissionColour);
+      }
+    }
+
+    return targetRGBA;
   }
 
 }

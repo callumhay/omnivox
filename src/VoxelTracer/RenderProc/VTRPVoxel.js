@@ -43,12 +43,10 @@ class VTRPVoxel extends VTRPObject  {
     };
   }
 
-  calculateVoxelColour(voxelIdxPt, scene) {
+  calculateVoxelColour(targetRGBA, voxelIdxPt, scene) {
     // Fast-out if we can't even see this voxel
-    if (!this._material.isVisible() || !scene.voxelBoundingBox.containsPoint(this._position)) { 
-      return new THREE.Color(0,0,0);
-    }
-    return scene.calculateVoxelLighting(voxelIdxPt, this._position, this._material, this.isShadowReceiver());
+    if (!this._material.isVisible() || !scene.voxelBoundingBox.containsPoint(this._position)) { return targetRGBA; }
+    return scene.calculateVoxelLighting(targetRGBA, voxelIdxPt, this._position, this._material, this.isShadowReceiver());
   }
 }
 

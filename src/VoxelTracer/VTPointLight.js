@@ -52,18 +52,20 @@ class VTPointLight extends VTObject {
 
   isShadowCaster() { return false; }
 
-  emission(pos, distance) {
-    return this._colour.clone().multiplyScalar(Math.min(1, this.calculateAttenuation(distance)));
+  emission(targetColour, pos, distance) {
+    targetColour.copy(this._colour)
+    targetColour.multiplyScalar(Math.min(1, this.calculateAttenuation(distance)));
+    return targetColour;
   }
 
   calculateAttenuation(distance) {
     return clamp(1.0 / (1.0 + this._attenuation.quadratic*distance*distance + this._attenuation.linear*distance), 0, 1);
   }
 
-  calculateVoxelColour(voxelPt, scene=null) {
-    if (!this._drawLight) { return new THREE.Color(0,0,0); }
-    const d = this._position.distanceTo(voxelPt);
-    return this.emission(voxelPt, d);
+  calculateVoxelColour(targetRGBA, voxelPt, scene=null) {
+    if (!this._drawLight) { return targetRGBA.setRGBA(0,0,0,0); }
+    targetRGBA.a = 1;
+    return this.emission(targetRGBA, voxelPt, this._position.distanceTo(voxelPt));
   }
 
   intersectsBox(voxelBoundingBox) {

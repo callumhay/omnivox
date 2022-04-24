@@ -25,19 +25,17 @@ class VTRPFog extends VTRPObject {
     };
   }
 
-  _calcVoxelColourWithShape(voxelIdxPt, shape, scene) {
-    const finalColour = new THREE.Color(0,0,0);
+  _calcVoxelColourWithShape(targetRGBA, voxelIdxPt, shape, scene) {
     if (shape.containsPoint(voxelIdxPt)) {
       // Fog captures light in the scene...
-      const fogLighting = scene.calculateFogLighting(voxelIdxPt);
-      finalColour.setRGB(
-        clamp(this._scattering*(fogLighting.r * this._colour.r), 0, 1), 
-        clamp(this._scattering*(fogLighting.g * this._colour.g), 0, 1), 
-        clamp(this._scattering*(fogLighting.b * this._colour.b), 0, 1)
+      scene.calculateFogLighting(targetRGBA, voxelIdxPt);
+      targetRGBA.setRGB(
+        clamp(this._scattering*(targetRGBA.r * this._colour.r), 0, 1), 
+        clamp(this._scattering*(targetRGBA.g * this._colour.g), 0, 1), 
+        clamp(this._scattering*(targetRGBA.b * this._colour.b), 0, 1)
       );
-      
     }
-    return finalColour;
+    return targetRGBA;
   }
 }
 
@@ -63,8 +61,8 @@ export class VTRPFogBox extends VTRPFog {
     return this._boundingBox.getCenter(target); 
   }
 
-  calculateVoxelColour(voxelIdxPt, scene) {
-    return this._calcVoxelColourWithShape(voxelIdxPt, this._boundingBox, scene);
+  calculateVoxelColour(targetRGBA, voxelIdxPt, scene) {
+    return this._calcVoxelColourWithShape(targetRGBA, voxelIdxPt, this._boundingBox, scene);
   }
 }
 
@@ -89,7 +87,7 @@ export class VTRPFogSphere extends VTRPFog {
     return target.copy(this._boundingSphere.center); 
   }
 
-  calculateVoxelColour(voxelIdxPt, scene) {
-    return this._calcVoxelColourWithShape(voxelIdxPt, this._boundingSphere, scene);
+  calculateVoxelColour(targetRGBA, voxelIdxPt, scene) {
+    return this._calcVoxelColourWithShape(targetRGBA, voxelIdxPt, this._boundingSphere, scene);
   }
 }

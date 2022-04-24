@@ -50,7 +50,7 @@ class SimpleScene extends SceneRenderer {
         new THREE.Vector3(this.voxelModel.xSize()/2, this.voxelModel.ySize()/2, this.voxelModel.zSize()/2), sphereRadius, 
         new VTLambertMaterial(
           new THREE.Color(sphereColour.r, sphereColour.g, sphereColour.b),
-          new THREE.Color(sphereEmission.r, sphereEmission.g, sphereEmission.b), 1, null
+          new THREE.Color(sphereEmission.r, sphereEmission.g, sphereEmission.b)
         )
       );
 

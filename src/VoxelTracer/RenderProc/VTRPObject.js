@@ -14,7 +14,7 @@ class VTRPObject {
   isShadowReceiver() { console.error("isShadowReceiver unimplemented abstract method called."); return false; }
 
   calculateShadow(raycaster=null) { console.error("calculateShadow unimplemented abstract method called."); return null; } 
-  calculateVoxelColour(voxelIdxPt, scene) { console.error("calculateVoxelColour unimplemented abstract method called."); return null; }
+  calculateVoxelColour(targetRGBA, voxelIdxPt, scene) { console.error("calculateVoxelColour unimplemented abstract method called."); return null; }
 }
 
 export default VTRPObject;

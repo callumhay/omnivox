@@ -59,8 +59,9 @@ class VTSpotLight extends VTObject {
 
   isShadowCaster() { return false; }
   
-  emission(voxelPos, distance) {
-    return this._colour.clone().multiplyScalar(this.calculateAttenuation(voxelPos, distance));
+  emission(targetColour, voxelPos, distance) {
+    targetColour.copy(this._colour);
+    return targetColour.multiplyScalar(this.calculateAttenuation(voxelPos, distance));
   }
 
   calculateAttenuation(voxelPos, distance) {
@@ -81,9 +82,9 @@ class VTSpotLight extends VTObject {
     return rangeAttMultiplier*spotAttenMultiplier;
   }
 
-  calculateVoxelColour(voxelPt, scene=null) {
-    const d = this._position.distanceTo(voxelPt);
-    return this.emission(voxelPt, d);
+  calculateVoxelColour(targetRGBA, voxelPt, scene) {
+    targetRGBA.a = 1;
+    return this.emission(targetRGBA, voxelPt, this._position.distanceTo(voxelPt));
   }
 
   intersectsBox(voxelBoundingBox) {

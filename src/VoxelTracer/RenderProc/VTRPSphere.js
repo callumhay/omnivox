@@ -60,12 +60,11 @@ class VTRPSphere extends VTRPObject  {
     };
   }
 
-  calculateVoxelColour(voxelIdxPt, scene) {
+  calculateVoxelColour(targetRGBA, voxelIdxPt, scene) {
     const {center, radius} = this._sphere;
-    const finalColour = new THREE.Color(0,0,0);
 
     // Fast-out if we can't even see this sphere
-    if (!this._material.isVisible() || radius <= VoxelConstants.VOXEL_EPSILON) { return finalColour; }
+    if (!this._material.isVisible() || radius <= VoxelConstants.VOXEL_EPSILON) { return targetRGBA; }
     
     const voxelBoundingBox = VoxelGeometryUtils.singleVoxelBoundingBox(voxelIdxPt);
     const voxelCenterPt = new THREE.Vector3();
@@ -77,16 +76,17 @@ class VTRPSphere extends VTRPObject  {
     if (sqDistCenterToVoxel <= VoxelConstants.VOXEL_ERR_UNITS) { 
       // Special case: We illuminate the center voxel as if it were a singluar voxel if it is the only
       // thing being rendered in this case it's an early exit and there are no samples
-      return radius <= VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS ? scene.calculateVoxelLighting(voxelIdxPt, voxelCenterPt, this._material, true) : finalColour;
+      return radius <= VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS ? 
+        scene.calculateVoxelLighting(targetRGBA, voxelIdxPt, voxelCenterPt, this._material, true) : targetRGBA;
     }
 
     const voxelId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, scene.gridSize);
     const sphereSamples = this._preRender(voxelIdxPt, voxelId);
     if (sphereSamples.length > 0) {
-      finalColour.add(scene.calculateLightingSamples(voxelIdxPt, sphereSamples, this._material));
+      scene.calculateLightingSamples(targetRGBA, voxelIdxPt, sphereSamples, this._material);
     }
 
-    return finalColour;
+    return targetRGBA;
   }
 
   _preRender(voxelIdxPt, voxelId) {

@@ -85,20 +85,19 @@ class VTRPBox extends VTRPObject {
     };
   }
 
-  calculateVoxelColour(voxelIdxPt, scene) {
-    const finalColour = new THREE.Color(0,0,0);
+  calculateVoxelColour(targetRGBA, voxelIdxPt, scene) {
     const voxelBoundingBox = VoxelGeometryUtils.singleVoxelBoundingBox(voxelIdxPt);
     const voxelCenterPt = voxelBoundingBox.getCenter(this._tempVec3_0);
 
     // Fast-out if we can't even see this box 
-    if (!this._material.isVisible() || this._boxPlanes.length === 0) { return finalColour; }
+    if (!this._material.isVisible() || this._boxPlanes.length === 0) { return targetRGBA; }
 
     // ... also check whether the voxel point isn't inside this box
     const planeSignedDistances = [];
     for (const plane of this._boxPlanes) {
       const signedDist = plane.distanceToPoint(voxelCenterPt)
-      if (signedDist > VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS) {
-        return finalColour; // Not inside the box
+      if (signedDist > VoxelConstants.VOXEL_EPSILON) {
+        return targetRGBA; // Not inside the box
       }
       planeSignedDistances.push(signedDist);
     }
@@ -125,7 +124,8 @@ class VTRPBox extends VTRPObject {
       }
     }
     if (relevantPtSamples.length > 0) {
-      finalColour.add(scene.calculateLightingSamples(voxelIdxPt, relevantPtSamples, this._material, this.isShadowReceiver()));
+      targetRGBA.a = 1;
+      scene.calculateLightingSamples(targetRGBA, voxelIdxPt, relevantPtSamples, this._material, this.isShadowReceiver());
     }
     */
 
@@ -149,13 +149,13 @@ class VTRPBox extends VTRPObject {
     else {
       for (let i = 0, l = this._boxPlanes.length; i < l; i++) {
         const signedPlaneDistance = planeSignedDistances[i];
-        if (signedPlaneDistance > -SAMPLE_THRESHOLD && signedPlaneDistance < SAMPLE_THRESHOLD) {
+        if (signedPlaneDistance >= -SAMPLE_THRESHOLD) {
           const plane = this._boxPlanes[i];
           const planeDistance = planeDistances[i];
+          const falloff = 1;//planeDistance < VoxelConstants.VOXEL_ERR_UNITS ? 1 : THREE.MathUtils.clamp(1-Math.pow(planeDistance/SAMPLE_THRESHOLD,2),0,1);
           samples.push({
             point: new THREE.Vector3().copy(voxelCenterPt).addScaledVector(plane.normal, planeDistance + VoxelConstants.VOXEL_EPSILON),
-            normal: plane.normal, uv: null, 
-            falloff: planeDistance < VoxelConstants.VOXEL_ERR_UNITS ? 1 : THREE.MathUtils.clamp(1-Math.pow(planeDistance/SAMPLE_THRESHOLD,2),0,1)
+            normal: plane.normal, uv: null, falloff
           });
         }
       }
@@ -163,10 +163,11 @@ class VTRPBox extends VTRPObject {
 
     // Perform lighting for each of the samples with equal factoring per sample
     if (samples.length > 0) {
-      finalColour.add(scene.calculateLightingSamples(voxelIdxPt, samples, this._material, this.isShadowReceiver(), 1));
+      targetRGBA.a = 1;
+      scene.calculateLightingSamples(targetRGBA, voxelIdxPt, samples, this._material, this.isShadowReceiver(), 1);
     }
 
-    return finalColour;
+    return targetRGBA;
   }
 }
 

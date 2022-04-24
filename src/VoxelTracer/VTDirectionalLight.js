@@ -37,12 +37,12 @@ class VTDirectionalLight extends VTObject {
   isShadowCaster() { return false; }
   isShadowReceiver() { return false; }
 
-  emission(pos=null, distance=null) {
+  emission(targetColour, pos, distance) {
     // NOTE: Both position and distance are meaningless for a directional light
-    return this._colour.clone();
+    return targetColour.copy(this._colour);
   }
 
-  getCollidingVoxels(voxelGridBoundingBox=null) { return []; } // Nothing to draw
+  getCollidingVoxels(voxelGridBoundingBox) { return []; } // Nothing to draw
 
 }
 
