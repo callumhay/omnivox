@@ -5,7 +5,7 @@ class VoxelPostProcess {
   willRender() {
     console.error("willRender unimplemented abstract method called.");
   }
-  renderToFramebuffer(framebufferIn, framebufferOut) {
+  renderToFramebuffer(framebuffer) {
     console.error("renderToFramebuffer unimplemented abstract method called.");
   }
   

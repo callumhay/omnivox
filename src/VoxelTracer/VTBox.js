@@ -20,10 +20,11 @@ class VTBox extends VTTransformable {
     super(VTConstants.BOX_TYPE);
 
     this.position.copy(center);
+    this.invMatrixWorld = this.matrixWorld.clone();
 
-    size.multiplyScalar(0.5);
-    this._min = (new THREE.Vector3()).sub(size);
-    this._max = size;
+    this._max = new THREE.Vector3();
+    this._min = new THREE.Vector3();
+    this.setSize(size);
     
     this._material = material;
     this._options  = options;
@@ -31,12 +32,33 @@ class VTBox extends VTTransformable {
     this.makeDirty();
   }
 
+  unDirty() {
+    if (super.unDirty()) {
+      this.invMatrixWorld.copy(this.matrixWorld).invert();
+      return true;
+    }
+    return false;
+  }
+
+  setSize(s) { 
+    this._max.copy(s).multiplyScalar(0.5);
+    this._min.set(0,0,0).sub(this._max);
+    this.makeDirty();
+  }
+  getSize(target) {
+    return target.copy(this._max).sub(this._min);
+  }
+
   get material() { return this._material; }
   setMaterial(m) { this._material = m; this.makeDirty(); }
 
   toJSON() {
-    const {id, drawOrder, type, matrixWorld, _min, _max, _material, _options} = this;
-    return {id, drawOrder, type, min: _min, max: _max, matrixWorld: matrixWorld.toArray(), material: _material, options: _options};
+    const {id, drawOrder, type, matrixWorld, invMatrixWorld, _min, _max, _material, _options} = this;
+    return {
+      id, drawOrder, type, min: _min, max: _max, 
+      matrixWorld: matrixWorld.toArray(), invMatrixWorld: invMatrixWorld.toArray(),
+       material: _material, options: _options
+    };
   }
 
   getCollidingVoxels(voxelBoundingBox) {

@@ -25,7 +25,7 @@ class BoxTestScene extends SceneRenderer {
     
     if (!this._objectsBuilt) {
       const {
-        boxFill, boxCastsShadows, boxReceivesShadows, 
+        boxAlpha, boxFill, boxCastsShadows, boxReceivesShadows, 
         boxTranslation, boxRotation, boxScale,
         ambientLightColour, pointLight1Pos, pointLight1Colour, pointLightsAtten
       } = options;
@@ -35,7 +35,7 @@ class BoxTestScene extends SceneRenderer {
 
       this.box1 = new VTBox(
         new THREE.Vector3(boxTranslation.x,boxTranslation.y,boxTranslation.z), new THREE.Vector3(4,4,4),
-        new VTLambertMaterial(new THREE.Color(1,1,1)), 
+        new VTLambertMaterial(new THREE.Color(1,1,1), new THREE.Color(0,0,0), boxAlpha), 
         {fill: boxFill, castsShadows: boxCastsShadows, receivesShadows: boxReceivesShadows}
       );
       this.box1.setRotationFromEuler(new THREE.Euler(

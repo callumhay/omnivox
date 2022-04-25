@@ -38,6 +38,7 @@ class VTLambertMaterial extends VTMaterial {
 
   albedo(targetRGBA, uv) {
     targetRGBA.copy(this.colour);
+    targetRGBA.a = this.alpha;
     if (uv && this.texture && this.texture.isLoaded()) {
       targetRGBA.multiply(this.texture.sample(uv));
     }

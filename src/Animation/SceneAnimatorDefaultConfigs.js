@@ -47,7 +47,7 @@ const spotAnglesCtrlOpt = {
 };
 
 const simpleSceneDefaultOptions = {
-  sphereRadius: 3,
+  sphereRadius: 4,
   sphereColour: {r:1, g:1, b:1},
   sphereEmission: {r:0.1, g:0.1, b:0.1},
 
@@ -265,6 +265,7 @@ const bouncySceneControlOptions = {
 };
 
 const boxTestSceneDefaultOptions = {
+  boxAlpha: 1,
   boxFill: false,
   boxCastsShadows: true,
   boxReceivesShadows: true,
@@ -277,6 +278,7 @@ const boxTestSceneDefaultOptions = {
   pointLightsAtten: {quadratic:0.008, linear:0},
 };
 const boxTestSceneControlOptions = {
+  boxAlpha: {label: "Box Alpha", min:0, max:1, step:0.01},
   boxFill: {label: "Box Fill?"},
   boxCastsShadows: {label: "Box Casts Shadows?"},
   boxReceivesShadows: {label: "Box Receives Shadows?"},

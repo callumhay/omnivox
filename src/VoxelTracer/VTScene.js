@@ -9,6 +9,9 @@ import VTRenderProc from './RenderProc/VTRenderProc';
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
 import VTConstants from './VTConstants';
 
+const _voxelPt = new THREE.Vector3();
+const _voxelColour = new THREE.Color();
+
 class VTScene {
   constructor(voxelModel) {
     this.voxelModel = voxelModel;
@@ -76,7 +79,7 @@ class VTScene {
   async render() {
     this._renderCount = 0;
     this._updateChildRenderProcsFromScene();
-    for (let i = 0; i < this.childProcesses.length; i++) {
+    for (let i = 0, numChildProcs = this.childProcesses.length; i < numChildProcs; i++) {
       this.childProcesses[i].send({type: VTRenderProc.TO_PROC_RENDER});
     }
 
@@ -97,16 +100,15 @@ class VTScene {
   }
 
   _renderFromChildProcData(renderedVoxels) {
-    if (renderedVoxels && renderedVoxels.length > 0) { 
-      const voxelPt = new THREE.Vector3();
-      const voxelColour = new THREE.Color();
-      for (let i = 0; i < renderedVoxels.length; i++) {
+    const numRenderedVoxels = renderedVoxels ? renderedVoxels.length : 0;
+    if (numRenderedVoxels > 0) { 
+      for (let i = 0; i < numRenderedVoxels; i++) {
         const {pt, colour} = renderedVoxels[i];
 
-        voxelPt.set(pt.x, pt.y, pt.z);
-        voxelColour.setHex(colour);
+        _voxelPt.set(pt.x, pt.y, pt.z);
+        _voxelColour.setHex(colour);
 
-        this.voxelModel.addToVoxelFast(voxelPt, voxelColour);
+        this.voxelModel.addToVoxelFast(_voxelPt, _voxelColour);
       }
     }
     this._renderCount++;
@@ -129,14 +131,14 @@ class VTScene {
     }
     else {
       // N.B., Any lights that are renderables as well are already in the renderables (so we don't need to loop through and add those)
-      for (let i = 0; i < this.renderables.length; i++) {
+      for (let i = 0, numRenderables = this.renderables.length; i < numRenderables; i++) {
         const renderable = this.renderables[i];
         if (renderable.isDirty()) {
           updatedRenderables.push(renderable);
           dirty.push(renderable);
         }
       }
-      for (let i = 0; i < this.lights.length; i++) {
+      for (let i = 0, numLights = this.lights.length; i < numLights; i++) {
         const light = this.lights[i];
         if (light.isDirty()) {
           updatedLights.push(light);
@@ -174,7 +176,7 @@ class VTScene {
 
     // Update all the dirty items so they have the most up-to-date data in them and
     // are ready to be sent to the child render processes
-    for (let i = 0; i < dirty.length; i++) {
+    for (let i = 0, numDirty = dirty.length; i < numDirty; i++) {
       const dirtyObj = dirty[i];
       dirtyObj.unDirty();
     }
@@ -183,7 +185,7 @@ class VTScene {
     const updatedRenderableVoxels = VTScene.getRenderableVoxels(childProcUpdate.renderables, boundingBox);
     const chunkedChildProcData = this._chunkRenderableVoxels(updatedRenderableVoxels);
 
-    for (let i = 0; i < this.childProcesses.length; i++) {
+    for (let i = 0, numChildProcs = this.childProcesses.length; i < numChildProcs; i++) {
       const currChildProc = this.childProcesses[i];
 
       const updateVoxelInfoObj = {reinit: reinitAll, mapping: chunkedChildProcData[i]};
@@ -204,7 +206,7 @@ class VTScene {
   }
 
   killChildProcesses() {
-    for (let i = 0; i < this.childProcesses.length; i++) {
+    for (let i = 0, numChildProcs = this.childProcesses.length; i < numChildProcs; i++) {
       if (!this.childProcesses[i].kill()) {
         console.error("Failed to properly kill child process.");
       }
@@ -270,7 +272,7 @@ class VTScene {
 
   static getRenderableVoxels(visibleRenderables, boundingBox) {
     let renderableVoxels = [];
-    for (let i = 0; i < visibleRenderables.length; i++) {
+    for (let i = 0, numVisRenderables = visibleRenderables.length; i < numVisRenderables; i++) {
       // Get all of the voxels that collide with the renderable object
       const renderable = visibleRenderables[i];
       const voxelPts = renderable.getCollidingVoxels(boundingBox);
@@ -294,7 +296,7 @@ class VTScene {
     const numVoxelsPerProc = Math.ceil(numVoxels / numChildProcs);
 
     const chunkedRenderData = new Array(numChildProcs).fill().map(() => ({}));
-    for (let i = 0; i < renderableVoxels.length; i++) {
+    for (let i = 0, numRenderableVoxels = renderableVoxels.length; i < numRenderableVoxels; i++) {
       const renderableVoxel = renderableVoxels[i];
       const voxelIdx = VoxelGeometryUtils.voxelFlatIdx(renderableVoxel.voxelPt, this.voxelModel.gridSize);
       if (voxelIdx >= 0 && voxelIdx < numVoxels) { 
@@ -312,11 +314,12 @@ class VTScene {
   }
 
   _initChildProcesses() {
+    const numChildProcs = this.childProcesses.length;
     const numVoxels = this.voxelModel.numVoxels();
-    const numVoxelsPerProc = Math.ceil(numVoxels / this.childProcesses.length);
+    const numVoxelsPerProc = Math.ceil(numVoxels / numChildProcs);
 
     // Tell each of the child processes which voxel indices they're responsible for
-    for (let i = 0; i < this.childProcesses.length; i++) {
+    for (let i = 0; i < numChildProcs; i++) {
       const currChildProc = this.childProcesses[i];
       currChildProc.send({
         type: VTRenderProc.TO_PROC_INIT, 

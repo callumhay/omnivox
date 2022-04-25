@@ -34,6 +34,13 @@ class VTPPool {
     this.cache = {};
   }
 
+  preload(num, target, params) {
+    for (let i = 0; i < num; i++) {
+      const preloadedObj = this.get(target, params);
+      this.expire(preloadedObj);
+    }
+  }
+
   get(target, params, uid) {
     let p;
     uid = uid || target.__puid || VTPUid.getId(target);
@@ -49,8 +56,7 @@ class VTPPool {
 
   createOrClone(target, params) {
     this.total++;
-    if (typeof target === "function") { return VTPUtils.classApply(target, params); } // e.g., new target(...args);
-    return target.clone();
+    return VTPUtils.classApply(target, params);
   }
 
   destroy() {

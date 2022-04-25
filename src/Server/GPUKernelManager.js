@@ -281,16 +281,17 @@ class GPUKernelManager {
       return (1.0 / Math.sqrt(this.constants.TWOPI*sqrSigma)) * Math.pow(2.71828, -((1.0*offset*offset)/(2.0*sqrSigma)));
     },  {name: 'gaussian', argumentTypes: {offset: "Float", sqrSigma: "Float"}});
 
-    const gaussBlurArgTypes = {fbTex: "Array3D(3)", sqrSigma: "Float", conserveEnergy: "Boolean"};
-    this.gpu.addFunction(function gaussianBlur(fbTex, sqrSigma, isXYZ, conserveEnergy) {
+    const gaussBlurArgTypes = {fbTex: "Array3D(3)", sqrSigma: "Float", conserveEnergy: "Boolean", alpha: "Float"};
+    this.gpu.addFunction(function gaussianBlur(fbTex, sqrSigma, isXYZ, conserveEnergy, alpha) {
       const x = this.thread.z; const y = this.thread.y; const z = this.thread.x;
-      if (sqrSigma === 0) { return fbTex[x][y][z]; } // Safe out if there's no blur
+      if (sqrSigma === 0 || alpha === 0) { return fbTex[x][y][z]; } // Safe out if there's no blur
 
       // NOTE: Be VERY careful about integer vs. floating point math, be sure to add decimals to any numbers
       // where you want a float result!! Any for loop counter will be an integer.
       const result = [0.0, 0.0, 0.0];
       let sum = 0.0;
       for (let offset = -this.constants.kernelOffsetExtent; offset <= this.constants.kernelOffsetExtent; offset++) {
+        const currAlpha = (offset === 0) ? 1.0 : alpha;
         const gaussCoeff = gaussian(offset, sqrSigma); // Gaussian Distribution
         sum += gaussCoeff;
         const offsetLookup = [
@@ -299,9 +300,9 @@ class GPUKernelManager {
           Math.trunc(clampValue(z + offset*isXYZ[2], 0, this.constants.gridSizeMinus1))
         ];
         const currSample = fbTex[offsetLookup[0]][offsetLookup[1]][offsetLookup[2]];
-        result[0] += currSample[0] * gaussCoeff;
-        result[1] += currSample[1] * gaussCoeff;
-        result[2] += currSample[2] * gaussCoeff;
+        result[0] += currSample[0] * gaussCoeff * currAlpha;
+        result[1] += currSample[1] * gaussCoeff * currAlpha;
+        result[2] += currSample[2] * gaussCoeff * currAlpha;
       }
       const gaussian0 = gaussian(0, sqrSigma);
       return conserveEnergy ? [result[0]/sum, result[1]/sum, result[2]/sum] :
@@ -313,17 +314,17 @@ class GPUKernelManager {
     }, {name: 'gassianBlur'}); 
 
     
-    this.blurXFunc = this.gpu.createKernel(function(fbTex, sqrSigma, conserveEnergy) {
+    this.blurXFunc = this.gpu.createKernel(function(fbTex, sqrSigma, conserveEnergy, alpha) {
       //return [0,1,0];
-      return gaussianBlur(fbTex, sqrSigma, [1.0, 0.0, 0.0], conserveEnergy);
+      return gaussianBlur(fbTex, sqrSigma, [1.0, 0.0, 0.0], conserveEnergy, alpha);
     }, {...gaussianBlurPPSettings, name: "blurXFunc", argumentTypes: gaussBlurArgTypes});
-    this.blurYFunc = this.gpu.createKernel(function(fbTex, sqrSigma, conserveEnergy) {
+    this.blurYFunc = this.gpu.createKernel(function(fbTex, sqrSigma, conserveEnergy, alpha) {
       //return [0,1,0];
-      return gaussianBlur(fbTex, sqrSigma, [0.0, 1.0, 0.0], conserveEnergy);
+      return gaussianBlur(fbTex, sqrSigma, [0.0, 1.0, 0.0], conserveEnergy, alpha);
     }, {...gaussianBlurPPSettings, name: "blurYFunc", argumentTypes: gaussBlurArgTypes});
-    this.blurZFunc = this.gpu.createKernel(function(fbTex, sqrSigma, conserveEnergy) {
+    this.blurZFunc = this.gpu.createKernel(function(fbTex, sqrSigma, conserveEnergy, alpha) {
       //return [0,1,0];
-      return gaussianBlur(fbTex, sqrSigma, [0.0, 0.0, 1.0], conserveEnergy);
+      return gaussianBlur(fbTex, sqrSigma, [0.0, 0.0, 1.0], conserveEnergy, alpha);
     }, {...gaussianBlurPPSettings, name: "blurZFunc", argumentTypes: gaussBlurArgTypes});
 
   }

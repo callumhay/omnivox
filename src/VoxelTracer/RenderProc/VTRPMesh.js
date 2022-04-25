@@ -88,7 +88,7 @@ class VTRPMesh extends VTRPObject {
   calculateShadow(raycaster) {
     return {
       inShadow: this.isShadowCaster() && this.intersectsRay(raycaster),
-      lightReduction: 1.0, // [0,1]: 1 => Completely black out the light if a voxel is in shadow from this object
+      lightReduction: this.material.alpha, // [0,1]: 1 => Completely black out the light if a voxel is in shadow from this object
     };
   }
 
@@ -209,7 +209,6 @@ class VTRPMesh extends VTRPObject {
     const triSamples = this._preRender(voxelIdxPt, voxelId);
     if (triSamples.length > 0) {
       const samples = triSamples.map(triSample => triSample.sample);
-      targetRGBA.a = 1;
       scene.calculateLightingSamples(targetRGBA, voxelIdxPt, samples, this.material);
     }
     

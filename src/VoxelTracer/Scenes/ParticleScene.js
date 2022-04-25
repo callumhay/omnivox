@@ -27,8 +27,9 @@ class ParticleScene extends SceneRenderer {
     super(scene, voxelModel);
     this._objectsBuilt = false;
 
-    this.gaussianBlur = new VoxelGaussianBlurPP(voxelModel);
     this.postProcessPipeline = new VoxelPostProcessPipeline(voxelModel);
+
+    this.gaussianBlur = new VoxelGaussianBlurPP(voxelModel);
     this.postProcessPipeline.addPostProcess(this.gaussianBlur);
 
     this.chromaticAberration = new VoxelChromaticAberrationPP(voxelModel);
@@ -69,8 +70,9 @@ class ParticleScene extends SceneRenderer {
       this.emitter.p.set(emitterPos.x, emitterPos.y, emitterPos.z);
       this.emitter.emit(totalEmitTimes.isInfinity ? Infinity : totalEmitTimes.num);
       
-      this.emitterMgr = new VTPEmitterManager(this.scene);
+      this.emitterMgr = new VTPEmitterManager(this.scene, 20, [VTVoxel]);
       this.emitterMgr.addEmitter(this.emitter);
+
 
       const ambientLightColour = options.ambientLightColour ? options.ambientLightColour : fogDefaultOptions.ambientLightColour;
       this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));

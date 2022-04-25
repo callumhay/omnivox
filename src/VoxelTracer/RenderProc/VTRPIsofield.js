@@ -59,7 +59,7 @@ class VTRPIsofield extends VTObject {
   isShadowReceiver() { return this._options.receivesShadows || false; }
 
   calculateShadow(raycaster) {
-    const accumLightReduction = this._getAccumulatedVoxelRayIntersection(raycaster);
+    const accumLightReduction = this._getAccumulatedVoxelRayIntersection(raycaster) * this._material.alpha;
     return {
       inShadow: this.isShadowCaster() && accumLightReduction > 0,
       lightReduction: accumLightReduction, // [0,1]: 1 => Completely black out the light if a voxel is in shadow from this object

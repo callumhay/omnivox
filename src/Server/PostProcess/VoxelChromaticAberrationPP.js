@@ -24,14 +24,15 @@ class VoxelChromaticAberrationPP extends VoxelPostProcess {
     return intensity !== 0;
   }
 
-  renderToFramebuffer(framebufferIn, framebufferOut) {
+  renderToFramebuffer(framebuffer) {
     const {intensity} = this._config;
     const {gpuKernelMgr} = this.voxelModel;
+    if (!this.willRender()) { return; }
 
-    const currFBTex = framebufferIn.getGPUBuffer();
+    const currFBTex = framebuffer.getGPUBuffer();
     const pingPongFBTex1 = gpuKernelMgr.chromaticAberrationFunc(currFBTex, intensity);
-    if (framebufferIn === framebufferOut) { currFBTex.delete(); }
-    framebufferOut.setBufferTexture(pingPongFBTex1);
+    currFBTex.delete();
+    framebuffer.setBufferTexture(pingPongFBTex1);
   }
 
 }

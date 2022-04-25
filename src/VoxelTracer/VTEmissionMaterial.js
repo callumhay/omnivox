@@ -34,6 +34,7 @@ class VTEmissionMaterial extends VTMaterial {
 
   albedo(targetRGBA, uv) {
     targetRGBA.copy(this.colour);
+    targetRGBA.a = this.alpha;
     if (uv && this.texture && this.texture.isLoaded()) {
       targetRGBA.multiply(this.texture.sample(uv));
     }
@@ -48,7 +49,6 @@ class VTEmissionMaterial extends VTMaterial {
   }
 
   brdfAmbient(targetRGBA, uv, lightColour) {
-    targetRGBA.a = this.alpha;
     this.albedo(targetRGBA, uv);
     targetRGBA.add(lightColour);
     return targetRGBA;

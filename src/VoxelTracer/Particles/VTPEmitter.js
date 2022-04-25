@@ -34,7 +34,6 @@ class VTPEmitter extends VTPParticle {
   }
   removeAllInitializers() { this._initializers.length = 0; }
 
-
   /**
    * Start/Initialize the emitter.
    * @method emit

@@ -1,12 +1,21 @@
-import VTMaterialFactory from "../VTMaterialFactory";
+import VTPParticle from "./VTPParticle";
 import VTPPool from "./VTPPool";
 import VTPUtils from "./VTPUtils";
 
 class VTPEmitterManager {
-  constructor(vtScene) {
+  constructor(vtScene, preloadNum=0, preloadObjTypes=[]) {
     this.scene = vtScene;
-    this.pool = new VTPPool();
+    
     this.emitters = [];
+    this.preloadNum = preloadNum;
+
+    this.pool = new VTPPool();
+
+    this.pool.preload(this.preloadNum, VTPParticle);
+    for (const objType of preloadObjTypes) {
+      if (objType === VTPParticle) { continue; }
+      this.pool.preload(this.preloadNum, objType);
+    }
   }
 
   addEmitter(emitter) {

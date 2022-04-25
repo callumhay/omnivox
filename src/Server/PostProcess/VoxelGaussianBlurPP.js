@@ -4,6 +4,7 @@ export const defaultGaussianBlurConfig = {
   kernelSize: 3,          // Size of the blur kernel
   sqrSigma: 0.2,          // Standard deviation of the kernel (gaussian distribution's sigma squared)
   conserveEnergy: false,  // Whether we normalize the resulting kernel values (true if normalized)
+  alpha: 1,               // How much the blur is visible (multiplies all but the center of the kernel)
 };
 
 class VoxelGaussianBlurPP extends VoxelPostProcess {
@@ -21,22 +22,24 @@ class VoxelGaussianBlurPP extends VoxelPostProcess {
   }
 
   willRender() {
-    const {sqrSigma} = this._config;
-    return (sqrSigma > 0);
+    const {sqrSigma, alpha} = this._config;
+    return (sqrSigma > 0 && alpha > 0);
   }
 
-  renderToFramebuffer(framebufferIn, framebufferOut) {
-    const {sqrSigma, conserveEnergy} = this._config;
+  renderToFramebuffer(framebuffer) {
+    const {sqrSigma, conserveEnergy, alpha} = this._config;
     const {gpuKernelMgr} = this.voxelModel;
+
+    if (!this.willRender()) { return; }
     
-    const currFBTex = framebufferIn.getGPUBuffer();
-    const pingPongFBTex1 = gpuKernelMgr.blurXFunc(currFBTex, sqrSigma, conserveEnergy);
-    if (framebufferIn === framebufferOut) { currFBTex.delete(); }
-    const pingPongFBTex2 = gpuKernelMgr.blurYFunc(pingPongFBTex1, sqrSigma, conserveEnergy);
+    const currFBTex = framebuffer.getGPUBuffer();
+    const pingPongFBTex1 = gpuKernelMgr.blurXFunc(currFBTex, sqrSigma, conserveEnergy, alpha);
+    currFBTex.delete();
+    const pingPongFBTex2 = gpuKernelMgr.blurYFunc(pingPongFBTex1, sqrSigma, conserveEnergy, alpha);
     pingPongFBTex1.delete();
-    const pingPongFBTex3 = gpuKernelMgr.blurZFunc(pingPongFBTex2, sqrSigma, conserveEnergy);
+    const pingPongFBTex3 = gpuKernelMgr.blurZFunc(pingPongFBTex2, sqrSigma, conserveEnergy, alpha);
     pingPongFBTex2.delete();
-    framebufferOut.setBufferTexture(pingPongFBTex3);
+    framebuffer.setBufferTexture(pingPongFBTex3);
   }
 }
 
