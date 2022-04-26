@@ -13,6 +13,19 @@ import VTRPObject from './VTRPObject';
 const sigma = VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS / 10.0;
 const valueAtZero = (1.0 / SQRT2PI*sigma);
 
+// Temporary variables for use when calculating cached/memoized samples
+const _tempBox = new THREE.Box3();
+const _closestPt = new THREE.Vector3();
+const _voxelCenterPt = new THREE.Vector3();
+const _baryCoord = new THREE.Vector3();
+const _n0 = new THREE.Vector3();
+const _n1 = new THREE.Vector3();
+const _n2 = new THREE.Vector3();
+const _uv0 = new THREE.Vector2();
+const _uv1 = new THREE.Vector2();
+const _uv2 = new THREE.Vector2();
+const _tempVec3 = new THREE.Vector3();
+
 // Add the extension functions for calculating bounding volumes for THREE.Mesh/THREE.Geometry
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
@@ -40,18 +53,6 @@ class VTRPMesh extends VTRPObject {
     
     this.material = material;
 
-    // Temporary variables for use when calculating cached/memoized samples
-    this._closestPt     = new THREE.Vector3(0,0,0);
-    this._voxelCenterPt = new THREE.Vector3(0,0,0);
-    this._baryCoord     = new THREE.Vector3(0,0,0);
-    this._n0  = new THREE.Vector3(0,0,0);
-    this._n1  = new THREE.Vector3(0,0,0);
-    this._n2  = new THREE.Vector3(0,0,0);
-    this._uv0 = new THREE.Vector2(0,0);
-    this._uv1 = new THREE.Vector2(0,0);
-    this._uv2 = new THREE.Vector2(0,0);
-    this._tempVec3 = new THREE.Vector3();
-
     // Memoization for voxel collisions and sampling
     this.voxelIdxToTriSamples = {};
   }
@@ -76,12 +77,6 @@ class VTRPMesh extends VTRPObject {
     return result;
   }
 
-  dispose() {
-    this.geometry.disposeBoundsTree();
-    this.geometry.dispose();
-    this.material.dispose();
-  }
-
   isShadowCaster() { return true; }
   isShadowReceiver() { return true; }
 
@@ -102,8 +97,8 @@ class VTRPMesh extends VTRPObject {
     }
     else if (this.threeMesh.geometry.boundsTree) {
       // We need to build a set of new triangle samples for the given voxel
-      const voxelBoundingBox = VoxelGeometryUtils.singleVoxelBoundingBox(voxelIdxPt);
-      voxelBoundingBox.getCenter(this._voxelCenterPt);
+      const voxelBoundingBox = VoxelGeometryUtils.singleVoxelBoundingBox(_tempBox, voxelIdxPt);
+      voxelBoundingBox.getCenter(_voxelCenterPt);
 
       // Start by finding all triangles in this mesh that may intersect with the given voxel
       triSamples = [];
@@ -121,14 +116,14 @@ class VTRPMesh extends VTRPObject {
           worldSpaceTri.b.applyMatrix4(matrixWorld);
           worldSpaceTri.c.applyMatrix4(matrixWorld);
   
-          worldSpaceTri.closestPointToPoint(this._voxelCenterPt, this._closestPt);
+          worldSpaceTri.closestPointToPoint(_voxelCenterPt, _closestPt);
   
           // Is the closest point even inside the voxel?
-          if (voxelBoundingBox.containsPoint(this._closestPt)) {
-            this._tempVec3.copy(this._closestPt);
-            const sqrDist = this._tempVec3.sub(this._voxelCenterPt).lengthSq();
+          if (voxelBoundingBox.containsPoint(_closestPt)) {
+            _tempVec3.copy(_closestPt);
+            const sqrDist = _tempVec3.sub(_voxelCenterPt).lengthSq();
   
-            triSamples.push(new VTRPTriSample(worldSpaceTri, [a, b, c], sqrDist, this._closestPt.clone()));
+            triSamples.push(new VTRPTriSample(worldSpaceTri, [a, b, c], sqrDist, _closestPt.clone()));
           }
   
           return false; // We return false here to make sure we get the exhaustive list of all intersected triangles
@@ -141,28 +136,28 @@ class VTRPMesh extends VTRPObject {
         const uvAttr     = this.geometry.getAttribute('uv');
   
         const calculateNormalBarycentric = (target, i0, i1, i2, baryCoord) => {
-          this._n0.set(normalAttr.getX(i0), normalAttr.getY(i0), normalAttr.getZ(i0));
-          this._n1.set(normalAttr.getX(i1), normalAttr.getY(i1), normalAttr.getZ(i1));
-          this._n2.set(normalAttr.getX(i2), normalAttr.getY(i2), normalAttr.getZ(i2));
-          this._n0.multiplyScalar(baryCoord.x);
-          this._n1.multiplyScalar(baryCoord.y);
-          this._n2.multiplyScalar(baryCoord.z);
-          this._n0.add(this._n1.add(this._n2));
-          this._n0.normalize();
-          this._n0.transformDirection(this.threeMesh.matrixWorld);
+          _n0.set(normalAttr.getX(i0), normalAttr.getY(i0), normalAttr.getZ(i0));
+          _n1.set(normalAttr.getX(i1), normalAttr.getY(i1), normalAttr.getZ(i1));
+          _n2.set(normalAttr.getX(i2), normalAttr.getY(i2), normalAttr.getZ(i2));
+          _n0.multiplyScalar(baryCoord.x);
+          _n1.multiplyScalar(baryCoord.y);
+          _n2.multiplyScalar(baryCoord.z);
+          _n0.add(_n1.add(_n2));
+          _n0.normalize();
+          _n0.transformDirection(this.threeMesh.matrixWorld);
   
-          target.copy(this._n0);
+          target.copy(_n0);
         };
         const calculateUVBarycentric = (target, i0, i1, i2, baryCoord) => {
-          this._uv0.set(uvAttr.getX(i0), uvAttr.getY(i0));
-          this._uv1.set(uvAttr.getX(i1), uvAttr.getY(i1));
-          this._uv2.set(uvAttr.getX(i2), uvAttr.getY(i2));
-          this._uv0.multiplyScalar(baryCoord.x);
-          this._uv1.multiplyScalar(baryCoord.y);
-          this._uv2.multiplyScalar(baryCoord.z);
-          this._uv0.add(this._uv1.add(this._uv2));
+          _uv0.set(uvAttr.getX(i0), uvAttr.getY(i0));
+          _uv1.set(uvAttr.getX(i1), uvAttr.getY(i1));
+          _uv2.set(uvAttr.getX(i2), uvAttr.getY(i2));
+          _uv0.multiplyScalar(baryCoord.x);
+          _uv1.multiplyScalar(baryCoord.y);
+          _uv2.multiplyScalar(baryCoord.z);
+          _uv0.add(_uv1.add(_uv2));
   
-          target.copy(this._uv0);
+          target.copy(_uv0);
         };
   
         for (let i = 0; i < triSamples.length; i++) {
@@ -174,18 +169,18 @@ class VTRPMesh extends VTRPObject {
           const indices = vtTri.indices;
           const sample = vtTri.sample;
   
-          triangle.getBarycoord(worldSpaceClosestPt, this._baryCoord);
+          triangle.getBarycoord(worldSpaceClosestPt, _baryCoord);
           const i0 = indexAttr.getX(indices[0]);
           const i1 = indexAttr.getX(indices[1]);
           const i2 = indexAttr.getX(indices[2]);
   
-          calculateNormalBarycentric(sample.normal, i0, i1, i2, this._baryCoord);
-          calculateUVBarycentric(sample.uv, i0, i1, i2, this._baryCoord);
+          calculateNormalBarycentric(sample.normal, i0, i1, i2, _baryCoord);
+          calculateUVBarycentric(sample.uv, i0, i1, i2, _baryCoord);
   
           // Is the voxel sample point (i.e., the center) inside or outside the triangle?
-          this._tempVec3.copy(sample.point);
-          this._tempVec3.sub(this._voxelCenterPt).normalize();
-          const toTriangleDotNorm = this._tempVec3.dot(sample.normal);
+          _tempVec3.copy(sample.point);
+          _tempVec3.sub(_voxelCenterPt).normalize();
+          const toTriangleDotNorm = _tempVec3.dot(sample.normal);
   
           // If the dot product was positive then the voxel sample point is "inside" the mesh, 
           // otherwise it's outside - in this case we use a gaussian falloff to dim the voxel.

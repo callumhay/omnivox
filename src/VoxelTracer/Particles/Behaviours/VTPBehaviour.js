@@ -1,19 +1,19 @@
-import VTPUtils from "../VTPUtils";
+import InitUtils from "../../../InitUtils";
 import VTPEase from "../VTPEase";
 
 // Abstract base class for all particle behaviours
 class VTPBehaviour {
   constructor(life, easing) {
-    this.life = VTPUtils.initValue(life, Infinity);
-    this.easing = VTPUtils.initValue(easing, VTPEase.easeLinear);
+    this.life = InitUtils.initValue(life, Infinity);
+    this.easing = InitUtils.initValue(easing, VTPEase.easeLinear);
     this.age = 0;
     this.energy = 1;
     this.dead = false;
   }
 
   reset(life, easing) {
-    this.life = VTPUtils.initValue(life, Infinity);
-    this.easing = VTPUtils.initValue(easing, VTPEase.easeLinear);
+    this.life = InitUtils.initValue(life, Infinity);
+    this.easing = InitUtils.initValue(easing, VTPEase.easeLinear);
   }
 
   initialize(particle) {}

@@ -18,6 +18,7 @@ const nZ = new THREE.Vector3(0,0,1);
 const _tempVec3_0 = new THREE.Vector3();
 const _tempVec3_1 = new THREE.Vector3();
 const _tempRay = new THREE.Ray();
+const _tempNormMatrix = new THREE.Matrix3();
 
 class VTRPBox extends VTRPObject {
   constructor(minPt, maxPt, matrixWorld, invMatrixWorld, material, options) {
@@ -32,29 +33,51 @@ class VTRPBox extends VTRPObject {
     this._options  = options;
 
     // Build the wall planes that make up the sides of this box in worldspace
-    this._boxPlanes = [];
-    if (!this._box.isEmpty()) {
-      const {min, max} = this._box;
-      this._boxPlanes.push((new THREE.Plane()).setFromCoplanarPoints(min, _tempVec3_0.copy(min).add(nY), _tempVec3_1.copy(min).add(nX)));
-      this._boxPlanes.push((new THREE.Plane()).setFromCoplanarPoints(max, _tempVec3_0.copy(max).sub(nX), _tempVec3_1.copy(max).sub(nY)));
-      this._boxPlanes.push((new THREE.Plane()).setFromCoplanarPoints(min, _tempVec3_0.copy(min).add(nX), _tempVec3_1.copy(min).add(nZ)));
-      this._boxPlanes.push((new THREE.Plane()).setFromCoplanarPoints(max, _tempVec3_0.copy(max).sub(nZ), _tempVec3_1.copy(max).sub(nX)));
-      this._boxPlanes.push((new THREE.Plane()).setFromCoplanarPoints(min, _tempVec3_0.copy(min).add(nZ), _tempVec3_1.copy(min).add(nY)));
-      this._boxPlanes.push((new THREE.Plane()).setFromCoplanarPoints(max, _tempVec3_0.copy(max).sub(nY), _tempVec3_1.copy(max).sub(nZ)));
+    const NUM_PLANES = 6;
+    this._boxPlanes = new Array(NUM_PLANES).fill(null);
+    this._interiorBoxPlanes = new Array(NUM_PLANES).fill(null);
+    for (let i = 0; i < NUM_PLANES; i++) {
+      this._boxPlanes[i] = new THREE.Plane();
+      this._interiorBoxPlanes[i] = new THREE.Plane();
     }
 
-    const normalMatrix = (new THREE.Matrix3()).getNormalMatrix(this._matrixWorld)
+    this.reinitPlanes(); // TODO: Remove this.
+  }
+
+  reinitPlanes() {
+    const {min, max} = this._box;
+    this._boxPlanes[0].setFromCoplanarPoints(min, _tempVec3_0.copy(min).add(nY), _tempVec3_1.copy(min).add(nX));
+    this._boxPlanes[1].setFromCoplanarPoints(max, _tempVec3_0.copy(max).sub(nX), _tempVec3_1.copy(max).sub(nY));
+    this._boxPlanes[2].setFromCoplanarPoints(min, _tempVec3_0.copy(min).add(nX), _tempVec3_1.copy(min).add(nZ));
+    this._boxPlanes[3].setFromCoplanarPoints(max, _tempVec3_0.copy(max).sub(nZ), _tempVec3_1.copy(max).sub(nX));
+    this._boxPlanes[4].setFromCoplanarPoints(min, _tempVec3_0.copy(min).add(nZ), _tempVec3_1.copy(min).add(nY));
+    this._boxPlanes[5].setFromCoplanarPoints(max, _tempVec3_0.copy(max).sub(nY), _tempVec3_1.copy(max).sub(nZ));
+
+    const normalMatrix = _tempNormMatrix.getNormalMatrix(this._matrixWorld)
     for (const plane of this._boxPlanes) { plane.applyMatrix4(this._matrixWorld, normalMatrix); }
 
     if (!this.isFilled()) {
-      this._interiorBoxPlanes = this._boxPlanes.map(plane => {
-        _tempVec3_0.copy(plane.normal).negate();
-        return plane.clone().translate(_tempVec3_0);
-      });
+      for (let i = 0, numPlanes = this._boxPlanes.length; i < numPlanes; i++) {
+        const outerBoxPlane = this._boxPlanes[i];
+        const innerBoxPlane = this._interiorBoxPlanes[i];
+        innerBoxPlane.copy(outerBoxPlane);
+        _tempVec3_0.copy(outerBoxPlane.normal).negate();
+        innerBoxPlane.translate(_tempVec3_0);
+      }
     }
   }
 
-  dispose() { this._material.dispose(); }
+  fromJSON(json, pool) {
+    const {id, drawOrder, matrixWorld, invMatrixWorld, min, max, material, options} = json;
+    this.id = id;
+    this.drawOrder = drawOrder;
+    this.matrixWorld.fromArray(matrixWorld);
+    this.invMatrixWorld.fromArray(invMatrixWorld);
+    this._box.set(min, max);
+    this._options = options;
+    this._material = VTMaterialFactory.buildFromPool(material, pool);
+    this.reinitPlanes();
+  }
 
   static build(jsonData) {
     const {id, drawOrder, matrixWorld, invMatrixWorld, min, max, material, options} = jsonData;
@@ -89,11 +112,10 @@ class VTRPBox extends VTRPObject {
   }
 
   calculateVoxelColour(targetRGBA, voxelIdxPt, scene) {
-    const voxelBoundingBox = VoxelGeometryUtils.singleVoxelBoundingBox(voxelIdxPt);
-    const voxelCenterPt = voxelBoundingBox.getCenter(_tempVec3_0);
+    const voxelCenterPt = VoxelGeometryUtils.voxelCenterPt(_tempVec3_0, voxelIdxPt);
 
     // Fast-out if we can't even see this box 
-    if (!this._material.isVisible() || this._boxPlanes.length === 0) { return targetRGBA; }
+    if (!this._material.isVisible() || this._box.isEmpty()) { return targetRGBA; }
 
     // ... also check whether the voxel point isn't inside this box
     const planeSignedDistances = [];

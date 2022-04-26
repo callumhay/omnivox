@@ -13,8 +13,6 @@ class VTDirectionalLight extends VTObject {
     this.makeDirty();
   }
 
-  dispose() {}
-
   static build(jsonData) {
     const {id, _dir, _colour} = jsonData;
     const colour = (new THREE.Color()).setHex(_colour);

@@ -11,6 +11,8 @@ const defaultAttenuation = {
   linear:0.1, 
 };
 
+const _tempVec3 = new THREE.Vector3();
+
 class VTPointLight extends VTObject {
   constructor(position, colour, attenuation=defaultAttenuation, drawLight=true) {
     super(VTConstants.POINT_LIGHT_TYPE);
@@ -21,8 +23,6 @@ class VTPointLight extends VTObject {
     this._drawLight = drawLight;
     this.makeDirty();
   }
-
-  dispose() {}
 
   static build(jsonData) {
     const {id, _position, _colour, _attenuation, _drawLight} = jsonData;
@@ -48,8 +48,6 @@ class VTPointLight extends VTObject {
   setDrawLight(drawLight) { this._drawLight = drawLight; this.makeDirty(); }
   get drawLight() { return this._drawLight; }
 
-  dispose() {}
-
   isShadowCaster() { return false; }
 
   emission(targetColour, pos, distance) {
@@ -62,10 +60,11 @@ class VTPointLight extends VTObject {
     return clamp(1.0 / (1.0 + this._attenuation.quadratic*distance*distance + this._attenuation.linear*distance), 0, 1);
   }
 
-  calculateVoxelColour(targetRGBA, voxelPt, scene=null) {
+  calculateVoxelColour(targetRGBA, voxelIdxPt, scene=null) {
     if (!this._drawLight) { return targetRGBA.setRGBA(0,0,0,0); }
+    const voxelCenterPt = VoxelGeometryUtils.voxelCenterPt(_tempVec3, voxelIdxPt);
     targetRGBA.a = 1;
-    return this.emission(targetRGBA, voxelPt, this._position.distanceTo(voxelPt));
+    return this.emission(targetRGBA, voxelCenterPt, this._position.distanceTo(voxelCenterPt));
   }
 
   intersectsBox(voxelBoundingBox) {

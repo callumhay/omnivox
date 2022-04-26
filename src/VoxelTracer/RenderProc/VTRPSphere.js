@@ -13,6 +13,9 @@ import VTRPObject from './VTRPObject';
 const sigma = (2*VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS) / 10.0;
 const valueAtZero = (1.0 / (SQRT2PI*sigma));
 
+const _tempBox = new THREE.Box3();
+const _tempVec3 = new THREE.Vector3();
+
 class VTRPSphere extends VTRPObject  {
 
   constructor(center, radius, material, options) {
@@ -20,8 +23,6 @@ class VTRPSphere extends VTRPObject  {
     this._sphere = new THREE.Sphere(center, radius);
     this._material = material;
     this._options = options;
-
-    this._tempVec3 = new THREE.Vector3();
 
     // Calculate and memoize info for performing voxel sampling during rendering:
     const samplesPerVoxel = options.samplesPerVoxel || 3;
@@ -41,14 +42,12 @@ class VTRPSphere extends VTRPObject  {
     return result;
   }
 
-  dispose() { this._material.dispose(); }
-
   isShadowCaster() { return this._options.castsShadows || false; }
   isShadowReceiver() { return this._options.receivesShadows || false; }
 
   intersectsRay(raycaster) {
     this._sphere.radius -= VoxelConstants.VOXEL_EPSILON;
-    const result = raycaster.ray.intersectSphere(this._sphere, this._tempVec3) !== null;
+    const result = raycaster.ray.intersectSphere(this._sphere, _tempVec3) !== null;
     this._sphere.radius += VoxelConstants.VOXEL_EPSILON;
     return result;
   }
@@ -66,10 +65,7 @@ class VTRPSphere extends VTRPObject  {
     // Fast-out if we can't even see this sphere
     if (!this._material.isVisible() || radius <= VoxelConstants.VOXEL_EPSILON) { return targetRGBA; }
     
-    const voxelBoundingBox = VoxelGeometryUtils.singleVoxelBoundingBox(voxelIdxPt);
-    const voxelCenterPt = new THREE.Vector3();
-    voxelBoundingBox.getCenter(voxelCenterPt);
-
+    const voxelCenterPt = VoxelGeometryUtils.voxelCenterPt(_tempVec3, voxelIdxPt);
     const centerToVoxelVec = voxelCenterPt.clone();
     centerToVoxelVec.sub(center);
     const sqDistCenterToVoxel = centerToVoxelVec.lengthSq();
@@ -100,7 +96,8 @@ class VTRPSphere extends VTRPObject  {
 
       const {center, radius} = this._sphere;
       const sqRadius = radius*radius;
-      const voxelBoundingBox = VoxelGeometryUtils.singleVoxelBoundingBox(voxelIdxPt);
+      
+      const voxelBoundingBox = VoxelGeometryUtils.singleVoxelBoundingBox(_tempBox, voxelIdxPt);
       const voxelCenterPt = new THREE.Vector3();
       voxelBoundingBox.getCenter(voxelCenterPt);
 

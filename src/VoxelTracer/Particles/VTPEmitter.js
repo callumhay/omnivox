@@ -1,3 +1,4 @@
+import InitUtils from "../../InitUtils";
 import {VTPInitializer} from "./Initializers/VTPInitializers";
 import VTPParticle from "./VTPParticle";
 import VTPRate from "./VTPRate";
@@ -42,7 +43,7 @@ class VTPEmitter extends VTPParticle {
    */
   emit(totalEmitTimes, life) {
     this.currentEmitTime = 0;
-    this.totalEmitTimes = VTPUtils.initValue(totalEmitTimes, Infinity);
+    this.totalEmitTimes = InitUtils.initValue(totalEmitTimes, Infinity);
 
     if (life === true || life === 'life' || life === 'destroy') {
       this.life = totalEmitTimes == EMIT_ONCE ? 1 : this.totalEmitTimes;

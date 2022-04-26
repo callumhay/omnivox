@@ -1,6 +1,6 @@
 
+import InitUtils from '../../InitUtils';
 import VTPSpan from './VTPSpan';
-import VTPUtils from './VTPUtils';
 
 /**
   * The number of particles per second emission (a [particle]/b [s]);
@@ -10,8 +10,8 @@ import VTPUtils from './VTPUtils';
   */
 class VTPRate {
   constructor(numPan, timePan) {
-    this.numPan  = VTPSpan.createSpan(VTPUtils.initValue(numPan, 1));
-    this.timePan = VTPSpan.createSpan(VTPUtils.initValue(timePan, 1));
+    this.numPan  = VTPSpan.createSpan(InitUtils.initValue(numPan, 1));
+    this.timePan = VTPSpan.createSpan(InitUtils.initValue(timePan, 1));
 
     this.startTime = 0;
     this.nextTime = 0;

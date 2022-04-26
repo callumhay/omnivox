@@ -2,7 +2,10 @@ import * as THREE from 'three';
 
 import VoxelConstants from '../../VoxelConstants';
 import VoxelGeometryUtils from '../../VoxelGeometryUtils';
+import ColourRGBA from '../../ColourRGBA';
 
+import VTDirectionalLight from '../VTDirectionalLight';
+import VTConstants from '../VTConstants';
 import VTAmbientLight from '../VTAmbientLight';
 import VTPointLight from '../VTPointLight';
 import VTSpotLight from '../VTSpotLight';
@@ -13,12 +16,10 @@ import VTRPSphere from './VTRPSphere';
 import {VTRPFogBox, VTRPFogSphere} from './VTRPFog';
 import VTRPVoxel from './VTRPVoxel';
 import VTRPIsofield from './VTRPIsofield';
-import VTDirectionalLight from '../VTDirectionalLight';
 import VTRPBox from './VTRPBox';
-import VTConstants from '../VTConstants';
-import ColourRGBA from '../../ColourRGBA';
 
-const _currVoxelPt = new THREE.Vector3();
+
+const _currVoxelIdxPt = new THREE.Vector3();
 const _currVoxelColourRGBA = new ColourRGBA();
 
 const _lightEmission = new THREE.Color(0,0,0);
@@ -32,13 +33,6 @@ const _nVoxelToLightVec = new THREE.Vector3();
 class VTRPScene {
   constructor() {
     this.gridSize = 0;
-    this.clear();
-  }
-
-  dispose() {
-    Object.values(this.renderables).forEach(renderable => {
-      renderable.dispose();
-    });
     this.clear();
   }
 
@@ -58,25 +52,25 @@ class VTRPScene {
     const voxelDrawOrderMap = {};
     this._tempVoxelMap = {}; // Used to keep track of which voxels have already been ambient-lit
     
-
     for (const [id, voxelPts] of Object.entries(renderableToVoxelMapping)) {
       const renderable = this.getRenderable(id);
       for (let i = 0; i < voxelPts.length; i++) {
 
         const {x,y,z} = voxelPts[i];
-        _currVoxelPt.set(x,y,z);
+        _currVoxelIdxPt.set(x,y,z);
         _currVoxelColourRGBA.setRGBA(0,0,0,0);
 
-        renderable.calculateVoxelColour(_currVoxelColourRGBA, _currVoxelPt, this);
+        renderable.calculateVoxelColour(_currVoxelColourRGBA, _currVoxelIdxPt, this);
+
         if (_currVoxelColourRGBA.a <= 0) { continue; } // Fast-out if we can't see this voxel
         _currVoxelColourRGBA.a = THREE.MathUtils.clamp(_currVoxelColourRGBA.a, 0, 1); // Clamp alpha to [0,1] before blending!
 
-        const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(_currVoxelPt, this.gridSize);
+        const voxelPtId = VoxelGeometryUtils.voxelFlatIdx(_currVoxelIdxPt, this.gridSize);
         if (!(voxelPtId in voxelDrawOrderMap)) {
           voxelDrawOrderMap[voxelPtId] = {
             drawOrder: renderable.drawOrder, 
             colourRGBA: _currVoxelColourRGBA.clone(), 
-            point: _currVoxelPt.clone()
+            point: _currVoxelIdxPt.clone()
           };
         }
         else {
@@ -142,7 +136,7 @@ class VTRPScene {
     const {removedIds, reinit, ambientLight, renderables, lights} = sceneData;
 
     if (reinit) {
-      this.dispose();
+      this.clear();
     }
     else if (removedIds) {
       for (let i = 0; i < removedIds.length; i++) {
@@ -172,18 +166,10 @@ class VTRPScene {
       }
     }
 
-    Object.entries(updatedMap).forEach(entry => {
+    for (const entry of Object.entries(updatedMap)) {
       const [id, obj] = entry;
 
-      if (id in this.renderables) {
-        this.renderables[id].dispose();
-      }
-      else if (id in this.lights) {
-        this.lights[id].dispose();
-      }
-
       switch (obj.type) {
-
         case VTConstants.POINT_LIGHT_TYPE:
         case VTConstants.SPOT_LIGHT_TYPE:
           this.renderables[id] = obj;
@@ -201,14 +187,12 @@ class VTRPScene {
           }
           break;
       }
-    });
+    }
   }
 
   _updateRenderable(renderableData, updatedMap) {
     const {id, type} = renderableData;
-    if (id in updatedMap) {
-      return;
-    }
+    if (id in updatedMap) { return; }
 
     let buildFunc = null;
     switch (type) {

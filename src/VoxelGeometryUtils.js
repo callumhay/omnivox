@@ -12,15 +12,16 @@ class VoxelGeometryUtils {
     return new THREE.Box3(new THREE.Vector3(0,0,0), new THREE.Vector3(gridSizeMinus1,gridSizeMinus1,gridSizeMinus1));
   }
 
-  static singleVoxelBoundingBox(voxelPt) {
+  static singleVoxelBoundingBox(targetBox, voxelPt) {
     const adjustedX = Math.floor(voxelPt.x);
     const adjustedY = Math.floor(voxelPt.y);
     const adjustedZ = Math.floor(voxelPt.z);
-
-    return new THREE.Box3(
-      new THREE.Vector3(adjustedX, adjustedY, adjustedZ), 
-      new THREE.Vector3(adjustedX + VoxelConstants.VOXEL_UNIT_SIZE, adjustedY + VoxelConstants.VOXEL_UNIT_SIZE, adjustedZ + VoxelConstants.VOXEL_UNIT_SIZE)
-    );
+    targetBox.min.set(adjustedX, adjustedY, adjustedZ);
+    targetBox.max.set(adjustedX + VoxelConstants.VOXEL_UNIT_SIZE, adjustedY + VoxelConstants.VOXEL_UNIT_SIZE, adjustedZ + VoxelConstants.VOXEL_UNIT_SIZE);
+    return targetBox;
+  }
+  static voxelCenterPt(targetPt, voxelIdxPt) {
+    return targetPt.copy(voxelIdxPt).floor().addScalar(VoxelConstants.VOXEL_HALF_UNIT_SIZE);
   }
 
   static voxelFlatIdx(voxelPt, gridSize) {

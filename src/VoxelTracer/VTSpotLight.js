@@ -8,6 +8,8 @@ import VoxelConstants from '../VoxelConstants';
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
 import {clamp} from '../MathUtils';
 
+const _tempVec3 = new THREE.Vector3();
+
 class VTSpotLight extends VTObject {
   // NOTE: Provided angles must be in radians.
   constructor(position, direction, colour, innerConeAngle, outerConeAngle, rangeAtten) {
@@ -23,8 +25,6 @@ class VTSpotLight extends VTObject {
 
     this.makeDirty();
   }
-
-  dispose() {}
 
   static build(jsonData) {
     const {id, _position, _direction, _colour, _innerAngle, _outerAngle, _rangeAtten} = jsonData;
@@ -82,9 +82,10 @@ class VTSpotLight extends VTObject {
     return rangeAttMultiplier*spotAttenMultiplier;
   }
 
-  calculateVoxelColour(targetRGBA, voxelPt, scene) {
+  calculateVoxelColour(targetRGBA, voxelIdxPt, scene) {
     targetRGBA.a = 1;
-    return this.emission(targetRGBA, voxelPt, this._position.distanceTo(voxelPt));
+    const voxelCenterPt = VoxelGeometryUtils.voxelCenterPt(_tempVec3, voxelIdxPt);
+    return this.emission(targetRGBA, voxelCenterPt, this._position.distanceTo(voxelCenterPt));
   }
 
   intersectsBox(voxelBoundingBox) {
@@ -101,7 +102,7 @@ class VTSpotLight extends VTObject {
     return new THREE.Sphere(this._position.clone(), 0.5);
   }
 
-  getCollidingVoxels(voxelGridBoundingBox=null) {
+  getCollidingVoxels(voxelGridBoundingBox) {
     // Just return the nearest voxel to this light
     return [VoxelGeometryUtils.closestVoxelIdxPt(this._position)];
   }

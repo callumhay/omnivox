@@ -13,8 +13,6 @@ class VTRPFog extends VTRPObject {
     this._scattering = options.scattering ? options.scattering : fogDefaultOptions.scattering;
   }
 
-  dispose() {}
-
   isShadowCaster() { return false; }
   isShadowReceiver() { return false; }
 

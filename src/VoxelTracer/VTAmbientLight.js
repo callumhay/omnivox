@@ -10,8 +10,6 @@ class VTAmbientLight extends VTObject {
     this.makeDirty();
   }
 
-  dispose() {}
-
   static build(jsonData) {
     const {id, _colour} = jsonData;
     const colour = (new THREE.Color()).setHex(_colour);

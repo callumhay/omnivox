@@ -1,11 +1,14 @@
 import * as THREE from 'three';
 
+import InitUtils from '../../../InitUtils';
+import {Randomizer} from '../../../Randomizers';
+
+import VTVoxel from "../../VTVoxel";
+import VTEmissionMaterial from '../../VTEmissionMaterial';
+
 import VTPUtils from "../VTPUtils";
 import VTPSpan from "../VTPSpan";
-import VTVoxel from "../../VTVoxel";
 
-import { Randomizer } from '../../../Randomizers';
-import VTEmissionMaterial from '../../VTEmissionMaterial';
 
 // Abstract base class for initializers
 export class VTPInitializer {
@@ -55,8 +58,8 @@ export class VTPLife extends VTPInitializer {
 export class VTPBody extends VTPInitializer {
   constructor(bodyType, materialType) {
     super();
-    this.bodyType = VTPUtils.initValue(bodyType, VTVoxel);
-    this.materialType = VTPUtils.initValue(materialType, VTEmissionMaterial);
+    this.bodyType = InitUtils.initValue(bodyType, VTVoxel);
+    this.materialType = InitUtils.initValue(materialType, VTEmissionMaterial);
   }
   initialize(target) {
     target.bodyType = this.bodyType;

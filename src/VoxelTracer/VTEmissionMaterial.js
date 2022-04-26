@@ -18,8 +18,6 @@ class VTEmissionMaterial extends VTMaterial {
     return new VTEmissionMaterial(threeColour, alpha, VTTexture.build(texture));
   }
 
-  dispose() {}
-
   toJSON() {
     const {type, colour, alpha, texture} = this;
     return {type, colour, alpha, texture};

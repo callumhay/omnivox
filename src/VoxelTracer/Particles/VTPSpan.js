@@ -1,5 +1,5 @@
-import { Randomizer } from '../../Randomizers';
-import VTPUtils from './VTPUtils';
+import InitUtils from '../../InitUtils';
+import {Randomizer} from '../../Randomizers';
 
 class VTPSpan { // extends VTPZone???
 
@@ -15,8 +15,8 @@ class VTPSpan { // extends VTPZone???
       this.a = a;
     } 
     else {
-      this.a = VTPUtils.initValue(a, 1);
-      this.b = VTPUtils.initValue(b, this.a);
+      this.a = InitUtils.initValue(a, 1);
+      this.b = InitUtils.initValue(b, this.a);
     }
   }
 

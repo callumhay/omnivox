@@ -20,8 +20,6 @@ class VTLambertMaterial extends VTMaterial {
     return new VTLambertMaterial(threeColour, threeEmission, alpha, VTTexture.build(texture));
   }
 
-  dispose() {}
-
   toJSON() {
     const {type, colour, emissive, alpha, texture} = this;
     return {type, colour, emissive, alpha, texture};

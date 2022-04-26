@@ -2,6 +2,10 @@ import VTMaterial from './VTMaterial';
 import VTLambertMaterial from './VTLambertMaterial';
 import VTEmissionMaterial from './VTEmissionMaterial';
 
+const materialTypeToObjType = {
+  [VTMaterial.LAMBERT_TYPE]: VTLambertMaterial,
+  [VTMaterial.EMISSION_TYPE]: VTEmissionMaterial,
+};
 
 class VTMaterialFactory {
   static build(jsonDataOrType) {
@@ -10,7 +14,6 @@ class VTMaterialFactory {
     let result = null;
 
     // TODO: Have texture ids to avoid massive duplications here...
-
     switch (type) {
       case VTMaterial.LAMBERT_TYPE: {
         result = hasJson ? VTLambertMaterial.build(jsonDataOrType) : new VTLambertMaterial();
@@ -25,6 +28,16 @@ class VTMaterialFactory {
         break;
     }
     return result;
+  }
+
+  static buildFromPool(json, pool) {
+    if (!json.type) { console.error("No type found in material json!"); return null; }
+    if (!(json.type in materialTypeToObjType)) { console.error(`Unknown material type found (${type}) in material json!`); return null; }
+
+    const objType = materialTypeToObjType[json.type];
+    const material = pool.get(objType);
+    material.fromJSON(json, pool);
+    return material;
   }
 
 }

@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 
-import VTPUtils from "../VTPUtils";
-import VTPBehaviour from "./VTPBehaviour";
-
 import VoxelConstants from "../../../VoxelConstants";
+import InitUtils from '../../../InitUtils';
+
+import VTPBehaviour from "./VTPBehaviour";
 
 class VTPAttraction extends VTPBehaviour {
   constructor(targetPosition, force, radius, life, easing) {
@@ -12,9 +12,9 @@ class VTPAttraction extends VTPBehaviour {
   }
 
   reset(targetPosition, force, radius, life=null, easing=null) {
-    this.targetPosition = VTPUtils.initValue(targetPosition, new THREE.Vector3(0,0,0));
-		this.radius = VTPUtils.initValue(radius, VoxelConstants.VOXEL_DIAGONAL_GRID_SIZE + 1);
-		this.force = VTPUtils.initValue(force, VoxelConstants.VOXEL_DIAGONAL_GRID_SIZE/10);
+    this.targetPosition = InitUtils.initValue(targetPosition, new THREE.Vector3(0,0,0));
+		this.radius = InitUtils.initValue(radius, VoxelConstants.VOXEL_DIAGONAL_GRID_SIZE + 1);
+		this.force = InitUtils.initValue(force, VoxelConstants.VOXEL_DIAGONAL_GRID_SIZE/10);
 		
     this.radiusSq = this.radius * this.radius
 		this.attractionForce = new THREE.Vector3(0,0,0);

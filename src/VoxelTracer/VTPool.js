@@ -1,7 +1,7 @@
-import VTPUtils from "./VTPUtils";
+import InitUtils from "../InitUtils";
 
 // Stores a hash table of universal ids that map to specific classes
-const VTPUid = {
+const VTUid = {
   _index: 0,
   _cache: {},
 
@@ -28,7 +28,7 @@ const VTPUid = {
 // pop preexisting (i.e., already instantiated) objects of that class and to push them back
 // into that cache (i.e., the object pool). This keeps the overhead on the creation of large
 // numbers of objects (e.g., particles and the VoxelTracer objects that embody them) to a minimum. 
-class VTPPool {
+class VTPool {
   constructor() {
     this.total = 0;
     this.cache = {};
@@ -43,7 +43,7 @@ class VTPPool {
 
   get(target, params, uid) {
     let p;
-    uid = uid || target.__puid || VTPUid.getId(target);
+    uid = uid || target.__puid || VTUid.getId(target);
 
     if (this.cache[uid] && this.cache[uid].length > 0) { p = this.cache[uid].pop(); } 
     else { p = this.createOrClone(target, params); }
@@ -56,7 +56,7 @@ class VTPPool {
 
   createOrClone(target, params) {
     this.total++;
-    return VTPUtils.classApply(target, params);
+    return InitUtils.classApply(target, params);
   }
 
   destroy() {
@@ -72,4 +72,4 @@ class VTPPool {
   }
 }
 
-export default VTPPool;
+export default VTPool;

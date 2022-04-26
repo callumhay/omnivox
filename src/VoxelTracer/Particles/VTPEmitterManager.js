@@ -1,6 +1,8 @@
+import InitUtils from "../../InitUtils";
+
 import VTPParticle from "./VTPParticle";
-import VTPPool from "./VTPPool";
-import VTPUtils from "./VTPUtils";
+import VTPool from '../VTPool';
+
 
 class VTPEmitterManager {
   constructor(vtScene, preloadNum=0, preloadObjTypes=[]) {
@@ -9,7 +11,7 @@ class VTPEmitterManager {
     this.emitters = [];
     this.preloadNum = preloadNum;
 
-    this.pool = new VTPPool();
+    this.pool = new VTPool();
 
     this.pool.preload(this.preloadNum, VTPParticle);
     for (const objType of preloadObjTypes) {
@@ -44,7 +46,7 @@ class VTPEmitterManager {
     if (!particle.target) {
       particle.target = this.pool.get(particle.bodyType);
       if (!particle.target.material || !(particle.target.material instanceof particle.materialType)) {
-        particle.target.setMaterial(VTPUtils.classApply(particle.materialType));
+        particle.target.setMaterial(InitUtils.classApply(particle.materialType));
       }
     }
     if (!emitter.blendParticles) {

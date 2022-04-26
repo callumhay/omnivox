@@ -6,15 +6,16 @@ import VTRPObject from './VTRPObject';
 
 import VoxelGeometryUtils from '../../VoxelGeometryUtils';
 
+const _tempVec3 = new THREE.Vector3();
+
 class VTRPVoxel extends VTRPObject  {
   constructor(position, material, options) {
     super(VTConstants.VOXEL_TYPE);
     this._position = position;
     this._material = material;
     this._options  = options;
-    this._boundingBox = VoxelGeometryUtils.singleVoxelBoundingBox(this._position);
-
-    this._tempVec3 = new THREE.Vector3();
+    this._boundingBox = new THREE.Box3();
+    VoxelGeometryUtils.singleVoxelBoundingBox(this._boundingBox, this._position);
   }
 
   static build(jsonVTVoxel) {
@@ -29,12 +30,10 @@ class VTRPVoxel extends VTRPObject  {
     return result;
   }
 
-  dispose() { this._material.dispose(); }
-
   isShadowCaster() { return this._options.castsShadows || false; }
   isShadowReceiver() { return this._options.receivesShadows || false; }
 
-  intersectsRay(raycaster) { return raycaster.ray.intersectsBox(this._boundingBox, this._tempVec3) !== null; }
+  intersectsRay(raycaster) { return raycaster.ray.intersectsBox(this._boundingBox, _tempVec3) !== null; }
 
   calculateShadow(raycaster) {
     return {

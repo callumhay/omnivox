@@ -1,7 +1,6 @@
 import * as THREE from 'three';
+import InitUtils from '../../../InitUtils';
 import VTPSpan from '../VTPSpan';
-
-import VTPUtils from "../VTPUtils";
 import VTPBehaviour from "./VTPBehaviour";
 
 
@@ -14,7 +13,7 @@ class VTPAlpha extends VTPBehaviour {
   reset(startAlpha, endAlpha, life, easing) {
     this._same = (endAlpha == null || endAlpha == undefined);
 
-    this.startAlpha = VTPSpan.createSpan(VTPUtils.initValue(startAlpha, 1));
+    this.startAlpha = VTPSpan.createSpan(InitUtils.initValue(startAlpha, 1));
     this.endAlpha   = VTPSpan.createSpan(endAlpha);
 
     life && easing && super.reset(life, easing);

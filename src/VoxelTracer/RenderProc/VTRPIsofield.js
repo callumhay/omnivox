@@ -53,8 +53,6 @@ class VTRPIsofield extends VTObject {
     return result;
   }
 
-  dispose() {}
-
   isShadowCaster() { return this._options.castsShadows || false; }
   isShadowReceiver() { return this._options.receivesShadows || false; }
 
