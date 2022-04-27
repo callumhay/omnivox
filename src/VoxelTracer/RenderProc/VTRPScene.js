@@ -4,20 +4,11 @@ import VoxelConstants from '../../VoxelConstants';
 import VoxelGeometryUtils from '../../VoxelGeometryUtils';
 import ColourRGBA from '../../ColourRGBA';
 
-import VTDirectionalLight from '../VTDirectionalLight';
 import VTConstants from '../VTConstants';
-import VTAmbientLight from '../VTAmbientLight';
-import VTPointLight from '../VTPointLight';
-import VTSpotLight from '../VTSpotLight';
 
 import VTRenderProc from './VTRenderProc';
-import VTRPMesh from './VTRPMesh';
-import VTRPSphere from './VTRPSphere';
-import {VTRPFogBox, VTRPFogSphere} from './VTRPFog';
-import VTRPVoxel from './VTRPVoxel';
-import VTRPIsofield from './VTRPIsofield';
-import VTRPBox from './VTRPBox';
-
+import VTPool from '../VTPool';
+import VTRPObjectFactory from './VTRPObjectFactory';
 
 const _currVoxelIdxPt = new THREE.Vector3();
 const _currVoxelColourRGBA = new ColourRGBA();
@@ -33,31 +24,46 @@ const _nVoxelToLightVec = new THREE.Vector3();
 class VTRPScene {
   constructor() {
     this.gridSize = 0;
-    this.clear();
+    this.pool = new VTPool();
+
+    this.renderables = {};
+    this.lights = {};
+    this.shadowCasters = {};
+    this._tempVoxelMap = {};
+    this.ambientLight = null;
+
+    this.clear(); // All renderables and lights are stored by their IDs and are initialized by clear()
   }
 
   clear() {
-    // TODO POOL REFACTOR: Reclaim all objects in the pool!
-    /*
+    // IMPORTANT: Make sure we don't reclaim the same object more than once - use a map to track them!
+    // (since renderables and lights can share the same objects)
+    const reclaimedObjs = {};
+
+    // Reclaim all objects in the pool
     for (const renderable of Object.values(this.renderables)) {
       renderable.expire(this.pool);
       this.pool.expire(renderable);
+      reclaimedObjs[renderable.id] = renderable;
     }
+    this.renderables = {};
+
     for (const light of Object.values(this.lights)) {
-      light.expire(this.pool);
-      this.pool.expire(light);
+      if (!(light.id in reclaimedObjs)) {
+        light.expire(this.pool);
+        this.pool.expire(light);
+        reclaimedObjs[light.id] = light;
+      }
     }
+    this.lights = {};
+
     if (this.ambientLight) {
       this.ambientLight.expire(this.pool);
       this.pool.expire(this.ambientLight);
     }
-    */
-
-    // All renderables and lights are stored by their IDs
-    this.renderables = {};
-    this.shadowCasters = {};
-    this.lights = {};
     this.ambientLight = null;
+
+    this.shadowCasters = {}; // Shadowcasters will have already been reclaimed via renderables and lights
     this._tempVoxelMap = {};
   }
 
@@ -149,170 +155,76 @@ class VTRPScene {
   update(sceneData) {
     const {removedIds, reinit, ambientLight, renderables, lights} = sceneData;
 
-    if (reinit) {
-      this.clear();
-    }
+    if (reinit) { this.clear(); }
     else if (removedIds) {
-      for (let i = 0; i < removedIds.length; i++) {
+      for (let i = 0, numIds = removedIds.length; i < numIds; i++) {
         const removedId = removedIds[i];
         if (removedId in this.renderables) {
-          //const renderable = this.renderables[removedId];
-          //renderable.expire(this.pool);
-          //this.pool.expire(renderable);
+          const renderable = this.renderables[removedId];
+          renderable.expire(this.pool);
+          this.pool.expire(renderable);
           delete this.renderables[removedId];
+
+          // A renderable may also be a light
+          if (removedId in this.lights) {
+            delete this.lights[removedId];
+          }
+          // ... and can also be a shadowcaster
+          if (removedId in this.shadowCasters) {
+            delete this.shadowCasters[removedId]; // No need to expire shadowcasters, they've already been taken care of by the renderables
+          } 
         }
-        
-        if (removedId in this.lights) {
-          //const light = this.lights[removedId];
-          //light.expire(this.pool);
-          //this.pool.expire(light);
+        else if (removedId in this.lights) {
+          const light = this.lights[removedId];
+          light.expire(this.pool);
+          this.pool.expire(light);
           delete this.lights[removedId];
         }
-
-        // No need to expire shadowcasters, they've already been taken care of in lights/renderables
-        if (removedId in this.shadowCasters) { delete this.shadowCasters[removedId]; } 
-
-        if (this.ambientLight && this.ambientLight.id === removedId) {
-          //this.ambientLight.expire(pool);
-          //this.pool.expire(this.ambientLight);
+        else if (this.ambientLight && this.ambientLight.id === removedId) {
+          this.ambientLight.expire(pool);
+          this.pool.expire(this.ambientLight);
           this.ambientLight = null;
         }
       }
     }
 
     if (ambientLight) {
-      this.ambientLight = VTAmbientLight.build(ambientLight);
+      this.ambientLight = VTRPObjectFactory.updateOrBuildFromPool(ambientLight, this.pool, this.ambientLight);
     }
 
     const updatedMap = {};
+    const updateSceneFromObjJson = ((objJson) => {
+      const {id} = objJson;
+      if (id in updatedMap) { return; }
+
+      const prevObj = this.lights[id] || this.renderables[id];
+      const obj =  VTRPObjectFactory.updateOrBuildFromPool(objJson, this.pool, prevObj);
+      if (!obj) { console.error("Uninitialized object found, this shouldn't happen."); }
+
+      const isRenderableObj = VTRPObjectFactory.isRenderable(objJson);
+      if (isRenderableObj) {
+        this.renderables[id] = obj;
+        if (obj.isShadowCaster()) { this.shadowCasters[id] = obj; }
+      }
+      const isLightObj = VTRPObjectFactory.isLight(objJson, false);
+      if (isLightObj) {
+        this.lights[id] = obj;
+      }
+      updatedMap[id] = obj;
+
+    }).bind(this);
+
     if (renderables) {
-      for (let i = 0; i < renderables.length; i++) {
-        const renderableData = renderables[i];
-        this._updateRenderable(renderableData, updatedMap);
+      for (const renderableJson of renderables) {
+        updateSceneFromObjJson(renderableJson);
       }
     }
+
     if (lights) {
-      for (let i = 0; i < lights.length; i++) {
-        const lightData = lights[i];
-        this._updateLight(lightData, updatedMap);
+      for (const lightJson of lights) {
+        updateSceneFromObjJson(lightJson);
       }
     }
-
-    for (const entry of Object.entries(updatedMap)) {
-      const [id, obj] = entry;
-
-      // TODO POOL REFACTOR: Reclaim objects to the pool! ... optimization: Just keep objects with the same id and don't get/expire them!
-      /*
-      if (id in this.renderables) {
-        const renderable = this.renderables[id];
-        renderable.expire(this.pool);
-        this.pool.expire(renderable);
-      }
-      else if (id in this.lights) {
-        const light = this.lights[id];
-        light.expire(this.pool);
-        this.pool.expire(light);
-      }
-      */
-
-      switch (obj.type) {
-        case VTConstants.POINT_LIGHT_TYPE:
-        case VTConstants.SPOT_LIGHT_TYPE:
-          this.renderables[id] = obj;
-          this.lights[id] = obj;
-          break;
-
-        case VTConstants.DIRECTIONAL_LIGHT_TYPE:
-          this.lights[id] = obj;
-          break;
-
-        default:
-          this.renderables[id] = obj;
-          if (obj.isShadowCaster()) {
-            this.shadowCasters[id] = obj;
-          }
-          break;
-      }
-    }
-  }
-
-  _updateRenderable(renderableData, updatedMap) {
-    const {id, type} = renderableData;
-    if (id in updatedMap) { return; }
-
-    let buildFunc = null;
-    switch (type) {
-      case VTConstants.MESH_TYPE:
-        buildFunc = VTRPMesh.build;
-        break;
-      case VTConstants.SPHERE_TYPE:
-        buildFunc = VTRPSphere.build;
-        break;
-      case VTConstants.BOX_TYPE:
-        buildFunc = VTRPBox.build;
-        break;
-
-      case VTConstants.POINT_LIGHT_TYPE:
-        buildFunc = VTPointLight.build;
-        break;
-      case VTConstants.SPOT_LIGHT_TYPE:
-        buildFunc = VTSpotLight.build;
-        break;
-      case VTConstants.DIRECTIONAL_LIGHT_TYPE:
-        buildFunc = VTDirectionalLight.build;
-        break;
-        
-      case VTConstants.VOXEL_TYPE:
-        buildFunc = VTRPVoxel.build;
-        break;
-        
-      case VTConstants.FOG_BOX_TYPE:
-        buildFunc = VTRPFogBox.build;
-        break;
-      case VTConstants.FOG_SPHERE_TYPE:
-        buildFunc = VTRPFogSphere.build;
-        break;
-
-      case VTConstants.ISOFIELD_TYPE:
-        buildFunc = VTRPIsofield.build;
-        break;
-
-      default:
-        console.error(`Unknown renderable type found: ${type}`);
-        return;
-    }
-
-    updatedMap[id] = buildFunc(renderableData);
-  }
-
-  _updateLight(lightData, updatedMap) {
-    const {id, type} = lightData;
-    if (id in updatedMap) {
-      return;
-    }
-
-    let buildFunc = null;
-    switch (type) {
-
-      case VTConstants.POINT_LIGHT_TYPE:
-        buildFunc = VTPointLight.build;
-        break;
-      case VTConstants.SPOT_LIGHT_TYPE:
-        buildFunc = VTSpotLight.build;
-        break;
-      case VTConstants.DIRECTIONAL_LIGHT_TYPE:
-        buildFunc = VTDirectionalLight.build;
-        break;
-
-      case VTConstants.AMBIENT_LIGHT_TYPE:
-        this.ambientLight = VTAmbientLight.build(lightData);
-        return;
-
-      default:
-        console.error(`Unknown light type found: ${type}`);
-        return;
-    }
-    updatedMap[id] = buildFunc(lightData);
   }
 
   // Calculates the accumulated effect of shadow casters between the current voxel (point) and a light

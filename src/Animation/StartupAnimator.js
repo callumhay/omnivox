@@ -27,7 +27,7 @@ const boxSize = new THREE.Vector3(adjBoxSize, adjBoxSize, adjBoxSize);
 const overlapAmount = 2.5;
 const boxOptions = {samplesPerVoxel: 4, castsShadows: false, receivesShadows: false};
 
-const UPDATE_DELTA_UNITS = (VoxelConstants.VOXEL_UNIT_SIZE-VoxelConstants.VOXEL_EPSILON);
+const UPDATE_DELTA_UNITS = (VoxelConstants.VOXEL_ERR_UNITS);//-VoxelConstants.VOXEL_EPSILON);
 
 const startCubeLum = 0.5;
 const endCubeLum = 1.0;
@@ -95,7 +95,6 @@ class StartupAnimator extends VoxelAnimator {
 
     this.scene.addObject(this._ambientLight);
     for (const slice of this._boxSlices) { this.scene.addObject(slice.box); }
-
   }
 
   reset() {
@@ -159,8 +158,8 @@ class StartupAnimator extends VoxelAnimator {
       const tempSize = new THREE.Vector3();
       animate({
         to: [[1,adjBoxSize+1], [0,2*VoxelConstants.VOXEL_GRID_SIZE+1]],
-        offset:[0.04,1],
-        duration:4*illumAnimTimeMillis,
+        offset:[0.07,1],
+        duration:2.5*illumAnimTimeMillis,
         onUpdate: ([alpha,size]) => {
           const currMinBoxSize  = self._boxMinExpander.getSize(tempSize);
           self._boxMinExpander.material.alpha = alpha;

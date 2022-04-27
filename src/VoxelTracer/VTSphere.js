@@ -25,7 +25,7 @@ class VTSphere extends VTTransformable {
     if (center) { this.position.copy(center); }
     this._radius = radius || 1;
     this._material = VTMaterialFactory.initMaterial(material);
-    this._options = options ? {...options, ...defaultSphereOptions} : {...defaultSphereOptions};
+    this._options = options ? {...defaultSphereOptions, ...options} : {...defaultSphereOptions};
 
     this.makeDirty();
   }

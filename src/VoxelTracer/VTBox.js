@@ -28,7 +28,7 @@ class VTBox extends VTTransformable {
     this.setSize(size || 1);
     
     this._material = VTMaterialFactory.initMaterial(material);
-    this._options  = options ? {...options, ...defaultBoxOptions} : {...defaultBoxOptions};
+    this._options  = options ? {...defaultBoxOptions, ...options} : {...defaultBoxOptions};
 
     this.makeDirty();
   }

@@ -25,6 +25,8 @@ class VTPointLight extends VTObject {
     this.makeDirty();
   }
 
+  expire(pool) {}
+
   fromJSON(json, pool) {
     const {id, _position, _colour, _attenuation, _drawLight} = json;
     this.id = id;

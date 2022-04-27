@@ -5,17 +5,25 @@ import VoxelConstants from '../../VoxelConstants';
 import VoxelGeometryUtils from '../../VoxelGeometryUtils';
 import Sampler from '../../Samplers';
 
-import VTMaterialFactory from '../VTMaterialFactory';
 import VTConstants from '../VTConstants';
+import VTPool from '../VTPool';
 import {defaultSphereOptions} from '../VTSphere';
 
 import VTRPObject from './VTRPObject';
+import VTRPObjectFactory from './VTRPObjectFactory';
+import VTRPSample from './VTRPSample';
 
 const sigma = (2*VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS) / 10.0;
 const valueAtZero = (1.0 / (SQRT2PI*sigma));
 
 const _tempBox = new THREE.Box3();
 const _tempVec3 = new THREE.Vector3();
+const _voxelCenterPt = new THREE.Vector3();
+const _localSpaceSamplePt = new THREE.Vector3();
+const _closestSamplePt = new THREE.Vector3();
+const _centerToVoxelVec = new THREE.Vector3();
+
+const _samplePool = new VTPool();
 
 class VTRPSphere extends VTRPObject  {
 
@@ -26,20 +34,26 @@ class VTRPSphere extends VTRPObject  {
     this._options = {...defaultSphereOptions};
   }
 
-  reinitSamples() {
+  reinit() {
     // Calculate and memoize info for performing voxel sampling during rendering:
     const maxSampleAngle = Math.asin(0.5*VoxelConstants.VOXEL_UNIT_SIZE/this._sphere.radius);
     const maxSampleSr = 2*Math.PI*(1-Math.cos(maxSampleAngle));
     const srPercentage = maxSampleSr / (4*Math.PI);
     
     this._fibSampleN = Math.ceil(this._options.samplesPerVoxel / srPercentage); // The number of sphere samples needed for fibonacci sampling
-    this._voxelIdxToSamples = {}; // Memoization for voxel collisions and sampling
+    this._voxelIdxToSamples = {}; // Memoization for voxel sampling
   }
 
   expire(pool) {
     if (this._material) {
       pool.expire(this._material);
       this._material = null;
+    }
+    // Clean up the samples as well
+    for (const samples of Object.values(this._voxelIdxToSamples)) {
+      for (const sample of samples) {
+        _samplePool.expire(sample);
+      }
     }
   }
 
@@ -54,29 +68,10 @@ class VTRPSphere extends VTRPObject  {
 
     this._sphere.set(center, radius);
     this._options = {...this._options, ...options};
+    this._material = VTRPObjectFactory.updateOrBuildFromPool(material, pool, this._material);
 
-    if (this._material && this._material.type !== material.type) {
-      pool.expire(this._material);
-      this._material = VTMaterialFactory.buildFromPool(material, pool);
-    }
-    else {
-      this._material.fromJSON(material, pool);
-    }
-
-    this.reinitSamples();
+    this.reinit();
     return this;
-  }
-
-  static build(jsonData) {
-    const {id, drawOrder, center, radius, material, options} = jsonData;
-    const result = new VTRPSphere();
-    result.id = id;
-    result.drawOrder = drawOrder;
-    result._sphere.set(center, radius);
-    result._material = VTMaterialFactory.build(material);
-    result._options = {...result._options, ...options};
-    result.reinitSamples();
-    return result;
   }
 
   isShadowCaster() { return this._options.castsShadows || false; }
@@ -102,19 +97,19 @@ class VTRPSphere extends VTRPObject  {
     // Fast-out if we can't even see this sphere
     if (!this._material.isVisible() || radius <= VoxelConstants.VOXEL_EPSILON) { return targetRGBA; }
     
-    const voxelCenterPt = VoxelGeometryUtils.voxelCenterPt(_tempVec3, voxelIdxPt);
-    const centerToVoxelVec = voxelCenterPt.clone();
-    centerToVoxelVec.sub(center);
-    const sqDistCenterToVoxel = centerToVoxelVec.lengthSq();
+    VoxelGeometryUtils.voxelCenterPt(_voxelCenterPt, voxelIdxPt);
+    _centerToVoxelVec.copy(_voxelCenterPt).sub(center);
+
+    const sqDistCenterToVoxel = _centerToVoxelVec.lengthSq();
     if (sqDistCenterToVoxel <= VoxelConstants.VOXEL_ERR_UNITS) { 
       // Special case: We illuminate the center voxel as if it were a singluar voxel if it is the only
       // thing being rendered in this case it's an early exit and there are no samples
       return radius <= VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS ? 
-        scene.calculateVoxelLighting(targetRGBA, voxelIdxPt, voxelCenterPt, this._material, true) : targetRGBA;
+        scene.calculateVoxelLighting(targetRGBA, voxelIdxPt, _voxelCenterPt, this._material, true) : targetRGBA;
     }
 
     const voxelId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, scene.gridSize);
-    const sphereSamples = this._preRender(voxelIdxPt, voxelId);
+    const sphereSamples = this._preRender(voxelIdxPt, voxelId, _voxelCenterPt);
     if (sphereSamples.length > 0) {
       scene.calculateLightingSamples(targetRGBA, voxelIdxPt, sphereSamples, this._material);
     }
@@ -122,7 +117,7 @@ class VTRPSphere extends VTRPObject  {
     return targetRGBA;
   }
 
-  _preRender(voxelIdxPt, voxelId) {
+  _preRender(voxelIdxPt, voxelId, voxelCenterPt) {
     let samples = null;
     // Have we memoized the current voxel index point yet?
     if (voxelId in this._voxelIdxToSamples) {
@@ -135,42 +130,42 @@ class VTRPSphere extends VTRPObject  {
       const sqRadius = radius*radius;
       
       const voxelBoundingBox = VoxelGeometryUtils.singleVoxelBoundingBox(_tempBox, voxelIdxPt);
-      const voxelCenterPt = new THREE.Vector3();
-      voxelBoundingBox.getCenter(voxelCenterPt);
-
-      const centerToVoxelVec = voxelCenterPt.clone();
-      centerToVoxelVec.sub(center);
-      const sqDistCenterToVoxel = centerToVoxelVec.lengthSq();
+      _centerToVoxelVec.copy(voxelCenterPt).sub(center);
+      const sqDistCenterToVoxel = _centerToVoxelVec.lengthSq();
 
       if (sqDistCenterToVoxel <= VoxelConstants.VOXEL_ERR_UNITS || radius <= VoxelConstants.VOXEL_EPSILON) { 
+        this._voxelIdxToSamples[voxelId] = samples;
         return samples; // The voxel is either empty or the sphere is rendered as a single point/voxel - either way, there are no samples
       }
 
-      centerToVoxelVec.normalize();
-
-      const localSpaceSamplePt = centerToVoxelVec.clone().multiplyScalar(radius);
-      const closestSamplePt = localSpaceSamplePt.clone();
-      closestSamplePt.add(center);
+      _centerToVoxelVec.normalize();
+      _localSpaceSamplePt.copy(_centerToVoxelVec).multiplyScalar(radius);
+      _closestSamplePt.copy(_localSpaceSamplePt).add(center);
 
       if (sqDistCenterToVoxel <= sqRadius) {
         const {samplesPerVoxel, fill} = this._options;
 
         if (sqDistCenterToVoxel >= Math.pow(radius-1.25*VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS,2)) {
-          const [closestTheta, closestPhi] = spherePtToThetaPhi(radius, localSpaceSamplePt);
-          samples.push({point: closestSamplePt, normal: centerToVoxelVec, uv: null, falloff: 1}); // Always include the closest sample
-          for (let i = 0; i < samplesPerVoxel; i++) {
-            const samplePt = Sampler.fibSphere(i, this._fibSampleN, radius, closestTheta, closestPhi).add(center);
-            if (!voxelBoundingBox.containsPoint(samplePt)) { continue; } // No sample taken if the sample point isn't inside the voxel
-            const sampleNormal = samplePt.clone().sub(center).normalize();
-          
-            const sqrDist = samplePt.distanceToSquared(voxelCenterPt);  // Square distance from the voxel center to the sample
-            const sampleFalloff = sqDistCenterToVoxel <= sqRadius ? 1 : ((1.0 / (SQRT2PI*sigma)) * Math.exp(-0.5 * (sqrDist / (2*sigma*sigma))) / valueAtZero);
+          const [closestTheta, closestPhi] = spherePtToThetaPhi(radius, _localSpaceSamplePt);
 
-            samples.push({point: samplePt, normal: sampleNormal, uv: null, falloff: sampleFalloff});
+          samples.push(_samplePool.get(VTRPSample).set(_closestSamplePt, _centerToVoxelVec, null, 1)); // Always include the closest sample
+          
+          for (let i = 0; i < samplesPerVoxel; i++) {
+            const samplePt = Sampler.fibSphere(_tempVec3, i, this._fibSampleN, radius, closestTheta, closestPhi).add(center);
+            if (!voxelBoundingBox.containsPoint(samplePt)) { continue; } // No sample taken if the sample point isn't inside the voxel
+
+            const sample = _samplePool.get(VTRPSample);
+            sample.point.copy(samplePt);
+            sample.normal.copy(samplePt).sub(center).normalize();
+
+            const sqrDist = samplePt.distanceToSquared(voxelCenterPt);  // Square distance from the voxel center to the sample
+            sample.falloff = sqDistCenterToVoxel <= sqRadius ? 1 : ((1.0 / (SQRT2PI*sigma)) * Math.exp(-0.5 * (sqrDist / (2*sigma*sigma))) / valueAtZero);
+
+            samples.push(sample);
           }
         }
         else if (fill) {
-          samples.push({point: closestSamplePt, normal: centerToVoxelVec, uv: null, falloff: 1});
+          samples.push(_samplePool.get(VTRPSample).set(_closestSamplePt, _centerToVoxelVec, null, 1));
         } 
       }
 

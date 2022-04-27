@@ -25,18 +25,20 @@ class VTSpotLight extends VTObject {
     this._direction = InitUtils.initTHREEVector3(dir, 0, -1, 0).normalize();
     this._colour    = InitUtils.initTHREEColor(colour);
 
-    this._innerAngle = innerConeAngle || Math.PI/6;
-    this._outerAngle = Math.max(innerConeAngle, (outerConeAngle || Math.PI/4));
-    this._rangeAtten = rangeAtten;
+    this._innerAngle = innerConeAngle;
+    this._outerAngle = Math.max(innerConeAngle, outerConeAngle);
+    this._rangeAtten = rangeAtten ? {...rangeAtten, ...defaultAttenuation} : {...defaultAttenuation};
 
     this.makeDirty();
   }
 
+  expire(pool) {}
+
   fromJSON(json, pool) {
     const {id, _position, _direction, _colour, _innerAngle, _outerAngle, _rangeAtten} = json;
     this.id = id;
-    this._position.copy(_position);
-    this._direction.copy(_direction);
+    this._position.copy(_position);//(_position.x, _position.y, _position.z);
+    this._direction.copy(_direction);//(_direction.x, _direction.y, _direction.z);
     this._colour.setHex(_colour);
     this._innerAngle = _innerAngle;
     this._outerAngle = _outerAngle;
@@ -56,7 +58,7 @@ class VTSpotLight extends VTObject {
   }
   toJSON() {
     const {id, type, _position, _direction, _colour, _innerAngle, _outerAngle, _rangeAtten} = this;
-    return {id, type,_position, _direction, _colour, _innerAngle, _outerAngle, _rangeAtten};
+    return {id, type, _position, _direction, _colour, _innerAngle, _outerAngle, _rangeAtten};
   }
 
   setPosition(p) { this._position = p; this.makeDirty(); }

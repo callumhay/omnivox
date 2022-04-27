@@ -26,7 +26,7 @@ class SimpleScene extends SceneRenderer {
 
     if (!this._objectsBuilt) {
       const {
-        sphereRadius, sphereColour, sphereEmission,
+        sphereRadius, sphereColour, sphereEmission, sphereFill,
         ambientLightColour, 
         pointLight1Colour, pointLight2Colour, pointLight3Colour, pointLightAtten, 
         wallColour,
@@ -51,13 +51,8 @@ class SimpleScene extends SceneRenderer {
         new VTLambertMaterial(
           new THREE.Color(sphereColour.r, sphereColour.g, sphereColour.b),
           new THREE.Color(sphereEmission.r, sphereEmission.g, sphereEmission.b)
-        )
+        ), {fill: sphereFill}
       );
-
-      //this.sphereGeometry = new THREE.SphereBufferGeometry(sphereRadius, 20, 20);
-      //this.sphereMesh = new VTMesh(this.sphereGeometry, new VTLambertMaterial(new THREE.Color(sphereColour.r, sphereColour.g, sphereColour.b), 
-      //  new THREE.Color(sphereEmission.r, sphereEmission.g, sphereEmission.b), 1, this.sphereTexture || null));
-      //this.sphereMesh.position.set(this.voxelModel.xSize()/2, this.voxelModel.ySize()/2, this.voxelModel.zSize()/2);
 
       this.ptLight1 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight1Colour.r, pointLight1Colour.g, pointLight1Colour.b), {...pointLightAtten});
       this.ptLight2 = new VTPointLight(new THREE.Vector3(0,0,0), new THREE.Color(pointLight2Colour.r, pointLight2Colour.g, pointLight2Colour.b), {...pointLightAtten});

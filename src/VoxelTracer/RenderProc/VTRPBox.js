@@ -1,7 +1,5 @@
 import * as THREE from 'three';
 
-import VTMaterialFactory from '../VTMaterialFactory';
-
 import VoxelConstants from '../../VoxelConstants';
 import VoxelGeometryUtils from '../../VoxelGeometryUtils';
 
@@ -9,6 +7,9 @@ import VTConstants from '../VTConstants';
 import {defaultBoxOptions} from '../VTBox';
 
 import VTRPObject from './VTRPObject';
+import VTRPObjectFactory from './VTRPObjectFactory';
+import VTPool from '../VTPool';
+import VTRPSample from './VTRPSample';
 
 //import {HALTON_5PTS_SEQ_2_3_5} from '../../Samplers';
 
@@ -20,6 +21,8 @@ const _tempVec3_0 = new THREE.Vector3();
 const _tempVec3_1 = new THREE.Vector3();
 const _tempRay = new THREE.Ray();
 const _tempNormMatrix = new THREE.Matrix3();
+
+const _samplePool = new VTPool();
 
 class VTRPBox extends VTRPObject {
   constructor() {
@@ -41,7 +44,7 @@ class VTRPBox extends VTRPObject {
     }
   }
 
-  reinitPlanes() {
+  reinit() {
     const {min, max} = this._box;
     this._boxPlanes[0].setFromCoplanarPoints(min, _tempVec3_0.copy(min).add(nY), _tempVec3_1.copy(min).add(nX));
     this._boxPlanes[1].setFromCoplanarPoints(max, _tempVec3_0.copy(max).sub(nX), _tempVec3_1.copy(max).sub(nY));
@@ -62,12 +65,20 @@ class VTRPBox extends VTRPObject {
         innerBoxPlane.translate(_tempVec3_0);
       }
     }
+
+    this._voxelIdxToSamples = {}; // Memoization for voxel sampling
   }
 
   expire(pool) {
     if (this._material) {
       pool.expire(this._material);
       this._material = null;
+    }
+    // Clean up the samples as well
+    for (const samples of Object.values(this._voxelIdxToSamples)) {
+      for (const sample of samples) {
+        _samplePool.expire(sample);
+      }
     }
   }
 
@@ -79,33 +90,9 @@ class VTRPBox extends VTRPObject {
     this._invMatrixWorld.fromArray(invMatrixWorld);
     this._box.set(min, max);
     this._options = {...this._options, ...options};
-
-    if (this._material && this._material.type !== material.type) {
-      pool.expire(this._material);
-      this._material = VTMaterialFactory.buildFromPool(material, pool);
-    }
-    else {
-      this._material.fromJSON(material, pool);
-    }
-
-    this.reinitPlanes();
+    this._material = VTRPObjectFactory.updateOrBuildFromPool(material, pool, this._material);
+    this.reinit();
     return this;
-  }
-
-  static build(jsonData) {
-    const {id, drawOrder, matrixWorld, invMatrixWorld, min, max, material, options} = jsonData;
-
-    const result = new VTRPBox();
-    result.id = id;
-    result.drawOrder = drawOrder;
-    result._matrixWorld.fromArray(matrixWorld);
-    result._invMatrixWorld.fromArray(invMatrixWorld);
-    result._box.set(min, max);
-    result._options = {...result._options, ...options};
-    result._material = VTMaterialFactory.build(material);
-    result.reinitPlanes();
-
-    return result;
   }
 
   isShadowCaster() { return this._options.castsShadows || false; }
@@ -127,54 +114,11 @@ class VTRPBox extends VTRPObject {
   }
 
   calculateVoxelColour(targetRGBA, voxelIdxPt, scene) {
-    const voxelCenterPt = VoxelGeometryUtils.voxelCenterPt(_tempVec3_0, voxelIdxPt);
-
     // Fast-out if we can't even see this box 
     if (!this._material.isVisible() || this._box.isEmpty()) { return targetRGBA; }
 
-    // ... also check whether the voxel point isn't inside this box
-    const planeSignedDistances = [];
-    for (const plane of this._boxPlanes) {
-      const signedDist = plane.distanceToPoint(voxelCenterPt);
-      if (signedDist > VoxelConstants.VOXEL_EPSILON) {
-        return targetRGBA; // Not inside the box
-      }
-      planeSignedDistances.push(signedDist);
-    }
-
-
-    // What are the closest planes to the voxel... these will determine the sample(s) that we render
-    let planeDistances = null;
-    let relevantPlanes = this._boxPlanes;
-    const samples = [];
-
-    // Make sure the voxel is inside the outline of the box if the box isn't filled in
-    if (!this.isFilled() && this._interiorBoxPlanes) {
-      relevantPlanes = [];
-      planeDistances = [];
-      for (let i = 0, numInteriorPlanes = this._interiorBoxPlanes.length; i < numInteriorPlanes; i++) {
-        const interiorPlane = this._interiorBoxPlanes[i];
-        const signedDist = interiorPlane.distanceToPoint(voxelCenterPt);
-        if (signedDist > 0) {
-          relevantPlanes.push(this._boxPlanes[i]);
-          planeDistances.push(Math.abs(signedDist));
-        }
-      }
-      if (relevantPlanes.length === 0) { return targetRGBA; }
-    }
-    else {
-      planeDistances = planeSignedDistances.map(sd => Math.abs(sd));
-    }
-
-    for (let i = 0, numPlanes = relevantPlanes.length; i < numPlanes; i++) {
-      const plane = relevantPlanes[i];
-      const planeNormal = plane.normal;
-      const planeDistance = planeDistances[i];
-      samples.push({
-        point: new THREE.Vector3().copy(voxelCenterPt).addScaledVector(planeNormal, planeDistance + VoxelConstants.VOXEL_EPSILON),
-        normal: planeNormal, uv: null, falloff: 1
-      });
-    }
+    const voxelId = VoxelGeometryUtils.voxelFlatIdx(voxelIdxPt, scene.gridSize);
+    const samples = this._preRender(voxelIdxPt, voxelId);
   
     // Perform lighting for each of the samples with equal factoring per sample
     if (samples.length > 0) {
@@ -182,6 +126,73 @@ class VTRPBox extends VTRPObject {
     }
 
     return targetRGBA;
+  }
+
+  _preRender(voxelIdxPt, voxelId) {
+    let samples = null;
+
+    // Have we memoized the current voxel index point yet?
+    if (voxelId in this._voxelIdxToSamples) {
+      samples = this._voxelIdxToSamples[voxelId]; // Just use the memoized values...
+    }
+    else {
+      samples = [];
+
+      // Check whether the voxel point isn't inside this box
+      const voxelCenterPt = VoxelGeometryUtils.voxelCenterPt(_tempVec3_0, voxelIdxPt);
+      const planeSignedDistances = [];
+      for (const plane of this._boxPlanes) {
+        const signedDist = plane.distanceToPoint(voxelCenterPt);
+        if (signedDist > VoxelConstants.VOXEL_EPSILON) {
+          this._voxelIdxToSamples[voxelId] = samples;
+          return samples; // Not inside the box
+        }
+        planeSignedDistances.push(signedDist);
+      }
+
+      // What are the closest planes to the voxel... these will determine the sample(s) that we render
+      let planeDistances = null;
+      let relevantPlanes = this._boxPlanes;
+
+      // Make sure the voxel is inside the outline of the box if the box isn't filled in
+      const isFilled = this.isFilled();
+      if (!isFilled && this._interiorBoxPlanes) {
+        relevantPlanes = [];
+        planeDistances = [];
+        for (let i = 0, numInteriorPlanes = this._interiorBoxPlanes.length; i < numInteriorPlanes; i++) {
+          const interiorPlane = this._interiorBoxPlanes[i];
+          const signedDist = interiorPlane.distanceToPoint(voxelCenterPt);
+          if (signedDist > 0) {
+            relevantPlanes.push(this._boxPlanes[i]);
+            planeDistances.push(Math.abs(signedDist));
+          }
+        }
+        if (relevantPlanes.length === 0) { 
+          this._voxelIdxToSamples[voxelId] = samples;
+          return samples;
+        }
+      }
+      else {
+        planeDistances = planeSignedDistances.map(sd => Math.abs(sd));
+      }
+
+      for (let i = 0, numPlanes = relevantPlanes.length; i < numPlanes; i++) {
+        const plane = relevantPlanes[i];
+        const planeNormal = plane.normal;
+        const planeDistance = planeDistances[i];
+
+        const sample = _samplePool.get(VTRPSample);
+        const {point, normal} = sample;
+        point.copy(voxelCenterPt).addScaledVector(planeNormal, planeDistance + VoxelConstants.VOXEL_EPSILON);
+        normal.copy(planeNormal);
+        sample.falloff = 1;
+        samples.push(sample);
+      }
+
+      this._voxelIdxToSamples[voxelId] = samples;
+    }
+
+    return samples;
   }
 }
 

@@ -14,6 +14,8 @@ class VTEmissionMaterial extends VTMaterial {
     //this.texture = texture;
   }
 
+  expire(pool) {}
+
   fromJSON(json, pool) {
     const {colour, alpha} = json;
     this.colour.setHex(colour);

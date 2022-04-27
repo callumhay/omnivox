@@ -62,11 +62,6 @@ export class VTRPFogBox extends VTRPFog {
     return this;
   }
 
-  static build(json) {
-    const result = new VTRPFogBox();
-    return result.fromJSON(json);
-  }
-
   position(target) { 
     return this._boundingBox.getCenter(target); 
   }
@@ -87,11 +82,6 @@ export class VTRPFogSphere extends VTRPFog {
     const {_boundingSphere} = json;
     this._boundingSphere.copy(_boundingSphere);
     return this;
-  }
-
-  static build(json) {
-    const result = new VTRPFogSphere();
-    return result.fromJSON(json);
   }
 
   position(target) { 

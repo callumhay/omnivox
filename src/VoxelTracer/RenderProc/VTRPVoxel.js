@@ -7,6 +7,7 @@ import VTMaterialFactory from '../VTMaterialFactory';
 import {defaultVTVoxelOptions} from '../VTVoxel';
 
 import VTRPObject from './VTRPObject';
+import VTRPObjectFactory from './VTRPObjectFactory';
 
 const _tempVec3 = new THREE.Vector3();
 
@@ -36,29 +37,9 @@ class VTRPVoxel extends VTRPObject  {
     this.drawOrder = drawOrder;
     this._position.copy(_position);
     this._options = {...this._options, ..._options};
-
-    if (this._material && this._material.type !== _material.type) {
-      pool.expire(this._material);
-      this._material = VTMaterialFactory.buildFromPool(_material, pool);
-    }
-    else {
-      this._material.fromJSON(_material, pool);
-    }
-
+    this._material = VTRPObjectFactory.updateOrBuildFromPool(_material, pool, this._material);
     this.reinitBoundingBox();
     return this;
-  }
-
-  static build(jsonVTVoxel) {
-    const {id, drawOrder, _position, _material, _options} = jsonVTVoxel;
-    const result = new VTRPVoxel();
-    result.id = id;
-    result.drawOrder = drawOrder;
-    result._position.copy(_position); 
-    result._options = {...result._options, ..._options};
-    result._material = VTMaterialFactory.build(_material);
-    result.reinitBoundingBox();
-    return result;
   }
 
   isShadowCaster() { return this._options.castsShadows || false; }

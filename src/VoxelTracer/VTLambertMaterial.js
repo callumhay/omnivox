@@ -15,6 +15,8 @@ class VTLambertMaterial extends VTMaterial {
     //this.texture = texture;
   }
 
+  expire(pool) {}
+
   fromJSON(json, pool) {
     const {colour, emissive, alpha} = json;
     this.colour.setHex(colour);

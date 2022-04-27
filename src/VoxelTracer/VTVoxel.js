@@ -20,7 +20,7 @@ class VTVoxel extends VTObject  {
 
     this._position = InitUtils.initTHREEVector3(position);
     this._material = VTMaterialFactory.initMaterial(material);
-    this._options = options ? {...options, ...defaultVTVoxelOptions} : {...defaultVTVoxelOptions};
+    this._options = options ? {...defaultVTVoxelOptions, ...options} : {...defaultVTVoxelOptions};
 
     this.makeDirty();
   }

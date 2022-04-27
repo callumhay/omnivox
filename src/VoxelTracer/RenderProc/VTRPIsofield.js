@@ -7,6 +7,7 @@ import VTConstants from '../VTConstants';
 import {defaultIsofieldOptions} from '../VTIsofield';
 
 import VTRPObject from './VTRPObject';
+import VTRPObjectFactory from './VTRPObjectFactory';
 
 const _noUV     = new THREE.Vector2();
 const _tempVec3_0  = new THREE.Vector3();
@@ -56,18 +57,11 @@ class VTRPIsofield extends VTRPObject {
     this.id = id;
     this.drawOrder = drawOrder;
     this._options = {...this._options, _options};
+    this._material = VTRPObjectFactory.updateOrBuildFromPool(_material, pool, this._material);
+    this._baseColour = this._material.colour;
 
     if (this._size !== _size) { this.setSize(_size); }
     else { this.clearFieldAndPalette(); }
-
-    if (this._material && this._material.type !== _material.type) {
-      pool.expire(this._material);
-      this._material = VTMaterialFactory.buildFromPool(_material, pool);
-    }
-    else {
-      this._material.fromJSON(_material, pool);
-    }
-    this._baseColour = this._material.colour;
     
     if ('x' in _walls) { this._addWallX(_walls['x']); }
     if ('y' in _walls) { this._addWallY(_walls['y']); }
@@ -76,28 +70,6 @@ class VTRPIsofield extends VTRPObject {
     for (const metaball of _metaballs) { this._addMetaball(metaball); }
 
     return this;
-  }
-
-  static build(jsonVTIsofield) {
-    const {id, drawOrder, _size, _material, _metaballs, _walls, _options} = jsonVTIsofield;
-    const result = new VTRPIsofield();
-
-    result.id = id;
-    result.drawOrder = drawOrder;
-    result._options = {...result._options, _options};
-
-    if (result._size !== _size) { result.setSize(_size); }
-    else { result.clearFieldAndPalette(); }
-    result._material = VTMaterialFactory.build(_material);
-    result._baseColour = result._material.colour;
-
-    if ('x' in _walls) { result._addWallX(_walls['x']); }
-    if ('y' in _walls) { result._addWallY(_walls['y']); }
-    if ('z' in _walls) { result._addWallZ(_walls['z']); }
-
-    for (const metaball of _metaballs) { result._addMetaball(metaball); }
-
-    return result;
   }
 
   isShadowCaster() { return this._options.castsShadows || false; }

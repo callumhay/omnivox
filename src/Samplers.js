@@ -15,17 +15,17 @@ class Sampler {
    * @param {Number} initTheta (Optional) Initial theta to start sampling at.
    * @returns The sample point on the surface of the sphere.
    */
-  static fibSphere(sampleIdx, numSamples, radius, initPhi=0, initTheta=0) {
+  static fibSphere(target, sampleIdx, numSamples, radius, initPhi=0, initTheta=0) {
     const k = sampleIdx + 0.5;
 
     const phi   = initPhi + Math.acos(1 - 2 * k / numSamples);
     const theta = initTheta + Math.PI * (1 + SQRT5) * k;
 
-    return (new THREE.Vector3(
+    return target.set(
       Math.cos(theta) * Math.sin(phi),
       Math.sin(theta) * Math.sin(phi),
       Math.cos(phi)
-    )).multiplyScalar(radius);
+    ).multiplyScalar(radius);
   }
 
   /**

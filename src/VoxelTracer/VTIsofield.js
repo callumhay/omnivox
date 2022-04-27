@@ -19,7 +19,7 @@ class VTIsofield extends VTObject {
     super(VTConstants.ISOFIELD_TYPE);
     this._size = size || VoxelConstants.VOXEL_GRID_SIZE;
     this._material = VTMaterialFactory.initMaterial(material);
-    this._options = options ? {...options, ...defaultIsofieldOptions} : {...defaultIsofieldOptions};
+    this._options = options ? {...defaultIsofieldOptions, ...options} : {...defaultIsofieldOptions};
     this._maxPt = new THREE.Vector3(size-1,size-1,size-1);
     this.reset();
   }

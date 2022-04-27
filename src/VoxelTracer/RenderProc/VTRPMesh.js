@@ -10,6 +10,7 @@ import VTConstants from '../VTConstants';
 
 import VTRPObject from './VTRPObject';
 import VTPool from '../VTPool';
+import VTRPObjectFactory from './VTRPObjectFactory';
 
 const sigma = VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS / 10.0;
 const valueAtZero = (1.0 / SQRT2PI*sigma);
@@ -89,6 +90,7 @@ class VTRPMesh extends VTRPObject {
     //this.reinitSamples();
     this.id = id;
     this.drawOrder = drawOrder;
+    this._material = VTRPObjectFactory.updateOrBuildFromPool(material, pool, this._material);
 
     // Reload the geometry if it doesn't exist or is different
     if (!this._geometry || this._geometry.uuid !== geometry['uuid']) {
@@ -101,35 +103,7 @@ class VTRPMesh extends VTRPObject {
     }
     this._threeMesh.matrixWorld.fromArray(matrixWorld);
 
-    if (this._material && this._material.type !== material.type) {
-      pool.expire(this._material);
-      this._material = VTMaterialFactory.buildFromPool(material, pool);
-    }
-    else {
-      this._material.fromJSON(material, pool);
-    }
-
     return this;
-  }
-
-  static build(jsonVTMesh) {
-    const {id, drawOrder, geometry, matrixWorld, material} = jsonVTMesh;
-
-    const result = new VTRPMesh();
-    result.id = id;
-    result.drawOrder = drawOrder;
-    
-    const loadedGeometryMap = _loader.parseGeometries([geometry]);
-    const loadedGeometry = Object.values(loadedGeometryMap)[0];
-    loadedGeometry.computeBoundingBox();
-    loadedGeometry.boundsTree = new MeshBVH(loadedGeometry, {strategy: SAH});
-
-    result._geometry = loadedGeometry;
-    result._threeMesh = new THREE.Mesh(loadedGeometry);
-    result._threeMesh.matrixWorld.fromArray(matrixWorld);
-    result._material = VTMaterialFactory.build(material);
-    
-    return result;
   }
 
   isShadowCaster() { return true; }

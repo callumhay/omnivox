@@ -50,6 +50,7 @@ const simpleSceneDefaultOptions = {
   sphereRadius: 4,
   sphereColour: {r:1, g:1, b:1},
   sphereEmission: {r:0.1, g:0.1, b:0.1},
+  sphereFill: false,
 
   pointLightsSpd: Math.PI,
   pointLight1Colour: {r:1, g:0, b:0},
@@ -68,12 +69,16 @@ const simpleSceneControlOptions = {
   sphereRadius: {label: "Sphere Radius", min:0.5, max:5, step:0.25},
   sphereColour: {label: "Sphere Colour"},
   sphereEmission: {label: "Sphere Emission"},
-  pointLightsSpd: {label: "Light Speed", min:0, max:Math.PI*6, step:Math.PI/6},
+  sphereFill: {label: "Sphere Fill?"},
+
+  pointLightsSpd: {label: "Light Speed", min:0, max:Math.PI*4, step:0.01},
   pointLight1Colour: {label: "Light 1 Colour"},
   pointLight2Colour: {label: "Light 2 Colour"},
   pointLight3Colour: {label: "Light 3 Colour"},
   pointLightAtten: {...attenuationCtrlOpt},
+
   ambientLightColour: {label: "Ambient Light Colour"},
+  
   wallX: {label: "Show X-Axis Wall?"},
   wallY: {label: "Show Y-Axis Wall?"},
   wallZ: {label: "Show Z-Axis Wall?"},

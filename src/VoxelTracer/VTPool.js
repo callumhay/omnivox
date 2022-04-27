@@ -43,16 +43,16 @@ class VTPool {
 
   get(target, params, uid) {
     let p;
-    uid = uid || target.__puid || VTUid.getId(target);
+    uid = uid || target.__vtuid || VTUid.getId(target);
 
     if (this.cache[uid] && this.cache[uid].length > 0) { p = this.cache[uid].pop(); } 
     else { p = this.createOrClone(target, params); }
 
-    p.__puid = target.__puid || uid;
+    p.__vtuid = target.__vtuid || uid;
     return p;
   }
 
-  expire(target) { return this._getCache(target.__puid).push(target); }
+  expire(target) { return this._getCache(target.__vtuid).push(target); }
 
   createOrClone(target, params) {
     this.total++;
