@@ -1,10 +1,13 @@
 import * as THREE from 'three';
 
+import VoxelConstants from '../VoxelConstants';
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
+
 import VTConstants from './VTConstants';
+import VTMaterialFactory from './VTMaterialFactory';
 import VTObject from './VTObject';
 
-const minPt = new THREE.Vector3(0,0,0);
+const _minPt = new THREE.Vector3(0,0,0);
 
 export const defaultIsofieldOptions = {
   receivesShadows: true,
@@ -12,11 +15,11 @@ export const defaultIsofieldOptions = {
 }
 
 class VTIsofield extends VTObject {
-  constructor(size, material, options={...defaultIsofieldOptions}) {
+  constructor(size, material, options) {
     super(VTConstants.ISOFIELD_TYPE);
-    this._size = size;
-    this._material = material;
-    this._options = options;
+    this._size = size || VoxelConstants.VOXEL_GRID_SIZE;
+    this._material = VTMaterialFactory.initMaterial(material);
+    this._options = options ? {...options, ...defaultIsofieldOptions} : {...defaultIsofieldOptions};
     this._maxPt = new THREE.Vector3(size-1,size-1,size-1);
     this.reset();
   }
@@ -38,7 +41,7 @@ class VTIsofield extends VTObject {
   }
 
   getCollidingVoxels(voxelGridBoundingBox) {
-    return VoxelGeometryUtils.voxelAABBList(minPt, this._maxPt, true, voxelGridBoundingBox);
+    return VoxelGeometryUtils.voxelAABBList(_minPt, this._maxPt, true, voxelGridBoundingBox);
   }
 
   reset() {

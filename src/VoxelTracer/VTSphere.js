@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import VoxelConstants from '../VoxelConstants';
 
+import VoxelConstants from '../VoxelConstants';
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 import VTConstants from './VTConstants';
+import VTMaterialFactory from './VTMaterialFactory';
 import VTTransformable from './VTTransformable';
 
 export const defaultSphereOptions = {
@@ -13,19 +14,18 @@ export const defaultSphereOptions = {
   receivesShadows: true,
 };
 
-const _sphere = new THREE.Sphere();
+const _sphere  = new THREE.Sphere();
 const _zeroVec = new THREE.Vector3(0,0,0);
 
 class VTSphere extends VTTransformable {
 
-  constructor(center, radius, material, options={...defaultSphereOptions}) {
+  constructor(center, radius, material, options) {
     super(VTConstants.SPHERE_TYPE);
     
-    this.position.copy(center);
-    this._radius = radius;
-
-    this._material = material;
-    this._options = options;
+    if (center) { this.position.copy(center); }
+    this._radius = radius || 1;
+    this._material = VTMaterialFactory.initMaterial(material);
+    this._options = options ? {...options, ...defaultSphereOptions} : {...defaultSphereOptions};
 
     this.makeDirty();
   }

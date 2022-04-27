@@ -1,28 +1,38 @@
 import * as THREE from 'three';
 
-import VTMaterial from './VTMaterial';
-import VTTexture from './VTTexture';
+import InitUtils from '../InitUtils';
 import {clamp} from '../MathUtils';
 
+//import VTTexture from './VTTexture';
+import VTMaterial from './VTMaterial';
+
 class VTLambertMaterial extends VTMaterial {
-  constructor(colour=new THREE.Color(1,1,1), emissive=new THREE.Color(0,0,0), alpha=1, texture=null) {
+  constructor(colour=new THREE.Color(1,1,1), emissive=new THREE.Color(0,0,0), alpha=1) {
     super(VTMaterial.LAMBERT_TYPE);
-    this.colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
-    this.emissive = emissive instanceof THREE.Color ? emissive : new THREE.Color(emissive.r, emissive.g, emissive.b);
+    this.colour = InitUtils.initTHREEColor(colour);
+    this.emissive = InitUtils.initTHREEColor(emissive);
     this.alpha = alpha;
-    this.texture = texture;
+    //this.texture = texture;
+  }
+
+  fromJSON(json, pool) {
+    const {colour, emissive, alpha} = json;
+    this.colour.setHex(colour);
+    this.emissive.setHex(emissive);
+    this.alpha = alpha;
+    return this;
   }
 
   static build(jsonData) {
-    const {colour, emissive, alpha, texture} = jsonData;
+    const {colour, emissive, alpha} = jsonData;
     const threeColour = (new THREE.Color()).setHex(colour);
     const threeEmission = (new THREE.Color()).setHex(emissive);
-    return new VTLambertMaterial(threeColour, threeEmission, alpha, VTTexture.build(texture));
+    return new VTLambertMaterial(threeColour, threeEmission, alpha);//, VTTexture.build(texture));
   }
 
   toJSON() {
-    const {type, colour, emissive, alpha, texture} = this;
-    return {type, colour, emissive, alpha, texture};
+    const {type, colour, emissive, alpha} = this;
+    return {type, colour, emissive, alpha};
   }
 
   isVisible() {

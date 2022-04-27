@@ -9,6 +9,8 @@ class VTRPObject {
     this.drawOrder = VTConstants.DRAW_ORDER_DEFAULT;
   }
 
+  expire(pool) { console.error("expire unimplemented abstract method called."); }
+
   fromJSON(json, pool) { console.error("fromJSON unimplemented abstract method called."); }
 
   isShadowCaster() { console.error("isShadowCaster unimplemented abstract method called."); return false; }

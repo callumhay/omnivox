@@ -37,13 +37,27 @@ class VTRPScene {
   }
 
   clear() {
+    // TODO POOL REFACTOR: Reclaim all objects in the pool!
+    /*
+    for (const renderable of Object.values(this.renderables)) {
+      renderable.expire(this.pool);
+      this.pool.expire(renderable);
+    }
+    for (const light of Object.values(this.lights)) {
+      light.expire(this.pool);
+      this.pool.expire(light);
+    }
+    if (this.ambientLight) {
+      this.ambientLight.expire(this.pool);
+      this.pool.expire(this.ambientLight);
+    }
+    */
+
     // All renderables and lights are stored by their IDs
     this.renderables = {};
     this.shadowCasters = {};
-
     this.lights = {};
     this.ambientLight = null;
-    
     this._tempVoxelMap = {};
   }
 
@@ -141,10 +155,28 @@ class VTRPScene {
     else if (removedIds) {
       for (let i = 0; i < removedIds.length; i++) {
         const removedId = removedIds[i];
-        if (removedId in this.renderables) { delete this.renderables[removedId]; }
-        if (removedId in this.lights) { delete this.lights[removedId]; }
-        if (removedId in this.shadowCasters) { delete this.shadowCasters[removedId]; }
-        if (this.ambientLight && this.ambientLight.id === removedId) { this.ambientLight = null; }
+        if (removedId in this.renderables) {
+          //const renderable = this.renderables[removedId];
+          //renderable.expire(this.pool);
+          //this.pool.expire(renderable);
+          delete this.renderables[removedId];
+        }
+        
+        if (removedId in this.lights) {
+          //const light = this.lights[removedId];
+          //light.expire(this.pool);
+          //this.pool.expire(light);
+          delete this.lights[removedId];
+        }
+
+        // No need to expire shadowcasters, they've already been taken care of in lights/renderables
+        if (removedId in this.shadowCasters) { delete this.shadowCasters[removedId]; } 
+
+        if (this.ambientLight && this.ambientLight.id === removedId) {
+          //this.ambientLight.expire(pool);
+          //this.pool.expire(this.ambientLight);
+          this.ambientLight = null;
+        }
       }
     }
 
@@ -168,6 +200,20 @@ class VTRPScene {
 
     for (const entry of Object.entries(updatedMap)) {
       const [id, obj] = entry;
+
+      // TODO POOL REFACTOR: Reclaim objects to the pool! ... optimization: Just keep objects with the same id and don't get/expire them!
+      /*
+      if (id in this.renderables) {
+        const renderable = this.renderables[id];
+        renderable.expire(this.pool);
+        this.pool.expire(renderable);
+      }
+      else if (id in this.lights) {
+        const light = this.lights[id];
+        light.expire(this.pool);
+        this.pool.expire(light);
+      }
+      */
 
       switch (obj.type) {
         case VTConstants.POINT_LIGHT_TYPE:

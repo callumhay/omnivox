@@ -1,18 +1,30 @@
 import * as THREE from 'three';
 
-import VTObject from '../VTObject';
-import VTMaterialFactory from '../VTMaterialFactory';
 import VoxelConstants from '../../VoxelConstants';
+
+import VTMaterialFactory from '../VTMaterialFactory';
 import VTConstants from '../VTConstants';
+import {defaultIsofieldOptions} from '../VTIsofield';
 
-const NO_UV = new THREE.Vector2();
-const tempVec3  = new THREE.Vector3();
-const tempVec3a = new THREE.Vector3();
+import VTRPObject from './VTRPObject';
 
-class VTRPIsofield extends VTObject {
-  constructor(size, balls, walls, material, options) {
+const _noUV     = new THREE.Vector2();
+const _tempVec3_0  = new THREE.Vector3();
+const _tempVec3_1 = new THREE.Vector3();
+const _tempColour = new THREE.Color();
+
+class VTRPIsofield extends VTRPObject {
+  constructor() {
     super(VTConstants.ISOFIELD_TYPE);
 
+    this.setSize(0);
+
+    this._material = null;
+    this._baseColour = null;
+    this._options = {...defaultIsofieldOptions};
+  }
+
+  setSize(size) {
     this._size = size;
 		this._size2 = size * size;
 		this._size3 = this._size2 * size;
@@ -22,34 +34,69 @@ class VTRPIsofield extends VTObject {
     this._field   = new Float32Array(this._size3);     // Isofield (scalar field for the entire volume)
     this._palette = new Float32Array(this._size3 * 3); // Colour field for the entire volume
 
-    this._material = VTMaterialFactory.build(material);
-    this._baseColour = this._material.colour;
-    this._options = options;
-
-    this.reinit();
-
-    if ('x' in walls) { this._addWallX(walls['x']); }
-    if ('y' in walls) { this._addWallY(walls['y']); }
-    if ('z' in walls) { this._addWallZ(walls['z']); }
-
-    for (let i = 0; i < balls.length; i++) {
-      const metaball = balls[i];
-      this._addMetaball(metaball);
-    }
+    this.clearFieldAndPalette();
   }
 
-  reinit() {
+  clearFieldAndPalette() {
     for (let i = 0; i < this._size3; i++) {
       this._field[i] = 0.0;
       this._palette[i * 3] = this._palette[i * 3 + 1] = this._palette[i * 3 + 2] = 0.0;
     }
   }
 
+  expire(pool) {
+    if (this._material) {
+      pool.expire(this._material);
+      this._material = null;
+    }
+  }
+
+  fromJSON(json, pool) {
+    const {id, drawOrder, _size, _material, _metaballs, _walls, _options} = json;
+    this.id = id;
+    this.drawOrder = drawOrder;
+    this._options = {...this._options, _options};
+
+    if (this._size !== _size) { this.setSize(_size); }
+    else { this.clearFieldAndPalette(); }
+
+    if (this._material && this._material.type !== _material.type) {
+      pool.expire(this._material);
+      this._material = VTMaterialFactory.buildFromPool(_material, pool);
+    }
+    else {
+      this._material.fromJSON(_material, pool);
+    }
+    this._baseColour = this._material.colour;
+    
+    if ('x' in _walls) { this._addWallX(_walls['x']); }
+    if ('y' in _walls) { this._addWallY(_walls['y']); }
+    if ('z' in _walls) { this._addWallZ(_walls['z']); }
+
+    for (const metaball of _metaballs) { this._addMetaball(metaball); }
+
+    return this;
+  }
+
   static build(jsonVTIsofield) {
     const {id, drawOrder, _size, _material, _metaballs, _walls, _options} = jsonVTIsofield;
-    const result = new VTRPIsofield(_size, _metaballs, _walls, _material, _options);
+    const result = new VTRPIsofield();
+
     result.id = id;
     result.drawOrder = drawOrder;
+    result._options = {...result._options, _options};
+
+    if (result._size !== _size) { result.setSize(_size); }
+    else { result.clearFieldAndPalette(); }
+    result._material = VTMaterialFactory.build(_material);
+    result._baseColour = result._material.colour;
+
+    if ('x' in _walls) { result._addWallX(_walls['x']); }
+    if ('y' in _walls) { result._addWallY(_walls['y']); }
+    if ('z' in _walls) { result._addWallZ(_walls['z']); }
+
+    for (const metaball of _metaballs) { result._addMetaball(metaball); }
+
     return result;
   }
 
@@ -98,17 +145,17 @@ class VTRPIsofield extends VTObject {
     if (Math.abs(voxelNormal.x) > 0.001 || Math.abs(voxelNormal.y) > 0.001 || Math.abs(voxelNormal.z) > 0.001) {
       voxelNormal.normalize();
 
-      const paletteColour = new THREE.Color(this._palette[idxXYZ*3+0], this._palette[idxXYZ*3+1], this._palette[idxXYZ*3+2]);
+      const paletteColour = _tempColour.setRGB(this._palette[idxXYZ*3+0], this._palette[idxXYZ*3+1], this._palette[idxXYZ*3+2]);
       if (paletteColour.r > 0 || paletteColour.g > 0 || paletteColour.b > 0) {
-        this._material.colour = paletteColour;
+        this._material.colour.copy(paletteColour);
       }
       else {
-        this._material.colour = this._baseColour;
+        this._material.colour.copy(this._baseColour);
       }
       const voxelSample = {
         point: voxelIdxPt,
         normal: voxelNormal,
-        uv: NO_UV,
+        uv: _noUV,
         falloff: fieldXYZ //THREE.MathUtils.smoothstep(fieldXYZ,0,1), // fieldXYZ > 0.5 ? 1 : 0,
       };
 
@@ -123,7 +170,7 @@ class VTRPIsofield extends VTObject {
     const {ray, far, near} = raycaster;
 
     // Store the equivalent to the CG function call "step(0,ray.direction)"
-    tempVec3a.set(
+    _tempVec3_1.set(
       ray.direction.x >= 0.0 ? 1.0 : 0.0,
       ray.direction.y >= 0.0 ? 1.0 : 0.0,
       ray.direction.z >= 0.0 ? 1.0 : 0.0,
@@ -134,42 +181,42 @@ class VTRPIsofield extends VTObject {
     let accumIsoVal = 0.0, t = near;
     const sizePlusEpsilon = this._size + VoxelConstants.VOXEL_EPSILON;
 
-    tempVec3.copy(ray.direction);
-    tempVec3.multiplyScalar(t);
-    tempVec3.add(ray.origin);
+    _tempVec3_0.copy(ray.direction);
+    _tempVec3_0.multiplyScalar(t);
+    _tempVec3_0.add(ray.origin);
 
     while (t <= far) {
       // Determine the next step to take in the ray marching
-      tempVec3.set(
-        -(tempVec3.x - Math.floor(tempVec3.x)),
-        -(tempVec3.y - Math.floor(tempVec3.y)),
-        -(tempVec3.z - Math.floor(tempVec3.z)),
-      ); // -fract(tempVec3)
-      tempVec3.add(tempVec3a); // + step(0,ray.direction)
-      tempVec3.divide(ray.direction);
+      _tempVec3_0.set(
+        -(_tempVec3_0.x - Math.floor(_tempVec3_0.x)),
+        -(_tempVec3_0.y - Math.floor(_tempVec3_0.y)),
+        -(_tempVec3_0.z - Math.floor(_tempVec3_0.z)),
+      ); // -fract(_tempVec3_0)
+      _tempVec3_0.add(_tempVec3_1); // + step(0,ray.direction)
+      _tempVec3_0.divide(ray.direction);
       
-      const minComp = Math.min(tempVec3.x, Math.min(tempVec3.y, tempVec3.z));
+      const minComp = Math.min(_tempVec3_0.x, Math.min(_tempVec3_0.y, _tempVec3_0.z));
       t += Math.max(minComp, 0.25);
 
       // Store the current marching position in a temporary 3d vector
-      tempVec3.copy(ray.direction);
-      tempVec3.multiplyScalar(t);
-      tempVec3.add(ray.origin);
+      _tempVec3_0.copy(ray.direction);
+      _tempVec3_0.multiplyScalar(t);
+      _tempVec3_0.add(ray.origin);
 
       // Exit if we're outside the voxel volume
-      if (tempVec3.x < VoxelConstants.VOXEL_EPSILON || 
-          tempVec3.y < VoxelConstants.VOXEL_EPSILON || 
-          tempVec3.z < VoxelConstants.VOXEL_EPSILON ||
-          tempVec3.x > sizePlusEpsilon || 
-          tempVec3.y > sizePlusEpsilon || 
-          tempVec3.z > sizePlusEpsilon) {
+      if (_tempVec3_0.x < VoxelConstants.VOXEL_EPSILON || 
+          _tempVec3_0.y < VoxelConstants.VOXEL_EPSILON || 
+          _tempVec3_0.z < VoxelConstants.VOXEL_EPSILON ||
+          _tempVec3_0.x > sizePlusEpsilon || 
+          _tempVec3_0.y > sizePlusEpsilon || 
+          _tempVec3_0.z > sizePlusEpsilon) {
         break;
       }
       
-      tempVec3.floor(); // TODO?: Interpolate the current isovalue instead of flooring it
+      _tempVec3_0.floor(); // TODO?: Interpolate the current isovalue instead of flooring it
 
       // Look up the value in the isofield at the current ray marched position
-      accumIsoVal += this._field[this._flatIdx(tempVec3.x, tempVec3.y, tempVec3.z)];
+      accumIsoVal += this._field[this._flatIdx(_tempVec3_0.x, _tempVec3_0.y, _tempVec3_0.z)];
       if (accumIsoVal >= 1) { break; }
     }
 
@@ -186,13 +233,12 @@ class VTRPIsofield extends VTObject {
     if (!metaball) { return; }
     const {ballX, ballY, ballZ, strength:str, subtract, colour:cHex} = metaball;
 
-    const colour = (new THREE.Color()).setHex(cHex);
+    const colour = _tempColour.setHex(cHex);
     const sign = Math.sign(str);
 		const strength = Math.abs(str);
 		const userDefinedColor = !(colour === undefined || colour === null);
-		const ballColor = userDefinedColor ? colour : new THREE.Color(ballX, ballY, ballZ);
-    //if (userDefinedColor) { console.log("Colour!"); }
-    
+		const ballColor = userDefinedColor ? colour : _tempColour.setRGB(ballX, ballY, ballZ);
+
     // Let's solve the equation to find the radius:
     // 1.0 / (0.000001 + radius^2) * strength - subtract = 0
     // strength / (radius^2) = subtract

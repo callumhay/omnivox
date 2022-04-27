@@ -1,26 +1,35 @@
 import * as THREE from 'three';
 
-import VTMaterial from './VTMaterial';
-import VTTexture from './VTTexture';
+import InitUtils from '../InitUtils';
 import {clamp} from '../MathUtils';
 
+import VTMaterial from './VTMaterial';
+//import VTTexture from './VTTexture';
+
 class VTEmissionMaterial extends VTMaterial {
-  constructor(colour=new THREE.Color(1,1,1), alpha=1, texture=null) {
+  constructor(colour, alpha=1) {
     super(VTMaterial.EMISSION_TYPE);
-    this.colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
+    this.colour = InitUtils.initTHREEColor(colour);
     this.alpha = alpha;
-    this.texture = texture;
+    //this.texture = texture;
+  }
+
+  fromJSON(json, pool) {
+    const {colour, alpha} = json;
+    this.colour.setHex(colour);
+    this.alpha = alpha;
+    return this;
   }
 
   static build(jsonData) {
-    const {colour, alpha, texture} = jsonData;
+    const {colour, alpha} = jsonData;
     const threeColour = (new THREE.Color()).setHex(colour);
-    return new VTEmissionMaterial(threeColour, alpha, VTTexture.build(texture));
+    return new VTEmissionMaterial(threeColour, alpha);//, VTTexture.build(texture));
   }
 
   toJSON() {
-    const {type, colour, alpha, texture} = this;
-    return {type, colour, alpha, texture};
+    const {type, colour, alpha} = this;
+    return {type, colour, alpha};
   }
 
   isVisible() { return Math.round(this.alpha*255) >= 1; }

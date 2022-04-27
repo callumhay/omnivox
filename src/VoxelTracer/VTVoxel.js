@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 
+import InitUtils from '../InitUtils';
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 import VTConstants from './VTConstants';
@@ -11,17 +12,15 @@ export const defaultVTVoxelOptions = {
   castsShadows: true,
 };
 
+// TODO: REFACTOR TO USE VTTransformable
 class VTVoxel extends VTObject  {
 
-  constructor(position=null, material=null, options={...defaultVTVoxelOptions}) {
+  constructor(position, material, options) {
     super(VTConstants.VOXEL_TYPE);
 
-    this._position = position || new THREE.Vector3(0,0,0);
-    this._material = (typeof material === 'string' || material instanceof String) ? VTMaterialFactory.build(material) : material;
-
-    this._options = options;
-    this._options.receivesShadows = (options.receivesShadows !== undefined) ? options.receivesShadows : true;
-    this._options.castsShadows    = (options.castsShadows !== undefined) ? options.castsShadows : true;
+    this._position = InitUtils.initTHREEVector3(position);
+    this._material = VTMaterialFactory.initMaterial(material);
+    this._options = options ? {...options, ...defaultVTVoxelOptions} : {...defaultVTVoxelOptions};
 
     this.makeDirty();
   }

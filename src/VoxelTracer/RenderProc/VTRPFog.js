@@ -7,10 +7,21 @@ import VTConstants from '../VTConstants';
 import VTRPObject from './VTRPObject';
 
 class VTRPFog extends VTRPObject {
-  constructor(type, options) {
+  constructor(type) {
     super(type);
-    this._colour = options.colour ? options.colour : fogDefaultOptions.colour;
-    this._scattering = options.scattering ? options.scattering : fogDefaultOptions.scattering;
+    this._colour = new THREE.Color();
+    this._scattering = 0;
+  }
+
+  expire(pool) {}
+
+  fromJSON(json, pool) {
+    const {id, drawOrder, _colour, _scattering} = json;
+    this.id = id;
+    this.drawOrder = drawOrder;
+    this._colour.setHex(_colour);
+    this._scattering = _scattering;
+    return this;
   }
 
   isShadowCaster() { return false; }
@@ -38,21 +49,22 @@ class VTRPFog extends VTRPObject {
 }
 
 export class VTRPFogBox extends VTRPFog {
-  constructor(boundingBox, options) {
-    super(VTConstants.FOG_BOX_TYPE, options);
-    this._boundingBox = boundingBox;
+  constructor() {
+    super(VTConstants.FOG_BOX_TYPE);
+    this._boundingBox = new THREE.Box3();
+
+  }
+
+  fromJSON(json, pool) {
+    super.fromJSON(json, pool);
+    const {_boundingBox} = json;
+    this._boundingBox.copy(_boundingBox);
+    return this;
   }
 
   static build(json) {
-    const {id, drawOrder, _colour, _boundingBox, _scattering} = json;
-    const colour = (new THREE.Color()).setHex(_colour);
-    const {min, max} = _boundingBox;
-    const minPt = new THREE.Vector3(min.x, min.y, min.z);
-    const maxPt = new THREE.Vector3(max.x, max.y, max.z);
-    const result = new VTRPFogBox(new THREE.Box3(minPt, maxPt), {colour: colour, scattering: _scattering});
-    result.id = id;
-    result.drawOrder = drawOrder;
-    return result;
+    const result = new VTRPFogBox();
+    return result.fromJSON(json);
   }
 
   position(target) { 
@@ -65,20 +77,21 @@ export class VTRPFogBox extends VTRPFog {
 }
 
 export class VTRPFogSphere extends VTRPFog {
-  constructor(boundingSphere, options) {
-    super(VTConstants.FOG_SPHERE_TYPE, options);
-    this._boundingSphere = boundingSphere;
+  constructor() {
+    super(VTConstants.FOG_SPHERE_TYPE);
+    this._boundingSphere = new THREE.Sphere();
+  }
+
+  fromJSON(json, pool) {
+    super.fromJSON(json, pool);
+    const {_boundingSphere} = json;
+    this._boundingSphere.copy(_boundingSphere);
+    return this;
   }
 
   static build(json) {
-    const {id, drawOrder, _colour, _boundingSphere, _scattering} = json;
-    const colour = (new THREE.Color()).setHex(_colour);
-    const {center, radius} = _boundingSphere;
-    const c = new THREE.Vector3(center.x, center.y, center.z);
-    const result = new VTRPFogSphere(new THREE.Sphere(c, radius), {colour: colour, scattering: _scattering});
-    result.id = id;
-    result.drawOrder = drawOrder;
-    return result;
+    const result = new VTRPFogSphere();
+    return result.fromJSON(json);
   }
 
   position(target) { 

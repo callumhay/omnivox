@@ -7,6 +7,7 @@ import Sampler from '../../Samplers';
 
 import VTMaterialFactory from '../VTMaterialFactory';
 import VTConstants from '../VTConstants';
+import {defaultSphereOptions} from '../VTSphere';
 
 import VTRPObject from './VTRPObject';
 
@@ -18,27 +19,63 @@ const _tempVec3 = new THREE.Vector3();
 
 class VTRPSphere extends VTRPObject  {
 
-  constructor(center, radius, material, options) {
+  constructor() {
     super(VTConstants.SPHERE_TYPE);
-    this._sphere = new THREE.Sphere(center, radius);
-    this._material = material;
-    this._options = options;
+    this._sphere = new THREE.Sphere();
+    this._material = null;
+    this._options = {...defaultSphereOptions};
+  }
 
+  reinitSamples() {
     // Calculate and memoize info for performing voxel sampling during rendering:
-    const samplesPerVoxel = options.samplesPerVoxel || 3;
-    const maxSampleAngle = Math.asin(0.5*VoxelConstants.VOXEL_UNIT_SIZE/radius);
+    const maxSampleAngle = Math.asin(0.5*VoxelConstants.VOXEL_UNIT_SIZE/this._sphere.radius);
     const maxSampleSr = 2*Math.PI*(1-Math.cos(maxSampleAngle));
     const srPercentage = maxSampleSr / (4*Math.PI);
-
-    this._fibSampleN = Math.ceil(samplesPerVoxel / srPercentage); // The number of sphere samples needed for fibonacci sampling
+    
+    this._fibSampleN = Math.ceil(this._options.samplesPerVoxel / srPercentage); // The number of sphere samples needed for fibonacci sampling
     this._voxelIdxToSamples = {}; // Memoization for voxel collisions and sampling
+  }
+
+  expire(pool) {
+    if (this._material) {
+      pool.expire(this._material);
+      this._material = null;
+    }
+  }
+
+  fromJSON(json, pool) {
+    const {id, drawOrder, center, radius, material, options} = json;
+    this.id = id;
+    this.drawOrder = drawOrder;
+
+    // NOTE: For now the world transform is done on the main thread to the center and radius
+    //this._matrixWorld.fromArray(matrixWorld); 
+    //this._invMatrixWorld.fromArray(invMatrixWorld);
+
+    this._sphere.set(center, radius);
+    this._options = {...this._options, ...options};
+
+    if (this._material && this._material.type !== material.type) {
+      pool.expire(this._material);
+      this._material = VTMaterialFactory.buildFromPool(material, pool);
+    }
+    else {
+      this._material.fromJSON(material, pool);
+    }
+
+    this.reinitSamples();
+    return this;
   }
 
   static build(jsonData) {
     const {id, drawOrder, center, radius, material, options} = jsonData;
-    const result = new VTRPSphere(new THREE.Vector3(center.x, center.y, center.z), radius, VTMaterialFactory.build(material), options);
+    const result = new VTRPSphere();
     result.id = id;
     result.drawOrder = drawOrder;
+    result._sphere.set(center, radius);
+    result._material = VTMaterialFactory.build(material);
+    result._options = {...result._options, ...options};
+    result.reinitSamples();
     return result;
   }
 

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
+import InitUtils from '../InitUtils';
 import {clamp} from '../MathUtils';
 
 import VTObject from './VTObject';
@@ -14,14 +15,24 @@ const defaultAttenuation = {
 const _tempVec3 = new THREE.Vector3();
 
 class VTPointLight extends VTObject {
-  constructor(position, colour, attenuation=defaultAttenuation, drawLight=true) {
+  constructor(position, colour, attenuation={...defaultAttenuation}, drawLight=true) {
     super(VTConstants.POINT_LIGHT_TYPE);
 
-    this._position = position;
-    this._colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
+    this._position = InitUtils.initTHREEVector3(position);
+    this._colour   = InitUtils.initTHREEColor(colour);
     this._attenuation = attenuation;
-    this._drawLight = drawLight;
+    this._drawLight   = drawLight;
     this.makeDirty();
+  }
+
+  fromJSON(json, pool) {
+    const {id, _position, _colour, _attenuation, _drawLight} = json;
+    this.id = id;
+    this._position.copy(_position);
+    this._colour.setHex(_colour);
+    this._attenuation = _attenuation;
+    this._drawLight = _drawLight;
+    return this;
   }
 
   static build(jsonData) {

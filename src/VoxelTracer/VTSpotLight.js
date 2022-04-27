@@ -1,29 +1,47 @@
 
 import * as THREE from 'three';
 
+import VoxelConstants from '../VoxelConstants';
+import VoxelGeometryUtils from '../VoxelGeometryUtils';
+import InitUtils from '../InitUtils';
+import {clamp} from '../MathUtils';
+
 import VTObject from './VTObject';
 import VTConstants from './VTConstants';
 
-import VoxelConstants from '../VoxelConstants';
-import VoxelGeometryUtils from '../VoxelGeometryUtils';
-import {clamp} from '../MathUtils';
+const defaultAttenuation = {
+  quadratic:0.04, 
+  linear:0.1, 
+};
 
 const _tempVec3 = new THREE.Vector3();
 
 class VTSpotLight extends VTObject {
   // NOTE: Provided angles must be in radians.
-  constructor(position, direction, colour, innerConeAngle, outerConeAngle, rangeAtten) {
+  constructor(position, dir, colour, innerConeAngle, outerConeAngle, rangeAtten={...defaultAttenuation}) {
     super(VTConstants.SPOT_LIGHT_TYPE);
 
-    this._position = position;
-    this._direction = direction;
-    this._direction.normalize();
-    this._colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
-    this._innerAngle = innerConeAngle;
-    this._outerAngle = Math.max(innerConeAngle, outerConeAngle);
+    this._position  = InitUtils.initTHREEVector3(position);
+    this._direction = InitUtils.initTHREEVector3(dir, 0, -1, 0).normalize();
+    this._colour    = InitUtils.initTHREEColor(colour);
+
+    this._innerAngle = innerConeAngle || Math.PI/6;
+    this._outerAngle = Math.max(innerConeAngle, (outerConeAngle || Math.PI/4));
     this._rangeAtten = rangeAtten;
 
     this.makeDirty();
+  }
+
+  fromJSON(json, pool) {
+    const {id, _position, _direction, _colour, _innerAngle, _outerAngle, _rangeAtten} = json;
+    this.id = id;
+    this._position.copy(_position);
+    this._direction.copy(_direction);
+    this._colour.setHex(_colour);
+    this._innerAngle = _innerAngle;
+    this._outerAngle = _outerAngle;
+    this._rangeAtten = _rangeAtten;
+    return this;
   }
 
   static build(jsonData) {

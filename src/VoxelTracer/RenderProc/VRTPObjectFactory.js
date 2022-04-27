@@ -2,6 +2,7 @@ import VTConstants from "../VTConstants";
 import VTDirectionalLight from "../VTDirectionalLight";
 import VTPointLight from "../VTPointLight";
 import VTSpotLight from "../VTSpotLight";
+import VTAmbientLight from "../VTAmbientLight";
 
 import VTRPMesh from "./VTRPMesh";
 import VTRPSphere from "./VTRPSphere";
@@ -10,6 +11,7 @@ import VTRPBox from "./VTRPBox";
 import {VTRPFogBox, VTRPFogSphere} from "./VTRPFog";
 import VTRPIsofield from "./VTRPIsofield";
 
+
 const vrtpTypeToObjType = {
   [VTConstants.MESH_TYPE]: VTRPMesh,
   [VTConstants.SPHERE_TYPE]: VTRPSphere,
@@ -17,6 +19,7 @@ const vrtpTypeToObjType = {
   [VTConstants.POINT_LIGHT_TYPE]: VTPointLight,
   [VTConstants.SPOT_LIGHT_TYPE]: VTSpotLight,
   [VTConstants.DIRECTIONAL_LIGHT_TYPE]: VTDirectionalLight,
+  [VTConstants.AMBIENT_LIGHT_TYPE]: VTAmbientLight,
   [VTConstants.VOXEL_TYPE]: VTRPVoxel,
   [VTConstants.FOG_BOX_TYPE]: VTRPFogBox,
   [VTConstants.FOG_SPHERE_TYPE]: VTRPFogSphere,

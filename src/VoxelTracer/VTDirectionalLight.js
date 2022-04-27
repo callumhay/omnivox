@@ -1,16 +1,27 @@
 import * as THREE from 'three';
 
+import InitUtils from '../InitUtils';
+
 import VTConstants from './VTConstants';
 import VTObject from './VTObject';
 
 class VTDirectionalLight extends VTObject {
 
-  constructor(dir=new THREE.Vector3(1,1,1), colour=new THREE.Color(0,0,0)) {
+  constructor(dir, colour) {
     super(VTConstants.DIRECTIONAL_LIGHT_TYPE);
-    this._dir = dir instanceof THREE.Vector3 ? dir : new THREE.Vector3(dir.x, dir.y, dir.z);
-    this._dir.normalize();
-    this._colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
+    this._dir = InitUtils.initTHREEVector3(dir, 0, -1, 0).normalize();
+    this._colour = InitUtils.initTHREEColor(colour);
     this.makeDirty();
+  }
+
+  expire(pool) {}
+
+  fromJSON(json, pool) {
+    const {id, _dir, _colour} = json;
+    this.id = id;
+    this._colour.setHex(_colour);
+    this._dir.copy(_dir);
+    return this;
   }
 
   static build(jsonData) {

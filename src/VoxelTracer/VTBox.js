@@ -4,6 +4,7 @@ import VoxelConstants from '../VoxelConstants';
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 import VTConstants from './VTConstants';
+import VTMaterialFactory from './VTMaterialFactory';
 import VTTransformable from './VTTransformable';
 
 export const defaultBoxOptions = {
@@ -16,18 +17,18 @@ export const defaultBoxOptions = {
 const _box = new THREE.Box3();
 
 class VTBox extends VTTransformable {
-  constructor(center, size, material, options={...defaultBoxOptions}) {
+  constructor(center, size, material, options) {
     super(VTConstants.BOX_TYPE);
 
-    this.position.copy(center);
+    if (center) { this.position.copy(center); }
     this.invMatrixWorld = this.matrixWorld.clone();
 
     this._max = new THREE.Vector3();
     this._min = new THREE.Vector3();
-    this.setSize(size);
+    this.setSize(size || 1);
     
-    this._material = material;
-    this._options  = options;
+    this._material = VTMaterialFactory.initMaterial(material);
+    this._options  = options ? {...options, ...defaultBoxOptions} : {...defaultBoxOptions};
 
     this.makeDirty();
   }
@@ -57,7 +58,7 @@ class VTBox extends VTTransformable {
     return {
       id, drawOrder, type, min: _min, max: _max, 
       matrixWorld: matrixWorld.toArray(), invMatrixWorld: invMatrixWorld.toArray(),
-       material: _material, options: _options
+      material: _material, options: _options
     };
   }
 

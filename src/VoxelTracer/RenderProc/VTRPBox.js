@@ -6,6 +6,7 @@ import VoxelConstants from '../../VoxelConstants';
 import VoxelGeometryUtils from '../../VoxelGeometryUtils';
 
 import VTConstants from '../VTConstants';
+import {defaultBoxOptions} from '../VTBox';
 
 import VTRPObject from './VTRPObject';
 
@@ -21,16 +22,14 @@ const _tempRay = new THREE.Ray();
 const _tempNormMatrix = new THREE.Matrix3();
 
 class VTRPBox extends VTRPObject {
-  constructor(minPt, maxPt, matrixWorld, invMatrixWorld, material, options) {
+  constructor() {
     super(VTConstants.BOX_TYPE);
 
-    this._matrixWorld = matrixWorld;
-    this._invMatrixWorld = invMatrixWorld;
-
-    this._box = new THREE.Box3(minPt, maxPt); // The non-transformed box
-
-    this._material = material;
-    this._options  = options;
+    this._matrixWorld = new THREE.Matrix4();
+    this._invMatrixWorld = new THREE.Matrix4();
+    this._box = new THREE.Box3();
+    this._material = null;
+    this._options  = {...defaultBoxOptions};
 
     // Build the wall planes that make up the sides of this box in worldspace
     const NUM_PLANES = 6;
@@ -40,8 +39,6 @@ class VTRPBox extends VTRPObject {
       this._boxPlanes[i] = new THREE.Plane();
       this._interiorBoxPlanes[i] = new THREE.Plane();
     }
-
-    this.reinitPlanes(); // TODO: Remove this.
   }
 
   reinitPlanes() {
@@ -53,8 +50,8 @@ class VTRPBox extends VTRPObject {
     this._boxPlanes[4].setFromCoplanarPoints(min, _tempVec3_0.copy(min).add(nZ), _tempVec3_1.copy(min).add(nY));
     this._boxPlanes[5].setFromCoplanarPoints(max, _tempVec3_0.copy(max).sub(nY), _tempVec3_1.copy(max).sub(nZ));
 
-    const normalMatrix = _tempNormMatrix.getNormalMatrix(this._matrixWorld)
-    for (const plane of this._boxPlanes) { plane.applyMatrix4(this._matrixWorld, normalMatrix); }
+    _tempNormMatrix.getNormalMatrix(this._matrixWorld)
+    for (const plane of this._boxPlanes) { plane.applyMatrix4(this._matrixWorld, _tempNormMatrix); }
 
     if (!this.isFilled()) {
       for (let i = 0, numPlanes = this._boxPlanes.length; i < numPlanes; i++) {
@@ -67,29 +64,47 @@ class VTRPBox extends VTRPObject {
     }
   }
 
+  expire(pool) {
+    if (this._material) {
+      pool.expire(this._material);
+      this._material = null;
+    }
+  }
+
   fromJSON(json, pool) {
     const {id, drawOrder, matrixWorld, invMatrixWorld, min, max, material, options} = json;
     this.id = id;
     this.drawOrder = drawOrder;
-    this.matrixWorld.fromArray(matrixWorld);
-    this.invMatrixWorld.fromArray(invMatrixWorld);
+    this._matrixWorld.fromArray(matrixWorld);
+    this._invMatrixWorld.fromArray(invMatrixWorld);
     this._box.set(min, max);
-    this._options = options;
-    this._material = VTMaterialFactory.buildFromPool(material, pool);
+    this._options = {...this._options, ...options};
+
+    if (this._material && this._material.type !== material.type) {
+      pool.expire(this._material);
+      this._material = VTMaterialFactory.buildFromPool(material, pool);
+    }
+    else {
+      this._material.fromJSON(material, pool);
+    }
+
     this.reinitPlanes();
+    return this;
   }
 
   static build(jsonData) {
     const {id, drawOrder, matrixWorld, invMatrixWorld, min, max, material, options} = jsonData;
-    const result = new VTRPBox(
-      new THREE.Vector3(min.x, min.y, min.z), 
-      new THREE.Vector3(max.x, max.y, max.z),
-      (new THREE.Matrix4()).fromArray(matrixWorld),
-      (new THREE.Matrix4()).fromArray(invMatrixWorld),
-      VTMaterialFactory.build(material), options
-    );
+
+    const result = new VTRPBox();
     result.id = id;
     result.drawOrder = drawOrder;
+    result._matrixWorld.fromArray(matrixWorld);
+    result._invMatrixWorld.fromArray(invMatrixWorld);
+    result._box.set(min, max);
+    result._options = {...result._options, ...options};
+    result._material = VTMaterialFactory.build(material);
+    result.reinitPlanes();
+
     return result;
   }
 

@@ -8,6 +8,11 @@ const materialTypeToObjType = {
 };
 
 class VTMaterialFactory {
+  static initMaterial(material) {
+    return (typeof material === 'string' || material instanceof String) ? VTMaterialFactory.build(material) : 
+      !material ? null : material;
+  }
+
   static build(jsonDataOrType) {
     const hasJson = (typeof jsonDataOrType === 'object');
     const type = hasJson ? jsonDataOrType.type : jsonDataOrType;

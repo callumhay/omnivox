@@ -1,13 +1,24 @@
-
 import * as THREE from 'three';
+
+import InitUtils from '../InitUtils';
+
 import VTConstants from './VTConstants';
 import VTObject from './VTObject';
 
 class VTAmbientLight extends VTObject {
-  constructor(colour=new THREE.Color(0,0,0)) {
+  constructor(colour) {
     super(VTConstants.AMBIENT_LIGHT_TYPE);
-    this._colour = colour instanceof THREE.Color ? colour : new THREE.Color(colour.r, colour.g, colour.b);
+    this._colour = InitUtils.initTHREEColor(colour);
     this.makeDirty();
+  }
+
+  expire(pool) {}
+
+  fromJSON(json, pool) {
+    const {id, _colour} = json;
+    this.id = id;
+    this._colour.setHex(_colour);
+    return this;
   }
 
   static build(jsonData) {
