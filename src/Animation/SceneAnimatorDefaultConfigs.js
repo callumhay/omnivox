@@ -245,13 +245,13 @@ const bouncySceneDefaultOptions = {
   dirLight2Colour: {r:0.66, g:0.66, b:0.66},
   dirLight2Dir: {x:-0.75, y:-0.2, z:-0.5},
   numSpheres: 3,
-  minSphereRadius: 3,
+  minSphereRadius: 2,
   maxSphereRadius: 3.5,
   sphereDensity: 2,
   gravity: -9.8,
   bounciness: 1,
   friction: 0.0,
-  maxInitialVelocity: 7,
+  maxInitialVelocity: 4,
 };
 const bouncySceneControlOptions = {
   ambientLightColour: {label: "Ambient Light Colour"},

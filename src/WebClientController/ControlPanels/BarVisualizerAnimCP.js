@@ -1,4 +1,3 @@
-
 import VoxelAnimator from '../../Animation/VoxelAnimator';
 import BarVisualizerAnimator, {barVisualizerAnimatorDefaultConfig} from '../../Animation/BarVisualizerAnimator';
 

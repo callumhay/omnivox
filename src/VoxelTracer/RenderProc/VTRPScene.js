@@ -24,15 +24,19 @@ const _nVoxelToLightVec = new THREE.Vector3();
 class VTRPScene {
   constructor() {
     this.gridSize = 0;
-    this.pool = new VTPool();
-
+    
+    // All renderables, lights, and shadowcasters are stored by their IDs
     this.renderables = {};
     this.lights = {};
     this.shadowCasters = {};
-    this._tempVoxelMap = {};
     this.ambientLight = null;
 
-    this.clear(); // All renderables and lights are stored by their IDs and are initialized by clear()
+    this._tempVoxelMap = {}; // Used during rendering to keep track of voxels that have had ambient light applied to them
+
+    // Initialize our object pool (to avoid excessive memory allocation during rendering)
+    this.pool = new VTPool();
+    // Preload objects into the pool - this will keep our first render from stuttering due to memory alloc
+    VTRPObjectFactory.preloadSceneObjects(this.pool);
   }
 
   clear() {
@@ -41,28 +45,28 @@ class VTRPScene {
     const reclaimedObjs = {};
 
     // Reclaim all objects in the pool
-    for (const renderable of Object.values(this.renderables)) {
+    for (const [id, renderable] of Object.entries(this.renderables)) {
       renderable.expire(this.pool);
       this.pool.expire(renderable);
-      reclaimedObjs[renderable.id] = renderable;
+      reclaimedObjs[renderable.id] = true;
+      delete this.renderables[id];
     }
-    this.renderables = {};
 
-    for (const light of Object.values(this.lights)) {
+    for (const [id, light] of Object.entries(this.lights)) {
       if (!(light.id in reclaimedObjs)) {
         light.expire(this.pool);
         this.pool.expire(light);
-        reclaimedObjs[light.id] = light;
+        reclaimedObjs[light.id] = true;
       }
+      delete this.lights[id];
     }
-    this.lights = {};
 
     if (this.ambientLight) {
       this.ambientLight.expire(this.pool);
       this.pool.expire(this.ambientLight);
+      this.ambientLight = null;
     }
-    this.ambientLight = null;
-
+    
     this.shadowCasters = {}; // Shadowcasters will have already been reclaimed via renderables and lights
     this._tempVoxelMap = {};
   }
@@ -90,7 +94,7 @@ class VTRPScene {
           voxelDrawOrderMap[voxelPtId] = {
             drawOrder: renderable.drawOrder, 
             colourRGBA: _currVoxelColourRGBA.clone(), 
-            point: _currVoxelIdxPt.clone()
+            point: _currVoxelIdxPt.clone(),
           };
         }
         else {
@@ -141,7 +145,7 @@ class VTRPScene {
     process.send({
       type: VTRenderProc.FROM_PROC_RENDERED, 
       data: Object.values(voxelDrawOrderMap).map(v => ({
-        pt: v.point, colour: v.colourRGBA.clampRGBA(0,1).cloneTHREEColor().multiplyScalar(v.colourRGBA.a)
+        pt: v.point, colour: v.colourRGBA.clampRGBA(0,1).multiplyScalar(v.colourRGBA.a)
       })),
     });
   }
@@ -215,15 +219,11 @@ class VTRPScene {
     }).bind(this);
 
     if (renderables) {
-      for (const renderableJson of renderables) {
-        updateSceneFromObjJson(renderableJson);
-      }
+      for (const renderableJson of renderables) { updateSceneFromObjJson(renderableJson); }
     }
 
     if (lights) {
-      for (const lightJson of lights) {
-        updateSceneFromObjJson(lightJson);
-      }
+      for (const lightJson of lights) { updateSceneFromObjJson(lightJson); }
     }
   }
 

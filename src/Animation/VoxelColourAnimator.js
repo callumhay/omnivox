@@ -134,7 +134,7 @@ class VoxelColourAnimator extends VoxelAnimator {
 
       const isFinishedCurrentLoop = (this.currTime >= endTimeSecs);
       if (isFinishedCurrentLoop) {
-        this.incrementPlayCounter();
+        this.playCounter++;
         if (this.repeat !== REPEAT_INFINITE_TIMES && this.playCounter >= this.repeat) {
           this.animationFinished = true;
         }

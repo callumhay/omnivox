@@ -291,6 +291,10 @@ class VoxelServer {
     if (this.viewerWS) { this.viewerWS.send(packetStr); }
   }
 
+  areSlavesConnected() {
+    return (Object.keys(this.slaveDataMap).length === 2);
+  }
+
   /**
    * Sets all of the voxel data to the given full set of each voxel in the display.
    * This will result in a full refresh of the display.

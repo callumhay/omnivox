@@ -29,6 +29,6 @@ class VoxelConstants {
   static get ORTHO_DIR_STRS() { return ['+x', '-x', '+y', '-y', '+z', '-z']; }
   static get ORTHO_DIR_VEC3S() { return [POS_X_VEC3, NEG_X_VEC3, POS_Y_VEC3, NEG_Y_VEC3, POS_Z_VEC3, NEG_Z_VEC3]; }
 
-  static get DEFAULT_BRIGHTNESS_MULTIPLIER() { return 0.5; }
+  static get DEFAULT_BRIGHTNESS_MULTIPLIER() { return 1.0; }//0.5; }
 }
 export default VoxelConstants;

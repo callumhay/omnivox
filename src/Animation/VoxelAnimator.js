@@ -52,14 +52,10 @@ class VoxelAnimator {
 
   getType() { return null; }
 
-  incrementPlayCounter() { this.playCounter++; }
-
   setConfig(c) {
     this.config = c ? c : {};
     const {repeat} = this.config;
-    if (repeat) {
-      this.repeat = repeat;
-    }
+    if (repeat) { this.repeat = repeat; }
   }
 
   setAudioInfo(audioInfo) {}
@@ -67,10 +63,10 @@ class VoxelAnimator {
   render(dt) {}
   rendersToCPUOnly() { return false; }
 
-  reset() {
-    this.playCounter = 0;
-  }
-  stop() {}
+  reset() { this.playCounter = 0; } // Called when the "reset" button is hit in the controller
+  
+  load() {}   // Called whenever the animator is (re)loaded by the controller
+  unload() {} // Called whenever the animator is no longer active (after the crossfade has completed)
 }
 
 export default VoxelAnimator;

@@ -65,18 +65,11 @@ class VTRPMesh extends VTRPObject {
     this._material  = null;
     this._geometry  = null;
     this._threeMesh = null;
-    this._voxelIdxToTriSamples = {}; // Memoization for voxel collisions and sampling
   }
 
-  /*
-  // TODO: Optimize sample memory allocation using a pool
-  reinitSamples() {
-    for (const samples of Object.values(this._voxelIdxToTriSamples)) {
-      for (const sample of samples) { _samplePool.expire(sample); }
-    }
-    this._voxelIdxToTriSamples = {};
+  reinit() {
+    this._voxelIdxToTriSamples = {}; // Memoization for voxel collisions and sampling
   }
-  */
 
   expire(pool) {
     if (this._material) {
@@ -87,7 +80,6 @@ class VTRPMesh extends VTRPObject {
 
   fromJSON(json, pool) {
     const {id, drawOrder, geometry, matrixWorld, material} = json;
-    //this.reinitSamples();
     this.id = id;
     this.drawOrder = drawOrder;
     this._material = VTRPObjectFactory.updateOrBuildFromPool(material, pool, this._material);
@@ -102,6 +94,8 @@ class VTRPMesh extends VTRPObject {
       this._threeMesh = new THREE.Mesh(loadedGeometry);
     }
     this._threeMesh.matrixWorld.fromArray(matrixWorld);
+
+    this.reinit();
 
     return this;
   }

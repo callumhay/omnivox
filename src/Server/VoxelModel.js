@@ -23,7 +23,7 @@ import GPUKernelManager from './GPUKernelManager';
 export const BLEND_MODE_OVERWRITE = 0;
 export const BLEND_MODE_ADDITIVE  = 1;
 
-const DEFAULT_POLLING_FREQUENCY_HZ = 30; // Render Frames per second - if this is too high then we overwhelm our clients
+const DEFAULT_POLLING_FREQUENCY_HZ = 32; // Render Frames per second - if this is too high then we overwhelm our clients
 const DEFAULT_POLLING_INTERVAL_MS  = 1000 / DEFAULT_POLLING_FREQUENCY_HZ;
 
 class VoxelModel {
@@ -37,10 +37,13 @@ class VoxelModel {
 
   static getOtherFramebufferIndex(idx) {
     switch (idx) {
+
       case VoxelModel.GPU_FRAMEBUFFER_IDX_0: return VoxelModel.GPU_FRAMEBUFFER_IDX_1;
       case VoxelModel.GPU_FRAMEBUFFER_IDX_1: return VoxelModel.GPU_FRAMEBUFFER_IDX_0;
+  
       case VoxelModel.CPU_FRAMEBUFFER_IDX_0: return VoxelModel.CPU_FRAMEBUFFER_IDX_1;
       case VoxelModel.CPU_FRAMEBUFFER_IDX_1: return VoxelModel.CPU_FRAMEBUFFER_IDX_0;
+
       default:
         console.log("Invalid framebuffer index.");
         break;
@@ -67,9 +70,10 @@ class VoxelModel {
       new VoxelFramebufferCPU(VoxelModel.CPU_FRAMEBUFFER_IDX_1, gridSize, this.gpuKernelMgr),
     ];
     this._framebufferIdx = VoxelModel.GPU_FRAMEBUFFER_IDX_0;
+    
+    this.vtScene = new VTScene(this); // Build a voxel tracer scene, which will be shared by all animators that use it
 
-    // Build a voxel tracer scene, which will be shared by all animators that use it
-    this.vtScene = new VTScene(this);
+    // Animator mapping - allows for quick swapping / lookup of all the available animations and scenes in Omnivox
     this._animators = {
       [VoxelAnimator.VOXEL_ANIM_TYPE_STARTUP]      : new StartupAnimator(this, this.vtScene),
       [VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR]       : new VoxelColourAnimator(this),
@@ -82,8 +86,6 @@ class VoxelModel {
       [VoxelAnimator.VOXEL_ANIM_GAMEPAD_DJ]        : new GamepadDJAnimator(this, this.vtScene),
     };
 
-    this.currentAnimator = this._animators[VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR];
-
     this.currFrameTime = Date.now();
     this.frameCounter = 0;
     this.globalBrightnessMultiplier = VoxelConstants.DEFAULT_BRIGHTNESS_MULTIPLIER;
@@ -92,6 +94,10 @@ class VoxelModel {
     this.totalCrossfadeTime = DEFAULT_CROSSFADE_TIME_SECS;
     this.crossfadeCounter = Infinity;
     this.prevAnimator = null;
+
+    // Initial animator setup
+    this.currentAnimator = this._animators[VoxelAnimator.VOXEL_ANIM_TYPE_STARTUP];
+    this.currentAnimator.load();
   }
 
   xSize() { return this.gridSize; }
@@ -104,7 +110,7 @@ class VoxelModel {
     return this._framebuffers[this._framebufferIdx];
   }
 
-  debugPrintVoxelTexture(isCPU) {
+  debugPrintVoxelTexture() {
     const arr = this.framebuffer.getCPUBuffer();
     //console.log(arr);
 
@@ -133,6 +139,7 @@ class VoxelModel {
     if (this.currentAnimator !== nextAnimator) {
       this.prevAnimator = this.currentAnimator;
       this.currentAnimator = nextAnimator;
+      nextAnimator.load();
       this.crossfadeCounter = 0;
     }
 
@@ -148,7 +155,6 @@ class VoxelModel {
 
   setGlobalBrightness(b) {
     this.globalBrightnessMultiplier = Math.min(1.0, Math.max(0.0, b));
-    //console.log("Global brightness set to " + this.globalBrightnessMultiplier);
   }
 
   run(voxelServer) {
@@ -178,7 +184,7 @@ class VoxelModel {
         else {
           // no longer crossfading, reset to just showing the current scene
           self.crossfadeCounter = Infinity;
-          self.prevAnimator.stop();
+          self.prevAnimator.unload();
           self.prevAnimator = null;
         }
 

@@ -109,7 +109,7 @@ class ShootingStarAnimator extends VoxelAnimator {
       
       if (velocityRay.intersectBox(voxelsBox, tempVec3) === null) {
         // This loop has finished... check to see if there are repeats
-        this.incrementPlayCounter();
+        this.playCounter++;
         if (this.repeat !== REPEAT_INFINITE_TIMES && this.playCounter >= this.repeat) {
           this.animationFinished = true;
         }

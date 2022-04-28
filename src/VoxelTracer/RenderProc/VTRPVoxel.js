@@ -20,7 +20,7 @@ class VTRPVoxel extends VTRPObject  {
     this._boundingBox = new THREE.Box3();
   }
 
-  reinitBoundingBox() {
+  reinit() {
     VoxelGeometryUtils.singleVoxelBoundingBox(this._boundingBox, this._position);
   }
 
@@ -38,7 +38,7 @@ class VTRPVoxel extends VTRPObject  {
     this._position.copy(_position);
     this._options = {...this._options, ..._options};
     this._material = VTRPObjectFactory.updateOrBuildFromPool(_material, pool, this._material);
-    this.reinitBoundingBox();
+    this.reinit();
     return this;
   }
 

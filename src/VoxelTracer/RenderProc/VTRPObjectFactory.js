@@ -14,21 +14,21 @@ import {VTRPFogBox, VTRPFogSphere} from "./VTRPFog";
 import VTRPIsofield from "./VTRPIsofield";
 import VTMaterial from "../VTMaterial";
 
-const vrtpTypeToObjType = {
-  [VTConstants.MESH_TYPE]: VTRPMesh,
-  [VTConstants.SPHERE_TYPE]: VTRPSphere,
-  [VTConstants.BOX_TYPE]: VTRPBox,
-  [VTConstants.POINT_LIGHT_TYPE]: VTPointLight,
-  [VTConstants.SPOT_LIGHT_TYPE]: VTSpotLight,
-  [VTConstants.DIRECTIONAL_LIGHT_TYPE]: VTDirectionalLight,
-  [VTConstants.AMBIENT_LIGHT_TYPE]: VTAmbientLight,
-  [VTConstants.VOXEL_TYPE]: VTRPVoxel,
-  [VTConstants.FOG_BOX_TYPE]: VTRPFogBox,
-  [VTConstants.FOG_SPHERE_TYPE]: VTRPFogSphere,
-  [VTConstants.ISOFIELD_TYPE]: VTRPIsofield,
+const vrtpTypeMap = {
+  [VTConstants.MESH_TYPE]:              {type: VTRPMesh, preloadAmt: 1},
+  [VTConstants.SPHERE_TYPE]:            {type: VTRPSphere, preloadAmt: 3},
+  [VTConstants.BOX_TYPE]:               {type: VTRPBox, preloadAmt: 8},
+  [VTConstants.POINT_LIGHT_TYPE]:       {type: VTPointLight, preloadAmt: 3},
+  [VTConstants.SPOT_LIGHT_TYPE]:        {type: VTSpotLight, preloadAmt: 1},
+  [VTConstants.DIRECTIONAL_LIGHT_TYPE]: {type: VTDirectionalLight, preloadAmt: 1},
+  [VTConstants.AMBIENT_LIGHT_TYPE]:     {type: VTAmbientLight, preloadAmt: 1},
+  [VTConstants.VOXEL_TYPE]:             {type: VTRPVoxel, preloadAmt: 10},
+  [VTConstants.FOG_BOX_TYPE]:           {type: VTRPFogBox, preloadAmt: 1},
+  [VTConstants.FOG_SPHERE_TYPE]:        {type: VTRPFogSphere, preloadAmt: 1},
+  [VTConstants.ISOFIELD_TYPE]:          {type: VTRPIsofield, preloadAmt: 1},
 
-  [VTMaterial.EMISSION_TYPE]: VTEmissionMaterial,
-  [VTMaterial.LAMBERT_TYPE]: VTLambertMaterial,
+  [VTMaterial.EMISSION_TYPE]: {type: VTEmissionMaterial, preloadAmt: 20},
+  [VTMaterial.LAMBERT_TYPE]:  {type: VTLambertMaterial, preloadAmt: 20},
 };
 
 class VTRPObjectFactory {
@@ -71,12 +71,18 @@ class VTRPObjectFactory {
 
   static buildFromPool(json, pool) {
     if (!json.type) { console.error("No type found in scene object json!"); return null; }
-    if (!(json.type in vrtpTypeToObjType)) { console.error(`Unknown scene object type found (${type}) in object json!`); return null; }
+    if (!(json.type in vrtpTypeMap)) { console.error(`Unknown scene object type found (${type}) in object json!`); return null; }
     
-    const objType = vrtpTypeToObjType[json.type];
+    const objType = vrtpTypeMap[json.type].type;
     const obj = pool.get(objType);
     obj.fromJSON(json, pool);
     return obj;
+  }
+
+  static preloadSceneObjects(pool) {
+    for (const value of Object.values(vrtpTypeMap)) {
+      pool.preload(value.preloadAmt, value.type);
+    }
   }
 
 }

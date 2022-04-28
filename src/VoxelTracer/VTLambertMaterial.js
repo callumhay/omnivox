@@ -7,10 +7,10 @@ import {clamp} from '../MathUtils';
 import VTMaterial from './VTMaterial';
 
 class VTLambertMaterial extends VTMaterial {
-  constructor(colour=new THREE.Color(1,1,1), emissive=new THREE.Color(0,0,0), alpha=1) {
+  constructor(colour, emissive, alpha=1) {
     super(VTMaterial.LAMBERT_TYPE);
-    this.colour = InitUtils.initTHREEColor(colour);
-    this.emissive = InitUtils.initTHREEColor(emissive);
+    this.colour = InitUtils.initTHREEColor(colour, 1, 1, 1);
+    this.emissive = InitUtils.initTHREEColor(emissive, 0, 0, 0);
     this.alpha = alpha;
     //this.texture = texture;
   }
