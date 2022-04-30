@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 
-import InitUtils from '../../../InitUtils';
-import {Randomizer} from '../../../Randomizers';
+import InitUtils from '../../InitUtils';
+import {Randomizer} from '../../Randomizers';
 
-import VTVoxel from "../../VTVoxel";
-import VTEmissionMaterial from '../../VTEmissionMaterial';
+import VTVoxel from "../VTVoxel";
+import VTEmissionMaterial from '../VTEmissionMaterial';
 
-import VTPUtils from "../VTPUtils";
-import VTPSpan from "../VTPSpan";
+import VTPUtils from "./VTPUtils";
+import VTPSpan from "./VTPSpan";
+import { VTPPointZone } from './VTPZones';
 
 
 // Abstract base class for initializers
@@ -101,6 +102,14 @@ export class VTPVelocity extends VTPInitializer {
     this.dirGenerator.generate(target.v);
     target.v.multiplyScalar(this.speedSpan.getValue());
   }
+}
+
+export class VTPPosition extends VTPInitializer {
+  constructor(zone) {
+    super();
+    this.zone = InitUtils.initValue(zone, new VTPPointZone());
+  }
+  initialize(target) { this.zone.getPosition(target.p); }
 }
 
 export class VTPRadius extends VTPInitializer {

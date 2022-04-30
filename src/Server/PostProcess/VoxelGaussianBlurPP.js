@@ -26,7 +26,7 @@ class VoxelGaussianBlurPP extends VoxelPostProcess {
     return (sqrSigma > 0 && alpha > 0);
   }
 
-  renderToFramebuffer(framebuffer) {
+  renderToFramebuffer(dt, framebuffer) {
     const {sqrSigma, conserveEnergy, alpha} = this._config;
     const {gpuKernelMgr} = this.voxelModel;
 

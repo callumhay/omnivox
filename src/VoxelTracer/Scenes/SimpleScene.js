@@ -9,10 +9,18 @@ import VTPointLight from '../VTPointLight';
 import VTAmbientLight from '../VTAmbientLight';
 import VTSphere from '../VTSphere';
 
+import VoxelModel from '../../Server/VoxelModel';
+import VoxelPostProcessPipeline from '../../Server/PostProcess/VoxelPostProcessPipeline';
+import VoxelDistortionPP from '../../Server/PostProcess/VoxelDistortionPP';
+
 class SimpleScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
     this._objectsBuilt = false;
+
+    this.postProcessPipeline = new VoxelPostProcessPipeline(voxelModel);
+    this.distortion = new VoxelDistortionPP(voxelModel);
+    this.postProcessPipeline.addPostProcess(this.distortion);
   }
 
   clear() {
@@ -80,8 +88,14 @@ class SimpleScene extends SceneRenderer {
         this.wallZMesh.position.set(halfXSize, halfYSize, 0);
       }
 
+      
+
       this._objectsBuilt = true;
     }
+
+    const {noiseAlpha, noiseSpeed, distortHorizontal, distortVertical} = options;
+    this.distortion.setConfig({noiseAlpha, noiseSpeed, distortHorizontal, distortVertical});
+
 
     this.scene.addObject(this.ptLight1);
     this.scene.addObject(this.ptLight2);
@@ -122,6 +136,7 @@ class SimpleScene extends SceneRenderer {
     this.timeCounter += dt;
 
     await this.scene.render();
+    this.postProcessPipeline.render(dt, VoxelModel.CPU_FRAMEBUFFER_IDX_0, VoxelModel.CPU_FRAMEBUFFER_IDX_0);
   }
 }
 

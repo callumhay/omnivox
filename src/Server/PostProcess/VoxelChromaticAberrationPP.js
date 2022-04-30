@@ -2,7 +2,9 @@
 import VoxelPostProcess from './VoxelPostProcess';
 
 export const defaulChromaticAberrationConfig = {
-  intensity: 1, // Intensity of the aberration effect
+  intensity: 1,     // Intensity of the aberration effect
+  alpha: 1,
+  xyzMask: [1,1,1], // Multiplies the intensity along the x,y,z axis to offset in a particular direction
 };
 
 class VoxelChromaticAberrationPP extends VoxelPostProcess {
@@ -20,17 +22,17 @@ class VoxelChromaticAberrationPP extends VoxelPostProcess {
   }
 
   willRender() {
-    const {intensity} = this._config;
-    return intensity !== 0;
+    const {intensity, alpha} = this._config;
+    return intensity !== 0 && alpha !== 0;
   }
 
-  renderToFramebuffer(framebuffer) {
-    const {intensity} = this._config;
+  renderToFramebuffer(dt, framebuffer) {
+    const {intensity, alpha, xyzMask} = this._config;
     const {gpuKernelMgr} = this.voxelModel;
     if (!this.willRender()) { return; }
 
     const currFBTex = framebuffer.getGPUBuffer();
-    const pingPongFBTex1 = gpuKernelMgr.chromaticAberrationFunc(currFBTex, intensity);
+    const pingPongFBTex1 = gpuKernelMgr.chromaticAberrationFunc(currFBTex, intensity, alpha, xyzMask);
     currFBTex.delete();
     framebuffer.setBufferTexture(pingPongFBTex1);
   }

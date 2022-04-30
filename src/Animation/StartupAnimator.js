@@ -13,6 +13,7 @@ import VoxelChromaticAberrationPP from '../Server/PostProcess/VoxelChromaticAber
 
 import VoxelAnimator from "./VoxelAnimator";
 import VoxelConstants from '../VoxelConstants';
+import { Randomizer } from '../Randomizers';
 
 const boxSliceSize = 8;
 const halfBoxSliceSize = boxSliceSize/2;
@@ -42,6 +43,8 @@ class StartupAnimator extends VoxelAnimator {
   constructor(voxelModel, scene) {
     super(voxelModel, {...startupAnimatorDefaultConfig});
     this.scene = scene;
+
+    this.currAnims = [];
 
     this.postProcessPipeline = new VoxelPostProcessPipeline(voxelModel);
 
@@ -98,7 +101,6 @@ class StartupAnimator extends VoxelAnimator {
     );
     this._boxCenter.drawOrder = outlineDrawOrder+1;
 
-
     this._ambientLight = new VTAmbientLight(new THREE.Color(1,1,1));
   }
 
@@ -116,17 +118,29 @@ class StartupAnimator extends VoxelAnimator {
 
     this._boxMinExpander.position.copy(this._boxMin.position);
     this._boxMinExpander.setSize(boxSize);
+    this._boxMinExpander.material.alpha = 0;
     this._boxMaxExpander.position.copy(this._boxMax.position);
+    this._boxMaxExpander.material.alpha = 0;
     this._boxMaxExpander.setSize(boxSize);
 
-    this.gaussianBlur.setConfig({kernelSize: 9, sqrSigma: 0, conserveEnergy: false, alpha: 0});
-    this.chromaticAberration.setConfig({intensity: 0});
+    this.gaussianBlur.setConfig({kernelSize: 7, sqrSigma: 0, conserveEnergy: false, alpha: 1});
+    this.chromaticAberration.setConfig({intensity: 0, alpha:1});
+  }
+
+  _stopAllAnimations() {
+    // Stop all previous animations
+    for (const anim of this.currAnims) {
+      anim.stop();
+    }
+    this.currAnims = [];
   }
 
   load() {
     // All objects are already loaded, we just need to set the scene and
     // initialize any animation state-related variables
+    if (this._jitterAnim) { this._jitterAnim.stop(); }
     this.scene.clear();
+    this._stopAllAnimations();
     this._reinitSceneObjects();
 
     this.scene.addObject(this._ambientLight);
@@ -136,10 +150,14 @@ class StartupAnimator extends VoxelAnimator {
 
     this.currStateFunc = this._sliceMoveStateFunc.bind(this); // Reinitialize to the start state
     this._loadWaitTime = (this.voxelModel.totalCrossfadeTime + 0.5);
+    this.isPlaying = false;
   }
   unload() {
-    this.currStateFunc = this._emptyState;
+    this.currStateFunc = this._emptyState.bind(this);
+    this.isPlaying = false;
+    this._stopAllAnimations();
   }
+
 
   setConfig(c) {
     super.setConfig(c);
@@ -152,23 +170,29 @@ class StartupAnimator extends VoxelAnimator {
   }
 
   async render(dt) {
-    if (!this._isConnected(dt)) { return; }
+    if (!this._isConnected(dt)) {
+      if (this.isPlaying) { this.reset(); } // In case we disconnected while playing the animation, reset to the start
+      return;
+    }
     //const dtSafe = Math.min(dt, 1.0/30.0);
     this.currStateFunc(dt); // Execute the current state
     await this.scene.render();
-    this.postProcessPipeline.render(VoxelModel.CPU_FRAMEBUFFER_IDX_0, VoxelModel.CPU_FRAMEBUFFER_IDX_0);
+    this.postProcessPipeline.render(dt, VoxelModel.CPU_FRAMEBUFFER_IDX_0, VoxelModel.CPU_FRAMEBUFFER_IDX_0);
   }
 
-  _emptyState(dt){}
+  _emptyState(dt) {}
 
   _sliceMoveStateFunc(dt) {
     this.currStateFunc = this._emptyState.bind(this);
+    this._stopAllAnimations();
+
+    this.isPlaying = true;
     const self = this;
 
     let numComplete = 0;
     for (const slice of this._boxSlices) {
       const {box, startY, endY, startAnimTime, totalAnimTime} = slice;
-      animate({
+      this.currAnims.push(animate({
         to: [startY, endY],
         ease: [anticipate],
         elapsed: -startAnimTime*1000,
@@ -189,20 +213,21 @@ class StartupAnimator extends VoxelAnimator {
             self.currStateFunc = self._boxIllumStateFunc.bind(self);
           }
         }
-      });
+      }));
     }
   }
 
   _boxIllumStateFunc(dt) {
     this.currStateFunc = this._emptyState.bind(this);
-    const self = this;
+    this._stopAllAnimations();
 
+    const self = this;
     const tempSize = new THREE.Vector3();
-    animate({
+    this.currAnims.push(animate({
       to: [
-        [startCubeLum, 0, adjBoxSize], 
-        [endCubeLum, 1, adjBoxSize+1], 
-        [endCubeLum, 0, 2*VoxelConstants.VOXEL_GRID_SIZE+1]
+        [startCubeLum, 0, adjBoxSize/2], 
+        [endCubeLum,   1, adjBoxSize], 
+        [endCubeLum,   0, 2*VoxelConstants.VOXEL_GRID_SIZE+1]
       ],
       offset:[0, 0.3, 1],
       duration:3*illumAnimTimeMillis,
@@ -213,35 +238,33 @@ class StartupAnimator extends VoxelAnimator {
         self._boxMax.material.colour.setRGB(lum, lum, lum);
         self._boxMax.makeDirty();
 
-        if (alpha > 0) {
-          const currMinBoxSize  = self._boxMinExpander.getSize(tempSize);
-          self._boxMinExpander.material.alpha = alpha;
-          self._boxMaxExpander.material.alpha = alpha;
-          if (size-currMinBoxSize.x > UPDATE_DELTA_UNITS) {
-            tempSize.set(size,size,size);
-            self._boxMinExpander.setSize(tempSize);
-            self._boxMaxExpander.setSize(tempSize);
-          }
-        }
+        self._boxMinExpander.material.alpha = alpha;
+        self._boxMaxExpander.material.alpha = alpha;
+        tempSize.set(size,size,size);
+        self._boxMinExpander.setSize(tempSize);
+        self._boxMaxExpander.setSize(tempSize);
       },
       onComplete: () => {
         self.scene.removeObject(self._boxMinExpander);
         self.scene.removeObject(self._boxMaxExpander);
         self.currStateFunc = self._boxMoveToOverlapStateFunc.bind(self);
       }
-    });
+    }));
   }
 
   _boxMoveToOverlapStateFunc(dt) {
     this.currStateFunc = this._emptyState.bind(this);
+    this._stopAllAnimations();
+
     const self = this;
     let prevAmt = 0;
     const boxMinStartPos = this._boxMin.position.clone();
     const boxMaxStartPos = this._boxMax.position.clone();
 
-    animate({
-      to: [0, -overlapAmount, -overlapAmount, overlapAmount],
-      offset: [0, 0.4, 0.5, 1],
+    const pullbackAmount = -0.5*overlapAmount
+    this.currAnims.push(animate({
+      to: [0, pullbackAmount, pullbackAmount, overlapAmount],
+      offset: [0, 0.4, 0.45, 1],
       ease: [bounceInOut, linear, anticipate], //linear, easeIn, easeOut, bounceIn, bounceOut, bounceInOut
       duration: 800,
       onUpdate: (amt) => {
@@ -256,11 +279,12 @@ class StartupAnimator extends VoxelAnimator {
       onComplete: () => {
         self.currStateFunc = self._boxJoinedStateFunc.bind(self);
       }
-    });
+    }));
   }
 
   _boxJoinedStateFunc(dt) {
     this.currStateFunc = this._emptyState.bind(this);
+    this._stopAllAnimations();
 
     const halfUnits = VoxelConstants.VOXEL_HALF_GRID_SIZE;
     this._boxCenter.material.alpha = 0;
@@ -279,11 +303,12 @@ class StartupAnimator extends VoxelAnimator {
     this.scene.addObject(this._boxCenter);
     
     const self = this;
-    animate({
-      to: [[0, 1], [1, 0.5]],
-      ease: [easeInOut],
+    const flashBlurSqSigma = 1.8;
+    this.currAnims.push(animate({
+      to: [[0, 1, 0], [1, 0.5, flashBlurSqSigma], [1, 0.5, 0]],
+      ease: [easeInOut, linear],
       duration: 2000,
-      onUpdate: ([outlineAlpha, boxAlpha]) => {
+      onUpdate: ([outlineAlpha, boxAlpha, sqrSigma]) => {
         self._boxOutlineMin.material.alpha = outlineAlpha;
         self._boxOutlineMin.makeDirty();
         self._boxOutlineMax.material.alpha = outlineAlpha;
@@ -296,48 +321,90 @@ class StartupAnimator extends VoxelAnimator {
         self._boxMin.makeDirty();
         self._boxMax.material.alpha = boxAlpha;
         self._boxMax.makeDirty();
+
+        this.gaussianBlur.setConfig({sqrSigma, conserveEnergy: false});
       },
       onComplete: () => {
         const colours = ["#fff", "#f00", "#0f0", "#00f", "#fff"];
+        const colourBlurSqrSigma = 1;
         animate({
-          to: [0, 4],
+          to: [
+            [0,0], [1,colourBlurSqrSigma], 
+            [1,0], [2,colourBlurSqrSigma], 
+            [2,0], [3,colourBlurSqrSigma],
+            [3,0], [4,colourBlurSqrSigma],
+            [4,0]
+          ],
           duration: 4000,
-          onUpdate: (progress) => {
-            const roundedProgress = Math.round(progress);
-            self._boxCenter.material.emissive.set(colours[roundedProgress]);
+          onUpdate: ([progressIdx, sqrSigma]) => {
+            const idx = Math.round(progressIdx);
+            self._boxCenter.material.emissive.set(colours[idx]);
             self._boxCenter.makeDirty();
+            this.gaussianBlur.setConfig({sqrSigma, conserveEnergy: true});
           },
           onComplete: () => {
             this.currStateFunc = this._endStateFunc.bind(this);
           }
         });
       }
-    });    
+    }));    
   }
 
   _endStateFunc(dt) {
     this.currStateFunc = this._emptyState.bind(this);
-   /*
-    animate({
-      to: [0, 1.75, 3],
-      offset: [0, 0.5, 1],
-      duration: illumAnimTimeMillis,
-      onUpdate: sqrSigma => {
-        this.gaussianBlur.setConfig({sqrSigma});
+    this._stopAllAnimations();
+    const self = this;
+
+    this.currAnims.push(animate({
+      to: [[0,1], [VoxelConstants.VOXEL_HALF_GRID_SIZE+1,0]],
+      offset: [0, 1],
+      ease: [linear],
+      duration: 1500,
+      //repeat: Infinity,
+      onUpdate: ([intensity, alpha]) => {
+        self.chromaticAberration.setConfig({intensity: Math.floor(intensity), alpha});
       },
-    });
-    animate({
-      to: [1, 1, 0],
-      offset: [0, 0.5, 1],
-      duration: illumAnimTimeMillis,
-      onUpdate: alpha => {
-        this.gaussianBlur.setConfig({alpha});
-      },
+      onComplete: () => {
+        //self._stopAllAnimations();
+      }
+    }));
+
+    /*
+    // Jitter the chromatic aberration
+    let prevValue = -1;
+    this._jitterAnim = animate({
+      to:     [0, 0,    1,    1,    2,    2,    3,    3,    4,    4],
+      offset: [0, 0.14, 0.15, 0.49, 0.50, 0.69, 0.70, 0.89, 0.90, 1],
+      duration: 1000,
+      repeat: Infinity,
+      onUpdate: (value) => {
+        const roundedValue = Math.round(value);
+        let xyzMask = [1,1,1];
+        let intensity = 0;
+        if (prevValue !== roundedValue) {
+          switch (roundedValue) {
+            case 0:
+            case 2:
+            case 3:
+            default:
+              break;
+            case 1:
+            case 4:
+              intensity = Randomizer.getRandomIntInclusive(0,1) * Randomizer.getRandomIntInclusive(-1,1);
+              xyzMask = [
+                Randomizer.getRandomIntInclusive(-1,1), 
+                Randomizer.getRandomIntInclusive(-1,1), 
+                Randomizer.getRandomIntInclusive(-1,1)
+              ];
+              break;
+          }
+          self.chromaticAberration.setConfig({intensity, xyzMask});
+          prevValue = roundedValue;
+        }
+      }
     });
     */
-
   }
-
 
   _initBoxSlice(target, idx) {
     const isMin = idx < 8;

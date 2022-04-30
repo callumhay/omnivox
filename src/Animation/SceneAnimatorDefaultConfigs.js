@@ -47,6 +47,11 @@ const spotAnglesCtrlOpt = {
 };
 
 const simpleSceneDefaultOptions = {
+  noiseAlpha: 0.35,
+  noiseSpeed: 1,
+  distortHorizontal: 1,
+  distortVertical: 1,
+
   sphereRadius: 4,
   sphereColour: {r:1, g:1, b:1},
   sphereEmission: {r:0.1, g:0.1, b:0.1},
@@ -66,6 +71,11 @@ const simpleSceneDefaultOptions = {
   wallColour: {r:1, g:1, b:1},
 };
 const simpleSceneControlOptions = {
+  noiseAlpha: {label: "Noise Alpha", min: 0, max:1, step:0.01},
+  noiseSpeed: {label: "Noise Speed", min:0, max:10, step:0.1},
+  distortHorizontal: {label: "Horizontal Distortion", min: 0, max:10, step: 0.1},
+  distortVertical: {label: "Vertical Distortion", min: 0, max:10, step: 0.1},
+
   sphereRadius: {label: "Sphere Radius", min:0.5, max:5, step:0.25},
   sphereColour: {label: "Sphere Colour"},
   sphereEmission: {label: "Sphere Emission"},
@@ -319,6 +329,8 @@ const particleSceneDefaultOptions = {
   blurConserveEnergy: false,
 
   chromaticAberrationIntensity: 1,
+  chromaticAberrationAlpha: 1,
+  chromaticAberrationOffsets: {x:1, y:1, z:1},
   
   particleSpawn: {numMin: 5, numMax: 10, interval: 0.05},
   particleLifeSpan: {min: 0.4, max: 0.75},
@@ -329,6 +341,7 @@ const particleSceneDefaultOptions = {
   particleAlphaEnd: {min: 0, max: 0},
   particleMaterial: "VTEmissionMaterial",
 
+  emitterType: 'point',
   emitterPos: {
     x:VoxelConstants.VOXEL_HALF_GRID_UNIT,
     y:VoxelConstants.VOXEL_HALF_GRID_UNIT,
@@ -346,6 +359,16 @@ const particleSceneControlOptions = {
   chromaticAberrationIntensity: {
     label: "Chromatic Abberation Intensity",
     min:-VoxelConstants.VOXEL_HALF_GRID_SIZE, max:VoxelConstants.VOXEL_HALF_GRID_SIZE, step:1
+  },
+  chromaticAberrationAlpha: {
+    label: "Chromatic Abberation Alpha",
+    min: 0, max:1, step:0.01,
+  },
+  chromaticAberrationOffsets: {
+    label: "Chromatic Abberation Offsets",
+    x: {label: "x", min: -1, max:1, step:1},
+    y: {label: "y", min: -1, max:1, step:1},
+    z: {label: "z", min: -1, max:1, step:1},
   },
 
   particleSpawn: {
@@ -387,6 +410,10 @@ const particleSceneControlOptions = {
     list: ["VTEmissionMaterial", "VTLambertMaterial"],
   },
 
+  emitterType: {
+    label: "Emitter Type",
+    list: ['point', 'box'],
+  },
   emitterPos: { label: "Emitter Position" },
   totalEmitTimes: {
     label: "Emitter Cycles",

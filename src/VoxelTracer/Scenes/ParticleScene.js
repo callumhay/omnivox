@@ -13,14 +13,16 @@ import VTPEmitterManager from '../Particles/VTPEmitterManager';
 import VTPEmitter from '../Particles/VTPEmitter';
 import VTPRate from '../Particles/VTPRate';
 import VTPSpan from '../Particles/VTPSpan';
-import {UniformSphereDirGenerator, VTPBody, VTPLife, VTPVelocity} from '../Particles/Initializers/VTPInitializers';
+import {VTPBoxZone} from '../Particles/VTPZones';
+import {StaticDirGenerator, UniformSphereDirGenerator, VTPBody, VTPLife, VTPPosition, VTPVelocity} from '../Particles/VTPInitializers';
 import VTPAlpha from '../Particles/Behaviours/VTPAlpha';
 import VTPColour from '../Particles/Behaviours/VTPColour';
 
 import VoxelModel from '../../Server/VoxelModel';
-import VoxelGaussianBlurPP from '../../Server/PostProcess/VoxelGaussianBlurPP';
 import VoxelPostProcessPipeline from '../../Server/PostProcess/VoxelPostProcessPipeline';
+import VoxelGaussianBlurPP from '../../Server/PostProcess/VoxelGaussianBlurPP';
 import VoxelChromaticAberrationPP from '../../Server/PostProcess/VoxelChromaticAberrationPP';
+
 
 class ParticleScene extends SceneRenderer {
   constructor(scene, voxelModel) {
@@ -48,10 +50,12 @@ class ParticleScene extends SceneRenderer {
     if (!this._objectsBuilt) {
 
       const {
-        blurKernelSize, blurSqrSigma, blurConserveEnergy, chromaticAberrationIntensity,
+        blurKernelSize, blurSqrSigma, blurConserveEnergy, 
+        chromaticAberrationIntensity, chromaticAberrationAlpha, chromaticAberrationOffsets,
+        noiseSpeed,
         particleMaterial, particleSpawn, particleLifeSpan, particleSpeed, 
         particleAlphaStart, particleAlphaEnd, particleColourStart, particleColourEnd,
-        emitterPos, totalEmitTimes
+        emitterType, emitterPos, totalEmitTimes
       } = options;
 
       const materialNameToClass = {
@@ -59,20 +63,35 @@ class ParticleScene extends SceneRenderer {
         "VTLambertMaterial"  : VTLambertMaterial,
       };
 
+      const {gridSize} = this.voxelModel;
+
       // Setup a super basic emitter
       this.emitter = new VTPEmitter();
       this.emitter.rate = new VTPRate(new VTPSpan(particleSpawn.numMin, particleSpawn.numMax), particleSpawn.interval);
       this.emitter.addInitializer(new VTPBody(VTVoxel, materialNameToClass[particleMaterial]));
       this.emitter.addInitializer(new VTPLife(particleLifeSpan.min, particleLifeSpan.max));
-      this.emitter.addInitializer(new VTPVelocity(new VTPSpan(particleSpeed.min, particleSpeed.max), new UniformSphereDirGenerator()));
+
+      const speedSpan = new VTPSpan(particleSpeed.min, particleSpeed.max);
+      switch (emitterType) {
+        case 'point':
+        default:
+          this.emitter.addInitializer(new VTPVelocity(speedSpan, new UniformSphereDirGenerator()));
+          this.emitter.p.set(emitterPos.x, emitterPos.y, emitterPos.z);
+          break;
+        case 'box':
+          this.emitter.addInitializer(new VTPVelocity(speedSpan, new StaticDirGenerator([new THREE.Vector3(0,1,0)])));
+          this.emitter.addInitializer(new VTPPosition(
+            new VTPBoxZone(new THREE.Vector3(0,0,0), new THREE.Vector3(gridSize, 1, gridSize))
+          ));
+          break;
+      }
+      
       this.emitter.addBehaviour(new VTPAlpha(new VTPSpan(particleAlphaStart.min, particleAlphaStart.end), new VTPSpan(particleAlphaEnd.min, particleAlphaEnd.max)));
       this.emitter.addBehaviour(new VTPColour(['mix', particleColourStart.colourA, particleColourStart.colourB], ['mix', particleColourEnd.colourA, particleColourEnd.colourB]));
-      this.emitter.p.set(emitterPos.x, emitterPos.y, emitterPos.z);
       this.emitter.emit(totalEmitTimes.isInfinity ? Infinity : totalEmitTimes.num);
       
       this.emitterMgr = new VTPEmitterManager(this.scene, 20, [VTVoxel]);
       this.emitterMgr.addEmitter(this.emitter);
-
 
       const ambientLightColour = options.ambientLightColour ? options.ambientLightColour : fogDefaultOptions.ambientLightColour;
       this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
@@ -83,7 +102,9 @@ class ParticleScene extends SceneRenderer {
         conserveEnergy: blurConserveEnergy
       });
       this.chromaticAberration.setConfig({
-        intensity: chromaticAberrationIntensity
+        intensity: chromaticAberrationIntensity,
+        alpha: chromaticAberrationAlpha,
+        xyzMask: [chromaticAberrationOffsets.x, chromaticAberrationOffsets.y, chromaticAberrationOffsets.z]
       });
 
       this._objectsBuilt = true;
@@ -105,7 +126,7 @@ class ParticleScene extends SceneRenderer {
     
     await this.scene.render();
 
-    this.postProcessPipeline.render(VoxelModel.CPU_FRAMEBUFFER_IDX_0, VoxelModel.CPU_FRAMEBUFFER_IDX_0);
+    this.postProcessPipeline.render(dt, VoxelModel.CPU_FRAMEBUFFER_IDX_0, VoxelModel.CPU_FRAMEBUFFER_IDX_0);
   }
 
 }

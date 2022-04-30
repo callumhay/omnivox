@@ -14,7 +14,7 @@ class VoxelPostProcessPipeline {
     if (idx > -1) { this._postProcesses.splice(idx, 1); }
   }
 
-  render(fbOriginIdx, fbTargetIdx) {
+  render(dt, fbOriginIdx, fbTargetIdx) {
     if (this._postProcesses.length === 0 || this._postProcesses.filter(pp => pp.willRender()).length === 0) {
       this.voxelModel.setFramebuffer(fbTargetIdx);
       return;
@@ -27,7 +27,7 @@ class VoxelPostProcessPipeline {
 
     const ppFramebuffer = this.voxelModel.framebuffer;
     for (const postProcess of this._postProcesses) {
-      postProcess.renderToFramebuffer(ppFramebuffer);
+      postProcess.renderToFramebuffer(dt, ppFramebuffer);
     }
 
     // Draw the post-processed buffer back into the target framebuffer

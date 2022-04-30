@@ -1,5 +1,5 @@
 import InitUtils from "../../InitUtils";
-import {VTPInitializer} from "./Initializers/VTPInitializers";
+import {VTPInitializer} from "./VTPInitializers";
 import VTPParticle from "./VTPParticle";
 import VTPRate from "./VTPRate";
 import VTPUtils from "./VTPUtils";

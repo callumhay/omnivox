@@ -303,7 +303,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     await this.scene.render();
 
     // Gaussian blur post-processing effect
-    this.postProcessPipeline.render(VoxelModel.CPU_FRAMEBUFFER_IDX_0, VoxelModel.CPU_FRAMEBUFFER_IDX_0);
+    this.postProcessPipeline.render(dt, VoxelModel.CPU_FRAMEBUFFER_IDX_0, VoxelModel.CPU_FRAMEBUFFER_IDX_0);
   }
 
   setAudioInfo(audioInfo) {

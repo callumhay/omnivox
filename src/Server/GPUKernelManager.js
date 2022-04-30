@@ -11,6 +11,13 @@ class GPUKernelManager {
       return Math.min(max, Math.max(min, value));
     }, {name: 'clampValue'});
 
+    this.gpu.addFunction(function whiteNoise3dTo1d(value3d) {
+      const smallValue = [Math.sin(value3d[0]), Math.sin(value3d[1]), Math.sin(value3d[2])];      // Make the value smaller to avoid artfacts
+      const randomScalar = (smallValue[0]*12.9898 + smallValue[1]*78.233 + smallValue[2]*37.719); // Get a scalar from the 3D value
+      const fullValue = (Math.sin(randomScalar) * 143758.5453);
+      return fullValue % 1.0;// - Math.floor(fullValue); // Make the value more random by making it bigger and then taking the factional part
+    }, {name: 'whiteNoise3dTo1d', returnType: "Float", argumentTypes: {value3d: "Array(3)"}});
+
     this.pipelineFuncSettings = {
       output: [gridSize, gridSize, gridSize],
       pipeline: true, // We use pipelining for most things in order to get a texture output from kernels
@@ -230,8 +237,8 @@ class GPUKernelManager {
     });
   }
 
-  initChromaticAberrationPPKernels(gridSize) {
-    const chromaticAberrationPPSettings = {
+  initDistortionPPKernels(gridSize) {
+    const distortionPPSettings = {
       output: [gridSize, gridSize, gridSize],
       pipeline: true,
       immutable: true,
@@ -241,24 +248,133 @@ class GPUKernelManager {
       }
     };
 
-    this.chromaticAberrationFunc = this.gpu.createKernel(function(fbTex, intensity) {
+    this.gpu.addFunction(function ramp(y, start, end) {
+      const inside = (y < start ? 0.0 : 1.0) - (y < end ? 0.0 : 1.0);
+      const fract = (y-start) / (end-start) * inside;
+      return (1.0-fract) * inside;
+    }, {name: 'ramp', returnType: "Float", argumentTypes: {y: "Float", start: "Float", end: "Float"}});
+
+    this.gpu.addFunction(function noise(uvw, noiseMove, noiseAxisMask) {
+      const noiseLookup = [
+        uvw[0] + noiseMove*noiseAxisMask[0], 
+        uvw[1] + noiseMove*noiseAxisMask[1], 
+        uvw[2] + noiseMove*noiseAxisMask[2]
+      ];
+      let noise = whiteNoise3dTo1d(noiseLookup);
+      noise *= noise;
+      noise /= 2.0;
+      return noise;
+    }, {name: 'noise', returnType: "Float", argumentTypes: {uvw: "Array(3)", noiseMove: "Float", noiseAxisMask: "Array(3)"}});
+
+    this.gpu.addFunction(function onOff(a, b, c, timeCounter) {
+      return (Math.sin(timeCounter + a*Math.cos(timeCounter*b)) < c ? 0.0 : 1.0);
+    }, {name: 'onOff', returnType: "Float", argumentTypes: {a: "Float", b: "Float", c: "Float", timeCounter: "Float"}});
+
+    this.gpu.addFunction(function videoShiftLookup(uvw, timeCounter, distortHorizontal, distortVertical) {
+      const adjTimeCounter = timeCounter / 4.0;
+      const window = 1.0 / (1.0 + 20 * (uvw[1] - (adjTimeCounter % 1.0) * (uvw[1] - (adjTimeCounter % 1.0))));
+      const hShift = distortHorizontal * (Math.sin(uvw[1]*10.0 + timeCounter)/15.0 * onOff(4.0, 4.0, 0.3, timeCounter) * 
+        (1.0 + Math.cos(timeCounter*80.0)) * window);
+      const vShift = distortVertical * (0.4 * onOff(2.0, 3.0, 0.9, timeCounter) * (Math.sin(timeCounter) * Math.sin(timeCounter*20.0) + 
+        0.5 + 0.1*Math.sin(timeCounter*200.0)*Math.cos(timeCounter)));
+
+      return [
+        (uvw[0] + hShift) % 1.0,
+        (uvw[1] + vShift) % 1.0,
+        (uvw[2] + hShift) % 1.0,
+      ];
+    }, {name: "videoShiftLookup", returnType:"Array(3)", 
+      argumentTypes: {uvw: "Array(3)", timeCounter: "Float", distortHorizontal: "Float", distortVertical: "Float"
+    }});
+
+    this.gpu.addFunction(function stripes(uvw, noiseMove, noiseAxisMask, timeCounter, noiseSpeed) {
+      const augUVW = [uvw[0]*0.5 + 1.0, uvw[1] + 3.0, uvw[2]*0.5 + 1.0];
+      
+      const noiseLookup = [
+        augUVW[0] + noiseMove*noiseAxisMask[0]*0.0001, 
+        augUVW[1] + noiseMove*noiseAxisMask[1]*0.0001, 
+        augUVW[2] + noiseMove*noiseAxisMask[2]*0.0001
+      ];
+      let noise = whiteNoise3dTo1d(noiseLookup);
+      noise *= noise;
+
+      const adjTimeCounter = timeCounter*noiseSpeed;
+      const val = uvw[1]*2.0 + adjTimeCounter/2.0 + Math.sin(adjTimeCounter + Math.sin(adjTimeCounter*0.63));
+      return ramp(val % 1.0, 0.4, 0.65) * noise;
+
+    }, {name: 'stripes', returnType: "Float", 
+      argumentTypes: {uvw: "Array(3)", noiseMove: "Float", noiseAxisMask: "Array(3)", timeCounter: "Float", noiseSpeed: "Float"
+    }});
+
+
+    this.distortionFunc = this.gpu.createKernel(function(
+      fbTex, timeCounter, noiseAlpha, noiseAxisMask, noiseSpeed, distortHorizontal, distortVertical
+    ) {
       const x = this.thread.z; const y = this.thread.y; const z = this.thread.x;
 
-      const rX = clampValue(Math.trunc(x + intensity), 0, this.constants.gridSize);
-      const rY = clampValue(Math.trunc(y + intensity), 0, this.constants.gridSize);
-      const rZ = clampValue(Math.trunc(z + intensity), 0, this.constants.gridSize);
+      const noiseMove = 2.0*Math.cos(timeCounter)*timeCounter*8.0;
+      const uvw = [x/this.constants.gridSize, y/this.constants.gridSize, z/this.constants.gridSize];
+      const noise = noise(uvw, noiseMove*noiseSpeed*0.000001, noiseAxisMask);
+      const stripes = stripes(uvw, noiseMove, noiseAxisMask, timeCounter, noiseSpeed);
+      const noiseAmt = (noise + stripes)*noiseAlpha;
 
-      const bX = clampValue(Math.trunc(x - intensity), 0, this.constants.gridSize);
-      const bY = clampValue(Math.trunc(y - intensity), 0, this.constants.gridSize);
-      const bZ = clampValue(Math.trunc(z - intensity), 0, this.constants.gridSize);
+      const nLookup = videoShiftLookup(uvw, timeCounter, distortHorizontal, distortVertical);
+      const lookup = [
+        Math.floor(Math.abs(nLookup[0]*this.constants.gridSize)),
+        Math.floor(Math.abs(nLookup[1]*this.constants.gridSize)),
+        Math.floor(Math.abs(nLookup[2]*this.constants.gridSize))
+      ];
+      const shiftedVoxel = fbTex[lookup[0]][lookup[1]][lookup[2]];
+      return [
+        Math.min(1.0, shiftedVoxel[0]+noiseAmt),
+        Math.min(1.0, shiftedVoxel[1]+noiseAmt),
+        Math.min(1.0, shiftedVoxel[2]+noiseAmt)
+      ];
+    }, {...distortionPPSettings, name: "distortionFunc", 
+      argumentTypes: {fbTex: "Array3D(3)", timeCounter: "Float", noiseAlpha: "Float", noiseAxisMask: "Array(3)", noiseSpeed: "Float",
+                      distortHorizontal: "Float", distortVertical: "Float"
+      }
+    });
 
+  }
+
+  initChromaticAberrationPPKernels(gridSize) {
+    const chromaticAberrationPPSettings = {
+      output: [gridSize, gridSize, gridSize],
+      pipeline: true,
+      immutable: true,
+      returnType: 'Array(3)',
+      constants: {
+        gridSizeMinus1: gridSize-1,
+      }
+    };
+
+    this.chromaticAberrationFunc = this.gpu.createKernel(function(fbTex, intensity, alpha, xyzMask) {
+      const x = this.thread.z; const y = this.thread.y; const z = this.thread.x;
+
+      const rX = clampValue(Math.trunc(x + intensity*xyzMask[0]), 0, this.constants.gridSizeMinus1);
+      const rY = clampValue(Math.trunc(y + intensity*xyzMask[1]), 0, this.constants.gridSizeMinus1);
+      const rZ = clampValue(Math.trunc(z + intensity*xyzMask[2]), 0, this.constants.gridSizeMinus1);
+
+      const bX = clampValue(Math.trunc(x - intensity*xyzMask[0]), 0, this.constants.gridSizeMinus1);
+      const bY = clampValue(Math.trunc(y - intensity*xyzMask[1]), 0, this.constants.gridSizeMinus1);
+      const bZ = clampValue(Math.trunc(z - intensity*xyzMask[2]), 0, this.constants.gridSizeMinus1);
+
+      const voxel = fbTex[x][y][z];
       const rCh = fbTex[rX][rY][rZ];
       const gCh = fbTex[x][y][z];
       const bCh = fbTex[bX][bY][bZ];
 
-      return [rCh[0], gCh[1], bCh[2]];
+      const oneMinusAlpha = 1.0 - alpha;
+      return [
+        oneMinusAlpha*voxel[0] + alpha*rCh[0], 
+        oneMinusAlpha*voxel[1] + alpha*gCh[1], 
+        oneMinusAlpha*voxel[2] + alpha*bCh[2]
+      ];
 
-    }, {...chromaticAberrationPPSettings, name: "chromaticAberrationFunc", argumentTypes: {fbTex: "Array3D(3)", intensity: "Float"}});
+    }, {...chromaticAberrationPPSettings, name: "chromaticAberrationFunc", 
+      argumentTypes: {fbTex: "Array3D(3)", intensity: "Float", alpha: "Float", xyzMask: "Array(3)"
+    }});
 
   }
 
