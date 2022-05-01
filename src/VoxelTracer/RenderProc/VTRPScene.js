@@ -305,7 +305,8 @@ class VTRPScene {
 
   calculateLightingSamples(targetRGBA, voxelIdxPt, samples, material, receivesShadows=true, factorPerSample=null) {  
     let distanceToLight = 0;
-    factorPerSample = factorPerSample || (1.0 / samples.length);
+    const oneOverNumSamples = (1.0 / samples.length);
+    factorPerSample = factorPerSample || oneOverNumSamples;
     const lights = Object.values(this.lights);
     const numSamples = samples.length;
     
@@ -313,7 +314,7 @@ class VTRPScene {
       const {point, normal, uv, falloff} = samples[i];
 
       material.emission(_sampleLightContribRGBA, uv);
-      _sampleLightContribRGBA.multiplyScalar(falloff);
+      _sampleLightContribRGBA.multiplyScalar(falloff*oneOverNumSamples);
 
       for (let j = 0, numLights = lights.length; j < numLights; j++) {
         const light = lights[j];

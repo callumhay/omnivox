@@ -12,8 +12,7 @@ export const defaultDistortionConfig = {
 // an effect that's similar to an old TV/CRT/VHS
 class VoxelDistortionPP extends VoxelPostProcess {
   constructor(voxelModel, config={...defaultDistortionConfig}) {
-    super();
-    this.voxelModel = voxelModel;
+    super(voxelModel);
     this.timeCounter = 0;
     this.setConfig(config);
   }
@@ -32,8 +31,6 @@ class VoxelDistortionPP extends VoxelPostProcess {
   }
 
   renderToFramebuffer(dt, framebuffer) {
-    if (!this.willRender()) { return; }
-    
     const {gpuKernelMgr} = this.voxelModel;
     const {noiseAlpha, noiseSpeed, noiseAxisMask, distortHorizontal, distortVertical} = this._config;
     this.timeCounter += dt;

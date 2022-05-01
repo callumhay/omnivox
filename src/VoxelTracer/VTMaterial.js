@@ -7,6 +7,7 @@ class VTMaterial {
     this.type = type;
   }
 
+  isEmissionOnly() { return false; }
   isVisible() { console.error("isVisible unimplemented abstract method called."); return true; }
 
   albedo(targetRGBA, uv) { console.error("albedo unimplemented abstract method called.");  return null; }

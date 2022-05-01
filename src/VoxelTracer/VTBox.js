@@ -25,7 +25,7 @@ class VTBox extends VTTransformable {
 
     this._max = new THREE.Vector3();
     this._min = new THREE.Vector3();
-    this.setSize(size || 1);
+    this.setSize(size ? size : 1);
     
     this._material = VTMaterialFactory.initMaterial(material);
     this._options  = options ? {...defaultBoxOptions, ...options} : {...defaultBoxOptions};
@@ -67,9 +67,9 @@ class VTBox extends VTTransformable {
     // points with some margin of voxel sampling error
     _box.set(this._min, this._max);
     _box.applyMatrix4(this.matrixWorld);
-    _box.expandByScalar(VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS);
-    _box.min.roundToZero();
-    _box.max.roundToZero();
+    //_box.expandByScalar(VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS);
+    //_box.min.roundToZero();
+    //_box.max.roundToZero();
 
     // Get the box points inside the worldspace AABB
     return VoxelGeometryUtils.voxelAABBList(_box.min, _box.max, true, voxelBoundingBox);

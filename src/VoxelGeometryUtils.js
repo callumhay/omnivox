@@ -86,9 +86,9 @@ class VoxelGeometryUtils {
 
   static voxelAABBList(minPt, maxPt, fill, voxelBoundingBox) {
     const voxelPts = [];
-    const mappedMinPt = minPt.clone().subScalar(VoxelConstants.VOXEL_ERR_UNITS).floor();
+    const mappedMinPt = minPt.clone().floor();
     mappedMinPt.max(voxelBoundingBox.min);
-    const mappedMaxPt = maxPt.clone().addScalar(VoxelConstants.VOXEL_ERR_UNITS).ceil();
+    const mappedMaxPt = maxPt.clone().ceil();
     mappedMaxPt.min(voxelBoundingBox.max);
 
     if (fill) {
@@ -103,9 +103,7 @@ class VoxelGeometryUtils {
     else {
       // Not filling the box... just go around the outside of it
       let incX = Math.floor(mappedMaxPt.x-mappedMinPt.x);
-      if (incX <= 0) {
-        incX = mappedMaxPt.x-mappedMinPt.x;
-      }
+      if (incX <= 0) { incX = mappedMaxPt.x-mappedMinPt.x; }
 
       for (let x = mappedMinPt.x; x <= mappedMaxPt.x; x += incX) {
         for (let y = mappedMinPt.y; y <= mappedMaxPt.y; y++) {
@@ -116,9 +114,7 @@ class VoxelGeometryUtils {
       }
 
       let incY = Math.floor(mappedMaxPt.y-mappedMinPt.y);
-      if (incY <= 0) {
-        incY = mappedMaxPt.y-mappedMinPt.y;
-      }
+      if (incY <= 0) { incY = mappedMaxPt.y-mappedMinPt.y; }
 
       for (let y = mappedMinPt.y; y <= mappedMaxPt.y; y += incY) {
         for (let x = mappedMinPt.x+1; x < mappedMaxPt.x; x++) {
@@ -129,9 +125,7 @@ class VoxelGeometryUtils {
       }
 
       let incZ = Math.floor(mappedMaxPt.z-mappedMinPt.z);
-      if (incZ <= 0) {
-        incZ = mappedMaxPt.z-mappedMinPt.z;
-      }
+      if (incZ <= 0) { incZ = mappedMaxPt.z-mappedMinPt.z; }
 
       for (let z = mappedMinPt.z; z <= mappedMaxPt.z; z += incZ) {
         for (let x = mappedMinPt.x+1; x < mappedMaxPt.x; x++) {

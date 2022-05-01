@@ -9,8 +9,7 @@ export const defaulChromaticAberrationConfig = {
 
 class VoxelChromaticAberrationPP extends VoxelPostProcess {
   constructor(voxelModel, config={...defaulChromaticAberrationConfig}) {
-    super();
-    this.voxelModel = voxelModel;
+    super(voxelModel);
     this.setConfig(config);
   }
 
@@ -29,7 +28,6 @@ class VoxelChromaticAberrationPP extends VoxelPostProcess {
   renderToFramebuffer(dt, framebuffer) {
     const {intensity, alpha, xyzMask} = this._config;
     const {gpuKernelMgr} = this.voxelModel;
-    if (!this.willRender()) { return; }
 
     const currFBTex = framebuffer.getGPUBuffer();
     const pingPongFBTex1 = gpuKernelMgr.chromaticAberrationFunc(currFBTex, intensity, alpha, xyzMask);

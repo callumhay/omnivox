@@ -1,19 +1,23 @@
 import * as THREE from 'three';
-import {animate, snap, anticipate, bounceInOut, easeInOut, linear} from "popmotion"
+import {animate, anticipate, bounceInOut, easeIn, easeInOut, linear} from "popmotion"
 
 import VTConstants from '../VoxelTracer/VTConstants';
 import VTAmbientLight from "../VoxelTracer/VTAmbientLight";
 import VTBox from "../VoxelTracer/VTBox";
 import VTLambertMaterial from "../VoxelTracer/VTLambertMaterial";
 
+import VTCTestPattern from '../VoxelTracer/Composites/VTCTestPattern';
+
 import VoxelModel from '../Server/VoxelModel';
 import VoxelPostProcessPipeline from '../Server/PostProcess/VoxelPostProcessPipeline';
 import VoxelGaussianBlurPP from '../Server/PostProcess/VoxelGaussianBlurPP';
 import VoxelChromaticAberrationPP from '../Server/PostProcess/VoxelChromaticAberrationPP';
+import VoxelDistortionPP from '../Server/PostProcess/VoxelDistortionPP';
+import VoxelTVTurnOffPP from '../Server/PostProcess/VoxelTVTurnOffPP';
 
 import VoxelAnimator from "./VoxelAnimator";
 import VoxelConstants from '../VoxelConstants';
-import { Randomizer } from '../Randomizers';
+import {Randomizer} from '../Randomizers';
 
 const boxSliceSize = 8;
 const halfBoxSliceSize = boxSliceSize/2;
@@ -45,15 +49,14 @@ class StartupAnimator extends VoxelAnimator {
     this.scene = scene;
 
     this.currAnims = [];
-
+    
+    // Setup our post-processing pipeline and kernels
     this.postProcessPipeline = new VoxelPostProcessPipeline(voxelModel);
-
     this.gaussianBlur = new VoxelGaussianBlurPP(voxelModel);
-    this.postProcessPipeline.addPostProcess(this.gaussianBlur);
-
     this.chromaticAberration = new VoxelChromaticAberrationPP(voxelModel);
-    this.postProcessPipeline.addPostProcess(this.chromaticAberration);
-
+    this.distortion = new VoxelDistortionPP(voxelModel);
+    this.tvTurnOff = new VoxelTVTurnOffPP(voxelModel);
+    
     // NOTE: The startup routine is always loaded into memory by default, this helps avoid lag in creating the objects
     this._buildSceneObjects();
   }
@@ -62,6 +65,9 @@ class StartupAnimator extends VoxelAnimator {
   rendersToCPUOnly() { return true; }
 
   _buildSceneObjects() {
+    this.testPattern = new VTCTestPattern(this.voxelModel.gridSize);
+    this.testPattern.build();
+
     this._boxSlices = [];
     for (let i = 0; i < 16; i++) {
       const box = new VTBox(
@@ -124,7 +130,11 @@ class StartupAnimator extends VoxelAnimator {
     this._boxMaxExpander.setSize(boxSize);
 
     this.gaussianBlur.setConfig({kernelSize: 7, sqrSigma: 0, conserveEnergy: false, alpha: 1});
+    this.postProcessPipeline.removePostProcess(this.gaussianBlur);
     this.chromaticAberration.setConfig({intensity: 0, alpha:1});
+    this.postProcessPipeline.removePostProcess(this.chromaticAberration);
+    this.postProcessPipeline.removePostProcess(this.distortion);
+    this.postProcessPipeline.removePostProcess(this.tvTurnOff);
   }
 
   _stopAllAnimations() {
@@ -138,17 +148,12 @@ class StartupAnimator extends VoxelAnimator {
   load() {
     // All objects are already loaded, we just need to set the scene and
     // initialize any animation state-related variables
-    if (this._jitterAnim) { this._jitterAnim.stop(); }
     this.scene.clear();
     this._stopAllAnimations();
     this._reinitSceneObjects();
 
-    this.scene.addObject(this._ambientLight);
-    for (const slice of this._boxSlices) { 
-      this.scene.addObject(slice.box);
-    }
+    this.currStateFunc = this._testPatternStateFunc.bind(this); // Reinitialize to the start state
 
-    this.currStateFunc = this._sliceMoveStateFunc.bind(this); // Reinitialize to the start state
     this._loadWaitTime = (this.voxelModel.totalCrossfadeTime + 0.5);
     this.isPlaying = false;
   }
@@ -182,13 +187,72 @@ class StartupAnimator extends VoxelAnimator {
 
   _emptyState(dt) {}
 
+  _testPatternStateFunc(dt) {
+    this.currStateFunc = this._emptyState.bind(this);
+    this._stopAllAnimations();
+    
+    this.testPattern.setAlpha(0);
+    this.testPattern.addToScene(this.scene);
+
+    this.distortion.setConfig({noiseAlpha: 0});
+    this.postProcessPipeline.addPostProcess(this.distortion);
+
+    this.isPlaying = true;
+
+    const self = this;
+    const maxNoiseAlpha = 0.75;
+    // Start by animating TV static / distortion
+    this.currAnims.push(animate({
+      to: [0, maxNoiseAlpha],
+      ease: [linear],
+      duration: 3000,
+      onUpdate: (noiseAlpha) => {
+        self.distortion.setConfig({noiseAlpha});
+      },
+      onComplete: () => {
+        // Continue with the distortion and add the test pattern
+        self.currAnims.push(animate({
+          to: [[0, maxNoiseAlpha, 1], [1, 0.35, 1], [1, 0, 0.5], [1, 0, 0]],
+          offset: [0, 0.2, 0.75, 1],
+          duration: 5000,
+          onUpdate: ([tpAlpha, noiseAlpha, distortionAmt]) => {
+            self.testPattern.setAlpha(tpAlpha);
+            self.distortion.setConfig({noiseAlpha, distortVertical:distortionAmt, distortHorizontal:distortionAmt});
+          },
+          onComplete: () => {
+            self.postProcessPipeline.removePostProcess(self.distortion);
+            self.tvTurnOff.setConfig({offAmount:0});
+            self.postProcessPipeline.addPostProcess(self.tvTurnOff);
+            self.currAnims.push(animate({
+              to: [[0,1], [1,1], [1, 0]],
+              offset: [0, 0.4, 1],
+              duration: 1000,
+              onUpdate: ([offAmount, tpAlpha]) => {
+                self.tvTurnOff.setConfig({offAmount});
+                self.testPattern.setAlpha(tpAlpha);
+              },
+              onComplete: () => {
+                self.testPattern.removeFromScene(self.scene);
+                self.postProcessPipeline.removePostProcess(self.tvTurnOff);
+              }
+            }));
+          }
+        }));
+      }
+    }));
+
+  }
+
   _sliceMoveStateFunc(dt) {
     this.currStateFunc = this._emptyState.bind(this);
     this._stopAllAnimations();
 
-    this.isPlaying = true;
-    const self = this;
+    this.scene.addObject(this._ambientLight);
+    for (const slice of this._boxSlices) { 
+      this.scene.addObject(slice.box);
+    }
 
+    const self = this;
     let numComplete = 0;
     for (const slice of this._boxSlices) {
       const {box, startY, endY, startAnimTime, totalAnimTime} = slice;
@@ -301,6 +365,8 @@ class StartupAnimator extends VoxelAnimator {
     this.scene.addObject(this._boxOutlineMin);
     this.scene.addObject(this._boxOutlineMax);
     this.scene.addObject(this._boxCenter);
+
+    this.postProcessPipeline.addPostProcess(this.gaussianBlur);
     
     const self = this;
     const flashBlurSqSigma = 1.8;
@@ -322,12 +388,12 @@ class StartupAnimator extends VoxelAnimator {
         self._boxMax.material.alpha = boxAlpha;
         self._boxMax.makeDirty();
 
-        this.gaussianBlur.setConfig({sqrSigma, conserveEnergy: false});
+        self.gaussianBlur.setConfig({sqrSigma, conserveEnergy: false});
       },
       onComplete: () => {
         const colours = ["#fff", "#f00", "#0f0", "#00f", "#fff"];
         const colourBlurSqrSigma = 1;
-        animate({
+        self.currAnims.push(animate({
           to: [
             [0,0], [1,colourBlurSqrSigma], 
             [1,0], [2,colourBlurSqrSigma], 
@@ -340,12 +406,12 @@ class StartupAnimator extends VoxelAnimator {
             const idx = Math.round(progressIdx);
             self._boxCenter.material.emissive.set(colours[idx]);
             self._boxCenter.makeDirty();
-            this.gaussianBlur.setConfig({sqrSigma, conserveEnergy: true});
+            self.gaussianBlur.setConfig({sqrSigma, conserveEnergy: true});
           },
           onComplete: () => {
-            this.currStateFunc = this._endStateFunc.bind(this);
+            self.currStateFunc = this._endStateFunc.bind(self);
           }
-        });
+        }));
       }
     }));    
   }
@@ -353,6 +419,9 @@ class StartupAnimator extends VoxelAnimator {
   _endStateFunc(dt) {
     this.currStateFunc = this._emptyState.bind(this);
     this._stopAllAnimations();
+    this.postProcessPipeline.removePostProcess(this.gaussianBlur);
+    this.postProcessPipeline.addPostProcess(this.chromaticAberration);
+
     const self = this;
 
     this.currAnims.push(animate({
@@ -362,7 +431,7 @@ class StartupAnimator extends VoxelAnimator {
       duration: 1500,
       //repeat: Infinity,
       onUpdate: ([intensity, alpha]) => {
-        self.chromaticAberration.setConfig({intensity: Math.floor(intensity), alpha});
+        self.chromaticAberration.setConfig({intensity, alpha});
       },
       onComplete: () => {
         //self._stopAllAnimations();

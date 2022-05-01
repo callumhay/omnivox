@@ -245,6 +245,7 @@ class GPUKernelManager {
       returnType: 'Array(3)',
       constants: {
         gridSize,
+        gridSizeMinus1: gridSize-1,
       }
     };
 
@@ -279,9 +280,9 @@ class GPUKernelManager {
         0.5 + 0.1*Math.sin(timeCounter*200.0)*Math.cos(timeCounter)));
 
       return [
-        (uvw[0] + hShift) % 1.0,
-        (uvw[1] + vShift) % 1.0,
-        (uvw[2] + hShift) % 1.0,
+        (uvw[0] + hShift + 1.0) % 1.0,
+        (uvw[1] + vShift + 1.0) % 1.0,
+        (uvw[2] + hShift + 1.0) % 1.0,
       ];
     }, {name: "videoShiftLookup", returnType:"Array(3)", 
       argumentTypes: {uvw: "Array(3)", timeCounter: "Float", distortHorizontal: "Float", distortVertical: "Float"
@@ -320,9 +321,9 @@ class GPUKernelManager {
 
       const nLookup = videoShiftLookup(uvw, timeCounter, distortHorizontal, distortVertical);
       const lookup = [
-        Math.floor(Math.abs(nLookup[0]*this.constants.gridSize)),
-        Math.floor(Math.abs(nLookup[1]*this.constants.gridSize)),
-        Math.floor(Math.abs(nLookup[2]*this.constants.gridSize))
+        Math.floor(nLookup[0]*this.constants.gridSize),
+        Math.floor(nLookup[1]*this.constants.gridSize),
+        Math.floor(nLookup[2]*this.constants.gridSize),
       ];
       const shiftedVoxel = fbTex[lookup[0]][lookup[1]][lookup[2]];
       return [
@@ -335,7 +336,30 @@ class GPUKernelManager {
                       distortHorizontal: "Float", distortVertical: "Float"
       }
     });
+  }
 
+  initTVTurnOffPPKernels(gridSize) {
+    const tvTurnOffPPSettings = {
+      output: [gridSize, gridSize, gridSize],
+      pipeline: true,
+      immutable: true,
+      returnType: 'Array(3)',
+      constants: {
+        gridSize,
+        gridSizeMinus1: gridSize-1,
+      }
+    };
+
+    this.tvTurnOffFunc = this.gpu.createKernel(function(fbTex, offAmount) {
+      const x = this.thread.z; const y = this.thread.y; const z = this.thread.x;
+      if (offAmount <= 0) { return [0,0,0] }
+      const uvw = [x/this.constants.gridSizeMinus1, y/this.constants.gridSizeMinus1, z/this.constants.gridSizeMinus1];
+      const vignetteAmt = (uvw[0]-0.5)*(uvw[0]-0.5)*(uvw[1]-0.5)*(uvw[1]-0.5)*(uvw[2]-0.5)*(uvw[2]-0.5) * Math.pow(10000000.0, offAmount);
+      const vignetteCoeff = clampValue(1.0 - Math.pow(vignetteAmt, 0.8), 0.0, 1.0);
+      const voxel = fbTex[x][y][z];
+      return [voxel[0]*vignetteCoeff, voxel[1]*vignetteCoeff, voxel[2]*vignetteCoeff];
+    }, {...tvTurnOffPPSettings, name: "tvTurnOffFunc", argumentTypes: {fbTex: "Array3D(3)", offAmount: "Float"}
+    });
   }
 
   initChromaticAberrationPPKernels(gridSize) {

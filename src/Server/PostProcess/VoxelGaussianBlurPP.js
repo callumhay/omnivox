@@ -9,8 +9,7 @@ export const defaultGaussianBlurConfig = {
 
 class VoxelGaussianBlurPP extends VoxelPostProcess {
   constructor(voxelModel, config={...defaultGaussianBlurConfig}) {
-    super();
-    this.voxelModel = voxelModel;
+    super(voxelModel);
     this.setConfig(config);
   }
 
@@ -30,8 +29,6 @@ class VoxelGaussianBlurPP extends VoxelPostProcess {
     const {sqrSigma, conserveEnergy, alpha} = this._config;
     const {gpuKernelMgr} = this.voxelModel;
 
-    if (!this.willRender()) { return; }
-    
     const currFBTex = framebuffer.getGPUBuffer();
     const pingPongFBTex1 = gpuKernelMgr.blurXFunc(currFBTex, sqrSigma, conserveEnergy, alpha);
     currFBTex.delete();

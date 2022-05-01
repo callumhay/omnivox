@@ -17,6 +17,7 @@ class VTScene {
     this.voxelModel = voxelModel;
 
     this.childProcesses = [];
+    this.numChildProcesses = VTScene.calcNumChildProcesses();
 
     this.renderables = [];
     this.lights = [];
@@ -227,8 +228,7 @@ class VTScene {
     const CHILD_PROC_NAME = "VTRenderProc";
     let childInspectPort = 31310;
     const debugInspectIsOn = VTScene.debugInspectIsOn();
-    const numForks = VTScene.calcNumChildProcesses();
-    for (let i = 0; i < numForks; i++) {
+    for (let i = 0; i < this.numChildProcesses; i++) {
       // When debugging node applications we need to make sure each child process has its own inspect port assigned
       // or the program will crash and burn
       let childOptions = allChildsOptions;
@@ -285,17 +285,16 @@ class VTScene {
   }
 
   _chunkRenderableVoxels(renderableVoxels) {
-    const numChildProcs = VTScene.calcNumChildProcesses();
     if (renderableVoxels.length === 0) {
-      return new Array(numChildProcs).fill().map(() => ({}));
+      return new Array(this.numChildProcesses).fill().map(() => ({}));
     }
 
     // Ordering is important here - the children are only given the voxels in their respective intervals. These intervals are designated as
     // the total number of voxels divided by the total number of children (if it's an uneven division then the last child gets the lesser quantity).
     const numVoxels = this.voxelModel.numVoxels();
-    const numVoxelsPerProc = Math.ceil(numVoxels / numChildProcs);
+    const numVoxelsPerProc = Math.ceil(numVoxels / this.numChildProcesses);
 
-    const chunkedRenderData = new Array(numChildProcs).fill().map(() => ({}));
+    const chunkedRenderData = new Array(this.numChildProcesses).fill().map(() => ({}));
     for (let i = 0, numRenderableVoxels = renderableVoxels.length; i < numRenderableVoxels; i++) {
       const renderableVoxel = renderableVoxels[i];
       const voxelIdx = VoxelGeometryUtils.voxelFlatIdx(renderableVoxel.voxelPt, this.voxelModel.gridSize);

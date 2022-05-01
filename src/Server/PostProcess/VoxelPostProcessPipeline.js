@@ -27,7 +27,7 @@ class VoxelPostProcessPipeline {
 
     const ppFramebuffer = this.voxelModel.framebuffer;
     for (const postProcess of this._postProcesses) {
-      postProcess.renderToFramebuffer(dt, ppFramebuffer);
+      if (postProcess.willRender()) { postProcess.renderToFramebuffer(dt, ppFramebuffer); }
     }
 
     // Draw the post-processed buffer back into the target framebuffer
