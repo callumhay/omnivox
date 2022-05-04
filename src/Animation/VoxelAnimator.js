@@ -1,5 +1,3 @@
-export const REPEAT_INFINITE_TIMES = -1;
-
 const VOXEL_ANIM_TYPE_STARTUP       = "Startup";
 const VOXEL_ANIM_TYPE_COLOUR        = "Colour Change";
 const VOXEL_ANIM_TEXT               = "Text";
@@ -27,13 +25,9 @@ export const DEFAULT_CROSSFADE_TIME_SECS = 1.0;
 
 class VoxelAnimator {
   constructor(voxelModel, config=null) {
-
     this.voxelModel = voxelModel;
-    this.repeat = 0;
-    this.playCounter = 0;
     this.config = {};
-    
-    this.setConfig(config);
+    this.setConfig(config, true);
   }
 
   // Constants for various types of animators
@@ -52,21 +46,20 @@ class VoxelAnimator {
 
   getType() { return null; }
 
-  setConfig(c) {
+  load() {}   // Called whenever the animator is (re)loaded by the controller
+  unload() {} // Called whenever the animator is no longer active (after the crossfade has completed)
+  reset() {}  // Called when the "reset" button is hit in the controller
+
+  setConfig(c, init=false) {
     this.config = c ? c : {};
-    const {repeat} = this.config;
-    if (repeat) { this.repeat = repeat; }
+    return !init;
   }
 
   setAudioInfo(audioInfo) {}
 
-  render(dt) {}
   rendersToCPUOnly() { return false; }
-
-  reset() { this.playCounter = 0; } // Called when the "reset" button is hit in the controller
   
-  load() {}   // Called whenever the animator is (re)loaded by the controller
-  unload() {} // Called whenever the animator is no longer active (after the crossfade has completed)
+  render(dt) {}
 }
 
 export default VoxelAnimator;

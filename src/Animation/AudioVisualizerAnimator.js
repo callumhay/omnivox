@@ -47,8 +47,6 @@ class AudioVisualizerAnimator extends VoxelAnimator {
   }
 
   reset() {
-    super.reset();
-
     this.currMaxResetTimeCounter = 0;
 
     this.rmsBuffer = [];

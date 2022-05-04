@@ -187,6 +187,8 @@ class VTRPBox extends VTRPObject {
         normal.copy(planeNormal);
         sample.falloff = 1;
         samples.push(sample);
+        
+        if (this._material.isEmissionOnly()) { break; } // For emissive materials we only need one sample... TODO: Texture mapping will require avg of uvs
       }
 
       this._voxelIdxToSamples[voxelId] = samples;

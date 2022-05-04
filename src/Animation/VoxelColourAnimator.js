@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import chroma from 'chroma-js';
 
-import VoxelAnimator, {REPEAT_INFINITE_TIMES} from './VoxelAnimator';
+import VoxelAnimator from './VoxelAnimator';
 import {COLOUR_INTERPOLATION_LRGB} from '../Spectrum';
 import VoxelConstants from '../VoxelConstants';
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
@@ -41,21 +41,35 @@ export const voxelColourAnimatorDefaultConfig = {
   colourInterpolationType: COLOUR_INTERPOLATION_LRGB,
   interpolationType: INTERPOLATION_LERP,
   startTimeSecs: 0.0,
-  endTimeSecs: 10.0,
-  repeat: 0,
+  endTimeSecs: 10.0
 };
+
+const _currColour = new THREE.Color();
 
 class VoxelColourAnimator extends VoxelAnimator {
   constructor(voxels, config = voxelColourAnimatorDefaultConfig) {
     super(voxels, config);
-    this.reset();
   }
 
   getType() { return VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR; }
 
-  setConfig(c) {
-    super.setConfig(c);
-    const {shapeType, pointProperties, sphereProperties, boxProperties, colourStart, colourEnd} = c;
+  load() {
+    this.colourStart = new THREE.Color();
+    this.colourEnd   = new THREE.Color();
+    this.voxelPositions = [];
+    this.currTime = 0;
+    this.animationFinished = false;
+  }
+  unload() {
+    this.voxelPositions = null;
+    this.colourStart = null;
+    this.colourEnd = null;
+  }
+
+  setConfig(c, init=false) {
+    if (!super.setConfig(c, init)) { return; } // Don't load everything on initialization
+    
+    const {shapeType, pointProperties, sphereProperties, boxProperties, colourStart, colourEnd} = this.config;
     switch (shapeType) {
       case VOXEL_COLOUR_SHAPE_TYPE_ALL:
       default:
@@ -93,24 +107,21 @@ class VoxelColourAnimator extends VoxelAnimator {
       }
     }
 
-    if (colourStart && colourStart !== this.colourStart) {
-      this.colourStart = new THREE.Color(colourStart.r, colourStart.g, colourStart.b);
-    }
-    if (colourEnd && colourEnd !== this.colourEnd) {
-      this.colourEnd = new THREE.Color(colourEnd.r, colourEnd.g, colourEnd.b);
-    }
+    this.colourStart.copy(colourStart);
+    this.colourEnd.copy(colourEnd);
+  }
+
+  reset() {
+    this.currTime = 0;
+    this.animationFinished = false;
   }
 
   rendersToCPUOnly() { return true; }
 
   render(dt) {
-    super.render(dt);
-
     const {startTimeSecs, endTimeSecs, colourInterpolationType, interpolationType} = this.config;
 
-    let dtRemaining = dt;
     if (this.currTime >= startTimeSecs) {
-      
       let interpolateAlpha = 0;
       switch (interpolationType) {
         default:
@@ -125,39 +136,17 @@ class VoxelColourAnimator extends VoxelAnimator {
           break;
       }
       
-      const temp = chroma.mix(chroma.gl(this.colourStart), chroma.gl(this.colourEnd), interpolateAlpha, colourInterpolationType).gl();
-      const currColour = new THREE.Color(temp[0], temp[1], temp[2]);
-      
-      this.voxelPositions.forEach(voxelPos => {
-        this.voxelModel.drawPoint(voxelPos, currColour);
-      });
-
-      const isFinishedCurrentLoop = (this.currTime >= endTimeSecs);
-      if (isFinishedCurrentLoop) {
-        this.playCounter++;
-        if (this.repeat !== REPEAT_INFINITE_TIMES && this.playCounter >= this.repeat) {
-          this.animationFinished = true;
-        }
-        else {
-          // Find out how much time spilled over into the next animation before resetting the loop
-          dtRemaining = dt - (endTimeSecs - this.currTime);
-          this.resetLoop();
-        }
+      _currColour.set(chroma.mix(this.colourStart.getHex(), this.colourEnd.getHex(), interpolateAlpha, colourInterpolationType).hex());
+      for (const voxelPos of this.voxelPositions) {
+        this.voxelModel.drawPoint(voxelPos, _currColour);
       }
+
+      this.animationFinished = (this.currTime >= endTimeSecs);
     }
 
-    this.currTime = Math.min(endTimeSecs, this.currTime + dtRemaining); // Clamp to the end time
+    this.currTime = Math.min(endTimeSecs, this.currTime + dt); // Clamp to the end time
   }
 
-  reset() {
-    super.reset();
-    this.resetLoop();
-    this.animationFinished = false;
-  }
-
-  resetLoop() {
-    this.currTime = 0;
-  }
 }
 
 export default VoxelColourAnimator;

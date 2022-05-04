@@ -37,11 +37,11 @@ class VTPEmitter extends VTPParticle {
 
   /**
    * Start/Initialize the emitter.
-   * @method emit
+   * @method startEmit
    * @param {Number} totalEmitTimes total emit times;
    * @param {String} life the life of this emitter
    */
-  emit(totalEmitTimes, life) {
+  startEmit(totalEmitTimes, life) {
     this.currentEmitTime = 0;
     this.totalEmitTimes = InitUtils.initValue(totalEmitTimes, Infinity);
 

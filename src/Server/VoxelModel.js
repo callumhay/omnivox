@@ -177,17 +177,7 @@ class VoxelModel {
         // Adjust the animator alphas as a percentage of the crossfade time and continue counting the total time until the crossfade is complete
         const percentFade = clamp(self.crossfadeCounter / self.totalCrossfadeTime, 0, 1);
         const prevAnimator = self.prevAnimator;
-
-        if (self.crossfadeCounter < self.totalCrossfadeTime) {
-          self.crossfadeCounter += dt;
-        }
-        else {
-          // no longer crossfading, reset to just showing the current scene
-          self.crossfadeCounter = Infinity;
-          self.prevAnimator.unload();
-          self.prevAnimator = null;
-        }
-
+        
         // Blend the currentAnimtor with the previous one via framebuffer - we need to do this so that we
         // aren't just overwriting the voxel framebuffer despite the crossfade amounts for each animation
         const prevAnimatorFBIdx = prevAnimator.rendersToCPUOnly() ? VoxelModel.CPU_FRAMEBUFFER_IDX_0 : VoxelModel.GPU_FRAMEBUFFER_IDX_0;
@@ -202,6 +192,18 @@ class VoxelModel {
 
         self.setFramebuffer(VoxelModel.GPU_FRAMEBUFFER_IDX_0);
         self.drawCombinedFramebuffers(currAnimatorFBIdx, prevAnimatorFBIdx, {mode: VoxelModel.FB1_ALPHA_FB2_ONE_MINUS_ALPHA, alpha: percentFade});
+
+        // Check whether we continue with the crossfade or not
+        if (self.crossfadeCounter < self.totalCrossfadeTime) {
+          self.crossfadeCounter += dt;
+        }
+        else {
+          // no longer crossfading, reset to just showing the current scene
+          self.crossfadeCounter = Infinity;
+          self.prevAnimator.unload();
+          self.prevAnimator = null;
+        }
+
       }
       else {
         // No crossfade, just render the current animation

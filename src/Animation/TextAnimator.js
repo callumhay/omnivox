@@ -78,9 +78,7 @@ class TextAnimator extends VoxelAnimator {
     }
   }
 
-  reset() {
-    super.reset();
-  }
+  reset() {}
 }
 
 export default TextAnimator;

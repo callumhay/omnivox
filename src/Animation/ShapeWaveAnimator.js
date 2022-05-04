@@ -60,7 +60,6 @@ export const shapeWaveAnimatorDefaultConfig = {
   waveGap: 1, // space between waves
   colourPalette: EIGHTIES_COLOUR_PALETTE,
   colourSelectionMode: COLOUR_SELECTION_RANDOM,
-  repeat: -1, // This needs to be here for the VoxelAnimator setConfig
 };
 
 class WaveShape {
@@ -225,7 +224,6 @@ class ShapeWaveAnimator extends VoxelAnimator {
   }
 
   reset() {
-    super.reset();
     this.activeShapes = [];
   }
 }

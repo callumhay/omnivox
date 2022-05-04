@@ -10,7 +10,6 @@ import Spectrum, {ColourSystems, FIRE_SPECTRUM_WIDTH, COLOUR_INTERPOLATION_LRGB}
 import {PI2, clamp} from '../MathUtils';
 
 const REINIT_FLUID_TIME_SECS = 0.1;
-const MAX_AVG_BEATS_PER_SEC = 120;
 
 // Fire colour types
 const LOW_HIGH_TEMP_COLOUR_MODE = "Low High Temp";

@@ -20,11 +20,12 @@ export class VTPPointZone extends VTPZone {
 
 const _randomVec = new THREE.Vector3();
 export class VTPBoxZone extends VTPZone {
-  constructor(minPt, maxPt) {
+  constructor(minPt, maxPt, posFunc='floor') {
     super();
     this.minPt = (new THREE.Vector3()).copy(minPt);
     this.size = new THREE.Vector3();
     this.size.subVectors(maxPt, minPt);
+    this.posFunc = posFunc;
   }
 
   getPosition(target) {
@@ -34,6 +35,7 @@ export class VTPBoxZone extends VTPZone {
       Randomizer.getRandomFloat(this.minPt.y, this.minPt.y+this.size.y),
       Randomizer.getRandomFloat(this.minPt.z, this.minPt.z+this.size.z)
     );
-    return target.copy(this.minPt).add(_randomVec);
+    _randomVec[this.posFunc]();
+    return target.copy(_randomVec);
   }
 }

@@ -376,13 +376,13 @@ class GPUKernelManager {
     this.chromaticAberrationFunc = this.gpu.createKernel(function(fbTex, intensity, alpha, xyzMask) {
       const x = this.thread.z; const y = this.thread.y; const z = this.thread.x;
 
-      const rX = clampValue(Math.trunc(x + intensity*xyzMask[0]), 0, this.constants.gridSizeMinus1);
-      const rY = clampValue(Math.trunc(y + intensity*xyzMask[1]), 0, this.constants.gridSizeMinus1);
-      const rZ = clampValue(Math.trunc(z + intensity*xyzMask[2]), 0, this.constants.gridSizeMinus1);
+      const rX = clampValue(Math.floor(x + intensity*xyzMask[0]), 0, this.constants.gridSizeMinus1);
+      const rY = clampValue(Math.floor(y + intensity*xyzMask[1]), 0, this.constants.gridSizeMinus1);
+      const rZ = clampValue(Math.floor(z + intensity*xyzMask[2]), 0, this.constants.gridSizeMinus1);
 
-      const bX = clampValue(Math.trunc(x - intensity*xyzMask[0]), 0, this.constants.gridSizeMinus1);
-      const bY = clampValue(Math.trunc(y - intensity*xyzMask[1]), 0, this.constants.gridSizeMinus1);
-      const bZ = clampValue(Math.trunc(z - intensity*xyzMask[2]), 0, this.constants.gridSizeMinus1);
+      const bX = clampValue(Math.floor(x - intensity*xyzMask[0]), 0, this.constants.gridSizeMinus1);
+      const bY = clampValue(Math.floor(y - intensity*xyzMask[1]), 0, this.constants.gridSizeMinus1);
+      const bZ = clampValue(Math.floor(z - intensity*xyzMask[2]), 0, this.constants.gridSizeMinus1);
 
       const voxel = fbTex[x][y][z];
       const rCh = fbTex[rX][rY][rZ];

@@ -305,11 +305,12 @@ class VTRPScene {
 
   calculateLightingSamples(targetRGBA, voxelIdxPt, samples, material, receivesShadows=true, factorPerSample=null) {  
     let distanceToLight = 0;
-    const oneOverNumSamples = (1.0 / samples.length);
+
+    const numSamples = samples.length;
+    const oneOverNumSamples = (1.0 / numSamples);
     factorPerSample = factorPerSample || oneOverNumSamples;
     const lights = Object.values(this.lights);
-    const numSamples = samples.length;
-    
+        
     for (let i = 0; i < numSamples; i++) {
       const {point, normal, uv, falloff} = samples[i];
 

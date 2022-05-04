@@ -17,7 +17,7 @@ import VTMaterial from "../VTMaterial";
 const vrtpTypeMap = {
   [VTConstants.MESH_TYPE]:              {type: VTRPMesh, preloadAmt: 1},
   [VTConstants.SPHERE_TYPE]:            {type: VTRPSphere, preloadAmt: 3},
-  [VTConstants.BOX_TYPE]:               {type: VTRPBox, preloadAmt: 8},
+  [VTConstants.BOX_TYPE]:               {type: VTRPBox, preloadAmt: 16},
   [VTConstants.POINT_LIGHT_TYPE]:       {type: VTPointLight, preloadAmt: 3},
   [VTConstants.SPOT_LIGHT_TYPE]:        {type: VTSpotLight, preloadAmt: 1},
   [VTConstants.DIRECTIONAL_LIGHT_TYPE]: {type: VTDirectionalLight, preloadAmt: 1},
@@ -27,8 +27,8 @@ const vrtpTypeMap = {
   [VTConstants.FOG_SPHERE_TYPE]:        {type: VTRPFogSphere, preloadAmt: 1},
   [VTConstants.ISOFIELD_TYPE]:          {type: VTRPIsofield, preloadAmt: 1},
 
-  [VTMaterial.EMISSION_TYPE]: {type: VTEmissionMaterial, preloadAmt: 20},
-  [VTMaterial.LAMBERT_TYPE]:  {type: VTLambertMaterial, preloadAmt: 20},
+  [VTMaterial.EMISSION_TYPE]: {type: VTEmissionMaterial, preloadAmt: 24},
+  [VTMaterial.LAMBERT_TYPE]:  {type: VTLambertMaterial, preloadAmt: 24},
 };
 
 class VTRPObjectFactory {

@@ -4,6 +4,7 @@ import chroma from 'chroma-js';
 import VoxelConstants from './VoxelConstants';
 import Spectrum, {COLOUR_INTERPOLATION_RGB} from './Spectrum';
 import {clamp} from './MathUtils';
+import InitUtils from './InitUtils';
 
 // "Abstract" parent class for various random number generators
 export class Randomizer {
@@ -44,8 +45,12 @@ export class Randomizer {
  * Generates random floating point numbers in the range [min,max).
  */
 export class UniformFloatRandomizer extends Randomizer {
-  constructor(min = 0.0, max = 1.0) {
+  constructor(min=0, max=0) {
     super();
+    this.min = min;
+    this.max = max;
+  }
+  set(min, max) {
     this.min = min;
     this.max = max;
   }
@@ -95,11 +100,17 @@ export class UniformSetRandomizer extends Randomizer {
 }
 
 export class UniformVector3Randomizer extends Randomizer {
-  constructor(min = new THREE.Vector3(0,0,0), max = new THREE.Vector3(1,1,1)) {
+  constructor(min, max) {
     super();
-    this.min = min.clone();
-    this.max = max.clone();
+    this.min = min ? min.clone() : new THREE.Vector3();
+    this.max = max ? max.clone() : new THREE.Vector3();
   }
+
+  set(min, max) {
+    this.min.copy(min);
+    this.max.copy(max);
+  }
+  
   generate() {
     return new THREE.Vector3(
       THREE.MathUtils.randFloat(this.min.x, this.max.x),
@@ -110,9 +121,14 @@ export class UniformVector3Randomizer extends Randomizer {
 }
 
 export class Vector3DirectionRandomizer extends Randomizer {
-  constructor(baseDirection, radAngle = 0) {
+  constructor(baseDirection, radAngle) {
     super();
-    this.baseDirection = baseDirection.clone().normalize();
+    this.baseDirection = baseDirection ? baseDirection.clone().normalize() : new THREE.Vector3(0,1,0);
+    this.radAngle = radAngle ? radAngle : 0;
+  }
+
+  set(dir, radAngle) {
+    this.baseDirection.copy(dir).normalize();
     this.radAngle = radAngle;
   }
 
@@ -146,10 +162,15 @@ export class Vector3DirectionRandomizer extends Randomizer {
 }
 
 export class ColourRandomizer extends Randomizer {
-  constructor(min = new THREE.Color(0,0,0), max = new THREE.Color(1,1,1)) {
+  constructor(min, max) {
     super();
-    this.min = min;
-    this.max = max;
+    this.min = InitUtils.initTHREEColor(min,0,0,0);
+    this.max = InitUtils.initTHREEColor(max,1,1,1);
+  }
+
+  set(min, max) {
+    this.min.copy(min);
+    this.max.copy(max);
   }
 
   generate(colourInterpolation=COLOUR_INTERPOLATION_RGB) {
@@ -157,8 +178,7 @@ export class ColourRandomizer extends Randomizer {
   }
 
   static getRandomColour(minColour, maxColour, colourInterpolation) {
-    const temp = chroma.mix(chroma.gl(minColour), chroma.gl(maxColour), Randomizer.getRandomIntInclusive(0,1000)/1000, colourInterpolation).gl();
-    return new THREE.Color(temp[0], temp[1], temp[2]);
+    return new THREE.Color(chroma.mix(minColour.getHex(), maxColour.getHex(), Randomizer.getRandomIntInclusive(0,1000)/1000, colourInterpolation).hex());
   }
 
   toJSON() {

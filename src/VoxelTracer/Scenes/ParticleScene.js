@@ -52,7 +52,6 @@ class ParticleScene extends SceneRenderer {
       const {
         blurKernelSize, blurSqrSigma, blurConserveEnergy, 
         chromaticAberrationIntensity, chromaticAberrationAlpha, chromaticAberrationOffsets,
-        noiseSpeed,
         particleMaterial, particleSpawn, particleLifeSpan, particleSpeed, 
         particleAlphaStart, particleAlphaEnd, particleColourStart, particleColourEnd,
         emitterType, emitterPos, totalEmitTimes
@@ -63,9 +62,6 @@ class ParticleScene extends SceneRenderer {
         "VTLambertMaterial"  : VTLambertMaterial,
       };
 
-      const {gridSize} = this.voxelModel;
-
-      // Setup a super basic emitter
       this.emitter = new VTPEmitter();
       this.emitter.rate = new VTPRate(new VTPSpan(particleSpawn.numMin, particleSpawn.numMax), particleSpawn.interval);
       this.emitter.addInitializer(new VTPBody(VTVoxel, materialNameToClass[particleMaterial]));
@@ -78,17 +74,19 @@ class ParticleScene extends SceneRenderer {
           this.emitter.addInitializer(new VTPVelocity(speedSpan, new UniformSphereDirGenerator()));
           this.emitter.p.set(emitterPos.x, emitterPos.y, emitterPos.z);
           break;
-        case 'box':
+        case 'box': {
+          const {gridSize} = this.voxelModel;
           this.emitter.addInitializer(new VTPVelocity(speedSpan, new StaticDirGenerator([new THREE.Vector3(0,1,0)])));
           this.emitter.addInitializer(new VTPPosition(
             new VTPBoxZone(new THREE.Vector3(0,0,0), new THREE.Vector3(gridSize, 1, gridSize))
           ));
           break;
+        }
       }
       
       this.emitter.addBehaviour(new VTPAlpha(new VTPSpan(particleAlphaStart.min, particleAlphaStart.end), new VTPSpan(particleAlphaEnd.min, particleAlphaEnd.max)));
       this.emitter.addBehaviour(new VTPColour(['mix', particleColourStart.colourA, particleColourStart.colourB], ['mix', particleColourEnd.colourA, particleColourEnd.colourB]));
-      this.emitter.emit(totalEmitTimes.isInfinity ? Infinity : totalEmitTimes.num);
+      this.emitter.startEmit(totalEmitTimes.isInfinity ? Infinity : totalEmitTimes.num);
       
       this.emitterMgr = new VTPEmitterManager(this.scene, 20, [VTVoxel]);
       this.emitterMgr.addEmitter(this.emitter);

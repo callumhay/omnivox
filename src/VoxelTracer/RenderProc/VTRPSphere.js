@@ -146,22 +146,27 @@ class VTRPSphere extends VTRPObject  {
         const {samplesPerVoxel, fill} = this._options;
 
         if (sqDistCenterToVoxel >= Math.pow(radius-1.25*VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS,2)) {
+
+          // Always include the closest sample
           const [closestTheta, closestPhi] = spherePtToThetaPhi(radius, _localSpaceSamplePt);
+          samples.push(_samplePool.get(VTRPSample).set(_closestSamplePt, _centerToVoxelVec, null, 1));
 
-          samples.push(_samplePool.get(VTRPSample).set(_closestSamplePt, _centerToVoxelVec, null, 1)); // Always include the closest sample
-          
-          for (let i = 0; i < samplesPerVoxel; i++) {
-            const samplePt = Sampler.fibSphere(_tempVec3, i, this._fibSampleN, radius, closestTheta, closestPhi).add(center);
-            if (!voxelBoundingBox.containsPoint(samplePt)) { continue; } // No sample taken if the sample point isn't inside the voxel
+          // For emissive materials we only need one sample... TODO: Texture mapping will require avg of uvs
+          const emissionOnly = this._material.isEmissionOnly();
+          if (!emissionOnly) {
+            for (let i = 0; i < samplesPerVoxel; i++) {
+              const samplePt = Sampler.fibSphere(_tempVec3, i, this._fibSampleN, radius, closestTheta, closestPhi).add(center);
+              if (!voxelBoundingBox.containsPoint(samplePt)) { continue; } // No sample taken if the sample point isn't inside the voxel
 
-            const sample = _samplePool.get(VTRPSample);
-            sample.point.copy(samplePt);
-            sample.normal.copy(samplePt).sub(center).normalize();
+              const sample = _samplePool.get(VTRPSample);
+              sample.point.copy(samplePt);
+              sample.normal.copy(samplePt).sub(center).normalize();
 
-            const sqrDist = samplePt.distanceToSquared(voxelCenterPt);  // Square distance from the voxel center to the sample
-            sample.falloff = sqDistCenterToVoxel <= sqRadius ? 1 : ((1.0 / (SQRT2PI*sigma)) * Math.exp(-0.5 * (sqrDist / (2*sigma*sigma))) / valueAtZero);
+              const sqrDist = samplePt.distanceToSquared(voxelCenterPt);  // Square distance from the voxel center to the sample
+              sample.falloff = sqDistCenterToVoxel <= sqRadius ? 1 : ((1.0 / (SQRT2PI*sigma)) * Math.exp(-0.5 * (sqrDist / (2*sigma*sigma))) / valueAtZero);
 
-            samples.push(sample);
+              samples.push(sample);
+            }
           }
         }
         else if (fill) {

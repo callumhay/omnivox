@@ -88,8 +88,6 @@ class SimpleScene extends SceneRenderer {
         this.wallZMesh.position.set(halfXSize, halfYSize, 0);
       }
 
-      
-
       this._objectsBuilt = true;
     }
 

@@ -203,7 +203,7 @@ class VTScene {
   }
 
   static calcNumChildProcesses() {
-    return (VTScene.debugInspectIsOn()) ? 1 : os.cpus().length;
+    return (VTScene.debugInspectIsOn()) ? 1 : Math.max(1, os.cpus().length);
   }
 
   killChildProcesses() {

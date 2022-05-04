@@ -1,12 +1,23 @@
 import * as THREE from 'three';
-import {animate, anticipate, bounceInOut, easeIn, easeInOut, linear} from "popmotion"
+import {animate, anticipate, bounceInOut, easeInOut, linear} from "popmotion"
 
 import VTConstants from '../VoxelTracer/VTConstants';
 import VTAmbientLight from "../VoxelTracer/VTAmbientLight";
+import VTVoxel from "../VoxelTracer/VTVoxel";
 import VTBox from "../VoxelTracer/VTBox";
 import VTLambertMaterial from "../VoxelTracer/VTLambertMaterial";
+import VTEmissionMaterial from "../VoxelTracer/VTEmissionMaterial";
 
 import VTCTestPattern from '../VoxelTracer/Composites/VTCTestPattern';
+
+import VTPEmitterManager from '../VoxelTracer/Particles/VTPEmitterManager';
+import VTPEmitter from '../VoxelTracer/Particles/VTPEmitter';
+import VTPRate from '../VoxelTracer/Particles/VTPRate';
+import VTPSpan from '../VoxelTracer/Particles/VTPSpan';
+import {VTPBoxZone} from '../VoxelTracer/Particles/VTPZones';
+import {StaticDirGenerator, VTPBody, VTPLife, VTPPosition, VTPVelocity} from '../VoxelTracer/Particles/VTPInitializers';
+import VTPAlpha from '../VoxelTracer/Particles/Behaviours/VTPAlpha';
+import VTPColour from '../VoxelTracer/Particles/Behaviours/VTPColour';
 
 import VoxelModel from '../Server/VoxelModel';
 import VoxelPostProcessPipeline from '../Server/PostProcess/VoxelPostProcessPipeline';
@@ -17,7 +28,6 @@ import VoxelTVTurnOffPP from '../Server/PostProcess/VoxelTVTurnOffPP';
 
 import VoxelAnimator from "./VoxelAnimator";
 import VoxelConstants from '../VoxelConstants';
-import {Randomizer} from '../Randomizers';
 
 const boxSliceSize = 8;
 const halfBoxSliceSize = boxSliceSize/2;
@@ -38,6 +48,10 @@ const endCubeLum = 1.0;
 const illumAnimTimeMillis = 600;
 
 const _size = new THREE.Vector3();
+const _emitterColour = new THREE.Color(1,1,1);
+const _emitterAlpha  = new VTPSpan(1,1);
+
+const quickAnim = true;
 
 export const startupAnimatorDefaultConfig = {
   waitForSlaveConnections: true,
@@ -65,7 +79,8 @@ class StartupAnimator extends VoxelAnimator {
   rendersToCPUOnly() { return true; }
 
   _buildSceneObjects() {
-    this.testPattern = new VTCTestPattern(this.voxelModel.gridSize);
+    const {gridSize} = this.voxelModel;
+    this.testPattern = new VTCTestPattern(gridSize);
     this.testPattern.build();
 
     this._boxSlices = [];
@@ -107,6 +122,52 @@ class StartupAnimator extends VoxelAnimator {
     );
     this._boxCenter.drawOrder = outlineDrawOrder+1;
 
+
+    const subSize = 3;
+    const boundaryA = gridSize-subSize;
+    //const boundaryB = 2*subSize;
+    //const boundaryC = gridSize-boundaryB;
+
+    const spawnRate = new VTPSpan(1, 3);
+    const lgSpawnInterval = new VTPSpan(0.1, 0.2);
+    const mdSpawnInterval = new VTPSpan(0.175, 0.275);
+
+    const emitterSettings = [
+      {min: new THREE.Vector3(0, 0, 0), max: new THREE.Vector3(gridSize, 1, subSize), rate: new VTPRate(spawnRate, lgSpawnInterval)},
+      {min: new THREE.Vector3(0, 0, subSize), max: new THREE.Vector3(subSize, 1, boundaryA), rate: new VTPRate(spawnRate, mdSpawnInterval)},
+      {min: new THREE.Vector3(0, 0, boundaryA), max: new THREE.Vector3(gridSize, 1, gridSize), rate: new VTPRate(spawnRate, lgSpawnInterval)},
+      {min: new THREE.Vector3(boundaryA, 0, subSize), max: new THREE.Vector3(gridSize,  1, boundaryA), rate: new VTPRate(spawnRate, mdSpawnInterval)},
+      // Small Emitters for the gaps between the two cubes (not in use... too much stuff)
+      //{min: new THREE.Vector3(subSize,   0, boundaryC), max: new THREE.Vector3(boundaryB, 1, boundaryA)},
+      //{min: new THREE.Vector3(boundaryC, 0, subSize),   max: new THREE.Vector3(boundaryA, 1, boundaryB)},
+    ];
+
+    const initializers = [
+      new VTPBody(VTVoxel, VTEmissionMaterial),
+      new VTPLife(0.75, 1.25),
+      new VTPVelocity(new VTPSpan(8, 12), new StaticDirGenerator([new THREE.Vector3(0,1,0)])),
+    ];
+  
+    const behaviours = [
+      new VTPAlpha(_emitterAlpha, new VTPSpan(0, 0)),
+      new VTPColour(_emitterColour),
+    ];
+
+    this.emitterMgr = new VTPEmitterManager(this.scene, 20, [VTVoxel]);
+    this._emitters = [];
+    for (let i = 0; i < emitterSettings.length; i++) {
+      const {min, max, rate} = emitterSettings[i];
+      const emitter = new VTPEmitter();
+      emitter.rate = rate;
+
+      emitter.addInitializer(new VTPPosition(new VTPBoxZone(min, max))); // Different position box for each emitter
+      for (const initializer of initializers) { emitter.addInitializer(initializer); }
+      for (const behaviour of behaviours) { emitter.addBehaviour(behaviour); }
+
+      this._emitters.push(emitter);
+      this.emitterMgr.addEmitter(emitter);
+    }
+
     this._ambientLight = new VTAmbientLight(new THREE.Color(1,1,1));
   }
 
@@ -144,12 +205,16 @@ class StartupAnimator extends VoxelAnimator {
     }
     this.currAnims = [];
   }
+  _stopEmitters() {
+    for (const emitter of this._emitters) { emitter.stopEmit(); }
+  }
 
   load() {
     // All objects are already loaded, we just need to set the scene and
     // initialize any animation state-related variables
     this.scene.clear();
     this._stopAllAnimations();
+    this._stopEmitters();
     this._reinitSceneObjects();
 
     this.currStateFunc = this._testPatternStateFunc.bind(this); // Reinitialize to the start state
@@ -161,15 +226,12 @@ class StartupAnimator extends VoxelAnimator {
     this.currStateFunc = this._emptyState.bind(this);
     this.isPlaying = false;
     this._stopAllAnimations();
+    this._stopEmitters();
   }
 
-
-  setConfig(c) {
-    super.setConfig(c);
-  }
+  setConfig(c) { super.setConfig(c); }
 
   reset() {
-    super.reset();
     this.load();
     this._loadWaitTime = 0.5; // When we hit the reset button change the wait time
   }
@@ -179,8 +241,10 @@ class StartupAnimator extends VoxelAnimator {
       if (this.isPlaying) { this.reset(); } // In case we disconnected while playing the animation, reset to the start
       return;
     }
-    //const dtSafe = Math.min(dt, 1.0/30.0);
+
     this.currStateFunc(dt); // Execute the current state
+    this.emitterMgr.tick(dt);
+    
     await this.scene.render();
     this.postProcessPipeline.render(dt, VoxelModel.CPU_FRAMEBUFFER_IDX_0, VoxelModel.CPU_FRAMEBUFFER_IDX_0);
   }
@@ -205,16 +269,16 @@ class StartupAnimator extends VoxelAnimator {
     this.currAnims.push(animate({
       to: [0, maxNoiseAlpha],
       ease: [linear],
-      duration: 3000,
+      duration: quickAnim ? 10 : 3000,
       onUpdate: (noiseAlpha) => {
         self.distortion.setConfig({noiseAlpha});
       },
       onComplete: () => {
         // Continue with the distortion and add the test pattern
         self.currAnims.push(animate({
-          to: [[0, maxNoiseAlpha, 1], [1, 0.35, 1], [1, 0, 0.5], [1, 0, 0]],
-          offset: [0, 0.2, 0.75, 1],
-          duration: 5000,
+          to: [[0, maxNoiseAlpha, 1], [1, 0.35, 1], [1, 0, 0.5], [1, 0, 0], [1, 0, 0]],
+          offset: [0, 0.2, 0.7, 0.8, 1],
+          duration: quickAnim ? 10 : 5000,
           onUpdate: ([tpAlpha, noiseAlpha, distortionAmt]) => {
             self.testPattern.setAlpha(tpAlpha);
             self.distortion.setConfig({noiseAlpha, distortVertical:distortionAmt, distortHorizontal:distortionAmt});
@@ -226,7 +290,7 @@ class StartupAnimator extends VoxelAnimator {
             self.currAnims.push(animate({
               to: [[0,1], [1,1], [1, 0]],
               offset: [0, 0.4, 1],
-              duration: 1000,
+              duration: quickAnim ? 10 : 1000,
               onUpdate: ([offAmount, tpAlpha]) => {
                 self.tvTurnOff.setConfig({offAmount});
                 self.testPattern.setAlpha(tpAlpha);
@@ -234,13 +298,13 @@ class StartupAnimator extends VoxelAnimator {
               onComplete: () => {
                 self.testPattern.removeFromScene(self.scene);
                 self.postProcessPipeline.removePostProcess(self.tvTurnOff);
+                self.currStateFunc = self._sliceMoveStateFunc.bind(self);
               }
             }));
           }
         }));
       }
     }));
-
   }
 
   _sliceMoveStateFunc(dt) {
@@ -260,7 +324,7 @@ class StartupAnimator extends VoxelAnimator {
         to: [startY, endY],
         ease: [anticipate],
         elapsed: -startAnimTime*1000,
-        duration: totalAnimTime*1000,
+        duration: quickAnim ? 10 : totalAnimTime*1000,
         onUpdate: (y) => {
           box.position.set(box.position.x, y, box.position.z);
           box.makeDirty();
@@ -294,7 +358,7 @@ class StartupAnimator extends VoxelAnimator {
         [endCubeLum,   0, 2*VoxelConstants.VOXEL_GRID_SIZE+1]
       ],
       offset:[0, 0.3, 1],
-      duration:3*illumAnimTimeMillis,
+      duration: quickAnim ? 10 : 3*illumAnimTimeMillis,
       onUpdate: ([lum,alpha,size]) => {
 
         self._boxMin.material.colour.setRGB(lum, lum, lum);
@@ -330,7 +394,7 @@ class StartupAnimator extends VoxelAnimator {
       to: [0, pullbackAmount, pullbackAmount, overlapAmount],
       offset: [0, 0.4, 0.45, 1],
       ease: [bounceInOut, linear, anticipate], //linear, easeIn, easeOut, bounceIn, bounceOut, bounceInOut
-      duration: 800,
+      duration: quickAnim ? 10 : 800,
       onUpdate: (amt) => {
         if (Math.abs(prevAmt-amt) > UPDATE_DELTA_UNITS) {
           self._boxMin.position.copy(boxMinStartPos).addScalar(amt);
@@ -349,6 +413,7 @@ class StartupAnimator extends VoxelAnimator {
   _boxJoinedStateFunc(dt) {
     this.currStateFunc = this._emptyState.bind(this);
     this._stopAllAnimations();
+    this._stopEmitters();
 
     const halfUnits = VoxelConstants.VOXEL_HALF_GRID_SIZE;
     this._boxCenter.material.alpha = 0;
@@ -367,14 +432,18 @@ class StartupAnimator extends VoxelAnimator {
     this.scene.addObject(this._boxCenter);
 
     this.postProcessPipeline.addPostProcess(this.gaussianBlur);
-    
+    _emitterColour.setRGB(1,1,1);
+
     const self = this;
     const flashBlurSqSigma = 1.8;
+    let emitStarted = false;
+
     this.currAnims.push(animate({
-      to: [[0, 1, 0], [1, 0.5, flashBlurSqSigma], [1, 0.5, 0]],
-      ease: [easeInOut, linear],
-      duration: 2000,
-      onUpdate: ([outlineAlpha, boxAlpha, sqrSigma]) => {
+      to: [[0, 1, 0, 0], [1, 0.5, 0, flashBlurSqSigma], [1, 0.5, 0, 0], [1, 0.5, 1, 0]],
+      offset: [0, 0.3, 0.6, 1.0],
+      ease: [easeInOut, linear, linear],
+      duration: 3000,
+      onUpdate: ([outlineAlpha, boxAlpha, emitterAlpha, sqrSigma]) => {
         self._boxOutlineMin.material.alpha = outlineAlpha;
         self._boxOutlineMin.makeDirty();
         self._boxOutlineMax.material.alpha = outlineAlpha;
@@ -389,10 +458,15 @@ class StartupAnimator extends VoxelAnimator {
         self._boxMax.makeDirty();
 
         self.gaussianBlur.setConfig({sqrSigma, conserveEnergy: false});
+        if (!emitStarted && sqrSigma === 0) {
+          for (const emitter of this._emitters) { emitter.startEmit(Infinity); }
+          emitStarted = true;
+        }
+        _emitterAlpha.a = _emitterAlpha.b = emitterAlpha;
       },
       onComplete: () => {
         const colours = ["#fff", "#f00", "#0f0", "#00f", "#fff"];
-        const colourBlurSqrSigma = 1;
+        const colourBlurSqrSigma = 0.25;
         self.currAnims.push(animate({
           to: [
             [0,0], [1,colourBlurSqrSigma], 
@@ -401,10 +475,13 @@ class StartupAnimator extends VoxelAnimator {
             [3,0], [4,colourBlurSqrSigma],
             [4,0]
           ],
-          duration: 4000,
+          duration: 6000,
           onUpdate: ([progressIdx, sqrSigma]) => {
             const idx = Math.round(progressIdx);
-            self._boxCenter.material.emissive.set(colours[idx]);
+            const colour = colours[idx];
+            _emitterColour.set(colour);
+
+            self._boxCenter.material.emissive.set(colour);
             self._boxCenter.makeDirty();
             self.gaussianBlur.setConfig({sqrSigma, conserveEnergy: true});
           },
@@ -420,6 +497,7 @@ class StartupAnimator extends VoxelAnimator {
     this.currStateFunc = this._emptyState.bind(this);
     this._stopAllAnimations();
     this.postProcessPipeline.removePostProcess(this.gaussianBlur);
+    this.chromaticAberration.setConfig({xyzMask:[1,1,1]});
     this.postProcessPipeline.addPostProcess(this.chromaticAberration);
 
     const self = this;
@@ -429,50 +507,33 @@ class StartupAnimator extends VoxelAnimator {
       offset: [0, 1],
       ease: [linear],
       duration: 1500,
-      //repeat: Infinity,
       onUpdate: ([intensity, alpha]) => {
         self.chromaticAberration.setConfig({intensity, alpha});
       },
       onComplete: () => {
-        //self._stopAllAnimations();
+        // Glitch the omnivox logo with distortion jitters and chromatic aberration every once in a while
+        self.chromaticAberration.setConfig({intensity:0, alpha:1});
+        self.distortion.setConfig({noiseAlpha: 0, noiseSpeed: 1, distortHorizontal:1, distortVertical: 1, xyzMask:[0,1,0]});
+        this.postProcessPipeline.addPostProcess(self.distortion);
+
+        self.currAnims.push(animate({
+          to:     [[0,0,0], [1,0,0], [0,1,1], [-1,2,1], [0,0,0], [1,1,1], [0,0,0], [0,0,0], [1,1,1], [-1,2,1], [0,1,1], [-1,0,0], [1,0,0], [0,0,0]],
+          offset: [0,       0.10,    0.20,    0.25,     0.30,    0.38,    0.43,    0.70,    0.72,    0.78,     0.85,    0.92,     0.95,    1],
+          duration: 10000,
+          elapsed: -2000,
+          repeat: Infinity,
+          onUpdate: ([intensity, distortHorizontal, distortVertical]) => {
+            self.chromaticAberration.setConfig({intensity: Math.round(intensity)});
+            const absIntensity = Math.abs(intensity);
+            self.distortion.setConfig({
+              noiseAlpha: (absIntensity > 0.1 && distortHorizontal > 0 && distortVertical > 0) ? 0.3 : 0, 
+              distortHorizontal,
+              distortVertical
+            });
+          },
+        }));
       }
     }));
-
-    /*
-    // Jitter the chromatic aberration
-    let prevValue = -1;
-    this._jitterAnim = animate({
-      to:     [0, 0,    1,    1,    2,    2,    3,    3,    4,    4],
-      offset: [0, 0.14, 0.15, 0.49, 0.50, 0.69, 0.70, 0.89, 0.90, 1],
-      duration: 1000,
-      repeat: Infinity,
-      onUpdate: (value) => {
-        const roundedValue = Math.round(value);
-        let xyzMask = [1,1,1];
-        let intensity = 0;
-        if (prevValue !== roundedValue) {
-          switch (roundedValue) {
-            case 0:
-            case 2:
-            case 3:
-            default:
-              break;
-            case 1:
-            case 4:
-              intensity = Randomizer.getRandomIntInclusive(0,1) * Randomizer.getRandomIntInclusive(-1,1);
-              xyzMask = [
-                Randomizer.getRandomIntInclusive(-1,1), 
-                Randomizer.getRandomIntInclusive(-1,1), 
-                Randomizer.getRandomIntInclusive(-1,1)
-              ];
-              break;
-          }
-          self.chromaticAberration.setConfig({intensity, xyzMask});
-          prevValue = roundedValue;
-        }
-      }
-    });
-    */
   }
 
   _initBoxSlice(target, idx) {
