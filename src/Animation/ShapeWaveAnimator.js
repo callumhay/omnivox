@@ -56,8 +56,8 @@ export const COLOUR_SELECTION_TYPES = [
 export const shapeWaveAnimatorDefaultConfig = {
   waveShape: WAVE_SHAPE_SPHERE,
   center: {x: VoxelConstants.VOXEL_HALF_GRID_IDX, y: VoxelConstants.VOXEL_HALF_GRID_IDX, z: VoxelConstants.VOXEL_HALF_GRID_IDX},
-  waveSpeed: 3, // units / second
-  waveGap: 1, // space between waves
+  waveSpeed: 6, // voxels / second
+  waveGap: 1, // space between waves (voxels)
   colourPalette: EIGHTIES_COLOUR_PALETTE,
   colourSelectionMode: COLOUR_SELECTION_RANDOM,
 };
