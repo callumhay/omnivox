@@ -6,6 +6,7 @@ class VTObject {
     this.id = VTConstants.INVALID_RENDERABLE_ID;
     this.type = type;
     this.drawOrder = VTConstants.DRAW_ORDER_DEFAULT;
+    this._isDirty = true;
   }
 
   clone() { console.error("clone unimplemented abstract method called."); return null; }

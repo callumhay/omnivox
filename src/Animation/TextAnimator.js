@@ -2,7 +2,6 @@
 import * as THREE from 'three';
 
 import {TINYFONT_3x4_DEF} from '../tinyfonts';
-import VoxelProtocol from '../VoxelProtocol';
 
 import VoxelAnimator from './VoxelAnimator';
 
@@ -15,40 +14,39 @@ export const textAnimatorDefaultConfig = {
 class TextAnimator extends VoxelAnimator {
   constructor(voxelModel, config = textAnimatorDefaultConfig) {
     super(voxelModel, config);
-    this.reset();
   }
 
   getType() { return VoxelAnimator.VOXEL_ANIM_TEXT; }
 
-  setConfig(c) {
-    super.setConfig(c);
-    const {colour, text, letterSpacing} = c;
-    //const {voxelServer} = this.voxelModel;
+  load() {
+    this.font = new TinyFont();
+  }
+  unload() {
+    this.font = null;
+  }
 
-    if (!this.font) { this.font = new TinyFont(); }
-    
-    this.font.colour = new THREE.Color(colour.r, colour.g, colour.b);
+  setConfig(c, init=false) {
+    if (!super.setConfig(c, init)) { return; }
+
+    const {colour, text, letterSpacing} = c;
+    this.font.colour.copy(colour);
     this.font.letterSpacing = letterSpacing;
-    if (text !== this.text) {
-      /*
-      if (voxelServer) {
-        voxelServer.sendViewerPacketStr(VoxelProtocol.buildSoundEventPacketStr(
-          VoxelProtocol.SOUND_EVENT_PLAY_TYPE, "shot"
-        ));
-      }
-      */
-    }
     this.text = text;
 
     /*
+    const {voxelServer} = this.voxelModel;
     if (voxelServer) {
       voxelServer.sendViewerPacketStr(VoxelProtocol.buildSoundEventPacketStr(
         VoxelProtocol.SOUND_EVENT_LOAD_TYPE, "shot", "sounds/mmx_charged_shot.wav"
       ));
+      voxelServer.sendViewerPacketStr(VoxelProtocol.buildSoundEventPacketStr(
+        VoxelProtocol.SOUND_EVENT_PLAY_TYPE, "shot"
+      ));
     }
     */
-
   }
+
+  reset() {}
 
   rendersToCPUOnly() { return true; }
 
@@ -77,8 +75,6 @@ class TextAnimator extends VoxelAnimator {
       currY -= (this.font.fontDef.height+1);
     }
   }
-
-  reset() {}
 }
 
 export default TextAnimator;

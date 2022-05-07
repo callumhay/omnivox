@@ -40,40 +40,43 @@ class SceneAnimator extends VoxelAnimator {
       [SCENE_TYPE_PARTICLE]  : new ParticleScene(this._scene, this.voxelModel),
       [SCENE_TYPE_BOX_TEST]  : new BoxTestScene(this._scene, this.voxelModel),
     };
-
-    this.setConfig(config);
   }
 
   getType() { return VoxelAnimator.VOXEL_ANIM_SCENE; }
 
-  setConfig(c) {
+  load() {
+    const {sceneType} = this.config;
+    const currScene = this._sceneMap[sceneType];
+    currScene.load();
+  }
+  unload() {
+    for (const scene of Object.values(this._sceneMap)) { scene.unload(); }
+  }
+
+  setConfig(c, init=false) {
     // Check whether the scene type has changed
-    if (this.config.sceneType !== c.sceneType) {
-      if (this.config.sceneType) {
-        // Crossfade between the previous scene and the new scene
-        this._prevSceneConfig = this.config;
-        this._crossfadeCounter = 0;
-      }
+    if (this.config.sceneType && this.config.sceneType !== c.sceneType) {
+      // Crossfade between the previous scene and the new scene
+      this._prevSceneConfig = this.config;
+      this._crossfadeCounter = 0;
+      //const prevScene = this._sceneMap[this._prevSceneConfig.sceneType];
+      //prevScene.load();
+      //prevScene.
     }
 
-    super.setConfig(c);
+    if (!super.setConfig(c, init)) { return; }
 
-    const {sceneType, sceneOptions} = c;
-    if (this._sceneMap) {
-      const currScene = this._sceneMap[sceneType];
-      if (currScene) {
-        currScene.rebuild(sceneOptions);
-      }
-      else {
-        console.error("Invalid scene type: " + sceneType);
-      }
-    }
+    const {sceneType, sceneOptions} = this.config;
+    const currScene = this._sceneMap[sceneType]; 
+    currScene.load();
+    currScene.rebuild(sceneOptions);
+  }
+
+  reset() {
+    for (const scene of Object.values(this._sceneMap)) { scene.clear(); }
   }
 
   rendersToCPUOnly() { return true; }
-    //const currScene = this._sceneMap[this.config.sceneType];
-    //return currScene ? currScene.rendersToCPUOnly() : true;
-  //}
 
   async render(dt) {
     const currScene = this._sceneMap[this.config.sceneType];
@@ -97,9 +100,10 @@ class SceneAnimator extends VoxelAnimator {
         this._crossfadeCounter += dt;
       }
       else {
-        // no longer crossfading, reset to just showing the current scene
+        // No longer crossfading, reset to just showing the current scene and unload the previous one
         this._crossfadeCounter = Infinity;
         this._prevSceneConfig = null;
+        prevScene.unload();
       }
 
       // Rebuild and render the current scene into a different CPU buffer from the previous scene
@@ -125,15 +129,6 @@ class SceneAnimator extends VoxelAnimator {
     this._totalCrossfadeTime = t;
   }
 
-  reset() {
-    this._sceneMap.forEach(s => s.clear());
-    /*
-    if (this._sceneMap) {
-      const currScene = this._sceneMap[this.config.sceneType];
-      currScene.clear();
-    }
-    */
-  }
 }
 
 export default SceneAnimator;

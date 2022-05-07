@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 
+import {SQRT2PI} from '../../MathUtils';
 import VoxelConstants from '../../VoxelConstants';
 import VoxelGeometryUtils from '../../VoxelGeometryUtils';
 
@@ -12,6 +13,9 @@ import VTPool from '../VTPool';
 import VTRPSample from './VTRPSample';
 
 //import {HALTON_5PTS_SEQ_2_3_5} from '../../Samplers';
+
+const sigma = (2*VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS) / 10.0;
+const valueAtZero = (1.0 / (SQRT2PI*sigma));
 
 const nX = new THREE.Vector3(1,0,0);
 const nY = new THREE.Vector3(0,1,0);
@@ -164,7 +168,7 @@ class VTRPBox extends VTRPObject {
           const signedDist = interiorPlane.distanceToPoint(voxelCenterPt);
           if (signedDist > 0) {
             relevantPlanes.push(this._boxPlanes[i]);
-            planeDistances.push(Math.abs(signedDist));
+            planeDistances.push(signedDist);
           }
         }
         if (relevantPlanes.length === 0) { 
@@ -176,6 +180,7 @@ class VTRPBox extends VTRPObject {
         planeDistances = planeSignedDistances.map(sd => Math.abs(sd));
       }
 
+      const emissionOnly = this._material.isEmissionOnly();
       for (let i = 0, numPlanes = relevantPlanes.length; i < numPlanes; i++) {
         const plane = relevantPlanes[i];
         const planeNormal = plane.normal;
@@ -186,9 +191,12 @@ class VTRPBox extends VTRPObject {
         point.copy(voxelCenterPt).addScaledVector(planeNormal, planeDistance + VoxelConstants.VOXEL_EPSILON);
         normal.copy(planeNormal);
         sample.falloff = 1;
+        //(planeDistance <= 2*VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS || emissionOnly) ? 1 : 
+        //((1.0 / (SQRT2PI*sigma)) * Math.exp(-0.5 * (planeDistance*planeDistance / (2*sigma*sigma))) / valueAtZero);
+
         samples.push(sample);
         
-        if (this._material.isEmissionOnly()) { break; } // For emissive materials we only need one sample... TODO: Texture mapping will require avg of uvs
+        if (emissionOnly) { break; } // For emissive materials we only need one sample... TODO: Texture mapping will require avg of uvs
       }
 
       this._voxelIdxToSamples[voxelId] = samples;

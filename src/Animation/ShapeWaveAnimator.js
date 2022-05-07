@@ -62,12 +62,21 @@ export const shapeWaveAnimatorDefaultConfig = {
   colourSelectionMode: COLOUR_SELECTION_RANDOM,
 };
 
+const _minBoundsPt = new THREE.Vector3();
+const _maxBoundsPt = new THREE.Vector3();
+const _minPt = new THREE.Vector3();
+const _maxPt = new THREE.Vector3();
+const _tempBox = new THREE.Box3();
+const _tempSphere = new THREE.Sphere();
+
+
 class WaveShape {
   constructor(voxelModel, colour, config) {
     const {center, waveShape, waveGap} = config;
 
     this.voxelModel = voxelModel;
     this.center = new THREE.Vector3(center.x, center.y, center.z);
+
     this.shape  = waveShape;
     this.gap = waveGap;
     this.colour = colour;
@@ -77,34 +86,32 @@ class WaveShape {
     this.removeMe = false;
   }
 
-  getMinPt(r) {
-    return this.center.clone().subScalar(r);
+  getMinPt(target, r) {
+    return target.copy(this.center).subScalar(r);
   }
-  getMaxPt(r) {
-    return this.center.clone().addScalar(r);
+  getMaxPt(target, r) {
+    return target.copy(this.center).addScalar(r);
   }
   isInsideVoxels() {
     const diagGap = Math.sqrt(2*this.gap*this.gap);
     const maxValue = this.voxelModel.gridSize + diagGap + VoxelConstants.VOXEL_EPSILON;
     const minValue = -(diagGap + VoxelConstants.VOXEL_EPSILON);
-    const minBoundsPt = new THREE.Vector3(minValue, minValue, minValue);
-    const maxBoundsPt = new THREE.Vector3(maxValue, maxValue, maxValue);
+    _minBoundsPt.set(minValue, minValue, minValue);
+    _maxBoundsPt.set(maxValue, maxValue, maxValue);
 
     switch (this.shape) {
 
       case WAVE_SHAPE_CUBE:
-        const boundingBox = new THREE.Box3(this.getMinPt(this.radius-1), this.getMaxPt(this.radius-1));
-        return !(boundingBox.containsPoint(minBoundsPt) && boundingBox.containsPoint(maxBoundsPt));
+        _tempBox.set(this.getMinPt(_minPt, this.radius-1), this.getMaxPt(_maxPt, this.radius-1));
+        return !(_tempBox.containsPoint(_minBoundsPt) && _tempBox.containsPoint(_maxBoundsPt));
       
-      case WAVE_SHAPE_SPHERE: {
-        const boundingSphere = new THREE.Sphere(this.center, this.radius - VoxelConstants.VOXEL_EPSILON);
-        return !(boundingSphere.containsPoint(minBoundsPt) && boundingSphere.containsPoint(maxBoundsPt));
-      }
+      case WAVE_SHAPE_SPHERE:
+        _tempSphere.set(this.center, this.radius - VoxelConstants.VOXEL_EPSILON);
+        return !(_tempSphere.containsPoint(_minBoundsPt) && _tempSphere.containsPoint(_maxBoundsPt));
 
-      case WAVE_SHAPE_DIAMOND: {
-        const boundingSphere = new THREE.Sphere(this.center, Math.SQRT1_2*this.radius - VoxelConstants.VOXEL_EPSILON);
-        return !(boundingSphere.containsPoint(minBoundsPt) && boundingSphere.containsPoint(maxBoundsPt));
-      }
+      case WAVE_SHAPE_DIAMOND:
+        _tempSphere.set(this.center, Math.SQRT1_2*this.radius - VoxelConstants.VOXEL_EPSILON);
+        return !(_tempSphere.containsPoint(_minBoundsPt) && _tempSphere.containsPoint(_maxBoundsPt));
 
       default:
         return false;
@@ -113,11 +120,8 @@ class WaveShape {
 
   tick(dt, waveSpeed) {
     if (this.animationFinished) { return; }
-    
     this.radius += dt*waveSpeed;
-    if (!this.isInsideVoxels()) {
-      this.animationFinished = true;
-    }
+    if (!this.isInsideVoxels()) { this.animationFinished = true; }
   }
 }
 
@@ -164,8 +168,14 @@ class ShapeWaveAnimator extends VoxelAnimator {
 
   getType() { return VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES; }
 
-  setConfig(c) {
-    super.setConfig(c);
+  load() {
+    this.activeShapes = [];
+  }
+  unload() {
+    this.activeShapes = null;
+  }
+  reset() {
+    this.activeShapes = [];
   }
 
   render(dt) {
@@ -223,9 +233,6 @@ class ShapeWaveAnimator extends VoxelAnimator {
     this.activeShapes = this.activeShapes.filter((waveShape) => !waveShape.removeMe);
   }
 
-  reset() {
-    this.activeShapes = [];
-  }
 }
 
 export default ShapeWaveAnimator;

@@ -1,19 +1,20 @@
-import * as THREE from 'three';
-
 import InitUtils from '../InitUtils';
 import {clamp} from '../MathUtils';
 
-//import VTTexture from './VTTexture';
 import VTMaterial from './VTMaterial';
 
 class VTLambertMaterial extends VTMaterial {
-  constructor(colour, emissive, alpha=1) {
+  constructor(colour, emissive, alpha) {
     super(VTMaterial.LAMBERT_TYPE);
-    this.colour = InitUtils.initTHREEColor(colour, 1, 1, 1);
+
+    this.colour   = InitUtils.initTHREEColor(colour, 1, 1, 1);
     this.emissive = InitUtils.initTHREEColor(emissive, 0, 0, 0);
-    this.alpha = alpha;
-    //this.texture = texture;
+    this.alpha    = InitUtils.initValue(alpha, 1);
   }
+
+  setColour(c) { this.colour.copy(c); return this; }
+  setEmissive(e) { this.emissive.copy(e); return this; }
+  setAlpha(a) { this.alpha = a; return this; }
 
   expire(pool) {}
 
@@ -24,14 +25,6 @@ class VTLambertMaterial extends VTMaterial {
     this.alpha = alpha;
     return this;
   }
-
-  static build(jsonData) {
-    const {colour, emissive, alpha} = jsonData;
-    const threeColour = (new THREE.Color()).setHex(colour);
-    const threeEmission = (new THREE.Color()).setHex(emissive);
-    return new VTLambertMaterial(threeColour, threeEmission, alpha);//, VTTexture.build(texture));
-  }
-
   toJSON() {
     const {type, colour, emissive, alpha} = this;
     return {type, colour, emissive, alpha};

@@ -47,10 +47,10 @@ const spotAnglesCtrlOpt = {
 };
 
 const simpleSceneDefaultOptions = {
-  noiseAlpha: 0.35,
-  noiseSpeed: 1,
-  distortHorizontal: 1,
-  distortVertical: 1,
+  noiseAlpha: 0,
+  noiseSpeed: 0,
+  distortHorizontal: 0,
+  distortVertical: 0,
 
   sphereRadius: 4,
   sphereColour: {r:1, g:1, b:1},
@@ -145,17 +145,19 @@ const fogSceneControlOptions = {
 const godRaySceneDefaultOptions = {
   fogColour: {r:1, g:1, b:1},
   fogScattering: 0.6,
-  pointLightColour: {r:1, g:1, b:1},
+  ambientLightColour: {r:0.2, g:0.2, b:0.2},
+  pointLightColour: {r:1, g:0, b:1},
   pointLightPosition: {x:4, y:0, z:4},
   pointLightAtten: {quadratic:0.015, linear:0},
   shapeColour: {r:1, g:1, b:1},
-  shapeEmission: {r:0.1, g:0.1, b:1},
+  shapeEmission: {r:0, g:0, b:0},
   shapeSize: {x:8, y:5, z:5},
   shapeRotationSpd: {x:0, y:0.5*Math.PI, z:0},
 };
 const godRaySceneControlOptions = {
   fogColour: {label: "Fog Colour"},
   fogScattering: {...fogScatteringCtrlOpt},
+  ambientLightColour: {label: "Ambient Light Colour"},
   pointLightColour: {label: "Point Light Colour"},
   pointLightPosition: {...positionCtrlOpt, label: "Light Position"},
   pointLightAtten: {...attenuationCtrlOpt, label: "Point Light Attenuation"},
@@ -177,7 +179,7 @@ const godRaySceneControlOptions = {
 
 const beaconsSceneDefaultOptions = {
   fogColour: {r:1, g:1, b:1},
-  fogScattering: 0.4,
+  fogScattering: 1,
   ambientLightColour: {r:0, g:0, b:0}, 
   beaconSpotAngles: {inner:35, outer:60},
   beaconAtten: {quadratic:0.015, linear:0},
@@ -219,7 +221,7 @@ const metaballSceneDefaultOptions = {
   ambientLightColour: {r:0.2, g:0.2, b:0.2},
   materialColour: {r:1, g:1, b:1},
   pointLightsAtten: {quadratic:0.015, linear:0},
-  pointLight1Pos: {x: VoxelConstants.VOXEL_GRID_SIZE/2, y: VoxelConstants.VOXEL_GRID_SIZE, z: VoxelConstants.VOXEL_GRID_SIZE},
+  pointLight1Pos: {x: VoxelConstants.VOXEL_GRID_SIZE/2, y: VoxelConstants.VOXEL_GRID_MAX_IDX, z: VoxelConstants.VOXEL_GRID_MAX_IDX},
   speed: 1,
   blobSizeMultiplier: 1.6,
   subtractAmt: 5,

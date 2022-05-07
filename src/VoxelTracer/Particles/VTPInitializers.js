@@ -95,8 +95,8 @@ export class StaticDirGenerator {
 export class VTPVelocity extends VTPInitializer {
   constructor(speedSpan, dirGenerator) {
     super();
-    this.speedSpan = speedSpan;
-    this.dirGenerator = dirGenerator;
+    this.speedSpan = VTPSpan.createSpan(speedSpan);
+    this.dirGenerator = InitUtils.initValue(dirGenerator, null);
   }
   initialize(target) {
     this.dirGenerator.generate(target.v);

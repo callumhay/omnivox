@@ -1,8 +1,8 @@
-import * as THREE from 'three';
-
+import InitUtils from '../InitUtils';
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 import VTConstants from './VTConstants';
+import VTMaterialFactory from './VTMaterialFactory';
 import VTTransformable from './VTTransformable';
 
 // TODO: Stop using a THREE.Mesh and just use the geometry along with the VTTransformable matrixWorld
@@ -13,11 +13,15 @@ class VTMesh extends VTTransformable {
   constructor(geometry, material) {
     super(VTConstants.MESH_TYPE);
     
-    this.geometry = geometry;
-    this.geometry.computeBoundingBox();
-    this.material = material;
+    this.setGeometry(geometry);
+    this.material = VTMaterialFactory.initMaterial(material);
+  }
 
+  setGeometry(g) {
+    this.geometry = g; 
+    if (this.geometry) { this.geometry.computeBoundingBox(); }
     this.makeDirty();
+    return this;
   }
 
   toJSON() {

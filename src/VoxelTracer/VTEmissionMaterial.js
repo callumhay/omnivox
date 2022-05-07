@@ -1,17 +1,13 @@
-import * as THREE from 'three';
-
 import InitUtils from '../InitUtils';
 import {clamp} from '../MathUtils';
 
 import VTMaterial from './VTMaterial';
-//import VTTexture from './VTTexture';
 
 class VTEmissionMaterial extends VTMaterial {
-  constructor(colour, alpha=1) {
+  constructor(colour, alpha) {
     super(VTMaterial.EMISSION_TYPE);
     this.colour = InitUtils.initTHREEColor(colour);
-    this.alpha = alpha;
-    //this.texture = texture;
+    this.alpha  = InitUtils.initValue(alpha, 1);
   }
 
   expire(pool) {}
@@ -22,13 +18,6 @@ class VTEmissionMaterial extends VTMaterial {
     this.alpha = alpha;
     return this;
   }
-
-  static build(jsonData) {
-    const {colour, alpha} = jsonData;
-    const threeColour = (new THREE.Color()).setHex(colour);
-    return new VTEmissionMaterial(threeColour, alpha);//, VTTexture.build(texture));
-  }
-
   toJSON() {
     const {type, colour, alpha} = this;
     return {type, colour, alpha};

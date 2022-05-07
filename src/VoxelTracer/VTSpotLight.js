@@ -25,11 +25,9 @@ class VTSpotLight extends VTObject {
     this._direction = InitUtils.initTHREEVector3(dir, 0, -1, 0).normalize();
     this._colour    = InitUtils.initTHREEColor(colour);
 
-    this._innerAngle = innerConeAngle;
-    this._outerAngle = Math.max(innerConeAngle, outerConeAngle);
+    this._innerAngle = InitUtils.initValue(innerConeAngle, Math.PI/6);
+    this._outerAngle = InitUtils.initValue(outerConeAngle, Math.PI/4);
     this._rangeAtten = rangeAtten ? {...rangeAtten, ...defaultAttenuation} : {...defaultAttenuation};
-
-    this.makeDirty();
   }
 
   expire(pool) {}
@@ -45,36 +43,30 @@ class VTSpotLight extends VTObject {
     this._rangeAtten = _rangeAtten;
     return this;
   }
-
-  static build(jsonData) {
-    const {id, _position, _direction, _colour, _innerAngle, _outerAngle, _rangeAtten} = jsonData;
-    const result = new VTSpotLight(
-      new THREE.Vector3(_position.x, _position.y, _position.z),
-      new THREE.Vector3(_direction.x, _direction.y, _direction.z),
-      (new THREE.Color()).setHex(_colour), _innerAngle, _outerAngle, _rangeAtten
-    );
-    result.id = id;
-    return result;
-  }
   toJSON() {
     const {id, type, _position, _direction, _colour, _innerAngle, _outerAngle, _rangeAtten} = this;
     return {id, type, _position, _direction, _colour, _innerAngle, _outerAngle, _rangeAtten};
   }
 
-  setPosition(p) { this._position = p; this.makeDirty(); }
+  setPosition(p) { this._position.copy(p); this.makeDirty(); return this; }
   get position() { return this._position; }
 
-  setDirection(d) { this._direction = d; this._direction.normalize(); this.makeDirty(); }
+  setDirection(d) { this._direction.copy(d).normalize(); this.makeDirty(); return this; }
   get direction() { return this._direction; }
 
-  setConeAngles(innerAngle, outerAngle) { this._innerAngle = innerAngle; this._outerAngle = outerAngle; this.makeDirty(); }
+  setConeAngles(innerAngle, outerAngle) {
+    this._innerAngle = innerAngle;
+    this._outerAngle = outerAngle;
+    this.makeDirty();
+    return this;
+  }
   get innerAngle() { return this._innerAngle; }
   get outerAngle() { return this._outerAngle; }
 
-  setColour(c) { this._colour = c; this.makeDirty(); }
+  setColour(c) { this._colour.copy(c); this.makeDirty(); return this; }
   get colour()  { return this._colour; }
 
-  setRangeAttenuation(ra) { this._rangeAtten = ra; this.makeDirty(); }
+  setRangeAttenuation(ra) { this._rangeAtten = {...this._rangeAtten, ...ra}; this.makeDirty(); return this; }
   get rangeAttenuation() { return this._rangeAtten; }
 
   isShadowCaster() { return false; }

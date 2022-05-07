@@ -9,14 +9,23 @@ import Spectrum, {COLOUR_INTERPOLATION_LRGB} from '../Spectrum';
 
 const STATIC_BARS_DISPLAY_TYPE         = "Static";
 const MOVING_HISTORY_BARS_DISPLAY_TYPE = "Moving History";
+const DISPLAY_MODE_TYPES = [
+  STATIC_BARS_DISPLAY_TYPE,
+  MOVING_HISTORY_BARS_DISPLAY_TYPE,
+];
 
 const POS_X_DIR = "+x";
 const NEG_X_DIR = "-x";
 const POS_Z_DIR = "+z";
 const NEG_Z_DIR = "-z";
+const DIRECTION_TYPES = [POS_X_DIR, NEG_X_DIR, POS_Z_DIR, NEG_Z_DIR];
 
 const LOW_HIGH_COLOUR_MODE = "Low High Colour";
 const RANDOM_COLOUR_MODE = "Random";
+const COLOUR_MODES = [
+  LOW_HIGH_COLOUR_MODE, 
+  RANDOM_COLOUR_MODE,
+];
 
 export const barVisualizerAnimatorDefaultConfig = {
   ...soundVisDefaultConfig,
@@ -45,52 +54,64 @@ export const barVisualizerAnimatorDefaultConfig = {
 class BarVisualizerAnimator extends AudioVisualizerAnimator {
   static get STATIC_BARS_DISPLAY_TYPE() { return STATIC_BARS_DISPLAY_TYPE; }
   static get MOVING_HISTORY_BARS_DISPLAY_TYPE() { return MOVING_HISTORY_BARS_DISPLAY_TYPE; }
-  static get DISPLAY_MODE_TYPES() {
-    return [
-      STATIC_BARS_DISPLAY_TYPE,
-      MOVING_HISTORY_BARS_DISPLAY_TYPE,
-    ];
-  }
-
-  static get DIRECTION_TYPES() {
-    return [POS_X_DIR, NEG_X_DIR, POS_Z_DIR, NEG_Z_DIR];
-  }
-
+  static get DISPLAY_MODE_TYPES() { return DISPLAY_MODE_TYPES; }
+  static get DIRECTION_TYPES() { return DIRECTION_TYPES; }
   static get LOW_HIGH_COLOUR_MODE() { return LOW_HIGH_COLOUR_MODE; }
   static get RANDOM_COLOUR_MODE() { return RANDOM_COLOUR_MODE; }
-  static get COLOUR_MODES() {
-    return [
-      LOW_HIGH_COLOUR_MODE,
-      RANDOM_COLOUR_MODE,
-    ];
-  }
+  static get COLOUR_MODES() { return COLOUR_MODES; }
 
   constructor(voxelModel, config=barVisualizerAnimatorDefaultConfig) {
     super(voxelModel, config);
-    this.reset();
   }
 
   getType() { return VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER; }
 
-  setConfig(c) {
-    super.setConfig(c);
-    const {displayMode, colourMode, colourInterpolationType, direction, randomColourHoldTime, randomColourTransitionTime} = c;
+  load() {
+    super.load();
     const {gridSize, gpuKernelMgr} = this.voxelModel;
 
-    if (!this.randomColourCycler) {
-      this.randomColourCycler = new RandomHighLowColourCycler();
-    }
-    this.randomColourCycler.setConfig({randomColourHoldTime, randomColourTransitionTime});
-
     const halfGridSize = (gridSize/2);
-    const STATIC_INTENSITY_ARRAY_SIZE = Math.max(64, halfGridSize*halfGridSize); // This should always be a square number! We use these number to make the bars into 2x2 columns within the grid
+    // This should always be a square number! We use these number to make the bars into 2x2 columns within the grid
+    const STATIC_INTENSITY_ARRAY_SIZE = Math.max(64, halfGridSize*halfGridSize);
+
+    this.randomColourCycler = new RandomHighLowColourCycler();
+    this.audioIntensities = new Array(STATIC_INTENSITY_ARRAY_SIZE).fill(0);
+    this.audioHistoryBuffer = new Array(gridSize).fill(null);
+    for (let i = 0; i < gridSize; i++) {
+      this.audioHistoryBuffer[i] = new Array(gridSize).fill(0);
+    }
+
+    // Build the GPU kernels for rendering the various configurations of the bar visualizer
+    gpuKernelMgr.initBarVisualizerKernels(gridSize, STATIC_INTENSITY_ARRAY_SIZE);
+    if (!this.prevVisTex) {
+      this.prevVisTex = gpuKernelMgr.initBarVisualizerBuffer3Func(0,0,0,0);
+    }
+
+    this.timeCounter = 0;
+  }
+  unload() {
+    super.unload();
+    this.randomColourCycler = null;
+    this.audioIntensities = null;
+    this.audioHistoryBuffer = null;
+    this.levelColours = null;
+    this.prevVisTex.delete();
+    this.prevVisTex = null;
+    this.binIndexLookup = null;
+  }
+
+  setConfig(c, init=false) {
+    if (!super.setConfig(c, init)) { return; }
+
+    const {
+      displayMode, colourMode, colourInterpolationType, 
+      direction, randomColourHoldTime, randomColourTransitionTime
+    } = c;
+
+    this.randomColourCycler.setConfig({randomColourHoldTime, randomColourTransitionTime});
 
     switch (displayMode) {
       case MOVING_HISTORY_BARS_DISPLAY_TYPE:
-        this.audioHistoryBuffer = new Array(gridSize).fill(null);
-        for (let i = 0; i < gridSize; i++) {
-          this.audioHistoryBuffer[i] = new Array(gridSize).fill(0);
-        }
         switch (direction) {
           case POS_X_DIR:
             this.directionVec = [1,0];
@@ -108,9 +129,7 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
         }
         break;
 
-      case STATIC_BARS_DISPLAY_TYPE:
       default:
-        this.audioIntensities = new Array(STATIC_INTENSITY_ARRAY_SIZE).fill(0);
         break;
     }
 
@@ -120,40 +139,31 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
         const {lowColour, highColour} = c;
         this.levelColours = Spectrum.genLowToHighColourSpectrum(lowColour, highColour, colourInterpolationType, this._numLevelColours());
         break;
-      case RANDOM_COLOUR_MODE:
-        //const {lowTempColour, highTempColour} = this.randomColourCycler.currRandomColours;
-        //this.levelColours = Spectrum.genLowToHighColourSpectrum(lowTempColour, highTempColour, colourInterpolationType, this._numLevelColours());
-        break;
     }
-
-    // Build the GPU kernels for rendering the various configurations of the bar visualizer
-    gpuKernelMgr.initBarVisualizerKernels(gridSize, STATIC_INTENSITY_ARRAY_SIZE);
-    if (!this.prevVisTex) {
-      this.prevVisTex = gpuKernelMgr.initBarVisualizerBuffer3Func(0,0,0,0);
-    }
-  }
-
-  _numLevelColours() {
-    const {splitLevels} = this.config;
-    const ySize = this.voxelModel.ySize();
-    return splitLevels ? Math.floor(ySize/2) : ySize;
   }
 
   reset() {
     super.reset();
     this.timeCounter = 0;
-    this.randomColourCycler.reset();
+    if (this.randomColourCycler) { this.randomColourCycler.reset(); }
   }
 
   render(dt) {
     const {displayMode, levelMax, fadeFactor, colourMode} = this.config;
     const {gpuKernelMgr, framebuffer} = this.voxelModel;
-
-    // In random colour mode we're animating the colour over time, check to see if it has changed and update it accordingly
-    if (colourMode === RANDOM_COLOUR_MODE) {
-      const {colourInterpolationType} = this.config;
-      const currColours = this.randomColourCycler.tick(dt, colourInterpolationType);
-      this.levelColours = Spectrum.genLowToHighColourSpectrum(currColours.lowTempColour, currColours.highTempColour, colourInterpolationType, this._numLevelColours());
+    
+    switch (colourMode) {
+      case RANDOM_COLOUR_MODE: {
+        // In random colour mode we're animating the colour over time, check to see if it has changed and update it accordingly
+        const {colourInterpolationType} = this.config;
+        const currColours = this.randomColourCycler.tick(dt, colourInterpolationType);
+        this.levelColours = Spectrum.genLowToHighColourSpectrum(
+          currColours.lowTempColour, currColours.highTempColour, colourInterpolationType, this._numLevelColours()
+        );
+        break;
+      }
+      default:
+        break;
     }
 
     let temp = this.prevVisTex;
@@ -164,7 +174,6 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
 
       case STATIC_BARS_DISPLAY_TYPE:
       default:
-        //console.log(this.config);
         const {centerSorted, splitLevels} = this.config;
         if (centerSorted) {
           const barFunc = splitLevels ? gpuKernelMgr.staticCenteredSplitLevelBarVisFunc : gpuKernelMgr.staticCenteredBarVisFunc;
@@ -241,6 +250,11 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
     } 
   }
 
+  _numLevelColours() {
+    const {splitLevels} = this.config;
+    const ySize = this.voxelModel.ySize();
+    return splitLevels ? Math.floor(ySize/2) : ySize;
+  }
 };
 
 export default BarVisualizerAnimator;

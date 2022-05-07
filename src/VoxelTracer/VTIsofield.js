@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import InitUtils from '../InitUtils';
 
 import VoxelConstants from '../VoxelConstants';
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
@@ -17,23 +18,17 @@ export const defaultIsofieldOptions = {
 class VTIsofield extends VTObject {
   constructor(size, material, options) {
     super(VTConstants.ISOFIELD_TYPE);
-    this._size = size || VoxelConstants.VOXEL_GRID_SIZE;
+    this._size = InitUtils.initValue(size, VoxelConstants.VOXEL_GRID_SIZE);
     this._material = VTMaterialFactory.initMaterial(material);
     this._options = options ? {...defaultIsofieldOptions, ...options} : {...defaultIsofieldOptions};
     this._maxPt = new THREE.Vector3(size-1,size-1,size-1);
     this.reset();
   }
 
-  setReceivesShadows(r) { 
-    if (r === this._options.receivesShadows) { return; }
-    this._options.receivesShadows = r;
-    this.makeDirty();
-  }
-  setCastsShadows(c) { 
-    if (c === this._options.castsShadows) { return; }
-    this._options.castsShadows = c;
-    this.makeDirty();
-  }
+  get material() { return this._material; }
+
+  get options() { return this._options; }
+  setOptions(o) { this._options = {...this._options, ...o}; this.makeDirty(); return this; }
 
   toJSON() {
     const {id, drawOrder, type, _material, _size, _metaballs, _walls, _options} = this;

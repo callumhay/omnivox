@@ -278,7 +278,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
         sphere.material.alpha = 0;
         sphere.position.copy(new THREE.Vector3(gridSize,gridSize,gridSize));
         sphere.setMaterial(sphere.material);
-        sphere.radius = 0;
+        sphere.setRadius(0);
         pulse.active = false;
         pulse.currAlpha = 0;
         pulse.currRadius = 0;
@@ -289,7 +289,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
         pulse.currAlpha  -= dt*alphaFadeSpeed;
 
         if (Math.abs(sphere.radius-pulse.currRadius) > VoxelConstants.VOXEL_ERR_UNITS) {
-          sphere.radius = pulse.currRadius;
+          sphere.setRadius(pulse.currRadius);
           sphere.material.alpha = pulse.currAlpha;
           //sphere.material.colour.copy(this.cursorPtLight.colour);
           sphere.setMaterial(sphere.material);
@@ -326,7 +326,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     const rmsRadiusChange = Math.round(2*(-0.25+weightedRmsZcrPct)*1.5)/2;
     for (const bounceSphere of this.bounceSpheres) {
       const {vtSphere, initRadius} = bounceSphere;
-      vtSphere.radius = initRadius + rmsRadiusChange;
+      vtSphere.setRadius(initRadius + rmsRadiusChange);
     }
 
     // Update the attenuation of the bounce lights based on the music...
@@ -498,7 +498,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     const {sphere} = spherePulse;
     sphere.position.copy(center);
     sphere.position.addScalar(VoxelConstants.VOXEL_HALF_UNIT_SIZE); // Center it on the cursor's voxel exactly
-    sphere.radius = VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS;
+    sphere.setRadius(VoxelConstants.VOXEL_DIAGONAL_ERR_UNITS);
     sphere.drawOrder = 5;
 
     const sphereMaterial = sphere.material;
@@ -567,14 +567,16 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     );
     
     const {colour:cursorColour} = this.cursorPtLight;
-    const colour1 = chroma.gl(cursorColour.r, cursorColour.g, cursorColour.b, 1);
     const randomScribColour = SCRIABIN_NOTE_COLOURS[Randomizer.getRandomIntInclusive(0, SCRIABIN_NOTE_COLOURS.length-1)];
-    const colour2 = chroma.gl(randomScribColour.r, randomScribColour.g, randomScribColour.b, 1);
-    const mixColour = chroma.mix(colour1, colour2, Randomizer.getRandomFloat(0.2, 0.8), 'lrgb').saturate(2).gl();
+    const mixColour = chroma.mix(
+      cursorColour.getHex(), chroma.gl(randomScribColour.r, randomScribColour.g, randomScribColour.b, 1), 
+      Randomizer.getRandomFloat(0.2, 0.8), 'lrgb'
+    ).saturate(2).hex();
+
     const initAtten = {quadratic:1.0/(1.5*radius), linear:1};
 
     const ptLight = new VTPointLight(
-      spherePos, new THREE.Color(mixColour[0], mixColour[1], mixColour[2]), initAtten, true
+      spherePos, new THREE.Color(mixColour), initAtten, true
     );
     ptLight.drawOrder = 5;
 

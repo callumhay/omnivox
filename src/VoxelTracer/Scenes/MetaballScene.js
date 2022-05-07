@@ -20,47 +20,42 @@ const rainbow = [
 class MetaballScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
-    this._objectsBuilt = false;
-    this.timeCounter = 0.0;
   }
 
-  clear() {
-    super.clear();
-    this._objectsBuilt = false;
+  load() {
+    const size = this.voxelModel.xSize();
+    this.isofield = new VTIsofield(size, new VTLambertMaterial());
+    this.ambientLight = new VTAmbientLight();
+    this.pointLight1 = new VTPointLight();
+    this.timeCounter = 0;
+  }
+  unload() {
+    this.isofield = null;
+    this.ambientLight = null;
+    this.pointLight1 = null;
   }
 
-  build(options) {
-    if (!options) { return; }
-    
-    const {showLights, pointLight1Pos, pointLightsAtten, materialColour, ambientLightColour} = options;
+  setOptions(options) {
+    const {showLights, pointLight1Pos, pointLightsAtten, materialColour, ambientLightColour, hasShadows} = options;
 
-    if (!this._objectsBuilt) {
-      const size = this.voxelModel.xSize();
-      
-      this.isofield = new VTIsofield(size, new VTLambertMaterial(new THREE.Color(materialColour.r, materialColour.g, materialColour.b)));
-      this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
+    this.isofield.material.colour.copy(materialColour);
+    this.isofield.setOptions({receivesShadows: hasShadows, castsShadows: hasShadows});
 
-      this.pointLight1 = new VTPointLight(
-        new THREE.Vector3(pointLight1Pos.x,pointLight1Pos.y,pointLight1Pos.z), 
-        new THREE.Color(1,1,1), pointLightsAtten, showLights
-      );
-      
-      this._objectsBuilt = true;
-    }
-    else {
-      this.pointLight1.setDrawLight(showLights);
-    }
+    this.ambientLight.colour.copy(ambientLightColour);
+
+    this.pointLight1.position.copy(pointLight1Pos);
+    this.pointLight1.colour.setRGB(1,1,1);
+    this.pointLight1.setAttenuation(pointLightsAtten);
+    this.pointLight1.setDrawLight(showLights);
 
     this.scene.addObject(this.isofield);
     this.scene.addObject(this.ambientLight);
     this.scene.addObject(this.pointLight1);
+
+    super.setOptions(options);
   }
 
   async render(dt) {
-    if (!this._objectsBuilt) {
-      return;
-    }
-
     const {speed} = this._options;
     this.timeCounter += dt * speed * 0.5;
 
@@ -71,13 +66,10 @@ class MetaballScene extends SceneRenderer {
 
   _updateIsofield() {
     const {
-      wallX, wallY, wallZ, multiColours, numBlobs, 
-      hasShadows, blobSizeMultiplier, subtractAmt
+      wallX, wallY, wallZ, multiColours, numBlobs, blobSizeMultiplier, subtractAmt
     } = this._options;
 
     this.isofield.reset();
-    this.isofield.setCastsShadows(hasShadows);
-    this.isofield.setReceivesShadows(hasShadows);
 
     const subtract = subtractAmt;
 		const strength = blobSizeMultiplier / ((Math.sqrt(numBlobs) - 1) / 4.0 + 1);

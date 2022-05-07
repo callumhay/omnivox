@@ -5,77 +5,71 @@ import SceneRenderer from './SceneRenderer';
 import VTMesh from '../VTMesh';
 import VTLambertMaterial from '../VTLambertMaterial';
 import VTPointLight from '../VTPointLight';
-import {VTFogBox, fogDefaultOptions } from '../VTFog';
+import {VTFogBox} from '../VTFog';
+import VTAmbientLight from '../VTAmbientLight';
+
+const _buildMovingBoxGeometry = (size) => size ? new THREE.BoxBufferGeometry(size.x, size.y, size.z, 1, 1, 1) : null;
 
 class GodRayScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
-    this._objectsBuilt = false;
-    this._timeCounter = 0;
-    this._shapePosition = new THREE.Vector3(voxelModel.xSize()/2, voxelModel.ySize()/2, voxelModel.zSize()/2);
+  }
+
+  load() {
+    const size = this.voxelModel.xSize();
+    const boxSize = this._options ? this._options.shapeSize :  null;
+
+    this._shapePosition = new THREE.Vector3(this.voxelModel.xSize()/2, this.voxelModel.ySize()/2, this.voxelModel.zSize()/2);
     this._shapeRotation = new THREE.Euler(0,0,0);
-  }
-
-  clear() {
-    super.clear();
-    this._objectsBuilt = false;
-  }
-
-  build(options) {
-    if (!options) { return; }
     
-    const fogColour = options.fogColour ? options.fogColour : fogDefaultOptions.colour;
-    const fogScattering = options.fogScattering ? options.fogScattering : fogDefaultOptions.fogScattering;
-    const fogOptions = {
-      colour: new THREE.Color(fogColour.r, fogColour.g, fogColour.b), 
-      scattering: fogScattering
-    };
+    this.fog = new VTFogBox(new THREE.Vector3(0,0,0), new THREE.Vector3(size, size, size));
+    this.shapeMesh = new VTMesh(_buildMovingBoxGeometry(boxSize), new VTLambertMaterial());
+    this.ptLight = new VTPointLight();
+    this.ambientLight = new VTAmbientLight();
 
-    if (!this._objectsBuilt) {
-      const size = this.voxelModel.xSize();
-      this.fog = new VTFogBox(new THREE.Vector3(0,0,0), new THREE.Vector3(size, size, size), fogOptions);
+    this._timeCounter = 0;
+  }
+  unload() {
+    this._shapePosition = null; this._shapeRotation = null;
+    this.fog = null;
+    this.shapeMesh = null;
+    this.ptLight = null;
+    this.ambientLight = null;
+  }
 
-      const {shapeSize, shapeColour, shapeEmission} = options;
-      this.shapeGeom = new THREE.BoxBufferGeometry(shapeSize.x, shapeSize.y, shapeSize.z, 1, 1, 1);
-      this.shapeMesh = new VTMesh(this.shapeGeom, new VTLambertMaterial(new THREE.Color(shapeColour.r, shapeColour.g, shapeColour.b), 
-        new THREE.Color(shapeEmission.r, shapeEmission.g, shapeEmission.b)));
-      this.shapeMesh.position.copy(this._shapePosition);
-      this.shapeMesh.setRotationFromEuler(this._shapeRotation);
+  setOptions(options) {
+    const {
+      fogColour, fogScattering, 
+      shapeSize, shapeColour, shapeEmission,
+      ambientLightColour, pointLightColour, pointLightPosition, pointLightAtten
+    } = options;
 
-      const pointLightColour = options.pointLightColour ? options.pointLightColour : {x:1,y:1,z:1};
-      const pointLightPosition = (options.pointLightPosition ? options.pointLightPosition : {x:0,y:0,z:0});
-      const pointLightAtten = options.pointLightAtten ? options.pointLightAtten : {quadratic:0.01, linear:0};
-      
-      this.ptLight = new VTPointLight(
-        new THREE.Vector3(pointLightPosition.x, pointLightPosition.y, pointLightPosition.z), 
-        new THREE.Color(pointLightColour.r, pointLightColour.g, pointLightColour.b), 
-        {...pointLightAtten}
-      );
+    this.fog.setColour(fogColour).setScattering(fogScattering);
 
-      this._objectsBuilt = true;
-    }
-    else {
-      this.fog.options = fogOptions;
-    }
+    this.shapeMesh.material.setColour(shapeColour);
+    this.shapeMesh.material.setEmissive(shapeEmission);
+    this.shapeMesh.setGeometry(_buildMovingBoxGeometry(shapeSize));
+    this.shapeMesh.position.copy(this._shapePosition);
+    this.shapeMesh.setRotationFromEuler(this._shapeRotation);
+
+    this.ptLight.setPosition(pointLightPosition).setColour(pointLightColour).setAttenuation(pointLightAtten);
+    this.ambientLight.setColour(ambientLightColour);
 
     this.scene.addObject(this.shapeMesh);
     this.scene.addObject(this.ptLight);
     this.scene.addObject(this.fog);
+    this.scene.addObject(this.ambientLight);
+
+    super.setOptions(options);
   }
 
   async render(dt) {
-    if (!this._objectsBuilt) {
-      return;
-    }
-
     const {shapeRotationSpd} = this._options;
     const newRX = this._shapeRotation.x + dt*shapeRotationSpd.x;
     const newRY = this._shapeRotation.y + dt*shapeRotationSpd.y;
     const newRZ = this._shapeRotation.z + dt*shapeRotationSpd.z;
     this._shapeRotation.set(newRX, newRY, newRZ, 'XYZ');
     this.shapeMesh.setRotationFromEuler(this._shapeRotation);
-
-    //this._shapePosition ...
 
     this._timeCounter += dt;
     await this.scene.render();

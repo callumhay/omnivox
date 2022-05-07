@@ -27,103 +27,146 @@ import VoxelChromaticAberrationPP from '../../Server/PostProcess/VoxelChromaticA
 class ParticleScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
-    this._objectsBuilt = false;
+  }
 
-    this.postProcessPipeline = new VoxelPostProcessPipeline(voxelModel);
+  load() {
+    const {gridSize} = this.voxelModel;
 
-    this.gaussianBlur = new VoxelGaussianBlurPP(voxelModel);
+    this.postProcessPipeline = new VoxelPostProcessPipeline(this.voxelModel);
+    this.gaussianBlur = new VoxelGaussianBlurPP(this.voxelModel);
     this.postProcessPipeline.addPostProcess(this.gaussianBlur);
-
-    this.chromaticAberration = new VoxelChromaticAberrationPP(voxelModel);
+    this.chromaticAberration = new VoxelChromaticAberrationPP(this.voxelModel);
     this.postProcessPipeline.addPostProcess(this.chromaticAberration);
-  }
 
-  clear() {
-    super.clear();
-    this.timeCounter = 0;
-    this._objectsBuilt = false;
-  }
-
-  build(options) {
-    if (!options) { return; }
+    this.emitter = new VTPEmitter();
     
-    if (!this._objectsBuilt) {
+    this.spawnNum      = new VTPSpan();
+    this.spawnInterval = new VTPSpan();
+    this.emitter.rate  = new VTPRate(this.spawnNum, this.spawnInterval);
 
-      const {
-        blurKernelSize, blurSqrSigma, blurConserveEnergy, 
-        chromaticAberrationIntensity, chromaticAberrationAlpha, chromaticAberrationOffsets,
-        particleMaterial, particleSpawn, particleLifeSpan, particleSpeed, 
-        particleAlphaStart, particleAlphaEnd, particleColourStart, particleColourEnd,
-        emitterType, emitterPos, totalEmitTimes
-      } = options;
+    this.emitterBodyInit = new VTPBody(VTVoxel, VTEmissionMaterial);
+    this.emitter.addInitializer(this.emitterBodyInit);
+    this.emitterLifeInit = new VTPLife();
+    this.emitter.addInitializer(this.emitterLifeInit);
 
-      const materialNameToClass = {
-        "VTEmissionMaterial" : VTEmissionMaterial,
-        "VTLambertMaterial"  : VTLambertMaterial,
-      };
+    this.speedSpan = new VTPSpan();
+    this.boxDirGen = new StaticDirGenerator([new THREE.Vector3(0,1,0)]);
+    this.sphereDirGen = new UniformSphereDirGenerator();
+    this.emitterVelInit = new VTPVelocity(this.speedSpan, this.sphereDirGen);
+    this.emitter.addInitializer(this.emitterVelInit);
 
-      this.emitter = new VTPEmitter();
-      this.emitter.rate = new VTPRate(new VTPSpan(particleSpawn.numMin, particleSpawn.numMax), particleSpawn.interval);
-      this.emitter.addInitializer(new VTPBody(VTVoxel, materialNameToClass[particleMaterial]));
-      this.emitter.addInitializer(new VTPLife(particleLifeSpan.min, particleLifeSpan.max));
+    this.boxPosInit = new VTPPosition(new VTPBoxZone(new THREE.Vector3(0,0,0), new THREE.Vector3(gridSize, 1, gridSize)));
 
-      const speedSpan = new VTPSpan(particleSpeed.min, particleSpeed.max);
-      switch (emitterType) {
-        case 'point':
-        default:
-          this.emitter.addInitializer(new VTPVelocity(speedSpan, new UniformSphereDirGenerator()));
-          this.emitter.p.set(emitterPos.x, emitterPos.y, emitterPos.z);
-          break;
-        case 'box': {
-          const {gridSize} = this.voxelModel;
-          this.emitter.addInitializer(new VTPVelocity(speedSpan, new StaticDirGenerator([new THREE.Vector3(0,1,0)])));
-          this.emitter.addInitializer(new VTPPosition(
-            new VTPBoxZone(new THREE.Vector3(0,0,0), new THREE.Vector3(gridSize, 1, gridSize))
-          ));
-          break;
-        }
+    this.alphaStart = new VTPSpan();
+    this.alphaEnd   = new VTPSpan();
+    this.emitter.addBehaviour(new VTPAlpha(this.alphaStart, this.alphaEnd));
+
+    this.particleStartColourA = new THREE.Color();
+    this.particleStartColourB = new THREE.Color();
+    this.particleEndColourA   = new THREE.Color();
+    this.particleEndColourB   = new THREE.Color();
+    this.emitter.addBehaviour(new VTPColour(
+      ['mix', this.particleStartColourA, this.particleStartColourB],
+      ['mix', this.particleEndColourA, this.particleEndColourB]
+    ));
+
+    this.emitterMgr = new VTPEmitterManager(this.scene, 20, [VTVoxel]);
+    this.emitterMgr.addEmitter(this.emitter);
+
+    this.ambientLight = new VTAmbientLight();
+
+    this.timeCounter = 0;
+  }
+  unload() {
+    this.postProcessPipeline = null;
+    this.gaussianBlur = null;
+    this.chromaticAberration = null;
+    this.emitter = null;
+    this.spawnNum = null; this.spawnInterval = null;
+    this.speedSpan = null;
+    this.emitterBodyInit = null;
+    this.emitterLifeInit = null;
+    this.emitterVelInit = null;
+    this.boxPosInit = null; 
+    this.boxDirGen = null; this.sphereDirGen = null;
+    this.alphaStart = null; this.alphaEnd = null;
+    this.particleStartColourA = null; this.particleStartColourB = null;
+    this.particleEndColourA = null; this.particleEndColourB = null;
+    this.emitterMgr = null;
+    this.ambientLight = null;
+  }
+
+  setOptions(options) {
+    const {
+      blurKernelSize, blurSqrSigma, blurConserveEnergy, 
+      chromaticAberrationIntensity, chromaticAberrationAlpha, chromaticAberrationOffsets,
+      particleMaterial, particleSpawn, particleLifeSpan, particleSpeed, 
+      particleAlphaStart, particleAlphaEnd, particleColourStart, particleColourEnd,
+      emitterType, emitterPos, totalEmitTimes, ambientLightColour
+    } = options;
+
+    const materialNameToClass = {
+      "VTEmissionMaterial" : VTEmissionMaterial,
+      "VTLambertMaterial"  : VTLambertMaterial,
+    };
+
+    this.spawnNum.a = particleSpawn.numMin; this.spawnNum.b = particleSpawn.numMax;
+    this.spawnInterval.a = this.spawnInterval.b =  particleSpawn.interval;
+    this.emitterBodyInit.materialType = materialNameToClass[particleMaterial];
+    this.emitterLifeInit.lifeSpan.a = particleLifeSpan.min;
+    this.emitterLifeInit.lifeSpan.b = particleLifeSpan.max;
+
+    this.speedSpan.a = particleSpeed.min; this.speedSpan.b = particleSpeed.max;
+    this.emitter.removeInitializer(this.boxPosInit);
+    switch (emitterType) {
+      case 'point':
+      default:
+        this.emitterVelInit.dirGenerator = this.sphereDirGen;
+        this.emitter.p.set(emitterPos.x, emitterPos.y, emitterPos.z);
+        break;
+      case 'box': {
+        this.emitterVelInit.dirGenerator = this.boxDirGen;
+        this.emitter.addInitializer(this.boxPosInit);
+        break;
       }
-      
-      this.emitter.addBehaviour(new VTPAlpha(new VTPSpan(particleAlphaStart.min, particleAlphaStart.end), new VTPSpan(particleAlphaEnd.min, particleAlphaEnd.max)));
-      this.emitter.addBehaviour(new VTPColour(['mix', particleColourStart.colourA, particleColourStart.colourB], ['mix', particleColourEnd.colourA, particleColourEnd.colourB]));
+    }
+
+    this.alphaStart.a = particleAlphaStart.min; this.alphaStart.b = particleAlphaStart.max;
+    this.alphaEnd.a = particleAlphaEnd.min; this.alphaEnd.b = particleAlphaEnd.max;
+
+    this.particleStartColourA.copy(particleColourStart.colourA);
+    this.particleStartColourB.copy(particleColourStart.colourB);
+    this.particleEndColourA.copy(particleColourEnd.colourA);
+    this.particleEndColourB.copy(particleColourEnd.colourB);
+
+    if (!this._options || !this._options.totalEmitTimes || 
+        totalEmitTimes.isInfinity !== this._options.totalEmitTimes.isInfinity || 
+        totalEmitTimes.num !== this._options.totalEmitTimes.num) {
+
       this.emitter.startEmit(totalEmitTimes.isInfinity ? Infinity : totalEmitTimes.num);
-      
-      this.emitterMgr = new VTPEmitterManager(this.scene, 20, [VTVoxel]);
-      this.emitterMgr.addEmitter(this.emitter);
-
-      const ambientLightColour = options.ambientLightColour ? options.ambientLightColour : fogDefaultOptions.ambientLightColour;
-      this.ambientLight = new VTAmbientLight(new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b));
-
-      this.gaussianBlur.setConfig({
-        kernelSize: blurKernelSize,
-        sqrSigma: blurSqrSigma,
-        conserveEnergy: blurConserveEnergy
-      });
-      this.chromaticAberration.setConfig({
-        intensity: chromaticAberrationIntensity,
-        alpha: chromaticAberrationAlpha,
-        xyzMask: [chromaticAberrationOffsets.x, chromaticAberrationOffsets.y, chromaticAberrationOffsets.z]
-      });
-
-      this._objectsBuilt = true;
     }
-    else {
-      this.fog.options = fogOptions;
-    }
+
+    this.ambientLight.setColour(ambientLightColour);
+
+    this.gaussianBlur.setConfig({
+      kernelSize: blurKernelSize,
+      sqrSigma: blurSqrSigma,
+      conserveEnergy: blurConserveEnergy
+    });
+    this.chromaticAberration.setConfig({
+      intensity: chromaticAberrationIntensity,
+      alpha: chromaticAberrationAlpha,
+      xyzMask: [chromaticAberrationOffsets.x, chromaticAberrationOffsets.y, chromaticAberrationOffsets.z]
+    });
 
     this.scene.addObject(this.ambientLight);
+    super.setOptions(options);
   }
 
   async render(dt) {
-    if (!this._objectsBuilt) {
-      return;
-    }
-    const debugDt = Math.min(0.1, dt);
-    this.timeCounter += debugDt;
-    this.emitterMgr.tick(debugDt);
-    
+    this.timeCounter += dt;
+    this.emitterMgr.tick(dt);
     await this.scene.render();
-
     this.postProcessPipeline.render(dt, VoxelModel.CPU_FRAMEBUFFER_IDX_0, VoxelModel.CPU_FRAMEBUFFER_IDX_0);
   }
 

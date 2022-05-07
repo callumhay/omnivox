@@ -6,19 +6,15 @@ import VoxelGeometryUtils from '../VoxelGeometryUtils';
 import VTConstants from './VTConstants';
 import VTObject from './VTObject';
 
-export const fogDefaultOptions = {
-  scattering: 0.1, // The amount of light reduction per voxel travelled through of the fog this must be in [0,1]
-  colour: new THREE.Color(1,1,1),
-};
-
 class VTFog extends VTObject {
-  constructor(type, options) {
+  constructor(type, colour, scattering) {
     super(type);
-    const {colour:defaultColour, scattering:defaultScattering} = fogDefaultOptions;
-    this._colour = new THREE.Color(defaultColour.r, defaultColour.g, defaultColour.b);
-    if (options.colour) { this._colour.copy(options.colour);}
-    this._scattering = InitUtils.initValue(options.scattering, defaultScattering);
+    this._colour = InitUtils.initTHREEColor(colour, 1,1,1);
+    this._scattering = InitUtils.initValue(scattering, 0.1);
   }
+
+  setColour(c) { this._colour.copy(c); this.makeDirty(); return this; }
+  setScattering(s) { this._scattering = s; this.makeDirty(); return this; }
 
   toJSON() {
     const {id, drawOrder, type, _colour, _scattering} = this;
@@ -27,11 +23,10 @@ class VTFog extends VTObject {
 }
 
 export class VTFogBox extends VTFog {
-  constructor(minPt, maxPt, options={...fogDefaultOptions}) {
-    super(VTConstants.FOG_BOX_TYPE, options);
+  constructor(minPt, maxPt, colour, scattering) {
+    super(VTConstants.FOG_BOX_TYPE, colour, scattering);
     this._boundingBox = new THREE.Box3();
     this._boundingBox.set(minPt, maxPt);
-    this.makeDirty();
   }
 
   position(target) { 
@@ -56,11 +51,9 @@ export class VTFogBox extends VTFog {
 }
 
 export class VTFogSphere extends VTFog {
-  constructor(center, radius=8, options={...fogDefaultOptions}) {
-    super(VTConstants.FOG_SPHERE_TYPE, options);
-    this._boundingSphere = new THREE.Sphere();
-    this._boundingSphere.set(center, radius);
-    this.makeDirty();
+  constructor(center, radius, colour, scattering) {
+    super(VTConstants.FOG_SPHERE_TYPE, colour, scattering);
+    this._boundingSphere = new THREE.Sphere(InitUtils.initTHREEVector3(center), InitUtils.initValue(radius, 8));
   }
 
   setRadius(r) { 

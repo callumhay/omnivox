@@ -2,17 +2,19 @@ import * as THREE from 'three';
 
 import VoxelConstants from '../../VoxelConstants';
 
-import VTMaterialFactory from '../VTMaterialFactory';
 import VTConstants from '../VTConstants';
 import {defaultIsofieldOptions} from '../VTIsofield';
 
 import VTRPObject from './VTRPObject';
 import VTRPObjectFactory from './VTRPObjectFactory';
+import VTRPSample from './VTRPSample';
 
 const _noUV     = new THREE.Vector2();
 const _tempVec3_0  = new THREE.Vector3();
 const _tempVec3_1 = new THREE.Vector3();
 const _tempColour = new THREE.Color();
+
+const _sample = new VTRPSample();
 
 class VTRPIsofield extends VTRPObject {
   constructor() {
@@ -41,7 +43,7 @@ class VTRPIsofield extends VTRPObject {
   clearFieldAndPalette() {
     for (let i = 0; i < this._size3; i++) {
       this._field[i] = 0.0;
-      this._palette[i * 3] = this._palette[i * 3 + 1] = this._palette[i * 3 + 2] = 0.0;
+      this._palette[i * 3 + 0] = this._palette[i * 3 + 1] = this._palette[i * 3 + 2] = 0.0;
     }
   }
 
@@ -114,9 +116,7 @@ class VTRPIsofield extends VTRPObject {
     );
 
     // If a normal is non-zero then we're on the surface of something, render it
-    if (Math.abs(voxelNormal.x) > 0.001 || Math.abs(voxelNormal.y) > 0.001 || Math.abs(voxelNormal.z) > 0.001) {
-      voxelNormal.normalize();
-
+    if (fieldXYZ > 0 && Math.abs(voxelNormal.x) > 0.001 || Math.abs(voxelNormal.y) > 0.001 || Math.abs(voxelNormal.z) > 0.001) {
       const paletteColour = _tempColour.setRGB(this._palette[idxXYZ*3+0], this._palette[idxXYZ*3+1], this._palette[idxXYZ*3+2]);
       if (paletteColour.r > 0 || paletteColour.g > 0 || paletteColour.b > 0) {
         this._material.colour.copy(paletteColour);
@@ -124,14 +124,9 @@ class VTRPIsofield extends VTRPObject {
       else {
         this._material.colour.copy(this._baseColour);
       }
-      const voxelSample = {
-        point: voxelIdxPt,
-        normal: voxelNormal,
-        uv: _noUV,
-        falloff: fieldXYZ //THREE.MathUtils.smoothstep(fieldXYZ,0,1), // fieldXYZ > 0.5 ? 1 : 0,
-      };
 
-      return scene.calculateLightingSamples(targetRGBA, voxelIdxPt, [voxelSample], this._material, this._receivesShadow);
+      _sample.set(voxelIdxPt, voxelNormal.normalize(), _noUV, Math.min(1, fieldXYZ));
+      return scene.calculateLightingSamples(targetRGBA, voxelIdxPt, [_sample], this._material, this.isShadowReceiver());
     }
 
     // Otherwise there is nothing to render
@@ -258,9 +253,9 @@ class VTRPIsofield extends VTRPObject {
 
             //const ratio = Math.sqrt((x - xs) * (x - xs) + (y - ys) * (y - ys) + (z - zs) * (z - zs)) / radius;
             const contrib = 1;// 1.0 - ratio * ratio * ratio * (ratio * (ratio * 6 - 15) + 10);
-            this._palette[(finalOffset) * 3 + 0] += ballColor.r * contrib;
-            this._palette[(finalOffset) * 3 + 1] += ballColor.g * contrib;
-            this._palette[(finalOffset) * 3 + 2] += ballColor.b * contrib;
+            this._palette[finalOffset * 3 + 0] += ballColor.r * contrib;
+            this._palette[finalOffset * 3 + 1] += ballColor.g * contrib;
+            this._palette[finalOffset * 3 + 2] += ballColor.b * contrib;
           }
         }
       }
@@ -281,7 +276,8 @@ class VTRPIsofield extends VTRPObject {
         for (let y = 0; y < this._size; y++) {
           cxy = x + y * this._yd;
           for (let z = 0; z < this._size; z++) {
-            this._field[this._zd * z + cxy] += val;
+            const offset = this._zd * z + cxy;
+            this._field[offset] = THREE.MathUtils.clamp(val + this._field[offset], -1, 1);
           }
         }
       }
@@ -303,7 +299,8 @@ class VTRPIsofield extends VTRPObject {
         for (let x = 0; x < this._size; x++) {
           cxy = cy + x;
           for (let z = 0; z < this._size; z++) {
-            this._field[this._zd * z + cxy] += val;
+            const offset = this._zd * z + cxy;
+            this._field[offset] = THREE.MathUtils.clamp(val + this._field[offset], -1, 1);
           }
         }
       }
@@ -325,7 +322,8 @@ class VTRPIsofield extends VTRPObject {
         for (let y = 0; y < this._size; y++) {
           cyz = cz + y * this._yd;
           for (let x = 0; x < this._size; x++) {
-            this._field[cyz + x] += val;
+            const offset = cyz + x;
+            this._field[offset] = THREE.MathUtils.clamp(val + this._field[offset], -1, 1);
           }
         }
       }

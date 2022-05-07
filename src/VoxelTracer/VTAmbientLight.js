@@ -8,8 +8,8 @@ import VTObject from './VTObject';
 class VTAmbientLight extends VTObject {
   constructor(colour) {
     super(VTConstants.AMBIENT_LIGHT_TYPE);
+
     this._colour = InitUtils.initTHREEColor(colour);
-    this.makeDirty();
   }
 
   expire(pool) {}
@@ -20,21 +20,13 @@ class VTAmbientLight extends VTObject {
     this._colour.setHex(_colour);
     return this;
   }
-
-  static build(jsonData) {
-    const {id, _colour} = jsonData;
-    const colour = (new THREE.Color()).setHex(_colour);
-    const result = new VTAmbientLight(colour);
-    result.id = id;
-    return result;
-  }
   toJSON() {
     const {id, type, _colour} = this;
     return {id, type, _colour};
   }
 
   get colour() { return this._colour; }
-  setColour(c) {this._colour = c; this.makeDirty(); }
+  setColour(c) {this._colour.copy(c); this.makeDirty(); return this; }
 
   emission(targetColour) { return targetColour.copy(this._colour); }
   

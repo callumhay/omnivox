@@ -8,11 +8,11 @@ import {Randomizer} from '../../../Randomizers';
 export const RANDOM_COLOUR = "random";
 export const MIX_COLOUR = "mix";
 
-// NOTE: Possible optimization is to store all colours as a chroma.gl() colour array
+// NOTE: Possible optimization is to store all colours as a chroma-js objects
 export class VTPColourArraySpan {
-  constructor(colours, isMix=false) {
-    this._colours = Array.isArray(colours) ? colours : [colours];
-    this._isMix = isMix;
+  constructor(colours=RANDOM_COLOUR, isMix=false) {
+    this._colours = colours ? (Array.isArray(colours) ? colours : [colours]) : [RANDOM_COLOUR];
+    this._isMix   = isMix;
 
     // Make sure the colours are all of type THREE.Color (if they aren't assigned as random)
     for (let i = 0; i < this._colours.length; i++) {
@@ -22,8 +22,7 @@ export class VTPColourArraySpan {
         this._colours[i] = new THREE.Color(colour.r, colour.g, colour.b);
       }
       else {
-        const glColour = chroma(colour).gl();
-        this._colours[i] = new THREE.Color(glColour[0], glColour[1], glColour[2]);
+        this._colours[i] = new THREE.Color(chroma(colour).hex());
       }
     }
   }
@@ -34,25 +33,17 @@ export class VTPColourArraySpan {
       const [firstColour, secondColour] = this._colours;
       const colourA = this._checkAndCreateRandom(firstColour);
       const colourB = this._checkAndCreateRandom(secondColour);
-      const chromaA = chroma.gl(colourA.r, colourA.g, colourA.b, 1);
-      const chromaB = chroma.gl(colourB.r, colourB.g, colourB.b, 1);
-      const chromaMix = chroma.mix(chromaA, chromaB, Randomizer.getRandomFloat(0,1), 'hsl').gl();
-      colour = new THREE.Color(chromaMix[0], chromaMix[1], chromaMix[2]);
+      colour = new THREE.Color(chroma.mix(colourA.getHex(), colourB.getHex(), Randomizer.getRandomFloat(0,1)).hex());
     }
     else {
       colour = this._colours[(this._colours.length * Math.random()) >> 0];
       colour = this._checkAndCreateRandom(colour);
     }
-
     return colour;
   }
 
   _checkAndCreateRandom(colour) {
-    if (colour === RANDOM_COLOUR) {
-      const randomColour = chroma(chroma.random()).gl();
-      return new THREE.Color(randomColour[0], randomColour[1], randomColour[2]);
-    }
-    return colour;
+    return (colour === RANDOM_COLOUR) ? new THREE.Color(chroma.random().hex()) : colour;
   }
 
   static createColourArraySpan(colours) {
@@ -104,10 +95,8 @@ class VTPColour extends VTPBehaviour {
     }
     else {
       const {colourStart, colourEnd} = particle.transform;
-      const glStartColour = chroma.gl(colourStart.r, colourStart.g, colourStart.b, 1);
-      const glEndColour   = chroma.gl(colourEnd.r, colourEnd.g, colourEnd.b, 1);
-      const glColourMix   = chroma.mix(glEndColour, glStartColour, this.energy, 'rgb').gl(); // NOTE: energy goes from 1 to 0, so the mix is flipped
-      particle.colour.setRGB(glColourMix[0], glColourMix[1], glColourMix[2]);
+      // NOTE: energy goes from 1 to 0, so the mix is flipped
+      particle.colour.set(chroma.mix(colourEnd.getHex(), colourStart.getHex(), this.energy).hex());
     }
   }
 }

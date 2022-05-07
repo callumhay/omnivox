@@ -15,10 +15,15 @@ const REINIT_FLUID_TIME_SECS = 0.1;
 const LOW_HIGH_TEMP_COLOUR_MODE = "Low High Temp";
 const TEMPERATURE_COLOUR_MODE   = "Temperature";
 const RANDOM_COLOUR_MODE        = "Random";
+const COLOUR_MODES = [
+  LOW_HIGH_TEMP_COLOUR_MODE,
+  TEMPERATURE_COLOUR_MODE,
+  RANDOM_COLOUR_MODE,
+];
 
 export const fireAnimatorDefaultConfig = {
   speed: 2.0,
-  buoyancy: 1.2,
+  buoyancy: 1,
   cooling: 0.5,
   initialIntensityMultiplier: 8,
   vorticityConfinement: 8.0,
@@ -56,13 +61,7 @@ class FireAnimator extends AudioVisualizerAnimator {
   static get LOW_HIGH_TEMP_COLOUR_MODE() { return LOW_HIGH_TEMP_COLOUR_MODE; }
   static get TEMPERATURE_COLOUR_MODE() { return TEMPERATURE_COLOUR_MODE; }
   static get RANDOM_COLOUR_MODE() { return RANDOM_COLOUR_MODE; }
-  static get COLOUR_MODES() {
-    return [
-      LOW_HIGH_TEMP_COLOUR_MODE,
-      TEMPERATURE_COLOUR_MODE,
-      RANDOM_COLOUR_MODE,
-    ];
-  }
+  static get COLOUR_MODES() { return COLOUR_MODES; }
 
   constructor(voxelModel, config=fireAnimatorDefaultConfig) {
     super(voxelModel, config);
@@ -71,28 +70,56 @@ class FireAnimator extends AudioVisualizerAnimator {
 
   getType() { return VoxelAnimator.VOXEL_ANIM_FIRE; }
 
-  setConfig(c) {
-    super.setConfig(c);
+  load() {
+    super.load();
+    this.randomColourCycler = new RandomHighLowColourCycler();
 
-    const {randomColourHoldTime, randomColourTransitionTime} = c;
-    if (!this.randomColourCycler) {
-      this.randomColourCycler = new RandomHighLowColourCycler();
-    }
-    this.randomColourCycler.setConfig({randomColourHoldTime, randomColourTransitionTime});
-
-    const {
-      audioVisualizationOn, audioNoiseAddition, buoyancy, cooling, vorticityConfinement,
-      wallPosX, wallNegX, wallPosY, wallNegY, wallPosZ, wallNegZ,
-    } = c;
-    const INTENSITY_ARRAY_SIZE = Math.min(128, Math.pow(this.voxelModel.gridSize,2));
-    this.audioIntensitiesArray = new Array(INTENSITY_ARRAY_SIZE).fill(0);
-    this.randomArray = Randomizer.getRandomFloats(INTENSITY_ARRAY_SIZE, 0, audioVisualizationOn ? audioNoiseAddition : 1);
-
-    if (!this.fluidModel) {
-      this.fluidModel = new FireGPU(this.voxelModel.gridSize, this.voxelModel.gpuKernelMgr);
-    }
+    this.fluidModel = new FireGPU(this.voxelModel.gridSize, this.voxelModel.gpuKernelMgr);
     this.fluidModel.diffusion = 0.0001;
     this.fluidModel.viscosity = 0;
+
+    const {startX, endX, startY, startZ, endZ} = this._getFluidModelOffsets();
+    for (let z = startZ; z < endZ; z++) {
+      for (let x = startX; x < endX; x++) {
+        this.fluidModel.sd[x][startY][z] = 1.0;
+      }
+    }
+
+    const INTENSITY_ARRAY_SIZE = Math.min(128, Math.pow(this.voxelModel.gridSize,2));
+    this.audioIntensitiesArray = new Array(INTENSITY_ARRAY_SIZE).fill(0);
+    this.randomArray = new Array(INTENSITY_ARRAY_SIZE).fill(0);
+
+    this.fireLookup = new Array(FIRE_SPECTRUM_WIDTH).fill(null);
+
+    this._reinitTimersAndAudioParams();
+  }
+  unload() {
+    super.unload();
+    this.randomColourCycler = null;
+    if (this.fluidModel) {
+      this.fluidModel.unload(); // Clears GPU buffers
+      this.fluidModel = null;
+    }
+    this.audioIntensitiesArray = null;
+    this.randomArray = null;
+    this.fireLookup = null;
+    this.binIndexLookup = null;
+  }
+
+  setConfig(c, init=false) {
+    if (!super.setConfig(c,init)) { return; }
+
+    const {
+      randomColourHoldTime, randomColourTransitionTime,
+      audioVisualizationOn, audioNoiseAddition, buoyancy, cooling, vorticityConfinement,
+      wallPosX, wallNegX, wallPosY, wallPosZ, wallNegZ,
+      colourMode, spectrumTempMin, spectrumTempMax, colourSystem, colourInterpolationType
+    } = this.config;
+
+    this.randomColourCycler.setConfig({randomColourHoldTime, randomColourTransitionTime});
+
+    Randomizer.getRandomFloats(this.randomArray, 0, audioVisualizationOn ? audioNoiseAddition : 1);
+
     this.fluidModel.buoyancy  = buoyancy;
     this.fluidModel.cooling   = cooling;
     this.fluidModel.vc_eps    = vorticityConfinement;
@@ -102,21 +129,34 @@ class FireAnimator extends AudioVisualizerAnimator {
       posZOffset:wallPosZ, negZOffset:wallNegZ
     });
 
-    const {startX, endX, startY, startZ, endZ} = this._getFluidModelOffsets();
-    for (let z = startZ; z < endZ; z++) {
-      for (let x = startX; x < endX; x++) {
-        this.fluidModel.sd[x][startY][z] = 1.0;
+    switch (colourMode) {
+      default:
+      case LOW_HIGH_TEMP_COLOUR_MODE: {
+        const {highTempColour, lowTempColour} = this.config;
+        Spectrum.getLowToHighColourSpectrum(this.fireLookup, lowTempColour, highTempColour, colourInterpolationType);
+        break;
+      }
+      case TEMPERATURE_COLOUR_MODE:
+        Spectrum.getSpectrum(this.fireLookup, spectrumTempMin, spectrumTempMax, ColourSystems[colourSystem]);
+        break;
+      case RANDOM_COLOUR_MODE: {
+        const {highTempColour, lowTempColour} = this.randomColourCycler.currRandomColours;
+        this.colourHoldTimeCounter = 0;
+        Spectrum.getLowToHighColourSpectrum(this.fireLookup, lowTempColour, highTempColour, colourInterpolationType);
+        break;
       }
     }
-    
-    this.genFireColourLookup();
+    FireAnimator.adjustSpectrumAlpha(this.fireLookup);
+
   }
 
   reset() {
     super.reset();
+    if (this.randomColourCycler) { this.randomColourCycler.reset(); }
+    this._reinitTimersAndAudioParams();
+  }
 
-    this.randomColourCycler.reset();
-    
+  _reinitTimersAndAudioParams() {
     this.t = 0;
     this.timeCounterToReinitFluid = Infinity;
     this.randIdx = 0;
@@ -124,16 +164,6 @@ class FireAnimator extends AudioVisualizerAnimator {
     this.avgSpectralCentroid = 0;
     this.avgNormalizedSpectralCentroid = 0;
     this.avgAudioIntensity = 0;
-  }
-
-  _getFluidModelOffsets() {
-    const startX = 1;
-    const endX = this.voxelModel.xSize()+startX;
-    const startZ = 1;
-    const endZ = this.voxelModel.zSize()+startZ;
-    const startY = 1;
-
-    return {startX, endX, startY, startZ, endZ};
   }
 
   render(dt) {
@@ -157,8 +187,9 @@ class FireAnimator extends AudioVisualizerAnimator {
       this.timeCounterToReinitFluid += dt;
     }
 
-    const clampDt = clamp(dt, 0.0, 1.0/30.0); // Make sure our timesteps aren't too big or it will cause instability in the fire simulation
-    const currSpeed = audioVisualizationOn ? speed + audioSpeedMultiplier*(1 + Math.min(1, this.avgRMS/this.currMaxRMS)) : speed;
+    const clampDt = clamp(dt, 0, 1/10); // Make sure our timesteps aren't too big or it will cause instability in the fire simulation
+    const nRMS = this.avgRMS/this.currMaxRMS;
+    const currSpeed = audioVisualizationOn ? speed + audioSpeedMultiplier*(1 + Math.min(1, nRMS*nRMS)) : speed;
     const dtSpeed = clampDt*currSpeed;
     this.fluidModel.step(dtSpeed);
     this.t += dtSpeed;
@@ -166,14 +197,9 @@ class FireAnimator extends AudioVisualizerAnimator {
     // In random colour mode we're animating the colour over time, check to see if it has changed and update it accordingly
     if (colourMode === RANDOM_COLOUR_MODE) {
       const {colourInterpolationType} = this.config;
-
-      const prevColours = this.randomColourCycler.currRandomColours;
-      const currColours = this.randomColourCycler.tick(clampDt, colourInterpolationType);
-      if (!prevColours.lowTempColour.equals(currColours.lowTempColour) || !prevColours.highTempColour.equals(currColours.highTempColour)) {
-        this.fireLookup = FireAnimator._adjustSpectrumAlpha(
-          Spectrum.genLowToHighColourSpectrum(currColours.lowTempColour, currColours.highTempColour, colourInterpolationType)
-        );
-      }
+      const currColours = this.randomColourCycler.tick(dt, colourInterpolationType);
+      Spectrum.getLowToHighColourSpectrum(this.fireLookup, currColours.lowTempColour, currColours.highTempColour, colourInterpolationType);
+      FireAnimator.adjustSpectrumAlpha(this.fireLookup);
     }
 
     // Update the voxels...
@@ -182,24 +208,25 @@ class FireAnimator extends AudioVisualizerAnimator {
   }
 
   setAudioInfo(audioInfo) {
-    if (!this.config.audioVisualizationOn) {
-      return;
-    }
-    //console.log("AUDIO!");
+    if (!this.config.audioVisualizationOn) { return; }
     super.setAudioInfo(audioInfo);
 
-    const {gamma, levelMax, audioBuoyancyMultiplier, audioCoolingMultiplier, audioTurbulenceMultiplier, buoyancy, cooling, vorticityConfinement} = this.config;
+    const {
+      gamma, levelMax, audioBuoyancyMultiplier, audioCoolingMultiplier, audioTurbulenceMultiplier, 
+      buoyancy, cooling, vorticityConfinement
+    } = this.config;
     const {fft, spectralCentroid} = audioInfo;
+    const audioIntensityArrLen = this.audioIntensitiesArray.length;
 
     // Use the FFT array to populate the initialization array for the fire
-    let numFreqs = Math.floor(fft.length/(gamma+1.8));
+    const numFreqs = Math.floor(fft.length/(gamma+1.8));
 
     // Build a distribution of what bins (i.e., meshes) to throw each frequency in
     if (!this.binIndexLookup || numFreqs !== this.binIndexLookup.length) {
-      this.binIndexLookup = AudioVisualizerAnimator.buildBinIndexLookup(numFreqs, this.audioIntensitiesArray.length, gamma);
+      this.binIndexLookup = AudioVisualizerAnimator.buildBinIndexLookup(numFreqs, audioIntensityArrLen, gamma);
     }
 
-    for (let i = 0; i < this.audioIntensitiesArray.length; i++) {
+    for (let i = 0; i < audioIntensityArrLen; i++) {
       const fftIndices = this.binIndexLookup[i];
       const binLevel = AudioVisualizerAnimator.calcFFTBinLevelMax(fftIndices, fft);
       this.audioIntensitiesArray[i] = clamp(Math.log10(binLevel)/levelMax, 0, 1);
@@ -210,22 +237,21 @@ class FireAnimator extends AudioVisualizerAnimator {
     this.avgNormalizedSpectralCentroid = clamp(this.avgSpectralCentroid / (fft.length / 2), 0, 1);
     const buoyancyVal = buoyancy + clamp(this.avgNormalizedSpectralCentroid * 10, 0, 3);
 
+    const nRMS = this.avgRMS/this.currMaxRMS;
     this.fluidModel.buoyancy = buoyancyVal * audioBuoyancyMultiplier;
-    this.fluidModel.cooling  = cooling + clamp((1.0 - this.avgRMS) * audioCoolingMultiplier, 0, 2); // Values range from [0.1, 2] where lower values make the fire brighter/bigger
-    this.fluidModel.vc_eps   = vorticityConfinement + (this.avgRMS * 30 * audioTurbulenceMultiplier);
+    this.fluidModel.cooling  = cooling + clamp((1.0 - nRMS) * audioCoolingMultiplier, 0, 2); // Values range from [0.1, 2] where lower values make the fire brighter/bigger
+    this.fluidModel.vc_eps   = vorticityConfinement + (nRMS * 30 * audioTurbulenceMultiplier);
 
     this.avgAudioIntensity = 0;
-    for (let j = 0; j < this.audioIntensitiesArray.length; j++) {
-      this.avgAudioIntensity += this.audioIntensitiesArray[j];
-    }
-    this.avgAudioIntensity /= this.audioIntensitiesArray.length;
+    for (let j = 0; j < audioIntensityArrLen; j++) { this.avgAudioIntensity += this.audioIntensitiesArray[j]; }
+    this.avgAudioIntensity /= audioIntensityArrLen;
   }
 
-  static _adjustSpectrumAlpha(spectrum) {
+  static adjustSpectrumAlpha(spectrum) {
     const FIRE_THRESHOLD = 7;
     const MAX_FIRE_ALPHA = 1.0;
     const FULL_ON_FIRE = 100;
-    for (let i = 0; i < spectrum.length; i++) {
+    for (let i = 0, spectrumLen = spectrum.length; i < spectrumLen; i++) {
       if (i >= FIRE_THRESHOLD) {
         spectrum[i][3] = MAX_FIRE_ALPHA * ((i > FULL_ON_FIRE) ? 1.0 : (i - FIRE_THRESHOLD)/(FULL_ON_FIRE - FIRE_THRESHOLD));
       }
@@ -236,39 +262,14 @@ class FireAnimator extends AudioVisualizerAnimator {
     return spectrum;
   }
 
-  genFireColourLookup() {
-    const {colourMode, spectrumTempMin, spectrumTempMax, colourSystem, colourInterpolationType} = this.config;
-
-    let spectrum = null;
-    switch (colourMode) {
-      case LOW_HIGH_TEMP_COLOUR_MODE: {
-        const {highTempColour, lowTempColour} = this.config;
-        spectrum = Spectrum.genLowToHighColourSpectrum(lowTempColour, highTempColour, colourInterpolationType);
-        break;
-      }
-      case TEMPERATURE_COLOUR_MODE:
-        spectrum = Spectrum.generateSpectrum(spectrumTempMin, spectrumTempMax, FIRE_SPECTRUM_WIDTH, ColourSystems[colourSystem]);
-        break;
-      case RANDOM_COLOUR_MODE: {
-        const {highTempColour, lowTempColour} = this.randomColourCycler.currRandomColours;
-        this.colourHoldTimeCounter = 0;
-        spectrum = Spectrum.genLowToHighColourSpectrum(lowTempColour, highTempColour, colourInterpolationType);
-        break;
-      }
-
-      default:
-        console.error("Invalid fire colour mode: " + colourMode);
-        this.fireLookup = null;
-        break;
-    }
-
-    spectrum = FireAnimator._adjustSpectrumAlpha(spectrum);
-    this.fireLookup = spectrum;
+  _getFluidModelOffsets() {
+    const startX = 1, endX = this.voxelModel.xSize()+startX;
+    const startZ = 1, endZ = this.voxelModel.zSize()+startZ;
+    return {startX, endX, startY:1, startZ, endZ};
   }
 
   _genRandomTemperatureFunc(x, y, sx, sy, t) {
-    let f = 0;
-    let i = 0;
+    let f = 0, i = 0;
 
     const _randomValue = () => {
       const result = this.randomArray[this.randIdx];
@@ -285,28 +286,24 @@ class FireAnimator extends AudioVisualizerAnimator {
     f *= 1.0/i;
 
     let fx = (x < sx*0.9) ? 1.0 : 1.0-(x-sx*0.9)/(sx*0.2);
-    if (x < sx*0.1) {
-      fx = 0.5 + x/(sx*0.2);
-    }
+    if (x < sx*0.1) { fx = 0.5 + x/(sx*0.2); }
     let fy = (y < sy*0.9) ? 1.0 : 1.0-(y-sy*0.9)/(sy*0.2);
-    if (y < sy*0.1) {
-      fy = 0.5 + y/(sy*0.2);
-    }
+    if (y < sy*0.1) { fy = 0.5 + y/(sy*0.2); }
 
     return f * fx * fy;
   }
   _genAudioTemperatureFunc(x, y, sx, sy, t) {
     const {audioNoiseAddition} = this.config;
 
-    let f = 0;
-    let i = 0;
+    let f = 0, i = 0;
     
     const _randomValue = () => {
       const result = this.audioIntensitiesArray[this.randIdx] + this.randomArray[this.randIdx];
       this.randIdx = (this.randIdx+1) % this.audioIntensitiesArray.length;
       return result;
     };
-    const multiplier = 2*Math.max(this.avgAudioIntensity, audioNoiseAddition/8);
+
+    const multiplier = (this.avgAudioIntensity + this.avgRMS + audioNoiseAddition/8);
     for (; i < 12; i++) {
       f += (1.0 +
         Math.sin(x/sx*PI2*(_randomValue()+1)+(_randomValue())*PI2 + (_randomValue())*t) *
@@ -316,17 +313,12 @@ class FireAnimator extends AudioVisualizerAnimator {
     f /= i;
 
     let fx = (x < sx*0.9) ? 1.0 : 1.0-(x-sx*0.9)/(sx*0.2);
-    if (x < sx*0.1) {
-      fx = 0.5 + x/(sx*0.2);
-    }
+    if (x < sx*0.1) { fx = 0.5 + x/(sx*0.2); }
     let fy = (y < sy*0.9) ? 1.0 : 1.0-(y-sy*0.9)/(sy*0.2);
-    if (y < sy*0.1) {
-      fy = 0.5 + y/(sy*0.2);
-    }
+    if (y < sy*0.1) { fy = 0.5 + y/(sy*0.2); }
 
     return f * fx * fy;
   }
-
 
 }
 

@@ -137,10 +137,15 @@ class VoxelModel {
     // Check to see if we're changing animators
     const nextAnimator = this._animators[type];
     if (this.currentAnimator !== nextAnimator) {
-      this.prevAnimator = this.currentAnimator;
+
+      // HACK: Avoid crossfading between two animators that both use scenes (other than within the SceneAnimator)
+      if (this.currentAnimator.scene === nextAnimator.scene) {
+        this.prevAnimator = this.currentAnimator;
+        this.crossfadeCounter = 0;
+      }
+      
       this.currentAnimator = nextAnimator;
       nextAnimator.load();
-      this.crossfadeCounter = 0;
     }
 
     if (config) { this.currentAnimator.setConfig(config); }

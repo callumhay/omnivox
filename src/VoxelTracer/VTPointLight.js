@@ -15,14 +15,13 @@ const defaultAttenuation = {
 const _tempVec3 = new THREE.Vector3();
 
 class VTPointLight extends VTObject {
-  constructor(position, colour, attenuation={...defaultAttenuation}, drawLight=true) {
+  constructor(position, colour, attenuation, drawLight) {
     super(VTConstants.POINT_LIGHT_TYPE);
 
-    this._position = InitUtils.initTHREEVector3(position);
-    this._colour   = InitUtils.initTHREEColor(colour);
-    this._attenuation = attenuation;
-    this._drawLight   = drawLight;
-    this.makeDirty();
+    this._position    = InitUtils.initTHREEVector3(position);
+    this._colour      = InitUtils.initTHREEColor(colour);
+    this._attenuation = attenuation ? {...defaultAttenuation, ...attenuation} : {...defaultAttenuation};
+    this._drawLight   = InitUtils.initValue(drawLight, true);
   }
 
   expire(pool) {}
@@ -36,30 +35,22 @@ class VTPointLight extends VTObject {
     this._drawLight = _drawLight;
     return this;
   }
-
-  static build(jsonData) {
-    const {id, _position, _colour, _attenuation, _drawLight} = jsonData;
-    const colour = (new THREE.Color()).setHex(_colour);
-    const result = new VTPointLight(new THREE.Vector3(_position.x, _position.y, _position.z), colour, _attenuation, _drawLight);
-    result.id = id;
-    return result;
-  }
   toJSON() {
     const {id, type, _position, _colour, _attenuation, _drawLight} = this;
     return {id, type, _position, _colour, _attenuation, _drawLight};
   }
 
-  setPosition(p) { this._position = p; this.makeDirty(); }
   get position() { return this._position; }
-
-  setColour(c) { this._colour = c; this.makeDirty(); }
+  setPosition(p) { this._position.copy(p); this.makeDirty(); return this; }
+  
   get colour()  { return this._colour; }
+  setColour(c) { this._colour.copy(c); this.makeDirty(); return this; }
 
-  setAttenuation(a) { this._attenuation = a; this.makeDirty(); }
   get attenuation() { return this._attenuation; }
+  setAttenuation(a) { this._attenuation = {...this._attenuation, ...a}; this.makeDirty(); return this; }
 
-  setDrawLight(drawLight) { this._drawLight = drawLight; this.makeDirty(); }
   get drawLight() { return this._drawLight; }
+  setDrawLight(drawLight) { this._drawLight = drawLight; this.makeDirty(); return this; }
 
   isShadowCaster() { return false; }
 

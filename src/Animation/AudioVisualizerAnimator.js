@@ -16,6 +16,29 @@ class AudioVisualizerAnimator extends VoxelAnimator {
     super(voxelModel, config);
   }
 
+  load() {
+    this.reset();
+  }
+  unload() {
+    this.rmsBuffer = null;
+    this.zcrBuffer = null;
+  }
+
+  reset() {
+    this.currMaxResetTimeCounter = 0;
+
+    this.rmsBuffer = [];
+    this.avgRMS = 0;
+    this.currMaxRMS = MIN_MAX_RMS;
+
+    this.zcrBuffer = [];
+    this.avgZCR = 0;
+    this.currMaxZCR = MIN_MAX_ZCR;
+
+    this.dtAudioFrame = 0;
+    this.lastAudioFrameTime = Date.now();
+  }
+
   setAudioInfo(audioInfo) {
     const currAudioFrameTime = Date.now();
     this.dtAudioFrame = Math.max(0.000001, (currAudioFrameTime - this.lastAudioFrameTime) / 1000);
@@ -43,22 +66,6 @@ class AudioVisualizerAnimator extends VoxelAnimator {
       this.currMaxZCR = Math.max(MIN_MAX_ZCR, this.currMaxZCR*DIMINISH_WEIGHT + Math.max(this.avgZCR, this.currMaxZCR)*ONEM_DIMINISH_WEIGHT);
       this.currMaxResetTimeCounter += this.dtAudioFrame;
     }
-
-  }
-
-  reset() {
-    this.currMaxResetTimeCounter = 0;
-
-    this.rmsBuffer = [];
-    this.avgRMS = 0;
-    this.currMaxRMS = MIN_MAX_RMS;
-
-    this.zcrBuffer = [];
-    this.avgZCR = 0;
-    this.currMaxZCR = MIN_MAX_ZCR;
-
-    this.dtAudioFrame = 0;
-    this.lastAudioFrameTime = Date.now();
   }
 
   static buildBinIndexLookup(numFreqs, numBins, gamma) {

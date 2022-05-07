@@ -32,12 +32,11 @@ export class Randomizer {
     return Math.random() > 0.5 ? 1 : -1;
   }
 
-  static getRandomFloats(size, min=0, max=1) {
-    let result = new Array(size);
-    for (let i = 0; i < size; i++) {
-      result[i] = Randomizer.getRandomFloat(min,max);
+  static getRandomFloats(targetArray, min=0, max=1) {
+    for (let i = 0, arrLen = targetArray.length; i < arrLen; i++) {
+      targetArray[i] = Randomizer.getRandomFloat(min,max);
     }
-    return result;
+    return targetArray;
   }
 }
 
@@ -232,13 +231,10 @@ export class RandomHighLowColourCycler {
       const {lowTempColour:currLowTC, highTempColour:currHighTC} = this.prevRandomColours;
       const {lowTempColour:nextLowTC, highTempColour:nextHighTC} = this.nextRandomColours;
 
-      const tempLowTempColour = chroma.mix(chroma.gl([currLowTC.r, currLowTC.g, currLowTC.b, 1]), chroma.gl([nextLowTC.r, nextLowTC.g, nextLowTC.b, 1]), interpolationVal, colourInterpolationType).gl();
-      const tempHighTempColour = chroma.mix(chroma.gl([currHighTC.r, currHighTC.g, currHighTC.b, 1]), chroma.gl([nextHighTC.r, nextHighTC.g, nextHighTC.b, 1]), interpolationVal, colourInterpolationType).gl();
-      
-      const finalLowTempColour = new THREE.Color(tempLowTempColour[0], tempLowTempColour[1], tempLowTempColour[2]);
-      const finalHighTempColour = new THREE.Color(tempHighTempColour[0], tempHighTempColour[1], tempHighTempColour[2]);
+      const finalLowTempColour  = new THREE.Color(chroma.mix(currLowTC.getHex(), nextLowTC.getHex(), interpolationVal, colourInterpolationType).hex());
+      const finalHighTempColour = new THREE.Color(chroma.mix(currHighTC.getHex(), nextHighTC.getHex(), interpolationVal, colourInterpolationType).hex());
 
-      this.colourTransitionTimeCounter += clamp(dt, 0, 1.0/30.0);
+      this.colourTransitionTimeCounter += dt;
       this.currRandomColours = {lowTempColour: finalLowTempColour, highTempColour: finalHighTempColour};
 
       if (interpolationVal >= 1) {

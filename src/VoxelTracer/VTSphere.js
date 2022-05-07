@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 
+import InitUtils from '../InitUtils';
 import VoxelConstants from '../VoxelConstants';
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
@@ -23,20 +24,24 @@ class VTSphere extends VTTransformable {
     super(VTConstants.SPHERE_TYPE);
     
     if (center) { this.position.copy(center); }
-    this._radius = radius || 1;
+    this._radius   = InitUtils.initValue(radius, 1);
     this._material = VTMaterialFactory.initMaterial(material);
-    this._options = options ? {...defaultSphereOptions, ...options} : {...defaultSphereOptions};
-
-    this.makeDirty();
+    this._options  = options ? {...defaultSphereOptions, ...options} : {...defaultSphereOptions};
   }
 
   getBoundingSphere(target) { target.set(_zeroVec, this._radius); target.applyMatrix4(this.matrixWorld); }
 
   get material() { return this._material; }
-  setMaterial(m) { this._material = m; this.makeDirty(); }
+  setMaterial(m) { this._material = m; this.makeDirty(); return this; }
+  
   get center() { return this.position; }
+  setCenter(c) { this.position.copy(c); this.makeDirty(); return this; }
+
   get radius() { return this._radius; }
-  set radius(r) { this._radius = r; this.makeDirty(); }
+  setRadius(r) { this._radius = r; this.makeDirty(); return this; }
+
+  get options() { return this._options; }
+  setOptions(o) { this._options = {...this._options, ...o}; this.makeDirty(); return this; }
 
   toJSON() {
     const {id, drawOrder, type, _material, _options} = this;

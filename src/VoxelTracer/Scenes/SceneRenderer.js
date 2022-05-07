@@ -1,25 +1,28 @@
-
 class SceneRenderer {
   constructor(scene, voxelModel) {
     this.scene = scene;
     this.voxelModel = voxelModel;
-    this.timeCounter = 0;
   }
   
+  load() {}
+  unload() {}
+
+  setOptions(options) {} // TODO: Move this._options = options; here!
+
+  rebuild(options) {
+    this.clear();
+    this.setOptions(options);
+    this._options = options;
+  }
+
   clear() {
     this.scene.clear();
     this._options = null;
   }
 
   rendersToCPUOnly() { return true; }
-
-  build(options) {}
-
-  rebuild(options) {
-    this.clear();
-    this.build(options);
-    this._options = options;
-  }
+  
+  async render(dt) {}
 }
 
 export default SceneRenderer;

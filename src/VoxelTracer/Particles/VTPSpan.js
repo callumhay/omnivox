@@ -1,7 +1,7 @@
 import InitUtils from '../../InitUtils';
 import {Randomizer} from '../../Randomizers';
 
-class VTPSpan { // extends VTPZone???
+class VTPSpan {
 
   /**
    * Get a random Number from a to b.

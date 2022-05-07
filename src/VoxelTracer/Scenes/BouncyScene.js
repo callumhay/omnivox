@@ -13,51 +13,77 @@ import PhysicsUtils from '../../PhysicsUtils';
 import {Randomizer} from '../../Randomizers';
 import {SCRIABIN_NOTE_COLOURS} from '../../Spectrum';
 
+const calcSphereMass = (radius, density) => 4/3 * Math.PI * Math.pow(radius,3) * density;
+
 class BouncyScene extends SceneRenderer {
   constructor(scene, voxelModel) {
     super(scene, voxelModel);
-    this._objectsBuilt = false;
   }
 
-  clear() {
-    super.clear();
-    this._objectsBuilt = false;
-    this.world  = null;
+  load() {
+    this.world = new CANNON.World();
+    this.world.allowSleep = true;
+
+    this.wallMaterial = new CANNON.Material('wall');
+    this.sphereMaterial = new CANNON.Material('sphere');
+    this.sphereWallCM   = new CANNON.ContactMaterial(this.wallMaterial, this.sphereMaterial, {friction: 0, restitution: 1});
+    this.sphereSphereCM = new CANNON.ContactMaterial(this.sphereMaterial, this.sphereMaterial, {friction: 0, restitution: 1});
+    this.world.addContactMaterial(this.sphereWallCM);
+    this.world.addContactMaterial(this.sphereSphereCM);
+
+    // Create walls (collision planes) along the edges of the voxel box
+    const wallBodies = PhysicsUtils.buildSideWalls(this.voxelModel.gridSize, this.wallMaterial);
+    for (const wallBody of wallBodies) { this.world.addBody(wallBody); }
+    
     this.sphereShapes = [];
     this.sphereBodies = [];
     this.vtSpheres = [];
+
+    this.directionalLight1 = new VTDirectionalLight();
+    this.directionalLight2 = new VTDirectionalLight();
+    this.ambientLight = new VTAmbientLight();
+
+    this.lastCallTime = 0;
+  }
+  unload() {
+    this.world = null;
+    this.wallMaterial = null; this.sphereMaterial = null;
+    this.sphereWallCM = null; this.sphereSphereCM = null;
+    this.sphereShapes = null;
+    this.sphereBodies = null;
+    this.vtSpheres = null;
     this.directionalLight1 = null;
     this.directionalLight2 = null;
     this.ambientLight = null;
-    
-    this.lastCallTime = 0;
   }
 
-  build(options) {
-    if (!options) { return; }
-    const {minSphereRadius, maxSphereRadius, sphereDensity} = options;
+  setOptions(options) {
+    const {
+      minSphereRadius, maxSphereRadius, sphereDensity,
+      ambientLightColour, dirLight1Colour, dirLight1Dir,
+      dirLight2Colour, dirLight2Dir, numSpheres, bounciness, 
+      friction, gravity, maxInitialVelocity
+    } = options;
 
-    if (!this._objectsBuilt) {
-      const {
-        ambientLightColour, dirLight1Colour, dirLight1Dir,
-        dirLight2Colour, dirLight2Dir, numSpheres, bounciness, 
-        friction, gravity, maxInitialVelocity
-      } = options;
+    // Set the adjustable physical quantities/constraints on the CANNON world and materials
+    this.world.gravity.set(0, gravity, 0);
+    this.sphereWallCM.friction = friction; this.sphereWallCM.restitution = bounciness;
+    this.sphereSphereCM.friction = friction; this.sphereSphereCM.restitution = bounciness;
+  
+    // Build the bouncy balls (if the number of balls has changed)
+    if (!this._options || this._options.numSpheres !== numSpheres || 
+        this._options.minSphereRadius !== minSphereRadius || this._options.maxSphereRadius !== maxSphereRadius ||
+        this._options.maxInitialVelocity !== maxInitialVelocity || this._options.sphereDensity !== sphereDensity) {
+
+      // Clean up all previous sphere objects
+      for (const sphereBody of this.sphereBodies) { this.world.removeBody(sphereBody); }
+      this.sphereShapes = [];
+      this.sphereBodies = [];
+      this.vtSpheres    = [];
 
       const size = this.voxelModel.xSize();
-
-      this.world = new CANNON.World();
-      this.world.gravity.set(0, gravity, 0);
-      this.world.allowSleep = true;
-
-      // Create walls (collision planes) along the edges of the voxel box
-      const wallMaterial = new CANNON.Material('wall');
-      const wallBodies = PhysicsUtils.buildSideWalls(size, wallMaterial);
-      for (const wallBody of wallBodies) { this.world.addBody(wallBody); }
-
-      const sphereMaterial = new CANNON.Material('sphere');
       const avgRandRadius = (minSphereRadius+maxSphereRadius)/2;
-      const partitionSize = 2*avgRandRadius;
+      const partitionSize = 2*avgRandRadius + 1;
       const numPartitionsPerDim = Math.floor(size / partitionSize);
       const totalPossiblePartitions = Math.pow(numPartitionsPerDim,3);
       const actualNumSpheres = Math.min(totalPossiblePartitions, numSpheres);
@@ -81,8 +107,8 @@ class BouncyScene extends SceneRenderer {
 
         const sphereShape = new CANNON.Sphere(sphereRadius);
         const sphereBody  = new CANNON.Body({
-          mass: 4/3 * Math.PI * Math.pow(sphereRadius,3) * sphereDensity,
-          material: sphereMaterial,
+          mass: calcSphereMass(sphereRadius, sphereDensity),
+          material: this.sphereMaterial, 
           position: new CANNON.Vec3(currX, currY, currZ),
           velocity: new CANNON.Vec3(
             Randomizer.getRandomPositiveOrNegative() * Randomizer.getRandomFloat(3,maxInitialVelocity), 
@@ -99,48 +125,33 @@ class BouncyScene extends SceneRenderer {
         sphereBody.sleepTimeLimit = 3;
 
         this.world.addBody(sphereBody);
-
         this.sphereShapes.push(sphereShape);
         this.sphereBodies.push(sphereBody);
 
         const sphereColour = SCRIABIN_NOTE_COLOURS[(randomColourIdx+i)%SCRIABIN_NOTE_COLOURS.length];
         this.vtSpheres.push(
           new VTSphere(
-            new THREE.Vector3(currX, currY, currZ), sphereRadius, new VTLambertMaterial(new THREE.Color(sphereColour.r,sphereColour.g,sphereColour.b)),
+            new THREE.Vector3(currX, currY, currZ), sphereRadius, 
+            new VTLambertMaterial(new THREE.Color(sphereColour.r,sphereColour.g,sphereColour.b)),
             {...defaultSphereOptions, fill: true}
           )
         );
       }
-
-      const sphereWallCM   = new CANNON.ContactMaterial(wallMaterial, sphereMaterial, {friction: friction, restitution: bounciness});
-      const sphereSphereCM = new CANNON.ContactMaterial(sphereMaterial, sphereMaterial, {friction: friction, restitution: bounciness});
-      this.world.addContactMaterial(sphereWallCM);
-      this.world.addContactMaterial(sphereSphereCM);
-
-      this.ambientLight = new VTAmbientLight(
-        new THREE.Color(ambientLightColour.r, ambientLightColour.g, ambientLightColour.b)
-      );
-      this.directionalLight1 = new VTDirectionalLight(
-        new THREE.Vector3(dirLight1Dir.x, dirLight1Dir.y, dirLight1Dir.z),
-        new THREE.Color(dirLight1Colour.r, dirLight1Colour.g, dirLight1Colour.b)
-      );
-      this.directionalLight2 = new VTDirectionalLight(
-        new THREE.Vector3(dirLight2Dir.x, dirLight2Dir.y, dirLight2Dir.z),
-        new THREE.Color(dirLight2Colour.r, dirLight2Colour.g, dirLight2Colour.b)
-      );
-
-      this._objectsBuilt = true;
     }
+
+    this.ambientLight.setColour(ambientLightColour);
+    this.directionalLight1.setDirection(dirLight1Dir).setColour(dirLight1Colour);
+    this.directionalLight2.setDirection(dirLight2Dir).setColour(dirLight2Colour);
 
     for (const vtSphere of this.vtSpheres) { this.scene.addObject(vtSphere); }
     this.scene.addObject(this.directionalLight1);
     this.scene.addObject(this.directionalLight2);
     this.scene.addObject(this.ambientLight);
+
+    super.setOptions(options);
   }
 
   async render(dt) {
-    if (!this._objectsBuilt) { return; }
-
     // Simulate the physics
     const now = Date.now() / 1000;
     if (!this.lastCallTime) {

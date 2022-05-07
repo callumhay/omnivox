@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import InitUtils from '../InitUtils';
 import VoxelConstants from '../VoxelConstants';
 
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
@@ -25,12 +26,10 @@ class VTBox extends VTTransformable {
 
     this._max = new THREE.Vector3();
     this._min = new THREE.Vector3();
-    this.setSize(size ? size : 1);
+    this.setSize(InitUtils.initValue(size, 1));
     
     this._material = VTMaterialFactory.initMaterial(material);
     this._options  = options ? {...defaultBoxOptions, ...options} : {...defaultBoxOptions};
-
-    this.makeDirty();
   }
 
   unDirty() {
@@ -41,17 +40,23 @@ class VTBox extends VTTransformable {
     return false;
   }
 
+  get center() { return this.position; }
+  setCenter(c) { this.position.copy(c); this.makeDirty(); return this; }
+
   setSize(s) { 
     this._max.copy(s).multiplyScalar(0.5);
     this._min.set(0,0,0).sub(this._max);
     this.makeDirty();
+    return this;
   }
   getSize(target) {
     return target.copy(this._max).sub(this._min);
   }
 
   get material() { return this._material; }
-  setMaterial(m) { this._material = m; this.makeDirty(); }
+  setMaterial(m) { this._material = m; this.makeDirty(); return this; }
+
+  setOptions(o) { this._options = {...this._options, ...o}; this.makeDirty(); return this; }
 
   toJSON() {
     const {id, drawOrder, type, matrixWorld, invMatrixWorld, _min, _max, _material, _options} = this;

@@ -33,6 +33,14 @@ class FireGPU extends FluidGPU {
     this.T0 = this.gpuManager.initFluidBufferFunc(0);
   }
 
+  unload() {
+    // Delete all the GPU buffers
+    this.d.delete(); this.d0.delete();
+    this.uvw.delete(); this.uvw0.delete();
+    this.T.delete(); this.T0.delete();
+    this.sd = null; this.sT = null;
+  }
+
   addSource(srcBuffer, dstBuffer, dt) {
     const temp = dstBuffer;
     const result = this.gpuManager.addFluidSourceFunc(srcBuffer, dstBuffer, dt);

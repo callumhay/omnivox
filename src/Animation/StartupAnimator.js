@@ -229,7 +229,9 @@ class StartupAnimator extends VoxelAnimator {
     this._stopEmitters();
   }
 
-  setConfig(c) { super.setConfig(c); }
+  setConfig(c, init=false) {
+    if (!super.setConfig(c, init)) { return; }
+  }
 
   reset() {
     this.load();

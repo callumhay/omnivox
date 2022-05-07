@@ -21,17 +21,18 @@ class VTMaterialFactory {
     // TODO: Have texture ids to avoid massive duplications here...
     switch (type) {
       case VTMaterial.LAMBERT_TYPE: {
-        result = hasJson ? VTLambertMaterial.build(jsonDataOrType) : new VTLambertMaterial();
+        result = new VTLambertMaterial();
         break;
       }
       case VTMaterial.EMISSION_TYPE: {
-        result = hasJson ? VTEmissionMaterial.build(jsonDataOrType) : new VTEmissionMaterial();
+        result = new VTEmissionMaterial();
         break;
       }
       default:
         console.error(`Invalid material type: ${type}, found in jsonData: ${jsonDataOrType}`);
         break;
     }
+    if (hasJson && result) { result.fromJSON(jsonDataOrType); }
     return result;
   }
 
