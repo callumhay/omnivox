@@ -104,7 +104,7 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
     if (!super.setConfig(c, init)) { return; }
 
     const {
-      displayMode, colourMode, colourInterpolationType, 
+      displayMode, lowColour, highColour, colourInterpolationType, 
       direction, randomColourHoldTime, randomColourTransitionTime
     } = c;
 
@@ -113,33 +113,18 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
     switch (displayMode) {
       case MOVING_HISTORY_BARS_DISPLAY_TYPE:
         switch (direction) {
-          case POS_X_DIR:
-            this.directionVec = [1,0];
-            break;
-          case NEG_X_DIR:
-            this.directionVec = [-1,0];
-            break;
-          case POS_Z_DIR:
-            this.directionVec = [0,1];
-            break;
-          case NEG_Z_DIR:
+          case POS_X_DIR: this.directionVec = [1, 0]; break;
+          case NEG_X_DIR: this.directionVec = [-1,0]; break;
+          case POS_Z_DIR: this.directionVec = [0, 1]; break;
           default:
-            this.directionVec = [0,-1];
-            break;
+          case NEG_Z_DIR: this.directionVec = [0,-1]; break;
         }
         break;
-
       default:
         break;
     }
-
-    switch (colourMode) {
-      case LOW_HIGH_COLOUR_MODE:
-      default:
-        const {lowColour, highColour} = c;
-        this.levelColours = Spectrum.genLowToHighColourSpectrum(lowColour, highColour, colourInterpolationType, this._numLevelColours());
-        break;
-    }
+    // Set the level colours to low/high to initialize the array, this may be updated/changed in render() depending on the colour mode
+    this.levelColours = Spectrum.genLowToHighColourSpectrum(lowColour, highColour, colourInterpolationType, this._numLevelColours());
   }
 
   reset() {
@@ -157,13 +142,10 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
         // In random colour mode we're animating the colour over time, check to see if it has changed and update it accordingly
         const {colourInterpolationType} = this.config;
         const currColours = this.randomColourCycler.tick(dt, colourInterpolationType);
-        this.levelColours = Spectrum.genLowToHighColourSpectrum(
-          currColours.lowTempColour, currColours.highTempColour, colourInterpolationType, this._numLevelColours()
-        );
+        Spectrum.getLowToHighColourSpectrum(this.levelColours, currColours.lowTempColour, currColours.highTempColour, colourInterpolationType);
         break;
       }
-      default:
-        break;
+      default: break;
     }
 
     let temp = this.prevVisTex;

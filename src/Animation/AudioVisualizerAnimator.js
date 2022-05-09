@@ -16,15 +16,7 @@ class AudioVisualizerAnimator extends VoxelAnimator {
     super(voxelModel, config);
   }
 
-  load() {
-    this.reset();
-  }
-  unload() {
-    this.rmsBuffer = null;
-    this.zcrBuffer = null;
-  }
-
-  reset() {
+  _reinitAudioParams() {
     this.currMaxResetTimeCounter = 0;
 
     this.rmsBuffer = [];
@@ -37,6 +29,18 @@ class AudioVisualizerAnimator extends VoxelAnimator {
 
     this.dtAudioFrame = 0;
     this.lastAudioFrameTime = Date.now();
+  }
+
+  load() {
+    this._reinitAudioParams();
+  }
+  unload() {
+    this.rmsBuffer = null;
+    this.zcrBuffer = null;
+  }
+
+  reset() {
+    this._reinitAudioParams();
   }
 
   setAudioInfo(audioInfo) {
