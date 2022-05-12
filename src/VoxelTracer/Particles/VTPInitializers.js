@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 import InitUtils from '../../InitUtils';
 import {Randomizer} from '../../Randomizers';
+import {perpendicularUnitVector, PI2} from '../../MathUtils';
 
 import VTVoxel from "../VTVoxel";
 import VTEmissionMaterial from '../VTEmissionMaterial';
@@ -71,13 +72,30 @@ export class VTPBody extends VTPInitializer {
 // Generator for a uniformly distributed unit vector on a sphere (i.e., a randomized 3D unit vector)
 export class UniformSphereDirGenerator {
   constructor() {}
-  generate(vec3) {
+  generate(target) {
     const phi = Randomizer.getRandomFloat(0, 2*Math.PI);
     const theta = Math.acos(Randomizer.getRandomFloat(-1,1));
-    vec3.setFromSphericalCoords(1, phi, theta);
-    return vec3;
+    target.setFromSphericalCoords(1, phi, theta);
+    return target;
   }
 }
+// Generator for a uniformly distributed vector in a cone shape based on a given direction (cone center vector) 
+// and the half angle of the cone in radians
+const _tempVec3 = new THREE.Vector3();
+export class UniformConeDirGenerator {
+  constructor(direction, halfAngle) {
+    this.direction = InitUtils.initTHREEVector3(direction,0,1,0).normalize();
+    this.halfAngle = InitUtils.initValue(halfAngle, Math.PI/8);
+  }
+  generate(target) {
+    perpendicularUnitVector(_tempVec3, this.direction);
+    // Rotate the perpendicular vector arbitrarily around the direction vector
+    _tempVec3.applyAxisAngle(this.direction, Randomizer.getRandomFloat(0, PI2));
+    target.copy(this.direction).applyAxisAngle(_tempVec3, Randomizer.getRandomFloat(0, this.halfAngle));
+    return target;
+  }
+}
+
 // Produces a random direction from a pre-defined list of static directions
 export class StaticDirGenerator {
   constructor(dirList) {
@@ -87,8 +105,9 @@ export class StaticDirGenerator {
       return (new THREE.Vector3(d.x, d.y, d.z)).normalize();
     });
   }
-  generate(vec3) {
-    vec3.copy(this._dirList[(this._dirList.length * Math.random()) >> 0]);
+  generate(target) {
+    target.copy(this._dirList[(this._dirList.length * Math.random()) >> 0]);
+    return target;
   }
 }
 

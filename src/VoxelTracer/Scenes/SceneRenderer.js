@@ -7,12 +7,11 @@ class SceneRenderer {
   load() {}
   unload() {}
 
-  setOptions(options) {} // TODO: Move this._options = options; here!
+  setOptions(options) { this._options = options; }
 
   rebuild(options) {
     this.clear();
     this.setOptions(options);
-    this._options = options;
   }
 
   clear() {

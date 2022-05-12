@@ -3,7 +3,8 @@ import {
   sceneAnimatorDefaultConfig, 
   SCENE_TYPE_SIMPLE, SCENE_TYPE_SHADOW, SCENE_TYPE_FOG, 
   SCENE_TYPE_GODRAY, SCENE_TYPE_BEACONS, SCENE_TYPE_METABALLS,
-  SCENE_TYPE_BOUNCY, SCENE_TYPE_PARTICLE, SCENE_TYPE_BOX_TEST,
+  SCENE_TYPE_BOUNCY, SCENE_TYPE_PARTICLE, SCENE_TYPE_PARTICLE_PHYS, 
+  SCENE_TYPE_BOX_TEST,
 } from './SceneAnimatorDefaultConfigs';
 
 import {clamp} from '../MathUtils';
@@ -18,6 +19,7 @@ import MetaballScene from '../VoxelTracer/Scenes/MetaballScene';
 import BouncyScene from '../VoxelTracer/Scenes/BouncyScene';
 import ParticleScene from '../VoxelTracer/Scenes/ParticleScene';
 import BoxTestScene from '../VoxelTracer/Scenes/BoxTestScene';
+import ParticlePhysicsScene from '../VoxelTracer/Scenes/ParticlePhysicsScene';
 
 class SceneAnimator extends VoxelAnimator {
   constructor(voxelModel, vtScene, config={...sceneAnimatorDefaultConfig}) {
@@ -30,15 +32,16 @@ class SceneAnimator extends VoxelAnimator {
     
     this._scene = vtScene;
     this._sceneMap = {
-      [SCENE_TYPE_SIMPLE]    : new SimpleScene(this._scene, this.voxelModel),
-      [SCENE_TYPE_SHADOW]    : new ShadowScene(this._scene, this.voxelModel),
-      [SCENE_TYPE_FOG]       : new FogScene(this._scene, this.voxelModel),
-      [SCENE_TYPE_GODRAY]    : new GodRayScene(this._scene, this.voxelModel),
-      [SCENE_TYPE_BEACONS]   : new BeaconsScene(this._scene, this.voxelModel),
-      [SCENE_TYPE_METABALLS] : new MetaballScene(this._scene, this.voxelModel),
-      [SCENE_TYPE_BOUNCY]    : new BouncyScene(this._scene, this.voxelModel),
-      [SCENE_TYPE_PARTICLE]  : new ParticleScene(this._scene, this.voxelModel),
-      [SCENE_TYPE_BOX_TEST]  : new BoxTestScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_SIMPLE]        : new SimpleScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_SHADOW]        : new ShadowScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_FOG]           : new FogScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_GODRAY]        : new GodRayScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_BEACONS]       : new BeaconsScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_METABALLS]     : new MetaballScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_BOUNCY]        : new BouncyScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_PARTICLE]      : new ParticleScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_PARTICLE_PHYS] : new ParticlePhysicsScene(this._scene, this.voxelModel),
+      [SCENE_TYPE_BOX_TEST]      : new BoxTestScene(this._scene, this.voxelModel),
     };
   }
 

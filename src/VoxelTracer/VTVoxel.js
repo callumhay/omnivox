@@ -1,47 +1,44 @@
 import * as THREE from 'three';
 
-import InitUtils from '../InitUtils';
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 import VTConstants from './VTConstants';
 import VTMaterialFactory from './VTMaterialFactory';
-import VTObject from './VTObject';
+import VTTransformable from './VTTransformable';
 
 export const defaultVTVoxelOptions = {
   receivesShadows: true,
   castsShadows: true,
 };
 
-// TODO: REFACTOR TO USE VTTransformable
-class VTVoxel extends VTObject  {
+const _tempPos = new THREE.Vector3();
 
+class VTVoxel extends VTTransformable  {
   constructor(position, material, options) {
     super(VTConstants.VOXEL_TYPE);
 
-    this._position = InitUtils.initTHREEVector3(position);
+    if (position) { this.position.copy(position); }
     this._material = VTMaterialFactory.initMaterial(material);
     this._options = options ? {...defaultVTVoxelOptions, ...options} : {...defaultVTVoxelOptions};
   }
 
   get material() { return this._material; }
-  setMaterial(m) { this._material = m; this.makeDirty(); }
+  setMaterial(m) { this._material = m; this.makeDirty(); return this; }
 
-  setReceivesShadows(r) { this._options.receivesShadows = r; this.makeDirty(); }
-  setCastsShadows(c) { this._options.castsShadows = c; this.makeDirty(); }
+  setRadius(_) { return this; } // For compatibility with the particle emitter pipeline
 
-  // Transform methods
-  setWorldPosition(p) { this._position.copy(p); this.makeDirty(); }
-  setLocalRotationEuler(r) {}  // NOTE: Single voxels have no local orientation
-  setLocalScale(sX, sY, sZ) {} // NOTE: Single voxels have no scale
+  get options() { return this._options; }
+  setOptions(o) { this._options = {...this._options, ...o}; this.makeDirty(); return this; }
 
   toJSON() {
-    const {id, drawOrder, type, _position, _material, _options} = this;
-    return {id, drawOrder, type, _position, _material, _options};
+    const {id, drawOrder, type, _material, _options} = this;
+    this.getWorldPosition(_tempPos);
+    return {id, drawOrder, type, _position:_tempPos, _material, _options};
   }
 
   getCollidingVoxels(voxelGridBoundingBox) {
-    const closestPt = VoxelGeometryUtils.closestVoxelIdxPt(this._position);
-    closestPt.floor();
+    this.getWorldPosition(_tempPos); 
+    const closestPt = VoxelGeometryUtils.closestVoxelIdxPt(_tempPos);
     return voxelGridBoundingBox.containsPoint(closestPt) ? [closestPt] : [];
   }
 }

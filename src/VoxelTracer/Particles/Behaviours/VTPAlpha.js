@@ -1,8 +1,10 @@
 import * as THREE from 'three';
-import InitUtils from '../../../InitUtils';
-import VTPSpan from '../VTPSpan';
-import VTPBehaviour from "./VTPBehaviour";
 
+import InitUtils from '../../../InitUtils';
+
+import VTPSpan from '../VTPSpan';
+
+import VTPBehaviour from "./VTPBehaviour";
 
 class VTPAlpha extends VTPBehaviour {
   constructor(startAlpha, endAlpha, life, easing) {
@@ -10,13 +12,11 @@ class VTPAlpha extends VTPBehaviour {
     this.reset(startAlpha, endAlpha);
   }
 
-  reset(startAlpha, endAlpha, life, easing) {
+  reset(startAlpha, endAlpha, life=null, easing=null) {
+    super.reset(life, easing);
     this._same = (endAlpha == null || endAlpha == undefined);
-
     this.startAlpha = VTPSpan.createSpan(InitUtils.initValue(startAlpha, 1));
     this.endAlpha   = VTPSpan.createSpan(endAlpha);
-
-    life && easing && super.reset(life, easing);
   }
 
   initialize(particle) {

@@ -53,23 +53,26 @@ class VTPUtils {
   }
 
   static eulerIntegrate(particle, dt, damping) {
-    if (!particle.sleep) {
-      particle.old.p.copy(particle.p);
-      particle.old.v.copy(particle.v);
-      particle.a.multiplyScalar(1.0 / particle.mass);
-      particle.v.add(particle.a.multiplyScalar(dt));
-      particle.p.add(particle.old.v.multiplyScalar(dt));
 
-      // Only damp the velocity if there is one
-      // i.e., friction shouldn't cause things to start moving backwards from their original velocity's direction
-      if (damping && particle.v.lengthSq() > VoxelConstants.VOXEL_ERR_UNITS) {
-        particle.v.subScalar(dt*damping);
-        // Make sure we clamp to a zero velocity if necessary
-        if (particle.v.dot(particle.old.v) < 0) { particle.v.set(0,0,0); }
-      }
-      
-      particle.a.set(0,0,0);
+    particle.old.p.copy(particle.p);
+    particle.old.v.copy(particle.v);
+
+    // If the particle is being governed by a physics behaviour then we don't integrate
+    if (particle.physicsBody) { return; }
+
+    particle.a.multiplyScalar(1.0 / particle.mass);
+    particle.v.add(particle.a.multiplyScalar(dt));
+    particle.p.add(particle.old.v.multiplyScalar(dt));
+
+    // Only damp the velocity if there is one
+    // i.e., friction shouldn't cause things to start moving backwards from their original velocity's direction
+    if (damping && particle.v.lengthSq() > VoxelConstants.VOXEL_ERR_UNITS) {
+      particle.v.subScalar(dt*damping);
+      // Make sure we clamp to a zero velocity if necessary
+      if (particle.v.dot(particle.old.v) < 0) { particle.v.set(0,0,0); }
     }
+    
+    particle.a.set(0,0,0);
   }
 
 }

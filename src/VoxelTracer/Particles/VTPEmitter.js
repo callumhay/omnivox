@@ -18,7 +18,7 @@ class VTPEmitter extends VTPParticle {
 
     this._initializers = [];
     this._particles    = [];
-    this._behaviours   = [];
+    //this._behaviours   = []; // NOTE: Initialized in VTPParticle
 
     this.currentEmitTime = 0;
     this.totalEmitTimes  = -1;
@@ -34,6 +34,12 @@ class VTPEmitter extends VTPParticle {
     if (idx > -1) { this._initializers.splice(idx, 1); }
   }
   removeAllInitializers() { this._initializers.length = 0; }
+
+  // Override from VTPParticle - don't currently initialize for emitters
+  addBehaviour(behaviour, initBehaviour=false) {
+    this._behaviours.push(behaviour);
+    if (initBehaviour) { behaviour.initialize(this); }
+  }
 
   /**
    * Start/Initialize the emitter.
@@ -68,6 +74,19 @@ class VTPEmitter extends VTPParticle {
     this.setupParticle(particle, initialize, behaviour);
     this.parent.dispatchEvent("particleCreated", this, particle);
     return particle;
+  }
+
+  setupParticle(particle, initializer, behaviour) {
+    let initializers = this._initializers;
+    let behaviours = this._behaviours;
+
+    if (initializer) { initializers = Array.isArray(initializer) ? initializer : [initializer]; }
+    if (behaviour) { behaviours = Array.isArray(behaviour) ? behaviour : [behaviour]; }
+
+    VTPInitializer.setupInitializers(this, particle, initializers);
+    for (const b of behaviours) { particle.addBehaviour(b, true); }
+    particle.parent = this;
+    this._particles.push(particle);
   }
 
   integrate(dt) {
@@ -118,18 +137,7 @@ class VTPEmitter extends VTPParticle {
     }
   }
 
-  setupParticle(particle, initializer, behaviour) {
-    let initializers = this._initializers;
-    let behaviours = this._behaviours;
 
-    if (initializer) { initializers = Array.isArray(initializer) ? initializer : [initializer]; }
-    if (behaviour) { behaviours = Array.isArray(behaviour) ? behaviour : [behaviour]; }
-
-    VTPInitializer.setupInitializers(this, particle, initializers);
-    for (const b of behaviours) { particle.addBehaviour(b); }
-    particle.parent = this;
-    this._particles.push(particle);
-  }
 
   destroy() {
     this.dead = true;

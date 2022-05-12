@@ -12,11 +12,12 @@ class VTPBehaviour {
   }
 
   reset(life, easing) {
-    this.life = InitUtils.initValue(life, Infinity);
-    this.easing = InitUtils.initValue(easing, VTPEase.easeLinear);
+    if (life !== null && life !== undefined) { this.life = life; }
+    if (easing !== null && easing !== undefined) { this.easing = easing; }
   }
 
   initialize(particle) {}
+  remove(particle) {}
 
   applyBehaviour(particle, dt, index) {
     if (this.dead) { return; }

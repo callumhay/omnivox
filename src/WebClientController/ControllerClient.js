@@ -2,9 +2,7 @@ import VoxelProtocol from "../VoxelProtocol";
 import MasterCP from './ControlPanels/MasterCP';
 
 class ControllerClient {
-
   constructor(soundManager) {
-
     this.socket = new WebSocket('ws://' + window.location.hostname + ':' + VoxelProtocol.WEBSOCKET_PORT, VoxelProtocol.WEBSOCKET_PROTOCOL_CONTROLLER);
     this.soundManager = soundManager;
     this.controlPanel = null;
@@ -14,7 +12,6 @@ class ControllerClient {
   start() {
     this.socket.addEventListener('open', (event) => {
       console.log("Websocket open on " + event.currentTarget.url);
-      // TODO: Send a request to take this client off the full voxel frame notifications
     });
     this.socket.addEventListener('error', (error) => {
       console.log("Websocket error: " + error);

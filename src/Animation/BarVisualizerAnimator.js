@@ -46,8 +46,8 @@ export const barVisualizerAnimatorDefaultConfig = {
   splitLevels:  false,
 
   // History bar display options
-  speed:           5.0,
-  tempoMultiplier: 15.0,
+  speed:           10,
+  tempoMultiplier: 15,
   direction:       NEG_Z_DIR,
 };
 
@@ -106,7 +106,7 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
     const {
       displayMode, lowColour, highColour, colourInterpolationType, 
       direction, randomColourHoldTime, randomColourTransitionTime
-    } = c;
+    } = this.config;
 
     this.randomColourCycler.setConfig({randomColourHoldTime, randomColourTransitionTime});
 
@@ -151,7 +151,9 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
     let temp = this.prevVisTex;
     switch (displayMode) {
       case MOVING_HISTORY_BARS_DISPLAY_TYPE:
-        this.prevVisTex = gpuKernelMgr.historyBarVisFunc(this.audioHistoryBuffer, this.directionVec, levelMax, fadeFactor, this.levelColours, this.prevVisTex, dt);
+        this.prevVisTex = gpuKernelMgr.historyBarVisFunc(
+          this.audioHistoryBuffer, this.directionVec, levelMax, fadeFactor, this.levelColours, this.prevVisTex, dt
+        );
         break;
 
       case STATIC_BARS_DISPLAY_TYPE:

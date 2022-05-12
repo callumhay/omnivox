@@ -1,12 +1,15 @@
 import * as THREE from 'three';
+
+import VoxelConstants from '../../VoxelConstants';
+
+import VTEmissionMaterial from '../VTEmissionMaterial';
+
 import VTVoxel from '../VTVoxel';
 import VTPUtils from './VTPUtils';
 import VTPEase from './VTPEase';
-import VTEmissionMaterial from '../VTEmissionMaterial';
 
 class VTPParticle {
   constructor(options) {
-
     this.reset(true);
     VTPUtils.setObjectFromOptions(this, options);
   }
@@ -16,13 +19,13 @@ class VTPParticle {
     this.age = 0;
     this.energy = 1;
     this.dead = false;
-    this.sleep = false;
     this.bodyType = VTVoxel;
     this.materialType = VTEmissionMaterial;
     this.target = null;
     this.parent = null;
     this.mass = 1;
-    this.radius = 1;
+    this.radius = VoxelConstants.VOXEL_HALF_UNIT_SIZE;
+    this.physicsBody = null;
 
     this.alpha = 1;
     this.scale = 1;
@@ -59,22 +62,23 @@ class VTPParticle {
     return this;
   }
 
-  addBehaviour(behaviour) { 
+  addBehaviour(behaviour, _) {
     this._behaviours.push(behaviour);
     behaviour.initialize(this);
   }
   removeBehaviour(behaviour) {
     const idx = this._behaviours.indexOf(behaviour);
-    if (idx > -1) { this._behaviours.splice(idx, 1); }
+    if (idx > -1) { this._behaviours.splice(idx, 1); behaviour.remove(this); }
   }
-  removeAllBehaviours() { this._behaviours.length = 0; }
+  removeAllBehaviours() {
+    for (const behaviour of this._behaviours) { behaviour.remove(this); }
+    this._behaviours.length = 0;
+  }
 
   update(dt, index) {
-    if (!this.sleep) {
-      this.age += dt;
-      for (const behaviour of this._behaviours) {
-        behaviour.applyBehaviour(this, dt, index);
-      }
+    this.age += dt;
+    for (const behaviour of this._behaviours) {
+      behaviour.applyBehaviour(this, dt, index);
     }
 
     if (this.age >= this.life) { this.destroy(); } 

@@ -72,12 +72,11 @@ class VTPColour extends VTPBehaviour {
     this.reset(startColours, endColours);
   }
 
-  reset(startColours, endColours, life, easing) {
-    life && super.reset(life, easing);
-
+  reset(startColours, endColours, life=null, easing=null) {
+    super.reset(life, easing);
     this._same = (endColours === null || endColours === undefined);
     this.startColourSpan = VTPColourArraySpan.createColourArraySpan(startColours);
-    this.endColourSpan = VTPColourArraySpan.createColourArraySpan(endColours);
+    this.endColourSpan   = VTPColourArraySpan.createColourArraySpan(endColours);
   }
 
   initialize(particle) {

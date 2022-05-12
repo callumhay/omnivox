@@ -153,18 +153,7 @@ class BouncyScene extends SceneRenderer {
 
   async render(dt) {
     // Simulate the physics
-    const now = Date.now() / 1000;
-    if (!this.lastCallTime) {
-      // Last call time not saved, can't guess elapsed time. Take a simple step.
-      this.world.step(dt);
-      this.lastCallTime = now;
-    }
-    else {
-      let timeSinceLastCall = now - this.lastCallTime;
-      this.world.step(dt);
-      this.world.step(dt, timeSinceLastCall, 20);
-      this.lastCallTime = now;
-    }
+    this.lastCallTime = PhysicsUtils.stepWorld(this.world, this.lastCallTime, dt);
 
     // Update the voxel tracer / renderer based on the physics
     for (let i = 0; i < this.sphereBodies.length; i++) {

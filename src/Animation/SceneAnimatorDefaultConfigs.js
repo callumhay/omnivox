@@ -1,3 +1,6 @@
+import VTPEase from "../VoxelTracer/Particles/VTPEase";
+
+import { COLOUR_PALETTE_TYPES } from "../Spectrum";
 import VoxelConstants from "../VoxelConstants";
 
 export const SCENE_TYPE_SIMPLE    = "Simple";
@@ -8,7 +11,7 @@ export const SCENE_TYPE_BEACONS   = "Beacons";
 export const SCENE_TYPE_METABALLS = "Metaballs";
 export const SCENE_TYPE_BOUNCY    = "Bouncy";
 export const SCENE_TYPE_PARTICLE  = "Particle";
-
+export const SCENE_TYPE_PARTICLE_PHYS = "Physics Particle";
 export const SCENE_TYPE_BOX_TEST = "Box Test";
 
 export const SCENE_TYPES = [
@@ -20,7 +23,7 @@ export const SCENE_TYPES = [
   SCENE_TYPE_METABALLS,
   SCENE_TYPE_BOUNCY,
   SCENE_TYPE_PARTICLE,
-
+  SCENE_TYPE_PARTICLE_PHYS,
   SCENE_TYPE_BOX_TEST,
 ];
 
@@ -326,21 +329,22 @@ const boxTestSceneControlOptions = {
 const particleSceneDefaultOptions = {
   ambientLightColour: {r:0.0, g:0.0, b:0.0},
 
-  blurSqrSigma: 0.5,
+  blurSqrSigma: 0,
   blurKernelSize: 3,
   blurConserveEnergy: false,
 
-  chromaticAberrationIntensity: 1,
+  chromaticAberrationIntensity: 0,
   chromaticAberrationAlpha: 1,
   chromaticAberrationOffsets: {x:1, y:1, z:1},
   
   particleSpawn: {numMin: 5, numMax: 10, interval: 0.05},
-  particleLifeSpan: {min: 0.4, max: 0.75},
-  particleSpeed: {min: VoxelConstants.VOXEL_DIAGONAL_GRID_SIZE/2, max: VoxelConstants.VOXEL_DIAGONAL_GRID_SIZE},
+  particleLifeSpan: {min: 1, max: 1.5},
+  particleSpeed: {min: 4, max: 8},
   particleColourStart: {colourA: {r:1, g:1, b:1}, colourB: {r:1, g:1, b:1}},
-  particleColourEnd: {colourA: {r:0, g:0, b:1}, colourB: {r:0.53, g:0.81, b:0.92}},
-  particleAlphaStart: {min: 0.5, max: 1},
-  particleAlphaEnd: {min: 0, max: 0},
+  particleColourEnd: {colourA: {r:0, g:1, b:1}, colourB: {r:1, g:0, b:1}},
+  particleAlphaStart: {min: 1, max: 1},
+  particleAlphaEnd: {min: 1, max: 1},
+  particleAlphaEasing: VTPEase.EASE_FUNC_NAMES[0],
   particleMaterial: "VTEmissionMaterial",
 
   emitterType: 'point',
@@ -350,6 +354,11 @@ const particleSceneDefaultOptions = {
     z:VoxelConstants.VOXEL_HALF_GRID_UNIT
   },
   totalEmitTimes: {num: 1, isInfinity: true},
+  
+  enableAttractor: false,
+  attractorForce: 50,
+  attractorRadius: VoxelConstants.VOXEL_GRID_SIZE,
+  attractorPos: { x:0, y:15, z:0 },
 };
 const particleSceneControlOptions = {
   ambientLightColour: {label: "Ambient Light Colour"},
@@ -380,7 +389,7 @@ const particleSceneControlOptions = {
     interval: {label: "Interval (s)", min:0.01, max:2, step:0.01},
   },
   particleLifeSpan: {
-    label: "Particle Life Span", 
+    label: "Particle Life", 
     min: {label: "Min Life (s)", min: 0.1, max: 10, step:0.1}, 
     max: {label: "Max Life (s)", min: 0.1, max: 10, step:0.1}
   },
@@ -407,6 +416,10 @@ const particleSceneControlOptions = {
     min: {label: "Min Alpha", min: 0, max: 1, step: 0.01}, 
     max: {label: "Max Alpha", min: 0, max: 1, step: 0.01}
   },
+  particleAlphaEasing: {
+    label: "Particle Alpha Easing",
+    list: [...VTPEase.EASE_FUNC_NAMES],
+  },
   particleMaterial: {
     label: "Particle Material",
     list: ["VTEmissionMaterial", "VTLambertMaterial"],
@@ -416,26 +429,101 @@ const particleSceneControlOptions = {
     label: "Emitter Type",
     list: ['point', 'box'],
   },
-  emitterPos: { label: "Emitter Position" },
+  emitterPos: {label: "Emitter Position", ...positionCtrlOpt},
   totalEmitTimes: {
     label: "Emitter Cycles",
     num: {label: "Number of Cycles", min:1, max:10, step:1}, 
     isInfinity: {label: "Infinite Cycles?"}
   },
+
+  enableAttractor: {label: "Enable Attractor?"},
+  attractorForce: {label: "Attractor Force", min:-100, max:100, step:1},
+  attractorRadius: {label: "Attractor Radius", min:1, max:VoxelConstants.VOXEL_GRID_SIZE*4, step:1},
+  attractorPos: { label: "Attractor Position", ...positionCtrlOpt},
 };
 
+const particlePhysicsSceneDefaultOptions = {
+  particleSpawn: {numMin: 16, numMax: 16, interval: 1},
+  particleLife:  {min: 8, max: 10},
+  particleSpeed: {min: 8, max: 12},
+  particleMass:  {min: 0.5, max: 1},
+  particleRadius: {min: 1, max: 3},
+  particleType: "VTVoxel",
+  particleColourPalette: COLOUR_PALETTE_TYPES[0],
+
+  emitterPos: {
+    x:VoxelConstants.VOXEL_HALF_GRID_UNIT,
+    y:VoxelConstants.VOXEL_HALF_GRID_UNIT,
+    z:VoxelConstants.VOXEL_HALF_GRID_UNIT
+  },
+  emitterConeAngle: 30,
+
+  gravity: {x: 0, y:-9.8, z:0},
+  bounciness: 0.4,
+  friction: 0.5,
+  enableParticleCollisions: false,
+};
+const particlePhysicsSceneControlOptions = {
+  particleSpawn: {
+    label: "Particle Spawning", 
+    numMin: {label: "Min Particles", min:0, max:32, step:1}, 
+    numMax: {label: "Max Particles", min:0, max:32, step:1}, 
+    interval: {label: "Interval (s)", min:0.01, max:2, step:0.01},
+  },
+  particleLife: {
+    label: "Particle Life", 
+    min: {label: "Min Life (s)", min: 0.1, max: 10, step:0.1}, 
+    max: {label: "Max Life (s)", min: 0.1, max: 10, step:0.1}
+  },
+  particleSpeed: {
+    label: "Particle Speed", 
+    min: {label: "Min Speed (voxel/s)", min: 0.1, max: 32, step:0.1}, 
+    max: {label: "Max Speed (voxel/s)", min: 0.1, max: 32, step:0.1}
+  },
+  particleMass: {
+    label: "Particle Mass",
+    min: {label: "Min Mass (kg)", min:0.1, max:10, step: 0.1},
+    max: {label: "Max Mass (kg)", min:0.1, max:10, step: 0.1}
+  },
+  particleRadius: {
+    label: "Particle Radius (Spheres Only)",
+    min: {label: "Min Radius (voxels)", min:1, max:5, step:0.5},
+    max: {label: "Max Radius (voxels)", min:1, max:5, step:0.5},
+  },
+  particleType: {
+    label: "Particle Type",
+    list: ["VTVoxel", "VTSphere"]
+  },
+  particleColourPalette: {
+    label: "Particle Colour Palette",
+    list: [...COLOUR_PALETTE_TYPES]
+  },
+
+  emitterPos: {label: "Emitter Position", ...positionCtrlOpt},
+  emitterConeAngle: {label: "Emitter Cone Angle (°)", min:0, max:90, step:1},
+
+  gravity: {
+    label: "Gravity (voxel/s^2)", 
+    x: {min:-20, max:20, step:0.2},
+    y: {min:-20, max:20, step:0.2},
+    z: {min:-20, max:20, step:0.2},
+  },
+  bounciness: {label: "Bounciness", min:0, max:1, step:0.01},
+  friction: {label: "Friction", min:0, max:1, step:0.01},
+  enableParticleCollisions: {label: "Particle Collisions?"},
+};
 
 export const sceneDefaultOptionsMap = {
-  [SCENE_TYPE_SIMPLE]:    {options: simpleSceneDefaultOptions,   constraints: simpleSceneControlOptions},
-  [SCENE_TYPE_SHADOW]:    {options: shadowSceneDefaultOptions,   constraints: shadowSceneControlOptions},
-  [SCENE_TYPE_FOG]:       {options: fogSceneDefaultOptions,      constraints: fogSceneControlOptions},
-  [SCENE_TYPE_GODRAY]:    {options: godRaySceneDefaultOptions,   constraints: godRaySceneControlOptions},
-  [SCENE_TYPE_BEACONS]:   {options: beaconsSceneDefaultOptions,  constraints: beaconsSceneControlOptions},
-  [SCENE_TYPE_METABALLS]: {options: metaballSceneDefaultOptions, constraints: metaballSceneControlOptions},
-  [SCENE_TYPE_BOUNCY]:    {options: bouncySceneDefaultOptions,   constraints: bouncySceneControlOptions},
-  [SCENE_TYPE_PARTICLE]:  {options: particleSceneDefaultOptions, constraints: particleSceneControlOptions},
-
-  [SCENE_TYPE_BOX_TEST]:  {options: boxTestSceneDefaultOptions,  constraints: boxTestSceneControlOptions},
+  [SCENE_TYPE_SIMPLE]:        {options: simpleSceneDefaultOptions,          constraints: simpleSceneControlOptions},
+  [SCENE_TYPE_SHADOW]:        {options: shadowSceneDefaultOptions,          constraints: shadowSceneControlOptions},
+  [SCENE_TYPE_FOG]:           {options: fogSceneDefaultOptions,             constraints: fogSceneControlOptions},
+  [SCENE_TYPE_GODRAY]:        {options: godRaySceneDefaultOptions,          constraints: godRaySceneControlOptions},
+  [SCENE_TYPE_BEACONS]:       {options: beaconsSceneDefaultOptions,         constraints: beaconsSceneControlOptions},
+  [SCENE_TYPE_METABALLS]:     {options: metaballSceneDefaultOptions,        constraints: metaballSceneControlOptions},
+  [SCENE_TYPE_BOUNCY]:        {options: bouncySceneDefaultOptions,          constraints: bouncySceneControlOptions},
+  [SCENE_TYPE_PARTICLE]:      {options: particleSceneDefaultOptions,        constraints: particleSceneControlOptions},
+  [SCENE_TYPE_PARTICLE_PHYS]: {options: particlePhysicsSceneDefaultOptions, constraints: particlePhysicsSceneControlOptions},
+  [SCENE_TYPE_BOX_TEST]:      {options: boxTestSceneDefaultOptions,         constraints: boxTestSceneControlOptions},
 
 };
 

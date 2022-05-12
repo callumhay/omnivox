@@ -1,12 +1,8 @@
-import InitUtils from '../InitUtils';
 import VoxelGeometryUtils from '../VoxelGeometryUtils';
 
 import VTConstants from './VTConstants';
 import VTMaterialFactory from './VTMaterialFactory';
 import VTTransformable from './VTTransformable';
-
-// TODO: Stop using a THREE.Mesh and just use the geometry along with the VTTransformable matrixWorld
-// to save on JSON size overhead in communication to child render processes
 
 class VTMesh extends VTTransformable {
   // NOTE: All geometry MUST be buffer geometry!

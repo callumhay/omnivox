@@ -45,18 +45,14 @@ class VTSphere extends VTTransformable {
 
   toJSON() {
     const {id, drawOrder, type, _material, _options} = this;
-
-    _sphere.set(_zeroVec, this._radius);
-    _sphere.applyMatrix4(this.matrixWorld);
+    this.getBoundingSphere(_sphere);
     const {center, radius} = _sphere;
-
     return {id, drawOrder, type, center, radius, material: _material, options: _options};
   }
 
   getCollidingVoxels(voxelBoundingBox=null) {
     this.getBoundingSphere(_sphere)
     const {center, radius} = _sphere;
-
     return VoxelGeometryUtils.voxelSphereList(center, radius + VoxelConstants.VOXEL_EPSILON, true, voxelBoundingBox);
   }
 }

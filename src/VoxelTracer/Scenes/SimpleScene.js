@@ -55,8 +55,6 @@ class SimpleScene extends SceneRenderer {
   }
 
   setOptions(options) {
-    super.setOptions(options);
-
     const {
       noiseAlpha, noiseSpeed, distortHorizontal, distortVertical,
       wallX, wallY, wallZ, wallColour,
@@ -95,6 +93,8 @@ class SimpleScene extends SceneRenderer {
       this.wallZMesh.material.setColour(wallColour);
       this.scene.addObject(this.wallZMesh);
     }
+
+    super.setOptions(options);
   }
 
   async render(dt) {

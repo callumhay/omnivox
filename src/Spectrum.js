@@ -21,6 +21,17 @@ export const SCRIABIN_NOTE_COLOURS = [
   {r: 0.565, g: 0.796, b: 0.996}, // B: Sky Blue (#90cbfe)
 ];
 
+// Colour Palettes
+export const PALETTE_MAP = {
+  "Eighties":   [0xF00078, 0xFFC70E, 0x99FC20, 0x00E6FE, 0xFF9933, 0x993F87, 0xFB2E2B, 0x24739F],
+  "Retro":      [0x262156, 0x87d1c7, 0xfffae0, 0xf3e885, 0xeb5d52],
+  "Vintage":    [0xb31800, 0xff0039, 0xf4c07a, 0xe17acc, 0xec00b2],
+  "Cyberwave1": [0x711c91, 0xea00d9, 0x0abdc6, 0x133e7c, 0x091833],
+  "Cyberwave2": [0x0c4383, 0x22a1b6, 0x00fe9e, 0x7c1446, 0xcb0c59],
+  "Bauhaus":    [0x000000, 0xbe1e2d, 0xffde17, 0xffffff, 0x21409a],
+};
+export const COLOUR_PALETTE_TYPES = Object.keys(PALETTE_MAP);
+
 export const COLOUR_INTERPOLATION_RGB  = 'rgb';
 export const COLOUR_INTERPOLATION_HSL  = 'hsl';
 export const COLOUR_INTERPOLATION_LAB  = 'lab';

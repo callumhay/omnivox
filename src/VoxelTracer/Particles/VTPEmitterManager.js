@@ -53,16 +53,21 @@ class VTPEmitterManager {
       particle.target.drawOrder = emitter.cID + 1;
     }
     
-    particle.target.setWorldPosition(particle.p);
+    const {target} = particle;
+    target.position.copy(particle.p);
+    target.makeDirty();
+    
     this.scene.addObject(particle.target);
   }
 
   particleUpdate(emitter, particle) {
     if (!particle.target) { return; }
+
     const {target} = particle;
-    target.setWorldPosition(particle.p);
-    target.setLocalRotationEuler(particle.rotation);
-    target.setLocalScale(particle.scale, particle.scale, particle.scale);
+    target.setRadius(particle.radius);
+    target.position.copy(particle.p);
+    target.setRotationFromEuler(particle.rotation);
+    target.scale.set(particle.scale, particle.scale, particle.scale);
 
     const {material} = target;
     if (particle.useAlpha)  { material.alpha = particle.alpha; }

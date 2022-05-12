@@ -86,18 +86,9 @@ class AudioVisualizerAnimator extends VoxelAnimator {
 
     // Find gaps in the lookup and just have those gaps reference the previous (or next) bin's frequency(ies)
     for (let i = 0; i < numBins; i++) {
-      if (i in binIndexLookup) {
-        continue;
-      }
-
-      // Is there a previous bin?
-      if (i-1 in binIndexLookup) {
-        binIndexLookup[i] = binIndexLookup[i-1];
-      }
-      // Is there a next bin?
-      else if (i+1 in binIndexLookup) {
-        binIndexLookup[i] = binIndexLookup[i+1];
-      }
+      if (i in binIndexLookup) { continue; }
+      if (i-1 in binIndexLookup) { binIndexLookup[i] = binIndexLookup[i-1]; }      // Is there a previous bin? 
+      else if (i+1 in binIndexLookup) { binIndexLookup[i] = binIndexLookup[i+1]; } // Is there a next bin?
       else {
         // This really shouldn't happen, it means there's a huge gap
         console.error("Big gap in the number of frequencies to available bins, please find me and write code to fix this issue.");

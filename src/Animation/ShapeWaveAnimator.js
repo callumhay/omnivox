@@ -2,43 +2,14 @@ import * as THREE from 'three';
 
 import VoxelConstants from '../VoxelConstants';
 import {Randomizer} from '../Randomizers';
+import {PALETTE_MAP, COLOUR_PALETTE_TYPES} from '../Spectrum';
 
 import VoxelAnimator from './VoxelAnimator';
 
-const EIGHTIES_MAGENTA_HEX    = 0xF00078;
-const EIGHTIES_YELLOW_HEX     = 0xFFC70E;
-const EIGHTIES_LIME_HEX       = 0x99FC20;
-const EIGHTIES_PURPLE_HEX     = 0x993F87;
-const EIGHTIES_TEAL_HEX       = 0x1B8772;
-const EIGHTIES_TURQUOISE_HEX  = 0x338F8E;
-const EIGHTIES_CYAN_HEX       = 0x00E6FE;
-const EIGHTIES_STRAWBERRY_HEX = 0xFB2E2B;
-const EIGHTIES_ORANGE_HEX     = 0xFF9933;
-const EIGHTIES_BLUE_HEX       = 0x24739F;
-
-// Colour Palette Constants
-export const EIGHTIES_COLOUR_PALETTE = [
-  new THREE.Color(EIGHTIES_MAGENTA_HEX),
-  new THREE.Color(EIGHTIES_TURQUOISE_HEX),
-  new THREE.Color(EIGHTIES_YELLOW_HEX),
-  new THREE.Color(EIGHTIES_LIME_HEX),
-  new THREE.Color(EIGHTIES_TEAL_HEX),
-  new THREE.Color(EIGHTIES_CYAN_HEX),
-  new THREE.Color(EIGHTIES_ORANGE_HEX),
-  new THREE.Color(EIGHTIES_PURPLE_HEX),
-  new THREE.Color(EIGHTIES_STRAWBERRY_HEX),
-  new THREE.Color(EIGHTIES_BLUE_HEX),
-];
-export const RGB_COLOUR_PALETTE = [
-  new THREE.Color(0xff0000),
-  new THREE.Color(0x00ff00),
-  new THREE.Color(0x0000ff)
-];
-
 // Wave Shape Constants
-export const WAVE_SHAPE_CUBE    = 'cube';
-export const WAVE_SHAPE_SPHERE  = 'sphere';
-export const WAVE_SHAPE_DIAMOND = 'diamond';
+const WAVE_SHAPE_CUBE    = "Cube";
+const WAVE_SHAPE_SPHERE  = "Sphere";
+const WAVE_SHAPE_DIAMOND = "Diamond";
 export const WAVE_SHAPE_TYPES = [
   WAVE_SHAPE_CUBE,
   WAVE_SHAPE_SPHERE,
@@ -46,8 +17,8 @@ export const WAVE_SHAPE_TYPES = [
 ];
 
 // Colour selection constants
-export const COLOUR_SELECTION_SEQUENTIAL = 1;
-export const COLOUR_SELECTION_RANDOM     = 2;
+export const COLOUR_SELECTION_SEQUENTIAL = "Sequential";
+export const COLOUR_SELECTION_RANDOM     = "Random";
 export const COLOUR_SELECTION_TYPES = [
   COLOUR_SELECTION_SEQUENTIAL,
   COLOUR_SELECTION_RANDOM,
@@ -56,9 +27,9 @@ export const COLOUR_SELECTION_TYPES = [
 export const shapeWaveAnimatorDefaultConfig = {
   waveShape: WAVE_SHAPE_SPHERE,
   center: {x: VoxelConstants.VOXEL_HALF_GRID_IDX, y: VoxelConstants.VOXEL_HALF_GRID_IDX, z: VoxelConstants.VOXEL_HALF_GRID_IDX},
-  waveSpeed: 6, // voxels / second
-  waveGap: 1, // space between waves (voxels)
-  colourPalette: EIGHTIES_COLOUR_PALETTE,
+  waveSpeed: 6, // (in voxels / second)
+  waveGap: 1,   // space between waves (in voxels)
+  colourPaletteName: COLOUR_PALETTE_TYPES[0],
   colourSelectionMode: COLOUR_SELECTION_RANDOM,
 };
 
@@ -68,7 +39,6 @@ const _minPt = new THREE.Vector3();
 const _maxPt = new THREE.Vector3();
 const _tempBox = new THREE.Box3();
 const _tempSphere = new THREE.Sphere();
-
 
 class WaveShape {
   constructor(voxelModel, colour, config) {
@@ -126,56 +96,29 @@ class WaveShape {
 }
 
 class ShapeWaveAnimator extends VoxelAnimator {
-  constructor(voxels, config = shapeWaveAnimatorDefaultConfig) {
-    super(voxels, config);
-    this.reset();
-
-    // We define our colour selection based on the selection mode - we load up the colour queue with
-    // the configured colour palette and then we pick off the colours that make sense based on the selection mode
-    let colourQueue = [];
-    this.getNextColour = () => {
-      const {colourSelectionMode} = this.config;
-      const colourPalette = EIGHTIES_COLOUR_PALETTE; // TODO: Make this dynamically driven from the GUI somehow
-
-      let nextColour = null;
-
-      if (colourQueue.length === 0) {
-        colourQueue = [...colourPalette];
-      }
-
-      switch (colourSelectionMode) {
-
-        case COLOUR_SELECTION_RANDOM:
-          const randIdx = Randomizer.getRandomInt(0, colourQueue.length);
-          nextColour = colourQueue[randIdx];
-          colourQueue.splice(randIdx, 1);
-          break;
-
-        case COLOUR_SELECTION_SEQUENTIAL:
-        default:
-          nextColour = colourQueue.pop();
-          break;
-      }
-
-      return nextColour;
-    };
-
-    this.buildWaveShapeAnimator = () => {
-      const currColour = this.getNextColour();
-      return new WaveShape(voxels, currColour, this.config);
-    };
+  constructor(voxelModel, config = shapeWaveAnimatorDefaultConfig) {
+    super(voxelModel, config);
   }
 
   getType() { return VoxelAnimator.VOXEL_ANIM_TYPE_SHAPE_WAVES; }
 
-  load() {
+  _reinit() {
     this.activeShapes = [];
+    this.colourQueue = [];
+  }
+  load() {
+    this._reinit();
   }
   unload() {
     this.activeShapes = null;
+    this.colourQueue = null;
+  }
+  setConfig(c, init=false) {
+    if (!super.setConfig(c, init)) { return; }
+    this.colourQueue = [];
   }
   reset() {
-    this.activeShapes = [];
+    this._reinit();
   }
 
   render(dt) {
@@ -184,7 +127,7 @@ class ShapeWaveAnimator extends VoxelAnimator {
     const voxelSampleSize = 1 + waveGap;
     const lastShape = this.activeShapes.length > 0 ? this.activeShapes[this.activeShapes.length-1] : null;
     if (!lastShape || lastShape.radius >= voxelSampleSize) {
-      this.activeShapes.push(this.buildWaveShapeAnimator());
+      this.activeShapes.push(new WaveShape(this.voxelModel, this._getNextColour(), this.config));
     }
 
     // Build a list of everything we need to render
@@ -233,6 +176,29 @@ class ShapeWaveAnimator extends VoxelAnimator {
     this.activeShapes = this.activeShapes.filter((waveShape) => !waveShape.removeMe);
   }
 
+  _getNextColour() {
+    const {colourSelectionMode, colourPaletteName} = this.config;
+    
+    const colourPalette = PALETTE_MAP[colourPaletteName];
+    if (this.colourQueue.length === 0) { this.colourQueue = [...colourPalette]; }
+
+    let nextColourHex = null;
+    switch (colourSelectionMode) {
+
+      case COLOUR_SELECTION_RANDOM:
+        const randIdx = Randomizer.getRandomInt(0, this.colourQueue.length);
+        nextColourHex = this.colourQueue[randIdx];
+        this.colourQueue.splice(randIdx, 1);
+        break;
+
+      case COLOUR_SELECTION_SEQUENTIAL:
+      default:
+        nextColourHex = this.colourQueue.pop();
+        break;
+    }
+
+    return new THREE.Color(nextColourHex);
+  }
 }
 
 export default ShapeWaveAnimator;

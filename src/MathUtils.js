@@ -6,16 +6,16 @@ export const PI2 = Math.PI*2;
 export const hslToHsvColor = (hsl) => {
   const v = hsl.l + hsl.s*Math.min(hsl.l,1-hsl.l);
   return {h:hsl.h, s: v == 0 ? 0 : 2-2*hsl.l/v, v:v};
-}
+};
 export const hsvToHslColor = (hsv) => {
   const l = hsv.v - hsv.v*hsv.s/2.0;
   const hsl = new THREE.Color();
   hsl.setHSL(hsv.h, l === 0 || l === 1 ? 0 : ((hsv.v-l)/Math.min(l,1-l)), l);
-}
+};
 
 export const clamp = (value, min, max) => {
   return Math.max(min, Math.min(max, value));
-}
+};
 
 /**
  * Fast hash code function for uint8 arrays.
@@ -28,7 +28,7 @@ export const hashCode = (arr) => {
     hash = hash & hash;
   }
   return hash;
-}
+};
 
 /**
  * Get the theta and phi angles for a given position on the surface of a sphere.
@@ -41,4 +41,34 @@ export const spherePtToThetaPhi = (r, pt)  => {
   const theta = Math.acos(pt.z / r);
   const phi = Math.atan2(pt.y, pt.z);
   return [theta, phi];
-}
+};
+
+/**
+ * To create an 'imperfect' perpendicular unit vector to the one given we
+ * find the smallest index coordinate component and set it to zero,
+ * then we flip the other two coordinates and negate the first.
+ **/
+export const perpendicularUnitVector = (target, vec) => {
+  let smallestIdx = 0;
+  if (vec.x < vec.y) {
+    if (vec.x < vec.z) {
+      smallestIdx = 0;
+      target.y = -vec.z; target.z = vec.y;
+    }
+    else {
+      smallestIdx = 2;
+      target.x = -vec.y; target.y = vec.x;
+    }
+  }
+  else {
+    if (vec.y < vec.z) {
+      smallestIdx = 1;
+      target.x = -vec.z; target.z = vec.x;
+    }
+    else {
+      smallestIdx = 2;
+      target.x = -vec.y; target.y = vec.x;
+    }
+  }
+  return target.setComponent(smallestIdx, 0).normalize();
+};

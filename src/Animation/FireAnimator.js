@@ -1,5 +1,3 @@
-import * as THREE from 'three';
-
 import VoxelAnimator from './VoxelAnimator';
 import AudioVisualizerAnimator from './AudioVisualizerAnimator';
 import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
@@ -65,7 +63,6 @@ class FireAnimator extends AudioVisualizerAnimator {
 
   constructor(voxelModel, config=fireAnimatorDefaultConfig) {
     super(voxelModel, config);
-    this.reset();
   }
 
   getType() { return VoxelAnimator.VOXEL_ANIM_FIRE; }
@@ -78,14 +75,15 @@ class FireAnimator extends AudioVisualizerAnimator {
     this.fluidModel.diffusion = 0.0001;
     this.fluidModel.viscosity = 0;
 
-    const {startX, endX, startY, startZ, endZ} = this._getFluidModelOffsets();
+    this.fluidModelOffsets = {startX:1, endX:this.voxelModel.xSize()+1, startY:1, startZ:1, endZ:this.voxelModel.zSize()+1};
+    const {startX, endX, startY, startZ, endZ} = this.fluidModelOffsets;
     for (let z = startZ; z < endZ; z++) {
       for (let x = startX; x < endX; x++) {
         this.fluidModel.sd[x][startY][z] = 1.0;
       }
     }
 
-    const INTENSITY_ARRAY_SIZE = Math.min(128, Math.pow(this.voxelModel.gridSize,2));
+    const INTENSITY_ARRAY_SIZE = Math.pow(this.voxelModel.gridSize,2);
     this.audioIntensitiesArray = new Array(INTENSITY_ARRAY_SIZE).fill(0);
     this.randomArray = new Array(INTENSITY_ARRAY_SIZE).fill(0);
 
@@ -100,6 +98,7 @@ class FireAnimator extends AudioVisualizerAnimator {
       this.fluidModel.unload(); // Clears GPU buffers
       this.fluidModel = null;
     }
+    this.fluidModelOffsets = null;
     this.audioIntensitiesArray = null;
     this.randomArray = null;
     this.fireLookup = null;
@@ -147,12 +146,11 @@ class FireAnimator extends AudioVisualizerAnimator {
       }
     }
     FireAnimator.adjustSpectrumAlpha(this.fireLookup);
-
   }
 
   reset() {
     super.reset();
-    if (this.randomColourCycler) { this.randomColourCycler.reset(); }
+    this.randomColourCycler.reset();
     this._reinitTimersAndAudioParams();
   }
 
@@ -172,13 +170,12 @@ class FireAnimator extends AudioVisualizerAnimator {
     // Offsets are used because the fluid model has two extra values on either side of each buffer in all dimensions in order
     // to properly calculate the derivatives within the grid. We need to get the values inside that margin and place them
     // into our voxel grid.
-    const {startX, endX, startY, startZ, endZ} = this._getFluidModelOffsets();
+    const {startX, endX, startY, startZ, endZ} = this.fluidModelOffsets;
     if (this.timeCounterToReinitFluid >= REINIT_FLUID_TIME_SECS) {
       const genFunc = audioVisualizationOn ? this._genAudioTemperatureFunc.bind(this) : this._genRandomTemperatureFunc.bind(this);
       for (let z = startZ; z < endZ; z++) {
         for (let x = startX; x < endX; x++) {
-          let f = genFunc(x-startX, z-startZ, endX-startX, endZ-startZ, this.t);
-          this.fluidModel.sT[x][startY][z] = 1.0 + f*initialIntensityMultiplier;
+          this.fluidModel.sT[x][startY][z] = 1.0 + genFunc(x-startX, z-startZ, endX-startX, endZ-startZ, this.t)*initialIntensityMultiplier;
         }
       }
       this.timeCounterToReinitFluid = 0;
@@ -226,11 +223,14 @@ class FireAnimator extends AudioVisualizerAnimator {
       this.binIndexLookup = AudioVisualizerAnimator.buildBinIndexLookup(numFreqs, audioIntensityArrLen, gamma);
     }
 
+    this.avgAudioIntensity = 0;
     for (let i = 0; i < audioIntensityArrLen; i++) {
       const fftIndices = this.binIndexLookup[i];
       const binLevel = AudioVisualizerAnimator.calcFFTBinLevelMax(fftIndices, fft);
       this.audioIntensitiesArray[i] = clamp(Math.log10(binLevel)/levelMax, 0, 1);
+      this.avgAudioIntensity += this.audioIntensitiesArray[i];
     }
+    this.avgAudioIntensity /= audioIntensityArrLen;
 
     // Update the fluid model levers based on the current audio
     this.avgSpectralCentroid = (this.avgSpectralCentroid + spectralCentroid) / 2.0;
@@ -241,10 +241,6 @@ class FireAnimator extends AudioVisualizerAnimator {
     this.fluidModel.buoyancy = buoyancyVal * audioBuoyancyMultiplier;
     this.fluidModel.cooling  = cooling + clamp((1.0 - nRMS) * audioCoolingMultiplier, 0, 2); // Values range from [0.1, 2] where lower values make the fire brighter/bigger
     this.fluidModel.vc_eps   = vorticityConfinement + (nRMS * 30 * audioTurbulenceMultiplier);
-
-    this.avgAudioIntensity = 0;
-    for (let j = 0; j < audioIntensityArrLen; j++) { this.avgAudioIntensity += this.audioIntensitiesArray[j]; }
-    this.avgAudioIntensity /= audioIntensityArrLen;
   }
 
   static adjustSpectrumAlpha(spectrum) {
@@ -260,12 +256,6 @@ class FireAnimator extends AudioVisualizerAnimator {
       }
     }
     return spectrum;
-  }
-
-  _getFluidModelOffsets() {
-    const startX = 1, endX = this.voxelModel.xSize()+startX;
-    const startZ = 1, endZ = this.voxelModel.zSize()+startZ;
-    return {startX, endX, startY:1, startZ, endZ};
   }
 
   _genRandomTemperatureFunc(x, y, sx, sy, t) {
@@ -303,7 +293,7 @@ class FireAnimator extends AudioVisualizerAnimator {
       return result;
     };
 
-    const multiplier = (this.avgAudioIntensity + this.avgRMS + audioNoiseAddition/8);
+    const multiplier = 1.1*(this.avgAudioIntensity + this.avgRMS + audioNoiseAddition/8);
     for (; i < 12; i++) {
       f += (1.0 +
         Math.sin(x/sx*PI2*(_randomValue()+1)+(_randomValue())*PI2 + (_randomValue())*t) *

@@ -1,6 +1,19 @@
 const STUPID_EASING_CONSTANT = 1.70158;
 
+const EASE_FUNC_NAMES = [
+  "easeLinear",
+  "easeInQuad", "easeOutQuad", "easeInOutQuad",
+  "easeInCubic", "easeOutCubic", "easeInOutCubic",
+  "easeInQuart", "easeOutQuart", "easeInOutQuart",
+  "easeInSine", "easeOutSine", "easeInOutSine",
+  "easeInExpo", "easeOutExpo", "easeInOutExpo",
+  "easeInCirc", "easeOutCirc", "easeInOutCirc",
+  "easeInBack", "easeOutBack", "easeInOutBack"
+];
+
 class VTPEase {
+
+  static get EASE_FUNC_NAMES() { return EASE_FUNC_NAMES; }
 
   static easeLinear(value) { return value; }
 
@@ -27,7 +40,7 @@ class VTPEase {
 
   static easeInSine(value) { return -Math.cos(value * (Math.PI / 2)) + 1; }
   static easeOutSine(value) { return Math.sin(value * (Math.PI / 2)); }
-  static easeInOutSine(value) { return (-0.5 * (Math.cos(Proton.PI * value) - 1)); }
+  static easeInOutSine(value) { return (-0.5 * (Math.cos(Math.PI * value) - 1)); }
 
   static easeInExpo(value) { return (value === 0) ? 0 : Math.pow(2, 10 * (value - 1)); }
   static easeOutExpo(value) { return (value === 1) ? 1 : -Math.pow(2, -10 * value) + 1; }
