@@ -8,12 +8,13 @@ import VTObject from './VTObject';
 import VTConstants from './VTConstants';
 
 const defaultAttenuation = {
-  quadratic:0.04, 
-  linear:0.1, 
+  quadratic: 0.04, 
+  linear: 0.1,
 };
 
 const _tempVec3 = new THREE.Vector3();
 
+// TODO: Inherit from VTTransformable
 class VTPointLight extends VTObject {
   constructor(position, colour, attenuation, drawLight) {
     super(VTConstants.POINT_LIGHT_TYPE);

@@ -45,7 +45,11 @@ class VTRPVoxel extends VTRPObject  {
   isShadowCaster() { return this._options.castsShadows || false; }
   isShadowReceiver() { return this._options.receivesShadows || false; }
 
-  intersectsRay(raycaster) { return raycaster.ray.intersectsBox(this._boundingBox, _tempVec3) !== null; }
+  intersectsRay(raycaster) { 
+    const {ray, far} = raycaster;
+    const intersectionPt = ray.intersectBox(this._boundingBox, _tempVec3);
+    return intersectionPt !== null && intersectionPt.distanceToSquared(ray.origin) <= far*far;
+  }
 
   calculateShadow(raycaster) {
     return {

@@ -2,10 +2,10 @@
 
 import * as THREE from 'three';
 
-import VTAmbientLight from '../VTAmbientLight';
-import VTVoxel from '../VTVoxel';
-import VTEmissionMaterial from '../VTEmissionMaterial';
-import VTLambertMaterial from '../VTLambertMaterial';
+import VoxelModel from '../../Server/VoxelModel';
+import VoxelPostProcessPipeline from '../../Server/PostProcess/VoxelPostProcessPipeline';
+import VoxelGaussianBlurPP from '../../Server/PostProcess/VoxelGaussianBlurPP';
+import VoxelChromaticAberrationPP from '../../Server/PostProcess/VoxelChromaticAberrationPP';
 
 import VTPEmitterManager from '../Particles/VTPEmitterManager';
 import VTPEmitter from '../Particles/VTPEmitter';
@@ -16,14 +16,15 @@ import {StaticDirGenerator, UniformSphereDirGenerator, VTPBody, VTPLife, VTPPosi
 import VTPAlpha from '../Particles/Behaviours/VTPAlpha';
 import VTPColour from '../Particles/Behaviours/VTPColour';
 import VTPAttraction from '../Particles/Behaviours/VTPAttraction';
+import VTPEase from '../Particles/VTPEase';
 
-import VoxelModel from '../../Server/VoxelModel';
-import VoxelPostProcessPipeline from '../../Server/PostProcess/VoxelPostProcessPipeline';
-import VoxelGaussianBlurPP from '../../Server/PostProcess/VoxelGaussianBlurPP';
-import VoxelChromaticAberrationPP from '../../Server/PostProcess/VoxelChromaticAberrationPP';
+import VTAmbientLight from '../VTAmbientLight';
+import VTVoxel from '../VTVoxel';
+import VTEmissionMaterial from '../VTEmissionMaterial';
+import VTLambertMaterial from '../VTLambertMaterial';
+import VTPointLight from '../VTPointLight';
 
 import SceneRenderer from './SceneRenderer';
-import VTPEase from '../Particles/VTPEase';
 
 class ParticleScene extends SceneRenderer {
   constructor(scene, voxelModel) {
@@ -31,6 +32,8 @@ class ParticleScene extends SceneRenderer {
   }
 
   load() {
+    if (this.emitter) { return; } // Already loaded?
+    
     const {gridSize} = this.voxelModel;
 
     this.postProcessPipeline = new VoxelPostProcessPipeline(this.voxelModel);
@@ -45,7 +48,7 @@ class ParticleScene extends SceneRenderer {
     this.spawnInterval = new VTPSpan();
     this.emitter.rate  = new VTPRate(this.spawnNum, this.spawnInterval);
 
-    this.emitterBodyInit = new VTPBody(VTVoxel, VTEmissionMaterial);
+    this.emitterBodyInit = new VTPBody(VTVoxel, VTEmissionMaterial, {receivesShadows: false, castsShadows: false});
     this.emitter.addInitializer(this.emitterBodyInit);
     this.emitterLifeInit = new VTPLife();
     this.emitter.addInitializer(this.emitterLifeInit);
@@ -75,6 +78,7 @@ class ParticleScene extends SceneRenderer {
     this.emitterMgr = new VTPEmitterManager(this.scene, 20, [VTVoxel]);
     this.emitterMgr.addEmitter(this.emitter);
 
+    this.ptLight = new VTPointLight();
     this.ambientLight = new VTAmbientLight();
   }
   unload() {
@@ -94,7 +98,7 @@ class ParticleScene extends SceneRenderer {
     this.particleEndColourA = null; this.particleEndColourB = null;
     this.particleAttractBehaviour = null;
     this.emitterMgr = null;
-    this.ambientLight = null;
+    this.ptLight = null; this.ambientLight = null;
   }
 
   setOptions(options) {
@@ -104,6 +108,7 @@ class ParticleScene extends SceneRenderer {
       particleMaterial, particleSpawn, particleLifeSpan, particleSpeed, 
       particleAlphaStart, particleAlphaEnd, particleAlphaEasing, particleColourStart, particleColourEnd,
       emitterType, emitterPos, totalEmitTimes, ambientLightColour,
+      pointLightColour, pointLightAtten, pointLightPosition, drawPointLight,
       enableAttractor, attractorForce, attractorRadius, attractorPos,
     } = options;
 
@@ -129,6 +134,7 @@ class ParticleScene extends SceneRenderer {
       case 'box': {
         this.emitterVelInit.dirGenerator = this.boxDirGen;
         this.emitter.addInitializer(this.boxPosInit);
+        this.emitter.p.set(0,0,0);
         break;
       }
     }
@@ -158,6 +164,11 @@ class ParticleScene extends SceneRenderer {
       this.emitter.removeBehaviour(this.particleAttractBehaviour);
     }
 
+    this.ptLight.setColour(pointLightColour);
+    this.ptLight.setAttenuation(pointLightAtten);
+    this.ptLight.setPosition(pointLightPosition);
+    this.ptLight.setDrawLight(drawPointLight);
+
     this.ambientLight.setColour(ambientLightColour);
 
     this.gaussianBlur.setConfig({
@@ -171,6 +182,7 @@ class ParticleScene extends SceneRenderer {
       xyzMask: [chromaticAberrationOffsets.x, chromaticAberrationOffsets.y, chromaticAberrationOffsets.z]
     });
 
+    this.scene.addObject(this.ptLight);
     this.scene.addObject(this.ambientLight);
     super.setOptions(options);
   }

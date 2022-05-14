@@ -31,31 +31,32 @@ class PhysicsUtils {
     const wallZNegBody = new CANNON.Body({mass: 0, material: wallMaterial});
     const wallZPosBody = new CANNON.Body({mass: 0, material: wallMaterial});
 
+    const adjustedZero = VoxelConstants.VOXEL_HALF_UNIT_SIZE;
     const adjustedCubeSize = cubeSize-VoxelConstants.VOXEL_HALF_UNIT_SIZE;
 
     wallYNegBody.addShape(wallYNegShape);
     wallYNegBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-    wallYNegBody.position.set(0,0,0);
+    wallYNegBody.position.set(adjustedZero,adjustedZero,adjustedZero);
 
     wallYPosBody.addShape(wallYPosShape);
     wallYPosBody.quaternion.setFromEuler(Math.PI / 2, 0, 0);
-    wallYPosBody.position.set(0,adjustedCubeSize,0);
+    wallYPosBody.position.set(adjustedZero,adjustedCubeSize,adjustedZero);
 
     wallXNegBody.addShape(wallXNegShape);
     wallXNegBody.quaternion.setFromEuler(0, Math.PI / 2, 0);
-    wallXNegBody.position.set(0,0,0);
+    wallXNegBody.position.set(adjustedZero,adjustedZero,adjustedZero);
 
     wallXPosBody.addShape(wallXPosShape);
     wallXPosBody.quaternion.setFromEuler(0, -Math.PI / 2, 0);
-    wallXPosBody.position.set(adjustedCubeSize,0,0);
+    wallXPosBody.position.set(adjustedCubeSize,adjustedZero,adjustedZero);
 
     wallZNegBody.addShape(wallZNegShape);
     wallZNegBody.quaternion.setFromEuler(0,0,0);
-    wallZNegBody.position.set(0,0,0);
+    wallZNegBody.position.set(adjustedZero,adjustedZero,adjustedZero);
 
     wallZPosBody.addShape(wallZPosShape);
     wallZPosBody.quaternion.setFromEuler(0, Math.PI, 0);
-    wallZPosBody.position.set(0,0,adjustedCubeSize);
+    wallZPosBody.position.set(adjustedZero,adjustedZero,adjustedCubeSize);
 
     return [
       wallXNegBody, wallXPosBody,

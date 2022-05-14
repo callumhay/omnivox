@@ -13,6 +13,8 @@ class FogScene extends SceneRenderer {
   }
 
   load() {
+    if (this.fog) { return; } // Already loaded?
+    
     const size = this.voxelModel.xSize();
 
     this.ptLight = new VTPointLight();

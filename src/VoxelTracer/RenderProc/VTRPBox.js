@@ -104,10 +104,12 @@ class VTRPBox extends VTRPObject {
   isFilled() { return this._options.fill || false; }
 
   intersectsRay(raycaster) { 
+    const {ray, far} = raycaster;
     // Move the ray into local space and check if it collides with the local space box
-    _tempRay.copy(raycaster.ray);
+    _tempRay.copy(ray);
     _tempRay.applyMatrix4(this._invMatrixWorld);
-    return _tempRay.intersectsBox(this._box);
+    const intersectionPt = _tempRay.intersectBox(this._box, _tempVec3_0);
+    return intersectionPt !== null && intersectionPt.applyMatrix4(this._matrixWorld).distanceToSquared(ray.origin) <= far*far;
   }
 
   calculateShadow(raycaster) {

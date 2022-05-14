@@ -43,6 +43,8 @@ export const spherePtToThetaPhi = (r, pt)  => {
   return [theta, phi];
 };
 
+export const calcSphereMass = (radius, density) => 4/3 * Math.PI * Math.pow(radius,3) * density;
+
 /**
  * To create an 'imperfect' perpendicular unit vector to the one given we
  * find the smallest index coordinate component and set it to zero,

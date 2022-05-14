@@ -10,10 +10,10 @@ import VTDirectionalLight from '../VTDirectionalLight';
 import VTAmbientLight from '../VTAmbientLight';
 
 import PhysicsUtils from '../../PhysicsUtils';
+import { calcSphereMass } from '../../MathUtils';
 import {Randomizer} from '../../Randomizers';
 import {SCRIABIN_NOTE_COLOURS} from '../../Spectrum';
-
-const calcSphereMass = (radius, density) => 4/3 * Math.PI * Math.pow(radius,3) * density;
+import VoxelConstants from '../../VoxelConstants';
 
 class BouncyScene extends SceneRenderer {
   constructor(scene, voxelModel) {
@@ -21,6 +21,8 @@ class BouncyScene extends SceneRenderer {
   }
 
   load() {
+    if (this.world) { return; } // Already loaded?
+    
     this.world = new CANNON.World();
     this.world.allowSleep = true;
 
@@ -35,7 +37,6 @@ class BouncyScene extends SceneRenderer {
     const wallBodies = PhysicsUtils.buildSideWalls(this.voxelModel.gridSize, this.wallMaterial);
     for (const wallBody of wallBodies) { this.world.addBody(wallBody); }
     
-    this.sphereShapes = [];
     this.sphereBodies = [];
     this.vtSpheres = [];
 
@@ -49,7 +50,6 @@ class BouncyScene extends SceneRenderer {
     this.world = null;
     this.wallMaterial = null; this.sphereMaterial = null;
     this.sphereWallCM = null; this.sphereSphereCM = null;
-    this.sphereShapes = null;
     this.sphereBodies = null;
     this.vtSpheres = null;
     this.directionalLight1 = null;
@@ -77,7 +77,6 @@ class BouncyScene extends SceneRenderer {
 
       // Clean up all previous sphere objects
       for (const sphereBody of this.sphereBodies) { this.world.removeBody(sphereBody); }
-      this.sphereShapes = [];
       this.sphereBodies = [];
       this.vtSpheres    = [];
 
@@ -125,7 +124,6 @@ class BouncyScene extends SceneRenderer {
         sphereBody.sleepTimeLimit = 3;
 
         this.world.addBody(sphereBody);
-        this.sphereShapes.push(sphereShape);
         this.sphereBodies.push(sphereBody);
 
         const sphereColour = SCRIABIN_NOTE_COLOURS[(randomColourIdx+i)%SCRIABIN_NOTE_COLOURS.length];

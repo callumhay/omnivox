@@ -15,6 +15,8 @@ class BeaconsScene extends SceneRenderer {
   }
 
   load() {
+    if (this.beaconList) { return; } // Already loaded?
+
     const size = this.voxelModel.gridSize;
     const sizeDiv2 = size/2.0;
     const sizeDiv4 = size/4.0;

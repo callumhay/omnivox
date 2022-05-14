@@ -29,7 +29,8 @@ class ParticlePhysicsScene extends SceneRenderer {
   }
 
   load() {
-    if (this.world) { return; }
+    if (this.world) { return; } // Already loaded?
+
     this.world = new CANNON.World();
     this.world.allowSleep = true;
 
@@ -49,11 +50,11 @@ class ParticlePhysicsScene extends SceneRenderer {
 
     this.emitter = new VTPEmitter();
 
-    this.emitterBodyInit = new VTPBody(VTVoxel, VTEmissionMaterial);
+    this.emitterBodyInit = new VTPBody(VTVoxel, VTEmissionMaterial, {fill: true});
     this.emitter.addInitializer(this.emitterBodyInit);
     this.emitterLifeInit = new VTPLife();
     this.emitter.addInitializer(this.emitterLifeInit);
-    this.dirGenerator = new UniformConeDirGenerator(new THREE.Vector3(0,1,0), Math.PI/6);
+    this.dirGenerator = new UniformConeDirGenerator();
     this.emitterVelInit = new VTPVelocity(new VTPSpan(), this.dirGenerator);
     this.emitter.addInitializer(this.emitterVelInit);
     this.emitterMassInit = new VTPMass();

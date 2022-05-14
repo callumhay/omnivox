@@ -53,9 +53,9 @@ class VTPEmitterManager {
       particle.target.drawOrder = emitter.cID + 1;
     }
     
-    const {target} = particle;
+    const {target, targetOptions} = particle;
     target.position.copy(particle.p);
-    target.makeDirty();
+    target.setOptions(targetOptions);
     
     this.scene.addObject(particle.target);
   }

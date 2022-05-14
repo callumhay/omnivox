@@ -23,6 +23,8 @@ class MetaballScene extends SceneRenderer {
   }
 
   load() {
+    if (this.isofield) { return; } // Already loaded?
+    
     const size = this.voxelModel.xSize();
     this.isofield = new VTIsofield(size, new VTLambertMaterial());
     this.ambientLight = new VTAmbientLight();

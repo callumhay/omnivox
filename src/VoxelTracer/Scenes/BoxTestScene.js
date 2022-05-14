@@ -15,6 +15,8 @@ class BoxTestScene extends SceneRenderer {
   }
 
   load() {
+    if (this.box1) { return; } // Already loaded?
+
     const size = this.voxelModel.gridSize;
     const halfSize = size/2;
 

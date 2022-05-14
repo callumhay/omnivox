@@ -78,10 +78,13 @@ class VTRPSphere extends VTRPObject  {
   isShadowReceiver() { return this._options.receivesShadows || false; }
 
   intersectsRay(raycaster) {
+    const {ray, far} = raycaster;
     this._sphere.radius -= VoxelConstants.VOXEL_EPSILON;
-    const result = raycaster.ray.intersectSphere(this._sphere, _tempVec3) !== null;
+    const intersectionPt = ray.intersectSphere(this._sphere, _tempVec3);
     this._sphere.radius += VoxelConstants.VOXEL_EPSILON;
-    return result;
+
+    // Is the intersection point inside the sphere?
+    return intersectionPt !== null && intersectionPt.distanceToSquared(ray.origin) <= far*far;
   }
 
   calculateShadow(raycaster) {

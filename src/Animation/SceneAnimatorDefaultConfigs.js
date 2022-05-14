@@ -1,6 +1,6 @@
 import VTPEase from "../VoxelTracer/Particles/VTPEase";
 
-import { COLOUR_PALETTE_TYPES } from "../Spectrum";
+import {COLOUR_PALETTE_TYPES} from "../Spectrum";
 import VoxelConstants from "../VoxelConstants";
 
 export const SCENE_TYPE_SIMPLE    = "Simple";
@@ -65,6 +65,7 @@ const simpleSceneDefaultOptions = {
   pointLight2Colour: {r:0, g:1, b:0},
   pointLight3Colour: {r:0, g:0, b:1},
   pointLightAtten: {quadratic:0.01, linear:0},
+  enableLightPhysics: false,
 
   ambientLightColour: {r:0.1, g:0.1, b:0.1},
 
@@ -89,6 +90,7 @@ const simpleSceneControlOptions = {
   pointLight2Colour: {label: "Light 2 Colour"},
   pointLight3Colour: {label: "Light 3 Colour"},
   pointLightAtten: {...attenuationCtrlOpt},
+  enableLightPhysics: {label: "Enable Light Physics?"},
 
   ambientLightColour: {label: "Ambient Light Colour"},
   
@@ -329,6 +331,11 @@ const boxTestSceneControlOptions = {
 const particleSceneDefaultOptions = {
   ambientLightColour: {r:0.0, g:0.0, b:0.0},
 
+  pointLightColour: {r:1, g:1, b:1},
+  pointLightPosition: {x:VoxelConstants.VOXEL_HALF_GRID_SIZE-1, y:0, z:VoxelConstants.VOXEL_HALF_GRID_SIZE-1},
+  pointLightAtten: {quadratic:0.03, linear:0},
+  drawPointLight: false,
+
   blurSqrSigma: 0,
   blurKernelSize: 3,
   blurConserveEnergy: false,
@@ -362,6 +369,11 @@ const particleSceneDefaultOptions = {
 };
 const particleSceneControlOptions = {
   ambientLightColour: {label: "Ambient Light Colour"},
+
+  drawPointLight: {label: "Draw Point Light?"},
+  pointLightColour: {label: "Point Light Colour"},
+  pointLightPosition: {...positionCtrlOpt, label: "Point Light Position"},
+  pointLightAtten: {...attenuationCtrlOpt, label: "Point Light Attenuation"},
 
   blurSqrSigma: {label: "Blur Squared Std. Dev", min:0, max:2, step:0.001},
   blurKernelSize: {label: "Blur Kernel Size", min:3, max:15, step:1},

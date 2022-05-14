@@ -58,14 +58,16 @@ export class VTPLife extends VTPInitializer {
 }
 
 export class VTPBody extends VTPInitializer {
-  constructor(bodyType, materialType) {
+  constructor(bodyType, materialType, bodyOptions) {
     super();
     this.bodyType = InitUtils.initValue(bodyType, VTVoxel);
     this.materialType = InitUtils.initValue(materialType, VTEmissionMaterial);
+    this.bodyOptions = InitUtils.initValue(bodyOptions, {});
   }
   initialize(target) {
     target.bodyType = this.bodyType;
     target.materialType = this.materialType;
+    target.targetOptions = this.bodyOptions;
   }
 }
 

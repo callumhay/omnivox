@@ -16,6 +16,8 @@ class GodRayScene extends SceneRenderer {
   }
 
   load() {
+    if (this.fog) { return; } // Already loaded?
+
     const size = this.voxelModel.xSize();
     const boxSize = this._options ? this._options.shapeSize :  null;
 

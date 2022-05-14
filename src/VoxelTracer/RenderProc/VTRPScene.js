@@ -231,6 +231,7 @@ class VTRPScene {
   // given the direction and distance to that light.
   _calculateShadowCasterLightMultiplier(point, nToLightVec, distanceToLight) {
     let lightMultiplier = 1.0;
+    if (distanceToLight <= VoxelConstants.VOXEL_HALF_UNIT_SIZE) { return lightMultiplier; }
     
     // Check to see if the voxel is in shadow
     // NOTE: We currently only use point lights so there's only umbra shadow (no soft shadows/sampling)
@@ -340,8 +341,7 @@ class VTRPScene {
             continue;
         }
 
-        // Early out - is the light vector in the same hemisphere as the normal?
-        if (_nObjToLightVec.dot(normal) <= 0) { continue; }
+        if (_nObjToLightVec.dot(normal) <= 0) { continue; } // Early out - is the light vector in the same hemisphere as the normal?
 
         const lightMultiplier = receivesShadows ? this._calculateShadowCasterLightMultiplier(point, _nObjToLightVec, distanceToLight) : 1.0;
         if (lightMultiplier > 0) {

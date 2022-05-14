@@ -17,6 +17,8 @@ class ShadowScene extends SceneRenderer {
   }
 
   load() {
+    if (this.sphere) { return; } // Already loaded?
+    
     const size = this.voxelModel.xSize();
     const halfXSize = this.voxelModel.xSize()/2;
     const halfZSize = this.voxelModel.zSize()/2;

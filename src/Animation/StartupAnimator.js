@@ -431,7 +431,7 @@ class StartupAnimator extends VoxelAnimator {
     _emitterColour.setRGB(1,1,1);
 
     const self = this;
-    const flashBlurSqSigma = 1.8;
+    const flashBlurSqSigma = 1.7;
     let emitStarted = false;
 
     this._currAnims.push(animate({
