@@ -4,6 +4,8 @@ import VoxelConstants from './VoxelConstants';
 const _minPt = new THREE.Vector3();
 const _maxPt = new THREE.Vector3();
 const _halfSize = new THREE.Vector3();
+const _sphere = new THREE.Sphere();
+const _box = new THREE.Box3();
 
 class VoxelGeometryUtils {
 
@@ -54,8 +56,11 @@ class VoxelGeometryUtils {
   static voxelSphereList(center, radius, fill, voxelBoundingBox) {
     // Create a bounding box for the sphere: 
     // Centered at the given center with a half width/height/depth of the given radius
-    const sphereBounds = new THREE.Sphere(center, radius);
-    const sphereBoundingBox = new THREE.Box3(center.clone().subScalar(radius).floor().max(voxelBoundingBox.min), center.clone().addScalar(radius).ceil().min(voxelBoundingBox.max));
+    const sphereBounds = _sphere.set(center, radius);
+
+    _box.min.copy(center).subScalar(radius).floor().max(voxelBoundingBox.min);
+    _box.max.copy(center).addScalar(radius).ceil().min(voxelBoundingBox.max);
+    const sphereBoundingBox = _box;
 
     // Now we go through all the voxels in the bounding box and build a point list
     const voxelPts = [];
@@ -71,14 +76,10 @@ class VoxelGeometryUtils {
               voxelPts.push(currPt);
             }
           }
-          else {
-            if (Math.abs(distToCurrPt) < VoxelConstants.VOXEL_ERR_UNITS) {
-              voxelPts.push(currPt);
-            }
+          else if (distToCurrPt < VoxelConstants.VOXEL_ERR_UNITS && Math.abs(distToCurrPt) <= VoxelConstants.VOXEL_DIAGONAL_UNIT_SIZE) {
+            voxelPts.push(currPt);
           }
-
         }
-
       }
     }
     return voxelPts;
@@ -86,9 +87,9 @@ class VoxelGeometryUtils {
 
   static voxelAABBList(minPt, maxPt, fill, voxelBoundingBox) {
     const voxelPts = [];
-    const mappedMinPt = minPt.clone().floor();
+    const mappedMinPt = _minPt.copy(minPt).floor();
     mappedMinPt.max(voxelBoundingBox.min);
-    const mappedMaxPt = maxPt.clone().ceil();
+    const mappedMaxPt = _maxPt.copy(maxPt).ceil();
     mappedMaxPt.min(voxelBoundingBox.max);
 
     if (fill) {

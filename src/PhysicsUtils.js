@@ -4,13 +4,14 @@ import VoxelConstants from './VoxelConstants';
 class PhysicsUtils {
 
   static stepWorld(world, lastCallTime, dt) {
+    const safeDt = Math.min(dt, 1/15);
     const now = Date.now() / 1000;
     if (!lastCallTime) {
-      world.step(dt); // Last call time not saved, can't guess elapsed time. Take a simple step.
+      world.step(safeDt); // Last call time not saved, can't guess elapsed time. Take a simple step.
     }
     else {
-      world.step(dt);
-      world.step(dt, now - lastCallTime, 20);
+      world.step(safeDt);
+      world.step(safeDt, now - lastCallTime, 20);
     }
     return now;
   }

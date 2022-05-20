@@ -12,7 +12,7 @@ import VTPEmitter from '../Particles/VTPEmitter';
 import VTPRate from '../Particles/VTPRate';
 import VTPSpan from '../Particles/VTPSpan';
 import {VTPBoxZone} from '../Particles/VTPZones';
-import {StaticDirGenerator, UniformSphereDirGenerator, VTPBody, VTPLife, VTPPosition, VTPVelocity} from '../Particles/VTPInitializers';
+import {SpiralDirGenerator, StaticDirGenerator, UniformSphereDirGenerator, VTPBody, VTPLife, VTPPosition, VTPVelocity} from '../Particles/VTPInitializers';
 import VTPAlpha from '../Particles/Behaviours/VTPAlpha';
 import VTPColour from '../Particles/Behaviours/VTPColour';
 import VTPAttraction from '../Particles/Behaviours/VTPAttraction';
@@ -56,6 +56,7 @@ class ParticleScene extends SceneRenderer {
     this.speedSpan = new VTPSpan();
     this.boxDirGen = new StaticDirGenerator([new THREE.Vector3(0,1,0)]);
     this.sphereDirGen = new UniformSphereDirGenerator();
+    this.spiralDirGen = new SpiralDirGenerator(Math.PI/8, Math.PI/8, Math.PI/180, Math.PI/180);
     this.emitterVelInit = new VTPVelocity(this.speedSpan, this.sphereDirGen);
     this.emitter.addInitializer(this.emitterVelInit);
 
@@ -92,7 +93,7 @@ class ParticleScene extends SceneRenderer {
     this.emitterLifeInit = null;
     this.emitterVelInit = null;
     this.boxPosInit = null; 
-    this.boxDirGen = null; this.sphereDirGen = null;
+    this.boxDirGen = null; this.sphereDirGen = null; this.spiralDirGen = null;
     this.alphaBehaviour = null;
     this.particleStartColourA = null; this.particleStartColourB = null;
     this.particleEndColourA = null; this.particleEndColourB = null;
@@ -129,6 +130,10 @@ class ParticleScene extends SceneRenderer {
       case 'point':
       default:
         this.emitterVelInit.dirGenerator = this.sphereDirGen;
+        this.emitter.p.set(emitterPos.x, emitterPos.y, emitterPos.z);
+        break;
+      case 'spiral':
+        this.emitterVelInit.dirGenerator = this.spiralDirGen;
         this.emitter.p.set(emitterPos.x, emitterPos.y, emitterPos.z);
         break;
       case 'box': {

@@ -344,13 +344,13 @@ const particleSceneDefaultOptions = {
   chromaticAberrationAlpha: 1,
   chromaticAberrationOffsets: {x:1, y:1, z:1},
   
-  particleSpawn: {numMin: 5, numMax: 10, interval: 0.05},
+  particleSpawn: {numMin: 2, numMax: 4, interval: 0.05},
   particleLifeSpan: {min: 1, max: 1.5},
-  particleSpeed: {min: 4, max: 8},
+  particleSpeed: {min: 12, max: 16},
   particleColourStart: {colourA: {r:1, g:1, b:1}, colourB: {r:1, g:1, b:1}},
-  particleColourEnd: {colourA: {r:0, g:1, b:1}, colourB: {r:1, g:0, b:1}},
+  particleColourEnd: {colourA: {r:1, g:1, b:1}, colourB: {r:1, g:1, b:1}},
   particleAlphaStart: {min: 1, max: 1},
-  particleAlphaEnd: {min: 1, max: 1},
+  particleAlphaEnd: {min: 0, max: 0},
   particleAlphaEasing: VTPEase.EASE_FUNC_NAMES[0],
   particleMaterial: "VTEmissionMaterial",
 
@@ -439,7 +439,7 @@ const particleSceneControlOptions = {
 
   emitterType: {
     label: "Emitter Type",
-    list: ['point', 'box'],
+    list: ['point', 'spiral', 'box'],
   },
   emitterPos: {label: "Emitter Position", ...positionCtrlOpt},
   totalEmitTimes: {

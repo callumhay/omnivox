@@ -38,6 +38,13 @@ export class Randomizer {
     }
     return targetArray;
   }
+
+  static getRandomUnitVec(target) {
+    const phi = Randomizer.getRandomFloat(0, 2*Math.PI);
+    const theta = Math.acos(Randomizer.getRandomFloat(-1,1));
+    target.setFromSphericalCoords(1, phi, theta);
+    return target;
+  }
 }
 
 /**

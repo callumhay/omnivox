@@ -2,13 +2,18 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import chroma from 'chroma-js';
 
-import VoxelAnimator from './VoxelAnimator';
-import AudioVisualizerAnimator from './AudioVisualizerAnimator';
+import VoxelModel from '../Server/VoxelModel';
+import VoxelGaussianBlurPP from '../Server/PostProcess/VoxelGaussianBlurPP';
+import VoxelChromaticAberrationPP from '../Server/PostProcess/VoxelChromaticAberrationPP';
+import VoxelPostProcessPipeline from '../Server/PostProcess/VoxelPostProcessPipeline';
 
-import VoxelConstants from '../VoxelConstants';
-import PhysicsUtils from '../PhysicsUtils';
-import {SCRIABIN_NOTE_COLOURS} from '../Spectrum';
-import { Randomizer } from '../Randomizers';
+import VTPAlpha from '../VoxelTracer/Particles/Behaviours/VTPAlpha';
+import VTPColour from '../VoxelTracer/Particles/Behaviours/VTPColour';
+import {VTPBody, VTPLife, VTPVelocity, SpiralDirGenerator} from '../VoxelTracer/Particles/VTPInitializers';
+import VTPEmitterManager from '../VoxelTracer/Particles/VTPEmitterManager';
+import VTPEmitter from '../VoxelTracer/Particles/VTPEmitter';
+import VTPRate from '../VoxelTracer/Particles/VTPRate';
+import VTPSpan from '../VoxelTracer/Particles/VTPSpan';
 
 import VTPointLight from '../VoxelTracer/VTPointLight';
 import VTDirectionalLight from '../VoxelTracer/VTDirectionalLight';
@@ -17,10 +22,16 @@ import VTEmissionMaterial from '../VoxelTracer/VTEmissionMaterial';
 import VTLambertMaterial from '../VoxelTracer/VTLambertMaterial';
 import {VTFogBox} from '../VoxelTracer/VTFog';
 import VTSphere, {defaultSphereOptions} from '../VoxelTracer/VTSphere';
+import VTVoxel from '../VoxelTracer/VTVoxel';
 
-import VoxelModel from '../Server/VoxelModel';
-import VoxelGaussianBlurPP from '../Server/PostProcess/VoxelGaussianBlurPP';
-import VoxelPostProcessPipeline from '../Server/PostProcess/VoxelPostProcessPipeline';
+import VoxelConstants from '../VoxelConstants';
+import PhysicsUtils from '../PhysicsUtils';
+import {SCRIABIN_NOTE_COLOURS} from '../Spectrum';
+import {Randomizer} from '../Randomizers';
+import {calcSphereMass} from '../MathUtils';
+
+import VoxelAnimator from './VoxelAnimator';
+import AudioVisualizerAnimator from './AudioVisualizerAnimator';
 
 export const gamepadDJAnimatorDefaultConfig = {
   noteColourPalette: [...SCRIABIN_NOTE_COLOURS],
@@ -30,13 +41,13 @@ const WALL_COLLISION_GRP   = 1;
 const SPHERE_COLLISION_GRP = 2;
 const LIGHT_COLLISION_GRP  = 4;
 
-const CURSOR_MIN_PULSE_ATTEN = 0.2;
+const CURSOR_MIN_PULSE_ATTEN = 0.7;
 const CURSOR_MAX_PULSE_ATTEN = 1.5;
 const CURSOR_MAX_SPEED = VoxelConstants.VOXEL_GRID_SIZE;
 
-const MIN_TIME_BETWEEN_SPHERE_PULSES = 1.0;
+const MIN_TIME_BETWEEN_SPHERE_PULSES = 2.0;
 const BASE_GRAVITY = 0;
-const MAX_BOUNCE_LIGHTS = 4;
+const MAX_BOUNCE_LIGHTS = 3;
 const MAX_BOUNCE_SPHERES = 6;
 
 const _tempVec3 = new THREE.Vector3();
@@ -69,6 +80,10 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     this.timeSinceLastSpherePulse = MIN_TIME_BETWEEN_SPHERE_PULSES+1;
 
     this.gaussianBlur.setConfig({kernelSize: 3, sqrSigma: 0, conserveEnergy: false});
+    this.chromaticAbr.setConfig({intensity: 0, alpha: 1});
+
+    this.emitter.stopEmit();
+    this.emitterOn = false;
 
     this._resetControllerState();
 
@@ -105,8 +120,10 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     this.maxBoundsPt = new THREE.Vector3(maxValue, maxValue, maxValue);
 
     this.gaussianBlur = new VoxelGaussianBlurPP(this.voxelModel);
+    this.chromaticAbr = new VoxelChromaticAberrationPP(this.voxelModel);
     this.postProcessPipeline = new VoxelPostProcessPipeline(this.voxelModel);
     this.postProcessPipeline.addPostProcess(this.gaussianBlur);
+    this.postProcessPipeline.addPostProcess(this.chromaticAbr);
 
     // Setup the physics world
     this.world = new CANNON.World();
@@ -123,52 +140,66 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     this.world.addContactMaterial(sphereSphereCM);
 
     // Create walls (collision planes) along the edges of the voxel box
-    const wallBodies = PhysicsUtils.buildSideWalls(VoxelConstants.VOXEL_GRID_SIZE, this.wallMaterial);
+    const wallBodies = PhysicsUtils.buildSideWalls(this.voxelModel.gridSize, this.wallMaterial);
     for (const wallBody of wallBodies) { 
       wallBody.collisionFilterGroup = WALL_COLLISION_GRP;
       this.world.addBody(wallBody);
     }
 
+    // Voxel tracer lights and fog
     const {gridSize} = this.voxelModel;
     this.cursorPtLight = new VTPointLight(new THREE.Vector3(), new THREE.Color(1,1,1), {quadratic:CURSOR_MAX_PULSE_ATTEN, linear:0}, true);
     this.dirLight1 = new VTDirectionalLight(new THREE.Vector3(1, -1, 1), new THREE.Color(0,0,0));
     this.dirLight2 = new VTDirectionalLight(new THREE.Vector3(-0.75, -0.2, -0.5), new THREE.Color(0,0,0));
     this.ambientLight = new VTAmbientLight(new THREE.Color(0.25, 0.25, 0.25));
-    
     this.fog = new VTFogBox(new THREE.Vector3(0,0,0), new THREE.Vector3(gridSize, gridSize, gridSize), new THREE.Color(1,1,1), 1);
     this.fog.drawOrder = 5;
 
+    // Expanding sphere pulses
     const SPHERE_PULSE_BUFFER_SIZE = 8;
     this.spherePulses = Array(SPHERE_PULSE_BUFFER_SIZE).fill(null);
     for (let i = 0; i < SPHERE_PULSE_BUFFER_SIZE; i++) {
       const pulse = {
         active: false,
         growSpeed: gridSize*0.5,
-        alphaFadeSpeed: 0.33,
+        alphaFadeSpeed: 0.4,
         sphere: new VTSphere(
           new THREE.Vector3(gridSize,gridSize,gridSize), 0, 
           new VTEmissionMaterial(new THREE.Color(1,1,1), 0), 
-          {...defaultSphereOptions, castsShadows: false, samplesPerVoxel:1}
+          {...defaultSphereOptions, castsShadows: false, receivesShadows: false, samplesPerVoxel:1}
         )
       };
       this.spherePulses[i] = pulse;
     }
+
+    // Particle emitter
+    this.emitter = new VTPEmitter();
+    this.emitter.rate = new VTPRate(new VTPSpan(3,5), new VTPSpan(0.03));
+    this.emitter.addInitializer(new VTPBody(VTVoxel, VTLambertMaterial, {receivesShadows: false, castsShadows: false}));
+    this.emitter.addInitializer(new VTPLife(0.75, 1.25));
+    this.emitterVelInit = new VTPVelocity(new VTPSpan(14,18), new SpiralDirGenerator(Math.PI/8, Math.PI/8, Math.PI/180, Math.PI/180));
+    this.emitter.addInitializer(this.emitterVelInit);
+    this.emitter.addBehaviour(new VTPAlpha(1,0));
+    this.emitterColourBehaviour = new VTPColour([0xffffff]);
+    this.emitter.addBehaviour(this.emitterColourBehaviour);
+    this.emitterMgr = new VTPEmitterManager(this.scene, 64, [VTVoxel]);
+    this.emitterMgr.addEmitter(this.emitter);
 
     this._reinit();
   }
   unload() {
     super.unload();
     this.minBoundsPt = null; this.maxBoundsPt = null;
-    this.postProcessPipeline = null; this.gaussianBlur = null;
-    
+    this.postProcessPipeline = null; this.gaussianBlur = null; this.chromaticAbr = null;
     this.world = null;
     this.wallMaterial = null; this.sphereMaterial = null; this.lightMaterial = null;
     this.bounceSpheres = null; this.bounceLights = null;
-    
     this.cursorPtLight = null; this.dirLight1 = null; this.dirLight2 = null; this.ambientLight = null;
     this.fog = null;
-    
     this.spherePulses = null;
+    this.emitter = null; this.emitterMgr = null;
+    this.emitterVelInit = null;
+    this.emitterColourBehaviour = null;
   }
 
   setConfig(c, init=false) {
@@ -183,18 +214,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
 
   async render(dt) {
     // Simulate the physics
-    const now = Date.now() / 1000;
-    if (!this.lastPhysicsWorldStepTime) {
-      // Last call time not saved, can't guess elapsed time. Take a simple step.
-      this.world.step(dt);
-      this.lastPhysicsWorldStepTime = now;
-    }
-    else {
-      let timeSinceLastCall = now - this.lastPhysicsWorldStepTime;
-      this.world.step(dt);
-      this.world.step(dt, timeSinceLastCall, 20);
-      this.lastPhysicsWorldStepTime = now;
-    }
+    this.lastPhysicsWorldStepTime = PhysicsUtils.stepWorld(this.world, this.lastPhysicsWorldStepTime, dt);
 
     // Physics to renderer updates
     for (const bounceSphere of this.bounceSpheres) {
@@ -242,24 +262,9 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     this.cursorPtLight.position.add(_tempVec3).clampScalar(0, VoxelConstants.VOXEL_GRID_SIZE-1);
     this.cursorPtLight.makeDirty();
 
-    // Make the cursor pulse to the beat - use a weighting of loudness (RMS) and percussive vs. pitched (ZCR) metrics
-    // to create a believable change in the attenuation of the cursor to correspond to the music
-    const rmsEffect = THREE.MathUtils.clamp(this.avgRMS/this.currMaxRMS, 0, 1);
-    const zcrEffect = THREE.MathUtils.clamp(this.avgZCR/this.currMaxZCR, 0, 1);
-    const pulseRMS = 1 - rmsEffect;
-    const pulseZCR = 1 - zcrEffect;
-    const pulse = CURSOR_MIN_PULSE_ATTEN + Math.min((1.0-0.9*this.currButtonState.rightTrigger), (0.6*pulseZCR + 0.4*pulseRMS)) * (CURSOR_MAX_PULSE_ATTEN-CURSOR_MIN_PULSE_ATTEN);
-    this.cursorPtLight.setAttenuation({quadratic:pulse, linear:0});
-
-    if (this.updatePulseColour) {
-      this.cursorPtLight.setColour(_newPulseColour.clone());
-      this.updatePulseColour = false;
-      this.ambientLight.colour.setRGB(0.25*_newPulseColour.r, 0.25*_newPulseColour.g, 0.25*_newPulseColour.b);
-      this.ambientLight.setColour(this.ambientLight.colour);
-    }
-
     // Sphere Pulse Updates: When the music gets really intense suddenly we trigger a bright sphere pulse that eminates from the cursor
     const {gridSize} = this.voxelModel;
+    const rmsEffect = THREE.MathUtils.clamp(this.avgRMS/this.currMaxRMS,0,1)
     for (const pulse of this.spherePulses) {
       const {active, growSpeed, alphaFadeSpeed, sphere, currAlpha} = pulse;
       if (!active) { continue; }
@@ -283,7 +288,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
         if (Math.abs(sphere.radius-pulse.currRadius) > VoxelConstants.VOXEL_ERR_UNITS) {
           sphere.setRadius(pulse.currRadius);
           sphere.material.alpha = pulse.currAlpha;
-          //sphere.material.colour.copy(this.cursorPtLight.colour);
+          sphere.material.setColour(this.cursorPtLight.colour);
           sphere.setMaterial(sphere.material);
         }
       }
@@ -292,17 +297,21 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     this.timeCounter += dt;
     this.timeSinceLastSpherePulse += dt;
 
+    this.emitter.p.copy(this.cursorPtLight.position).addScalar(0.5);
+    this.emitterMgr.tick(dt);
+
     await this.scene.render();
+    this.chromaticAbr.setConfig({intensity: this.currButtonState.leftTrigger});
     this.postProcessPipeline.render(dt, VoxelModel.CPU_FRAMEBUFFER_IDX_0, VoxelModel.CPU_FRAMEBUFFER_IDX_0);
   }
 
   setAudioInfo(audioInfo) {
     super.setAudioInfo(audioInfo);
 
-    const {chroma, perceptualSharpness, mfcc, rms, zcr} = audioInfo;
+    const {chroma:audioChroma, perceptualSharpness, mfcc, rms, zcr} = audioInfo;
     const {noteColourPalette} = this.config;
 
-    if (mfcc[0] === 0) { return; }
+    //if (mfcc[0] === 0) { return; }
 
     const rmsPct = THREE.MathUtils.clamp(rms/this.currMaxRMS,0,1);
     const zcrPct = THREE.MathUtils.clamp(zcr/this.currMaxZCR,0,1);
@@ -310,6 +319,12 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
 
     this.gaussianBlur.setConfig({sqrSigma: 0.75*rmsPct});
     this.world.gravity.set(0, BASE_GRAVITY + 10*(zcrPct - rmsPct), 0);
+
+    // Adjust the emitter initializers and behaviours to react to the audio
+    this.emitterColourBehaviour.reset([chroma(0xFFFFFF).luminance(Math.min(1, Math.max(rms, rmsPct))).hex()]);
+    this.emitterVelInit.speedSpan.a = THREE.MathUtils.lerp(6,12,weightedRmsZcrPct);
+    this.emitterVelInit.speedSpan.b = THREE.MathUtils.lerp(9,18,weightedRmsZcrPct);
+    this.emitter.rate.timePan.a = this.emitter.rate.timePan.b = THREE.MathUtils.lerp(0.08, 0.01, weightedRmsZcrPct);
 
     // Update the radii of the bounce spheres based on the music...
     const rmsRadiusChange = Math.round(2*(-0.25+weightedRmsZcrPct)*1.5)/2;
@@ -321,33 +336,38 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     // Update the attenuation of the bounce lights based on the music...
     for (const bounceLight of this.bounceLights) {
       const {ptLight, initAtten} = bounceLight;
-      const updatedAttenuation = Math.max(0.03, initAtten.quadratic - (0.5*initAtten.quadratic*weightedRmsZcrPct));
+      const updatedAttenuation = Math.max(CURSOR_MIN_PULSE_ATTEN, initAtten.quadratic - (0.15*initAtten.quadratic*weightedRmsZcrPct));
       ptLight.attenuation.quadratic = updatedAttenuation;
       ptLight.setAttenuation(ptLight.attenuation);
     }
 
     let colourBlendSpeed = 2; // Number of blends per second
-    if (rms >= this.currMaxRMS) {
+    const requiredRMSDiff = 0.06;
+    if (rms > this.avgRMS && (rms-this.avgRMS) > requiredRMSDiff) {
+      //console.log(perceptualSharpness);
       colourBlendSpeed = 0.5/Math.max(0.001, this.dtAudioFrame);
-      if (mfcc[0] >= 220 && (perceptualSharpness >= 0.5 || perceptualSharpness <= 0.2) && this.timeSinceLastSpherePulse >= MIN_TIME_BETWEEN_SPHERE_PULSES) {
-        this._addCursorIntensityPulse();
-        //console.log("ZCRRMS AVG: " + weightedRmsZcrPct);
-        const w0 = (weightedRmsZcrPct-0.65) / 0.45;
-        if (this.bounceLights.length > 0 && w0 >= 0) {
-          const maxLights = Math.min(3, this.bounceLights.length); // NOTE: Too many pulses will cause things to slow down a lot!
-          const numLights = THREE.MathUtils.clamp(Math.round(THREE.MathUtils.lerp(1, maxLights, w0)), 1, maxLights);
-          for (let i = 0; i < numLights; i++) {
-            const {ptLight} = this.bounceLights[i];
-            this._addIntensitySpherePulse(ptLight.position, ptLight.colour);
+      if ((perceptualSharpness >= 0.5 || perceptualSharpness <= 0.2) && this.timeSinceLastSpherePulse >= MIN_TIME_BETWEEN_SPHERE_PULSES) {
+        const pulseAlpha = Math.min(1, ((rms-this.avgRMS)-requiredRMSDiff) / requiredRMSDiff);
+        if (pulseAlpha > 0.2) {
+          this._addCursorIntensityPulse(pulseAlpha);
+          //console.log("ZCRRMS AVG: " + weightedRmsZcrPct);
+          const w0 = (weightedRmsZcrPct-0.65) / 0.45;
+          if (this.bounceLights.length > 0 && w0 >= 0) {
+            const maxLights = Math.min(3, this.bounceLights.length); // NOTE: Too many pulses will cause things to slow down a lot!
+            const numLights = THREE.MathUtils.clamp(Math.round(THREE.MathUtils.lerp(1, maxLights, w0)), 1, maxLights);
+            for (let i = 0; i < numLights; i++) {
+              const {ptLight} = this.bounceLights[i];
+              this._addIntensitySpherePulse(ptLight.position, ptLight.colour, pulseAlpha);
+            }
           }
         }
       }
     }
 
     _newPulseColour.setRGB(0,0,0);
-    const chromaSum = chroma.reduce((a,b) => a+b, 0) || 1;
-    const chromaMean = chromaSum / chroma.length;
-    let chromaAdjusted = chroma.map(val => val-chromaMean);
+    const chromaSum = audioChroma.reduce((a,b) => a+b, 0) || 1;
+    const chromaMean = chromaSum / audioChroma.length;
+    let chromaAdjusted = audioChroma.map(val => val-chromaMean);
     
     const chromaMax = chromaAdjusted.reduce((a,b) => Math.max(a,b), 0);
     const chromaMultiplier = 1.0 / chromaMax;
@@ -356,7 +376,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     // Chroma is an array of the following note order: [C, C♯, D, D♯, E, F, F♯, G, G♯, A, A♯, B], values in [0,1]
     // Perform a dot product of the chroma vector with the rgb vectors in the current note palette...
     let largestIdx = -1, secondLargestIdx = -1, largestVal = -Infinity, secondLargestVal = -Infinity; // Keep track of the largest and 2nd largest indices for dir lights
-    for (let i = 0; i < chroma.length; i++) {
+    for (let i = 0; i < audioChroma.length; i++) {
       const chromaAdjustedVal = chromaAdjusted[i];
 
       _tempColour.setRGB(noteColourPalette[i].r, noteColourPalette[i].g, noteColourPalette[i].b);
@@ -403,6 +423,17 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
       THREE.MathUtils.clamp(currCursorColour.b + this.dtAudioFrame*colourBlendSpeed*(Math.max(rightTrigger, Math.min(1, _newPulseColour.b))-currCursorColour.b),0,1)
     );
     this.updatePulseColour = true;
+
+    // Make the cursor pulse to the beat - use a weighting of loudness (RMS) and percussive vs. pitched (ZCR) metrics
+    // to create a believable change in the attenuation of the cursor to correspond to the music
+    const pulseRMS = 1 - (0.25*THREE.MathUtils.clamp(rms/this.avgRMS, 0, 1) + 0.75*THREE.MathUtils.clamp(this.avgRMS/this.currMaxRMS,0,1));
+    //const pulseZCR = 1 - (0.25*zcrPct + 0.75*THREE.MathUtils.clamp(this.avgZCR/this.currMaxZCR,0,1));
+    const pulse = CURSOR_MIN_PULSE_ATTEN + Math.min((1.0-this.currButtonState.rightTrigger), (pulseRMS)) * (CURSOR_MAX_PULSE_ATTEN-CURSOR_MIN_PULSE_ATTEN);
+    this.cursorPtLight.setAttenuation({quadratic:(pulse*0.25 + this.cursorPtLight.attenuation.quadratic*0.75), linear:0});
+    this.cursorPtLight.setColour(_newPulseColour);
+    this.updatePulseColour = false;
+    this.ambientLight.colour.setRGB(0.25*_newPulseColour.r, 0.25*_newPulseColour.g, 0.25*_newPulseColour.b);
+    this.ambientLight.setColour(this.ambientLight.colour);
   }
 
   onGamepadAxisEvent(axisEvent) {
@@ -427,17 +458,18 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     // 12,13,14,15: D-PAD Up,Down,Left,Right Buttons
     // 16: XBox Button
 
-    const southBtnPressedEvent = this._addCursorIntensityPulse.bind(this);
-    const westBtnPressedEvent = this._addBounceSphere.bind(this);
-    const eastBtnPressedEvent = this._addBounceLight.bind(this);
+    const intensityPulseEvent  = this._addCursorIntensityPulse.bind(this);
+    const addBounceSphereEvent = this._addBounceSphere.bind(this);
+    const addBounceLightEvent  = this._addBounceLight.bind(this);
+    const toggleParticleEvent   = this._toggleParticles.bind(this); 
 
     switch (buttonEvent.button) {
-      case 0: this._updateOnOffButton('south', buttonEvent, southBtnPressedEvent); break;
-      case 1: this._updateOnOffButton('east',  buttonEvent, eastBtnPressedEvent); break;
-      case 2: this._updateOnOffButton('west',  buttonEvent, westBtnPressedEvent); break;
+      case 0: this._updateOnOffButton('south', buttonEvent, intensityPulseEvent); break;
+      case 1: this._updateOnOffButton('east',  buttonEvent, addBounceLightEvent); break;
+      case 2: this._updateOnOffButton('west',  buttonEvent, addBounceSphereEvent); break;
       case 3: this._updateOnOffButton('north', buttonEvent); break;
 
-      case 4: this._updateOnOffButton('leftBumper', buttonEvent); break;
+      case 4: this._updateOnOffButton('leftBumper', buttonEvent, toggleParticleEvent); break;
       case 5: this._updateOnOffButton('rightBumper', buttonEvent); break;
 
       case 6: this.currButtonState.leftTrigger  = buttonEvent.value; break;
@@ -465,7 +497,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
   }
 
   _updateOnOffButton(buttonName, buttonEvent, buttonPressedFunc = () => (null), buttonUnpressedFunc = () => (null)) {
-    if (buttonEvent.value) {
+    if (buttonEvent.pressed) {
       // Button was pressed
       buttonPressedFunc();
     }
@@ -476,11 +508,11 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     this.currButtonState[buttonName] = buttonEvent.value;
   }
 
-  _addCursorIntensityPulse() { 
-    this._addIntensitySpherePulse(this.cursorPtLight.position, this.cursorPtLight.colour);
+  _addCursorIntensityPulse(alpha) {
+    this._addIntensitySpherePulse(this.cursorPtLight.position, this.cursorPtLight.colour, alpha || THREE.MathUtils(this.avgRMS/this.currMaxRMS,0,1));
   }
 
-  _addIntensitySpherePulse(center, colour) {
+  _addIntensitySpherePulse(center, colour, alpha) {
     const spherePulse = this.spherePulses[this.currSpherePulseIdx];
     this.currSpherePulseIdx = (this.currSpherePulseIdx+1) % this.spherePulses.length;
 
@@ -491,8 +523,8 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     sphere.drawOrder = 5;
 
     const sphereMaterial = sphere.material;
-    sphereMaterial.alpha = 1;
-    sphereMaterial.colour.copy(colour);
+    sphereMaterial.alpha = alpha;
+    sphereMaterial.setColour(colour);
     sphere.setMaterial(sphereMaterial);
     spherePulse.currAlpha  = sphereMaterial.alpha;
     spherePulse.currRadius = sphere.radius;
@@ -514,13 +546,13 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     );
 
     const vtSphere = new VTSphere(spherePos, radius,  
-      new VTLambertMaterial(new THREE.Color(1,1,1)), {samplesPerVoxel:4, fill:false, castsShadows:false}
+      new VTLambertMaterial(new THREE.Color(1,1,1)), {samplesPerVoxel:4, fill:false, castsShadows:false, receivesShadows:false}
     );
     vtSphere.drawOrder = 5;
 
     const sphereShape = new CANNON.Sphere(radius);
     const sphereBody  = new CANNON.Body({
-      mass: 4/3 * Math.PI * Math.pow(radius,3) * Randomizer.getRandomFloat(0.25,1.75),
+      mass: calcSphereMass(radius, Randomizer.getRandomFloat(0.25,1.75)),
       position: new CANNON.Vec3(spherePos.x, spherePos.y, spherePos.z),
       material: this.sphereMaterial,
       collisionFilterGroup: SPHERE_COLLISION_GRP,
@@ -564,7 +596,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
       Randomizer.getRandomFloat(0.2, 0.8), 'lrgb'
     ).saturate(2).hex();
 
-    const initAtten = {quadratic:1.0/(1.5*radius), linear:1};
+    const initAtten = {quadratic:2/(2*radius), linear:1};
 
     const ptLight = new VTPointLight(
       spherePos, new THREE.Color(mixColour), initAtten, true
@@ -597,6 +629,10 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
     });
   }
 
+  _toggleParticles() { 
+    if (this.emitterOn) { this.emitter.stopEmit(); this.emitterOn = false; }
+    else { this.emitter.startEmit(Infinity); this.emitterOn = true; }
+  }
 }
 
 export default GamepadDJAnimator;

@@ -53,7 +53,7 @@ class VTSphere extends VTTransformable {
   getCollidingVoxels(voxelBoundingBox=null) {
     this.getBoundingSphere(_sphere)
     const {center, radius} = _sphere;
-    return VoxelGeometryUtils.voxelSphereList(center, radius + VoxelConstants.VOXEL_EPSILON, true, voxelBoundingBox);
+    return VoxelGeometryUtils.voxelSphereList(center, radius + VoxelConstants.VOXEL_EPSILON, this._options.fill, voxelBoundingBox);
   }
 }
 

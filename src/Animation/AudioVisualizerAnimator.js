@@ -1,14 +1,16 @@
 import VoxelAnimator from "./VoxelAnimator";
 import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
+import VoxelConstants from "../VoxelConstants";
 
-const RMS_BUFFER_SIZE = 3;
+const BUFFER_LEN_IN_SECS = 2;
+
+const RMS_BUFFER_SIZE = VoxelConstants.NUM_AUDIO_SAMPLES_PER_SEC*BUFFER_LEN_IN_SECS;
 const MIN_MAX_RMS = 0.1;
 
-const ZCR_BUFFER_SIZE = 3;
+const ZCR_BUFFER_SIZE = VoxelConstants.NUM_AUDIO_SAMPLES_PER_SEC*BUFFER_LEN_IN_SECS;
 const MIN_MAX_ZCR = 50;
 
-const MAX_RESET_WINDOW_TIME_S = 3;
-const DIMINISH_WEIGHT = 0.8;
+const DIMINISH_WEIGHT = 0.5;
 const ONEM_DIMINISH_WEIGHT = (1-DIMINISH_WEIGHT);
 
 class AudioVisualizerAnimator extends VoxelAnimator {
@@ -21,10 +23,12 @@ class AudioVisualizerAnimator extends VoxelAnimator {
 
     this.rmsBuffer = [];
     this.avgRMS = 0;
+    this.lastRMSSum = 0;
     this.currMaxRMS = MIN_MAX_RMS;
 
     this.zcrBuffer = [];
     this.avgZCR = 0;
+    this.lastZCRSum = 0;
     this.currMaxZCR = MIN_MAX_ZCR;
 
     this.dtAudioFrame = 0;
@@ -50,26 +54,26 @@ class AudioVisualizerAnimator extends VoxelAnimator {
 
     const {rms, zcr} = audioInfo;
 
-    if (this.rmsBuffer.length === RMS_BUFFER_SIZE) { this.rmsBuffer.shift(); }
+    if (this.rmsBuffer.length === RMS_BUFFER_SIZE) { 
+      const rmsVal = this.rmsBuffer.shift();
+      this.lastRMSSum -= rmsVal;
+    }
     this.rmsBuffer.push(rms);
-    this.avgRMS = (this.rmsBuffer.reduce((a,b) => a+b, 0) / Math.max(1,this.rmsBuffer.length)) || 0;
+    this.lastRMSSum += rms;
+    this.avgRMS = this.lastRMSSum / Math.max(1,this.rmsBuffer.length);
     
-    if (this.zcrBuffer.length === ZCR_BUFFER_SIZE) { this.zcrBuffer.shift(); }
+    if (this.zcrBuffer.length === ZCR_BUFFER_SIZE) {
+      const zcrVal = this.zcrBuffer.shift();
+      this.lastZCRSum -= zcrVal;
+    }
     this.zcrBuffer.push(zcr);
-    this.avgZCR = (this.zcrBuffer.reduce((a,b) => a+b, 0) / Math.max(1,this.zcrBuffer.length)) || 0;
+    this.lastZCRSum += zcr;
+    this.avgZCR = this.lastZCRSum / Math.max(1,this.zcrBuffer.length);
 
-    // Reset the maximum values within a window to avoid making the max too high
-    // i.e., accomodate if a new song plays or the mic is moved or the levels change etc.
-    if (this.currMaxResetTimeCounter >= MAX_RESET_WINDOW_TIME_S) {
-      this.currMaxRMS = Math.max(MIN_MAX_RMS, this.currMaxRMS*DIMINISH_WEIGHT + this.avgRMS*ONEM_DIMINISH_WEIGHT);
-      this.currMaxZCR = Math.max(MIN_MAX_ZCR, this.currMaxZCR*DIMINISH_WEIGHT + this.avgZCR*ONEM_DIMINISH_WEIGHT);
-      this.currMaxResetTimeCounter = 0;
-    }
-    else {
-      this.currMaxRMS = Math.max(MIN_MAX_RMS, this.currMaxRMS*DIMINISH_WEIGHT + Math.max(this.avgRMS, this.currMaxRMS)*ONEM_DIMINISH_WEIGHT);
-      this.currMaxZCR = Math.max(MIN_MAX_ZCR, this.currMaxZCR*DIMINISH_WEIGHT + Math.max(this.avgZCR, this.currMaxZCR)*ONEM_DIMINISH_WEIGHT);
-      this.currMaxResetTimeCounter += this.dtAudioFrame;
-    }
+    const currBufMaxRMS = Math.max(...this.rmsBuffer);
+    const currBufMaxZCR = Math.max(...this.zcrBuffer);
+    this.currMaxRMS = Math.max(MIN_MAX_RMS, this.currMaxRMS*DIMINISH_WEIGHT + currBufMaxRMS*ONEM_DIMINISH_WEIGHT);
+    this.currMaxZCR = Math.max(MIN_MAX_ZCR, this.currMaxZCR*DIMINISH_WEIGHT + currBufMaxZCR*ONEM_DIMINISH_WEIGHT);
   }
 
   static buildBinIndexLookup(numFreqs, numBins, gamma) {

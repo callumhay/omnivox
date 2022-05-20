@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+
+import VoxelConstants from '../VoxelConstants';
+
 import ControllerClient from './ControllerClient';
 import SoundManager from './SoundManager';
 import GamepadManager from './GamepadManager';
@@ -21,7 +24,7 @@ gamepadManager.start();
 
 let lastFrameTime = Date.now();
 let sampleAudioTime = 0;
-const TIME_BETWEEN_AUDIO_SAMPLES = 1.0 / 20.0; // 20Hz
+const TIME_BETWEEN_AUDIO_SAMPLES = 1.0 / VoxelConstants.NUM_AUDIO_SAMPLES_PER_SEC;
 
 const render = function () {
   let currFrameTime = Date.now();

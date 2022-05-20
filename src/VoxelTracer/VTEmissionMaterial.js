@@ -10,6 +10,8 @@ class VTEmissionMaterial extends VTMaterial {
     this.alpha  = InitUtils.initValue(alpha, 1);
   }
 
+  setColour(c) { this.colour.copy(c); return this; }
+
   expire(pool) {}
 
   fromJSON(json, pool) {

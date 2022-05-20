@@ -75,11 +75,9 @@ export class VTPBody extends VTPInitializer {
 export class UniformSphereDirGenerator {
   constructor() {}
   generate(target) {
-    const phi = Randomizer.getRandomFloat(0, 2*Math.PI);
-    const theta = Math.acos(Randomizer.getRandomFloat(-1,1));
-    target.setFromSphericalCoords(1, phi, theta);
-    return target;
+    return Randomizer.getRandomUnitVec(target);
   }
+
 }
 // Generator for a uniformly distributed vector in a cone shape based on a given direction (cone center vector) 
 // and the half angle of the cone in radians
@@ -94,6 +92,40 @@ export class UniformConeDirGenerator {
     // Rotate the perpendicular vector arbitrarily around the direction vector
     _tempVec3.applyAxisAngle(this.direction, Randomizer.getRandomFloat(0, PI2));
     target.copy(this.direction).applyAxisAngle(_tempVec3, Randomizer.getRandomFloat(0, this.halfAngle));
+    return target;
+  }
+}
+
+export class SpiralDirGenerator {
+  constructor(minDirJumpAngle, maxDirJumpAngle, minPlaneJumpAngle, maxPlaneJumpAngle) {
+    this.dirJumpSpan = VTPSpan.createSpan(
+      InitUtils.initValue(minDirJumpAngle, Math.PI/8), 
+      InitUtils.initValue(maxDirJumpAngle, Math.PI/8)
+    );
+    this.planeJumpSpan = VTPSpan.createSpan(
+      InitUtils.initValue(minPlaneJumpAngle, 0), 
+      InitUtils.initValue(maxPlaneJumpAngle, 0)
+    );
+    this.currGenDir  = Randomizer.getRandomUnitVec(new THREE.Vector3());
+
+    this.startingNorm = perpendicularUnitVector(new THREE.Vector3(), this.currGenDir);
+    this.normRotateVec = this.currGenDir.clone();
+    this.normWobbleVec = this.normRotateVec.clone().cross(this.startingNorm);
+    this.normRotateRadians = 0;
+    this.normWobbleRadians = 0;
+  }
+  generate(target) {
+    target.copy(this.currGenDir);
+
+    const currDirNorm = _tempVec3.copy(this.startingNorm)
+      .applyAxisAngle(this.normWobbleVec, this.normWobbleRadians)
+      .applyAxisAngle(this.normRotateVec, this.normRotateRadians);
+
+    this.normRotateRadians = (this.normRotateRadians + this.planeJumpSpan.getValue()) % PI2;
+    this.normWobbleRadians = (this.normWobbleRadians + this.planeJumpSpan.getValue()) % PI2;
+
+    this.currGenDir.applyAxisAngle(currDirNorm, this.dirJumpSpan.getValue());
+    
     return target;
   }
 }
