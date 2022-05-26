@@ -10,7 +10,7 @@ const _box = new THREE.Box3();
 class VoxelGeometryUtils {
 
   static voxelBoundingBox(gridSize) {
-    const gridSizeMinus1 = gridSize-1;
+    const gridSizeMinus1 = gridSize-VoxelConstants.VOXEL_EPSILON;
     return new THREE.Box3(new THREE.Vector3(0,0,0), new THREE.Vector3(gridSizeMinus1,gridSizeMinus1,gridSizeMinus1));
   }
 

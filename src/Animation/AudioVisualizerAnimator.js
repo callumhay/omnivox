@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 import VoxelAnimator from "./VoxelAnimator";
 import {soundVisDefaultConfig} from './AudioVisAnimatorDefaultConfigs';
 import VoxelConstants from "../VoxelConstants";
@@ -5,7 +7,7 @@ import VoxelConstants from "../VoxelConstants";
 const BUFFER_LEN_IN_SECS = 2;
 
 const RMS_BUFFER_SIZE = VoxelConstants.NUM_AUDIO_SAMPLES_PER_SEC*BUFFER_LEN_IN_SECS;
-const MIN_MAX_RMS = 0.1;
+const MIN_MAX_RMS = 0.01;
 
 const ZCR_BUFFER_SIZE = VoxelConstants.NUM_AUDIO_SAMPLES_PER_SEC*BUFFER_LEN_IN_SECS;
 const MIN_MAX_ZCR = 50;
@@ -76,16 +78,18 @@ class AudioVisualizerAnimator extends VoxelAnimator {
     this.currMaxZCR = Math.max(MIN_MAX_ZCR, this.currMaxZCR*DIMINISH_WEIGHT + currBufMaxZCR*ONEM_DIMINISH_WEIGHT);
   }
 
-  static buildBinIndexLookup(numFreqs, numBins, gamma) {
+  avgRMSPercent() { return THREE.MathUtils.clamp(this.avgRMS/this.currMaxRMS, 0, 1); }
+
+  // Based on this: https://dlbeer.co.nz/articles/fftvis.html
+  static buildBinIndexLookup(fftLength, numBins, gamma) {
+    const numFreqs = Math.floor(fftLength/gamma);
+    const numFreqsMinus1 = numFreqs-1;
     const binIndexLookup = {};
-    for (let i = 0; i < numFreqs; i++) {
-      let binIndex = Math.round(Math.pow(i/numFreqs, 1.0/gamma) * (numBins-1));
-      if (binIndex in binIndexLookup) {
-        binIndexLookup[binIndex].push(i);
-      }
-      else {
-        binIndexLookup[binIndex] = [i];
-      }
+    const startingIdx = Math.floor(7*(numFreqs/512)); // Throw out the first bins, they are boring (i.e., filled with frequencies that don't occur very often in music)
+    for (let i = startingIdx; i < numFreqs; i++) {
+      const binIndex = Math.round(Math.pow((i-startingIdx)/numFreqsMinus1, 1.0/gamma) * (numBins-1));
+      if (binIndex in binIndexLookup) { binIndexLookup[binIndex].push(i); }
+      else { binIndexLookup[binIndex] = [i]; }
     }
 
     // Find gaps in the lookup and just have those gaps reference the previous (or next) bin's frequency(ies)
@@ -94,7 +98,7 @@ class AudioVisualizerAnimator extends VoxelAnimator {
       if (i-1 in binIndexLookup) { binIndexLookup[i] = binIndexLookup[i-1]; }      // Is there a previous bin? 
       else if (i+1 in binIndexLookup) { binIndexLookup[i] = binIndexLookup[i+1]; } // Is there a next bin?
       else {
-        // This really shouldn't happen, it means there's a huge gap
+        // There's a large gap between filled bins...
         console.error("Big gap in the number of frequencies to available bins, please find me and write code to fix this issue.");
       }
     }
@@ -102,19 +106,22 @@ class AudioVisualizerAnimator extends VoxelAnimator {
     return binIndexLookup;
   }
 
-  static calcFFTBinLevelSum(binIndices, fft) {
-    let binLevel = 0;
-    for (let i = 0; i < binIndices.length; i++) {
-      binLevel += fft[binIndices[i]];
-    }
-    return binLevel;
-  }
   static calcFFTBinLevelMax(binIndices, fft) {
     let binLevel = 0;
     for (let i = 0; i < binIndices.length; i++) {
       binLevel = Math.max(binLevel, fft[binIndices[i]]);
     }
     return binLevel;
+  }
+
+  // Calculates the top half of the audio chroma, normalized in [0,1]
+  static calcAudioChromaAdjusted(audioChroma) {
+    const chromaSum = audioChroma.reduce((a,b) => a+b, 0) || 1;
+    const chromaMean = chromaSum / audioChroma.length;
+    const chromaAdjusted = audioChroma.map(val => val-chromaMean);
+    const chromaMax = chromaAdjusted.reduce((a,b) => Math.max(a,b), 0);
+    const chromaMultiplier = 1.0 / chromaMax;
+    return chromaAdjusted.map(val => chromaMultiplier*val);
   }
 }
 

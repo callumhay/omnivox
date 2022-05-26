@@ -7,6 +7,7 @@ const VOXEL_ANIM_TYPE_SHAPE_WAVES   = "Shape Waves";
 const VOXEL_ANIM_FIRE               = "Fire";
 const VOXEL_ANIM_SCENE              = "Scene";
 const VOXEL_ANIM_BAR_VISUALIZER     = "Bar Visualizer";
+const VOXEL_ANIM_BLOCK_VISUALIZER   = "Block Visualizer";
 const VOXEL_ANIM_GAMEPAD_DJ         = "Gamepad DJ";
 
 const VOXEL_ANIM_TYPES = [
@@ -17,6 +18,7 @@ const VOXEL_ANIM_TYPES = [
   VOXEL_ANIM_FIRE,
   VOXEL_ANIM_SCENE,
   VOXEL_ANIM_BAR_VISUALIZER,
+  VOXEL_ANIM_BLOCK_VISUALIZER,
   VOXEL_ANIM_TEXT,
   VOXEL_ANIM_GAMEPAD_DJ,
 ];
@@ -40,6 +42,7 @@ class VoxelAnimator {
   static get VOXEL_ANIM_SCENE() {return VOXEL_ANIM_SCENE;}
   static get VOXEL_ANIM_TEXT() {return VOXEL_ANIM_TEXT;}
   static get VOXEL_ANIM_BAR_VISUALIZER() {return VOXEL_ANIM_BAR_VISUALIZER;}
+  static get VOXEL_ANIM_BLOCK_VISUALIZER() {return VOXEL_ANIM_BLOCK_VISUALIZER;}
   static get VOXEL_ANIM_GAMEPAD_DJ() {return VOXEL_ANIM_GAMEPAD_DJ;}
 
   static get VOXEL_ANIM_TYPES() {return VOXEL_ANIM_TYPES;}

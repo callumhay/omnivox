@@ -3,7 +3,7 @@ import {DEFAULT_NUM_FFT_SAMPLES, DEFAULT_FFT_BUFFER_SIZE} from '../WebClientCont
 import {COLOUR_INTERPOLATION_LRGB} from '../Spectrum';
 
 const DEFAULT_LEVEL_MAX = 1.75;
-const DEFAULT_GAMMA = 1.6;
+const DEFAULT_GAMMA = 2.0;
 const DEFAULT_FADE_FACTOR = 0.02;
 const DEFAULT_LOW_COLOUR  = new THREE.Color("#99FC20");
 const DEFAULT_HIGH_COLOUR = new THREE.Color("#FD1999"); 

@@ -1,8 +1,10 @@
+
 import VoxelAnimator from '../../Animation/VoxelAnimator';
 import BarVisualizerAnimator, {barVisualizerAnimatorDefaultConfig} from '../../Animation/BarVisualizerAnimator';
 
-import AnimCP from './AnimCP';
 import { COLOUR_INTERPOLATION_TYPES } from '../../Spectrum';
+
+import AnimCP from './AnimCP';
 
 class BarVisualizerAnimCP extends AnimCP {
   constructor(masterCP) {
@@ -94,7 +96,7 @@ class BarVisualizerAnimCP extends AnimCP {
     // Audio visualization parameters
     const audioFolder = folder.addFolder({title: "Audio Parameters"});
     this.addControl(audioFolder, 'levelMax', {label: "Max Level", min: 0.1, max: 5, step: 0.01});
-    this.addControl(audioFolder, 'gamma', {label: "Gamma", min: 1, max: 8, step: 0.1});
+    this.addControl(audioFolder, 'gamma', {label: "Gamma", min: 1, max: 5, step: 0.1});
     this.addControl(audioFolder, 'fadeFactor', {label: "Fade Factor", min: 0, max: 0.1, step: 0.001});
 
     return folder;

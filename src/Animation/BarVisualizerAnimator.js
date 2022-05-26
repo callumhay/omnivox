@@ -71,7 +71,7 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
     const {gridSize, gpuKernelMgr} = this.voxelModel;
 
     const halfGridSize = (gridSize/2);
-    // This should always be a square number! We use these number to make the bars into 2x2 columns within the grid
+    // This should always be a square number! We use this number to make the bars into 2x2 columns within the grid
     const STATIC_INTENSITY_ARRAY_SIZE = Math.max(64, halfGridSize*halfGridSize);
 
     this.randomColourCycler = new RandomHighLowColourCycler();
@@ -84,10 +84,11 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
     // Build the GPU kernels for rendering the various configurations of the bar visualizer
     gpuKernelMgr.initBarVisualizerKernels(gridSize, STATIC_INTENSITY_ARRAY_SIZE);
     if (!this.prevVisTex) {
-      this.prevVisTex = gpuKernelMgr.initBarVisualizerBuffer3Func(0,0,0,0);
+      this.prevVisTex = gpuKernelMgr.initBarVisualizerBuffer4Func(0,0,0,0);
     }
 
     this.timeCounter = 0;
+    this.updateGamma = true;
   }
   unload() {
     super.unload();
@@ -98,6 +99,7 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
     this.prevVisTex.delete();
     this.prevVisTex = null;
     this.binIndexLookup = null;
+    this.updateGamma = false;
   }
 
   setConfig(c, init=false) {
@@ -125,6 +127,7 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
     }
     // Set the level colours to low/high to initialize the array, this may be updated/changed in render() depending on the colour mode
     this.levelColours = Spectrum.genLowToHighColourSpectrum(lowColour, highColour, colourInterpolationType, this._numLevelColours());
+    this.updateGamma = true;
   }
 
   reset() {
@@ -148,7 +151,7 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
       default: break;
     }
 
-    let temp = this.prevVisTex;
+    const temp = this.prevVisTex;
     switch (displayMode) {
       case MOVING_HISTORY_BARS_DISPLAY_TYPE:
         this.prevVisTex = gpuKernelMgr.historyBarVisFunc(
@@ -183,9 +186,9 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
     const numIntensities = displayMode === MOVING_HISTORY_BARS_DISPLAY_TYPE ? this.voxelModel.gridSize : this.audioIntensities.length;
 
     // Build a distribution of what bins to throw each frequency in
-    const numFreqs = Math.floor(fft.length/(gamma+1.8));
-    if (!this.binIndexLookup || numFreqs !== this.binIndexLookup.length) {
-      this.binIndexLookup = AudioVisualizerAnimator.buildBinIndexLookup(numFreqs, numIntensities, gamma);
+    if (!this.binIndexLookup || this.updateGamma) {
+      this.binIndexLookup = AudioVisualizerAnimator.buildBinIndexLookup(fft.length, numIntensities, gamma);
+      this.updateGamma = false;
     }
 
     switch (displayMode) {
@@ -222,7 +225,8 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
       default: {
         // Throw the audio levels of the distribution into the proper bins
         Object.keys(this.binIndexLookup).forEach((key, index) => {
-          this.audioIntensities[index] = AudioVisualizerAnimator.calcFFTBinLevelSum(this.binIndexLookup[key], fft);
+          const binLookup = this.binIndexLookup[key];
+          this.audioIntensities[index] = AudioVisualizerAnimator.calcFFTBinLevelMax(binLookup, fft);
         });
         if (centerSorted) {
           // If the display is center sorted, then we place the highest intensity frequencies in the center of the base of the voxel grid, 

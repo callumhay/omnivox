@@ -18,6 +18,7 @@ import VTScene from '../VoxelTracer/VTScene';
 import VoxelFramebufferCPU from './VoxelFramebufferCPU';
 import VoxelFramebufferGPU from './VoxelFramebufferGPU';
 import GPUKernelManager from './GPUKernelManager';
+import BlockVisualizerAnimator from '../Animation/BlockVisualizerAnimator';
 
 
 export const BLEND_MODE_OVERWRITE = 0;
@@ -83,6 +84,7 @@ class VoxelModel {
       [VoxelAnimator.VOXEL_ANIM_FIRE]              : new FireAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_SCENE]             : new SceneAnimator(this, this.vtScene),
       [VoxelAnimator.VOXEL_ANIM_BAR_VISUALIZER]    : new BarVisualizerAnimator(this),
+      [VoxelAnimator.VOXEL_ANIM_BLOCK_VISUALIZER]  : new BlockVisualizerAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_GAMEPAD_DJ]        : new GamepadDJAnimator(this, this.vtScene),
     };
 
@@ -262,7 +264,14 @@ class VoxelModel {
    * Get the local space Axis-Aligned Bounding Box for all voxels.
    */
   getBoundingBox() {
-    return new THREE.Box3(new THREE.Vector3(0,0,0), new THREE.Vector3(this.xSize()-1, this.ySize()-1, this.zSize()-1));
+    return new THREE.Box3(
+      new THREE.Vector3(0,0,0),
+      new THREE.Vector3(
+        this.xSize()-VoxelConstants.VOXEL_EPSILON,
+        this.ySize()-VoxelConstants.VOXEL_EPSILON,
+        this.zSize()-VoxelConstants.VOXEL_EPSILON
+      )
+    );
   }
   
   setVoxel(pt=new THREE.Vector3(0,0,0), colour=new THREE.Color(0,0,0))   {

@@ -108,7 +108,7 @@ class SoundManager {
       //'loudness',
       'rms',
       'zcr',
-      'mfcc',
+      //'mfcc',
       'chroma',
       'perceptualSharpness',
     ]);
@@ -131,7 +131,7 @@ class SoundManager {
       chroma: this.features.chroma,
       //perceptualSpread: this.features.perceptualSpread,
       perceptualSharpness: this.features.perceptualSharpness,
-      mfcc: this.features.mfcc,
+      //mfcc: this.features.mfcc,
     });
   }
 

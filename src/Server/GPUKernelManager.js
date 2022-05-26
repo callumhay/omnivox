@@ -750,6 +750,79 @@ class GPUKernelManager {
     this._fireKernelsInit = true;
   }
 
+  initBlockVisualizerKernels(gridSize, numColours) {
+    if (this._blockVisKernelsInit) { return; }
+
+    const blockVisFuncSettings = {
+      output: [gridSize, gridSize, gridSize],
+      pipeline: true,
+      immutable: true,
+      returnType: 'Array(4)',
+      constants: {
+        gridSize,
+        gridSizeMinus1: gridSize-1.0,
+        numColoursMinus1: numColours-1.0,
+      }
+    };
+
+    this.initBlockVisualizerBuffer4Func = this.gpu.createKernel(function(valueX, valueY, valueZ, valueW) {
+      return [valueX, valueY, valueZ, 0];
+    }, {...blockVisFuncSettings, name: 'initBlockVisualizerBuffer4Func', argumentTypes: {
+      valueX: 'Float', valueY: 'Float', valueZ: 'Float', valueW: 'Float'
+    }});
+
+    this.blockVisFunc = this.gpu.createKernel(function(audioLevels, shuffleLookup, prevVisTex, colours, blockSize, levelMax, fadeFactor, dt) {
+      
+      const xyz = [this.thread.z, this.thread.y, this.thread.x];
+      const numBlocksPerSide = this.constants.gridSize / blockSize;
+      const blockIdx = [Math.floor(xyz[0] / blockSize), Math.floor(xyz[1] / blockSize), Math.floor(xyz[2] / blockSize)];
+      const levelIdx = shuffleLookup[
+        blockIdx[0]*numBlocksPerSide*numBlocksPerSide + 
+        blockIdx[1]*numBlocksPerSide + 
+        blockIdx[2]
+      ];
+
+      const audioLvlNorm = Math.log10(audioLevels[levelIdx]) / levelMax;
+      const audioLvlPct  = clampValue(audioLvlNorm, 0.0, 1.0);
+      let colourIdxDecimal = audioLvlPct * this.constants.numColoursMinus1;
+      const colourIdxLow  = Math.floor(colourIdxDecimal);
+      const colourIdxHigh = Math.ceil(colourIdxDecimal);
+      colourIdxDecimal -= colourIdxLow;
+
+      const currColourLow  = colours[colourIdxLow];
+      const currColourHigh = colours[colourIdxHigh];
+      const currColour = [
+        (1.0 - colourIdxDecimal) * currColourLow[0] + colourIdxDecimal * currColourHigh[0],
+        (1.0 - colourIdxDecimal) * currColourLow[1] + colourIdxDecimal * currColourHigh[1],
+        (1.0 - colourIdxDecimal) * currColourLow[2] + colourIdxDecimal * currColourHigh[2],
+      ]; // Lerp between the high and low colours
+
+      const fadeFactorAdjusted = clampValue(Math.pow(fadeFactor, dt), 0.0, 1.0);
+      const prevVoxel = prevVisTex[xyz[0]][xyz[1]][xyz[2]];
+      const alpha = (prevVoxel[3] * fadeFactorAdjusted) + audioLvlPct * (1.0-fadeFactorAdjusted);
+
+      return [
+        clampValue(currColour[0] + blockIdx[0]/numBlocksPerSide, 0.0, 1.0),
+        clampValue(currColour[1] + blockIdx[1]/numBlocksPerSide, 0.0, 1.0),
+        clampValue(currColour[2] + blockIdx[2]/numBlocksPerSide, 0.0, 1.0), alpha
+      ];
+    }, {...blockVisFuncSettings, name: 'blockVisFunc', argumentTypes: {
+      audioLevels: 'Array', shuffleLookup: 'Array', prevVisTex: 'Array3D(4)', colours: 'Array1D(3)', 
+      blockSize: 'Float', levelMax: 'Float', fadeFactor: 'Float', dt: 'Float'
+    }});
+
+    this.renderBlockVisualizerAlphaFunc = this.gpu.createKernel(function(blockrVisTex) {
+      const currVoxel = blockrVisTex[this.thread.z][this.thread.y][this.thread.x];
+      return [
+        clampValue(currVoxel[0]*currVoxel[3], 0.0, 1.0), 
+        clampValue(currVoxel[1]*currVoxel[3], 0.0, 1.0), 
+        clampValue(currVoxel[2]*currVoxel[3], 0.0, 1.0)
+      ];
+    }, {...blockVisFuncSettings, name: 'renderBlockVisualizerAlphaFunc', immutable: false, returnType: 'Array(3)', argumentTypes: {blockrVisTex: 'Array3D(4)'}});
+
+    this._blockVisKernelsInit = true;
+  }
+
   initBarVisualizerKernels(gridSize, numStaticAudioLevels) {
     if (this._barVisKernelsInit) { return; }
 
@@ -773,15 +846,16 @@ class GPUKernelManager {
       },
     };
 
-    this.initBarVisualizerBuffer3Func = this.gpu.createKernel(function(valueX, valueY, valueZ, valueW) {
+    this.initBarVisualizerBuffer4Func = this.gpu.createKernel(function(valueX, valueY, valueZ, valueW) {
       return [valueX, valueY, valueZ, valueW];
-    }, {...barVisFuncSettings, name: 'initBarVisualizerBuffer3Func', immutable: true, argumentTypes: {valueX: 'Float', valueY: 'Float', valueZ: 'Float', valueW: 'Float'}});
+    }, {...barVisFuncSettings, name: 'initBarVisualizerBuffer4Func', immutable: true, argumentTypes: {
+      valueX: 'Float', valueY: 'Float', valueZ: 'Float', valueW: 'Float'
+    }});
 
     this.gpu.addFunction(function calcAudioCutoff(audioIntensity, levelMax, height) {
       return (Math.log10(audioIntensity) / levelMax) * height;
     }, {name: 'calcAudioCutoff'});
     this.gpu.addFunction(function barVisCutoff(audioLevels, levelMax, height) {
-      //const levelIdx = Math.floor((this.constants.numAudioLevels / this.constants.gridSizeSqr) * (this.thread.z*this.constants.gridSize + this.thread.x));
       const levelIdx  = this.constants.sqrtNumAudioLevels*Math.floor(this.thread.z/this.constants.chunkSize) +  Math.floor(this.thread.x/this.constants.chunkSize);
       return calcAudioCutoff(audioLevels[levelIdx], levelMax, height);
     }, {name: 'barVisCutoff'});
@@ -811,14 +885,15 @@ class GPUKernelManager {
       const levelIdx = Math.floor((4*(projectedTierIdxMinus1*projectedTierIdxMinus1 + 2*projectedTierIdxMinus1 + 1) + tierSlotIdx) * numLevelsPerSlot);
       return calcAudioCutoff(audioLevels[levelIdx], levelMax, height);
     }, {name: 'barVisCutoffCentered'});
+
     this.gpu.addFunction(function drawBarVis(prevVisTex, levelColours, cutoff, cutoffClampSize, fadeFactor, dt, yIdx, glowMultiplier) {
       const prevVoxelRGBA = prevVisTex[this.thread.z][this.thread.y][this.thread.x];
-      const fadeFactorAdjusted = Math.pow(fadeFactor, dt);
+      const fadeFactorAdjusted = clampValue(Math.pow(fadeFactor, dt), 0.0, 1.0);
       const clampedCutoff = clampValue(cutoff, 0, cutoffClampSize);
       const isVisible = yIdx < clampedCutoff ? 1.0 : 0.0;
 
       // Allow bars to fade over time, make especially high intensity bars glow white
-      const alpha = (prevVoxelRGBA[3] * fadeFactorAdjusted + isVisible * (prevVoxelRGBA[3]*glowMultiplier*Math.max(cutoff-cutoffClampSize, 0) + 1 - fadeFactorAdjusted));
+      const alpha = (prevVoxelRGBA[3] * fadeFactorAdjusted + isVisible * (prevVoxelRGBA[3]*glowMultiplier*Math.max(cutoff-cutoffClampSize, 0.0) + 1.0 - fadeFactorAdjusted));
       return [
         levelColours[yIdx][0],
         levelColours[yIdx][1],
@@ -868,9 +943,9 @@ class GPUKernelManager {
     this.renderBarVisualizerAlphaFunc = this.gpu.createKernel(function(barVisTex) {
       const currVoxel = barVisTex[this.thread.z][this.thread.y][this.thread.x];
       return [
-        clampValue(currVoxel[0]*currVoxel[3], 0, 1), 
-        clampValue(currVoxel[1]*currVoxel[3], 0, 1), 
-        clampValue(currVoxel[2]*currVoxel[3], 0, 1)
+        clampValue(currVoxel[0]*currVoxel[3], 0.0, 1.0), 
+        clampValue(currVoxel[1]*currVoxel[3], 0.0, 1.0), 
+        clampValue(currVoxel[2]*currVoxel[3], 0.0, 1.0)
       ];
     }, {...barVisFuncSettings, name: 'renderBarVisualizerAlphaFunc', returnType: 'Array(3)', argumentTypes: {barVisTex: 'Array3D(4)'}});
 

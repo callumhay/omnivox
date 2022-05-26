@@ -74,10 +74,7 @@ export class VTPBody extends VTPInitializer {
 // Generator for a uniformly distributed unit vector on a sphere (i.e., a randomized 3D unit vector)
 export class UniformSphereDirGenerator {
   constructor() {}
-  generate(target) {
-    return Randomizer.getRandomUnitVec(target);
-  }
-
+  generate(target) { return Randomizer.getRandomUnitVec(target); }
 }
 // Generator for a uniformly distributed vector in a cone shape based on a given direction (cone center vector) 
 // and the half angle of the cone in radians

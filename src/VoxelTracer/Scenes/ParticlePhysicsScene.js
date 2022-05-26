@@ -116,8 +116,9 @@ class ParticlePhysicsScene extends SceneRenderer {
     this.emitterVelInit.speedSpan.b = particleSpeed.max;
     this.emitterMassInit.massSpan.a = particleMass.min;
     this.emitterMassInit.massSpan.b = particleMass.max;
-    this.emitterRadiusInit.radiusSpan.a = particleRadius.min;
-    this.emitterRadiusInit.radiusSpan.b = particleRadius.max;
+    const isVoxel = particleType === "VTVoxel";
+    this.emitterRadiusInit.radiusSpan.a = isVoxel ? 0.5 : particleRadius.min;
+    this.emitterRadiusInit.radiusSpan.b = isVoxel ? 0.5 : particleRadius.max;
 
     this.emitter.p.copy(emitterPos);
 

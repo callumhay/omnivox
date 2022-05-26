@@ -32,8 +32,8 @@ class PhysicsUtils {
     const wallZNegBody = new CANNON.Body({mass: 0, material: wallMaterial});
     const wallZPosBody = new CANNON.Body({mass: 0, material: wallMaterial});
 
-    const adjustedZero = VoxelConstants.VOXEL_HALF_UNIT_SIZE;
-    const adjustedCubeSize = cubeSize-VoxelConstants.VOXEL_HALF_UNIT_SIZE;
+    const adjustedZero = -VoxelConstants.VOXEL_EPSILON;
+    const adjustedCubeSize = cubeSize + VoxelConstants.VOXEL_EPSILON;
 
     wallYNegBody.addShape(wallYNegShape);
     wallYNegBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
