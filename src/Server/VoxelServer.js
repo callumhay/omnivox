@@ -17,7 +17,7 @@ class VoxelServer {
     this.voxelModel = voxelModel;
 
     // Setup websockets
-    this.viewerWS = null;
+    this.viewerWebSocks = [];
     this.controllerWS = null;
     this.webSocketServer = new ws.Server({
       port: VoxelProtocol.WEBSOCKET_PORT,
@@ -33,7 +33,7 @@ class VoxelServer {
       switch (socket.protocol) {
         case VoxelProtocol.WEBSOCKET_PROTOCOL_VIEWER:
           console.log(VoxelConstants.PROJECT_NAME + " Viewer detected.");
-          self.viewerWS = socket;
+          self.viewerWebSocks.push(socket);
           break;
         case VoxelProtocol.WEBSOCKET_PROTOCOL_CONTROLLER:
           console.log(VoxelConstants.PROJECT_NAME + " Controller detected.");
@@ -53,7 +53,10 @@ class VoxelServer {
       socket.on('close', function() {
         console.log("Websocket closed.");
         if (socket === self.controllerWS) { self.controllerWS = null; }
-        else if (socket === self.viewerWS) { self.viewerWS = null; }
+        else {
+          const idx = self.viewerWebSocks.indexOf(socket);
+          if (idx > -1) { self.viewerWebSocks.splice(idx, 1); }
+        }
       });
 
       socket.send(VoxelProtocol.buildClientWelcomePacketStr(voxelModel));
@@ -187,11 +190,14 @@ class VoxelServer {
                           /*
                           // TODO: 
                           // Server event: Slave (slaveId) connected
-                          if (this.viewerWS && this.viewerWS.bufferedAmount === 0) {
-                            this.viewerWS.send(VoxelProtocol.buildServerStateEventPacketStr(
-                              VoxelProtocol.SERVER_STATE_EVENT_SLAVE_TYPE,
-                              {slaveId, connected: true, message: "Slave added to server."}
-                            ));
+                          if (this.viewerWebSocks.length > 0) {
+                            const statePkt = VoxelProtocol.buildServerStateEventPacketStr(
+                                VoxelProtocol.SERVER_STATE_EVENT_SLAVE_TYPE,
+                                {slaveId, connected: true, message: "Slave added to server."}
+                            );
+                            for (const viewerWS of this.viewerWebSocks) {
+                              viewerWS.send(statePkt);
+                            }
                           }
                           */
                         }
@@ -282,13 +288,16 @@ class VoxelServer {
     }
 
     // Send voxel data to the viewer websocket client
-    if (this.viewerWS && this.viewerWS.bufferedAmount === 0) {
-      this.viewerWS.send(VoxelProtocol.buildVoxelDataPacket(voxelData));
+    if (this.viewerWebSocks.length > 0) {
+      const voxelDataPkt = VoxelProtocol.buildVoxelDataPacket(voxelData);
+      for (const viewerWS of this.viewerWebSocks) {
+        if (viewerWS.bufferedAmount === 0) { viewerWS.send(voxelDataPkt); }
+      }
     }
   }
 
   sendViewerPacketStr(packetStr) {
-    if (this.viewerWS) { this.viewerWS.send(packetStr); }
+    for (const viewerWS of this.viewerWebSocks) { viewerWS.send(packetStr); }
   }
 
   areSlavesConnected() {

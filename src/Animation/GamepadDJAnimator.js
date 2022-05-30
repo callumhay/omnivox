@@ -407,7 +407,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
 
     const currCursorColour = this.cursorPtLight.colour;
     const {rightTrigger} = this.currButtonState;
-    _newPulseColour.multiplyScalar(Math.max(2, 1.5+(rms/rmsLevelMax)));
+    _newPulseColour.multiplyScalar(Math.max(2, 1.5+rmsPct));
     _newPulseColour.setRGB(
       THREE.MathUtils.clamp(currCursorColour.r + this.dtAudioFrame*colourBlendSpeed*(Math.max(rightTrigger, Math.min(1, _newPulseColour.r))-currCursorColour.r),0,1),
       THREE.MathUtils.clamp(currCursorColour.g + this.dtAudioFrame*colourBlendSpeed*(Math.max(rightTrigger, Math.min(1, _newPulseColour.g))-currCursorColour.g),0,1),
@@ -416,7 +416,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
 
     // Make the cursor pulse to the beat
     const audioPulseAmt = 1 - rmsPct;
-    const pulse = cursorMinAtten + THREE.MathUtils.smootherstep(Math.min((1.0-this.currButtonState.rightTrigger), audioPulseAmt), 0, 1)*(cursorMaxAtten-cursorMinAtten); // cursorMinAtten + Math.min((1.0-this.currButtonState.rightTrigger), audioPulseAmt) * ;
+    const pulse = cursorMinAtten + THREE.MathUtils.smoothstep(Math.min((1.0-this.currButtonState.rightTrigger), audioPulseAmt), 0, 1)*(cursorMaxAtten-cursorMinAtten);
     this.cursorPtLight.setAttenuation({quadratic:(pulse*0.75 + this.cursorPtLight.attenuation.quadratic*0.25), linear:0});
     this.cursorPtLight.setColour(_newPulseColour);
     this.ambientLight.colour.setRGB(0.25*_newPulseColour.r, 0.25*_newPulseColour.g, 0.25*_newPulseColour.b);
@@ -520,7 +520,7 @@ class GamepadDJAnimator extends AudioVisualizerAnimator {
   _addBounceSphere() {
     if (this.bounceSpheres.length >= MAX_BOUNCE_SPHERES) { return; } // Avoid excessive bouncy balls or things get sllloooowwww
 
-    const currRMSVal = THREE.MathUtils.clamp(this.avgRMS/this.currMaxRMS,0,1);
+    const currRMSVal = this.avgRMSPercent();
     const radius = Math.round(2*(1.5 + 1.5*currRMSVal + Randomizer.getRandomFloat(0,1)))/2;
     const {position} = this.cursorPtLight;
     const spherePos = new THREE.Vector3(

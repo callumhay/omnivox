@@ -79,6 +79,7 @@ class AudioVisualizerAnimator extends VoxelAnimator {
   }
 
   avgRMSPercent() { return THREE.MathUtils.clamp(this.avgRMS/this.currMaxRMS, 0, 1); }
+  avgZCRPercent() { return THREE.MathUtils.clamp(this.avgZCR/this.currMaxZCR, 0, 1); }
 
   // Based on this: https://dlbeer.co.nz/articles/fftvis.html
   static buildBinIndexLookup(fftLength, numBins, gamma) {

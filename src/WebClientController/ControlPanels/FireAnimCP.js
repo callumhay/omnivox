@@ -81,15 +81,13 @@ class FireAnimCP extends AnimCP {
     const audioFolder = folder.addFolder({title: "Audio Visualization"});
     this.addControl(audioFolder, 'audioVisualizationOn', {label: "Visualization On"});
     this.addControl(audioFolder, 'levelMax', {label: "Max Level", min: 0.1, max: 5, step: 0.01});
-    this.addControl(audioFolder, 'gamma', {label: "Gamma", min: 1, max: 8, step: 0.1});
-    //this.addControl(audioFolder, 'fadeFactor', {label: "Fade Factor", min: 0, max: 0.1, step: 0.001}); // No fade factor on the fire vis
-    
+    this.addControl(audioFolder, 'gamma', {label: "Gamma", min: 1, max: 8, step: 0.1}); 
     audioFolder.addSeparator();
     this.addControl(audioFolder, 'audioNoiseAddition', {label: "Noise Multiplier", min: 0, max: 1, step: 0.01});
     this.addControl(audioFolder, 'audioSpeedMultiplier', {label: "Speed Multiplier", min: 0.1, max: 3, step: 0.01});
     this.addControl(audioFolder, 'audioCoolingMultiplier', {label: "Cooling Multiplier", min: 0, max: 5, step: 0.1});
     this.addControl(audioFolder, 'audioBuoyancyMultiplier', {label: "Buoyancy Multiplier", min: 0, max: 5, step: 0.1});
-    this.addControl(audioFolder, 'audioTurbulenceMultiplier', {label: "Turbulence Multiplier", min: 0, max: 5, step: 0.1});
+    this.addControl(audioFolder, 'audioTurbulenceMultiplier', {label: "Turbulence Multiplier", min: 0, max: 10, step: 0.1});
 
     this.masterCP.buildResetButton(folder);
     return folder;

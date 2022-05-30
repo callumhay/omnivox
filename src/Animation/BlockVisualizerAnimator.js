@@ -13,7 +13,7 @@ export const blockVisualizerAnimatorDefaultConfig = {
   blockSize: 'dynamic',
   dynamicBlockSizeTransitionTimeSecs: 1,
   shuffleBlocks: true,
-  fadeFactor: 0.03,
+  fadeFactor: 0.1,
   blurIntensitySpeed: 75,
   brightenIntensity: 1.5,
 };
@@ -118,7 +118,7 @@ class BlockVisualizerAnimator extends AudioVisualizerAnimator {
         _tempAudioIntensities[index] = AudioVisualizerAnimator.calcFFTBinLevelMax(tempBinLookup[key], fft);
       });
 
-      const numActiveIntensities = _tempAudioIntensities.filter(intensity => (Math.log10(intensity) / levelMax) > 0.01).length;
+      const numActiveIntensities = _tempAudioIntensities.filter(intensity => (Math.log10(intensity) / levelMax) > 0.005).length;
       let newBlockSize = this.config.blockSize;
 
       if (numActiveIntensities < 16)  { newBlockSize = 8; }
@@ -145,7 +145,8 @@ class BlockVisualizerAnimator extends AudioVisualizerAnimator {
     for (const key of Object.keys(this.binIndexLookup)) {
       const currAudioIntensity = this.audioIntensities[index];
       const nextAudioIntensity = AudioVisualizerAnimator.calcFFTBinLevelMax(this.binIndexLookup[key], fft);
-      this.audioIntensities[index] = currAudioIntensity + blurDist*(nextAudioIntensity-currAudioIntensity);
+      const intensityDiff = nextAudioIntensity-currAudioIntensity;
+      this.audioIntensities[index] = currAudioIntensity + (intensityDiff < 0 ? Math.max(blurDist*(intensityDiff), intensityDiff) : Math.min(blurDist*(intensityDiff), intensityDiff));
       avgAudioIntensity += this.audioIntensities[index];
       index++;
     }
@@ -171,12 +172,12 @@ class BlockVisualizerAnimator extends AudioVisualizerAnimator {
     
     // Build a set of brightness levels for rendering the colour based on audio intensity
     const currColourHex = this.currColour.getHex();
-    const currColourHSL = chroma(currColourHex).hsl();
-    const opposingChromaColour = chroma.hsl((currColourHSL[0]+90+(30*(normAudioIntensity-0.5))) % 360, currColourHSL[1], currColourHSL[2]);
+    //const currColourHSL = chroma(currColourHex).hsl();
+    //const opposingChromaColour = chroma.hsl((currColourHSL[0]+90+(30*(normAudioIntensity-0.5))) % 360, currColourHSL[1], currColourHSL[2]);
     for (let i = 0; i < NUM_LUM_LEVELS; i++) {
       const pct = THREE.MathUtils.smoothstep(i/NUM_LUM_LEVELS_MINUS1, 0, 1);
       const brightenVal = pct*brightenIntensity;
-      const glArr = chroma.mix(opposingChromaColour, currColourHex, i/NUM_LUM_LEVELS_MINUS1).saturate(2+pct).brighten(brightenVal).gl();
+      const glArr = /*chroma.mix(opposingChromaColour, currColourHex, i/NUM_LUM_LEVELS_MINUS1)*/chroma(currColourHex).saturate(2+pct).brighten(brightenVal).gl();
       const currColourLum = this.currColourLums[i];
       currColourLum[0] = glArr[0]; currColourLum[1] = glArr[1]; currColourLum[2] = glArr[2];
     }

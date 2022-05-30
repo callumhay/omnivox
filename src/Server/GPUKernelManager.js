@@ -897,7 +897,7 @@ class GPUKernelManager {
       return [
         levelColours[yIdx][0],
         levelColours[yIdx][1],
-        levelColours[yIdx][2], alpha
+        levelColours[yIdx][2], clampValue(alpha, 0.0, 1.0)
       ];
     }, {name: 'drawBarVis'});
 
