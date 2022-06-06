@@ -12,7 +12,7 @@ import VTPEmitter from '../Particles/VTPEmitter';
 import VTPRate from '../Particles/VTPRate';
 import VTPSpan from '../Particles/VTPSpan';
 import {VTPBoxZone} from '../Particles/VTPZones';
-import {SpiralDirGenerator, StaticDirGenerator, UniformSphereDirGenerator, VTPBody, VTPLife, VTPPosition, VTPVelocity} from '../Particles/VTPInitializers';
+import {SpiralDirGenerator, SpiralSpeedDirGenerator, StaticDirGenerator, UniformSphereDirGenerator, VTPBody, VTPLife, VTPPosition, VTPVelocity} from '../Particles/VTPInitializers';
 import VTPAlpha from '../Particles/Behaviours/VTPAlpha';
 import VTPColour from '../Particles/Behaviours/VTPColour';
 import VTPAttraction from '../Particles/Behaviours/VTPAttraction';
@@ -56,7 +56,8 @@ class ParticleScene extends SceneRenderer {
     this.speedSpan = new VTPSpan();
     this.boxDirGen = new StaticDirGenerator([new THREE.Vector3(0,1,0)]);
     this.sphereDirGen = new UniformSphereDirGenerator();
-    this.spiralDirGen = new SpiralDirGenerator(Math.PI/8, Math.PI/8, Math.PI/180, Math.PI/180);
+
+    this.spiralDirGen = new SpiralSpeedDirGenerator(new VTPSpan(2*Math.PI), new VTPSpan(Math.PI/10));// new SpiralDirGenerator(Math.PI/8, Math.PI/8, Math.PI/180, Math.PI/180);
     this.emitterVelInit = new VTPVelocity(this.speedSpan, this.sphereDirGen);
     this.emitter.addInitializer(this.emitterVelInit);
 

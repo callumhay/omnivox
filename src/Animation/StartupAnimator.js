@@ -554,7 +554,7 @@ class StartupAnimator extends VoxelAnimator {
     const {waitForSlaveConnections} = this.config;
     this._loadWaitTime -= dt;
     return this._loadWaitTime <= 0 && 
-      (voxelServer && voxelServer.viewerWS) && 
+      (voxelServer && voxelServer.viewerWebSocks.length > 0) && 
       (!waitForSlaveConnections || voxelServer.areSlavesConnected());
   }
 

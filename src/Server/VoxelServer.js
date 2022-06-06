@@ -18,7 +18,7 @@ class VoxelServer {
 
     // Setup websockets
     this.viewerWebSocks = [];
-    this.controllerWS = null;
+    this.controllerWebSock = null;
     this.webSocketServer = new ws.Server({
       port: VoxelProtocol.WEBSOCKET_PORT,
       perMessageDeflate: true, // Enable compression... lots of repetitive data.
@@ -32,12 +32,12 @@ class VoxelServer {
       console.log("Websocket opened...");
       switch (socket.protocol) {
         case VoxelProtocol.WEBSOCKET_PROTOCOL_VIEWER:
-          console.log(VoxelConstants.PROJECT_NAME + " Viewer detected.");
+          console.log(VoxelConstants.PROJECT_NAME + " Viewer (" + self.viewerWebSocks.length + ") detected.");
           self.viewerWebSocks.push(socket);
           break;
         case VoxelProtocol.WEBSOCKET_PROTOCOL_CONTROLLER:
           console.log(VoxelConstants.PROJECT_NAME + " Controller detected.");
-          self.controllerWS = socket;
+          self.controllerWebSock = socket;
           break;
         default:
           console.error("Invalid websocket protocol found: " + socket.protocol);
@@ -51,11 +51,16 @@ class VoxelServer {
       });
 
       socket.on('close', function() {
-        console.log("Websocket closed.");
-        if (socket === self.controllerWS) { self.controllerWS = null; }
+        if (socket === self.controllerWebSock) { 
+          self.controllerWebSock = null;
+          console.log("Controller websocket closed.");
+        }
         else {
           const idx = self.viewerWebSocks.indexOf(socket);
-          if (idx > -1) { self.viewerWebSocks.splice(idx, 1); }
+          if (idx > -1) { 
+            self.viewerWebSocks.splice(idx, 1);
+            console.log("Viewer (" + idx + ") websocket closed.");
+          }
         }
       });
 
@@ -296,13 +301,9 @@ class VoxelServer {
     }
   }
 
-  sendViewerPacketStr(packetStr) {
-    for (const viewerWS of this.viewerWebSocks) { viewerWS.send(packetStr); }
-  }
+  sendViewerPacketStr(packetStr) { for (const viewerWS of this.viewerWebSocks) { viewerWS.send(packetStr); } }
 
-  areSlavesConnected() {
-    return (Object.keys(this.slaveDataMap).length === 2);
-  }
+  areSlavesConnected() { return (Object.keys(this.slaveDataMap).length === 2); }
 
   /**
    * Sets all of the voxel data to the given full set of each voxel in the display.

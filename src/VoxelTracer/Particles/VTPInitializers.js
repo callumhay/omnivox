@@ -93,6 +93,39 @@ export class UniformConeDirGenerator {
   }
 }
 
+export class SpiralSpeedDirGenerator {
+  constructor(jumpSpeedSpan, wobbleSpeedSpan) {
+    this.jumpSpeedSpan = VTPSpan.createSpan(jumpSpeedSpan);
+    this.wobbleSpeedSpan = VTPSpan.createSpan(wobbleSpeedSpan);
+
+    this.currGenDir  = Randomizer.getRandomUnitVec(new THREE.Vector3());
+    this.startingNorm = perpendicularUnitVector(new THREE.Vector3(), this.currGenDir);
+    this.normRotateVec = this.currGenDir.clone();
+    this.normWobbleVec = this.normRotateVec.clone().cross(this.startingNorm);
+    this.normRotateRadians = 0;
+    this.normWobbleRadians = 0;
+    this.lastTime = null;
+  }
+  generate(target) {
+    const currTime = Date.now();
+    if (!this.lastTime) { this.lastTime = currTime; }
+    const dt = (currTime - this.lastTime) / 1000;
+
+    target.copy(this.currGenDir);
+    const currDirNorm = _tempVec3.copy(this.startingNorm)
+      .applyAxisAngle(this.normWobbleVec, this.normWobbleRadians)
+      .applyAxisAngle(this.normRotateVec, this.normRotateRadians);
+
+    this.normRotateRadians = (this.normRotateRadians + dt*this.wobbleSpeedSpan.getValue()) % PI2;
+    this.normWobbleRadians = (this.normWobbleRadians + dt*this.wobbleSpeedSpan.getValue()) % PI2;
+
+    this.currGenDir.applyAxisAngle(currDirNorm, dt*this.jumpSpeedSpan.getValue());
+    this.lastTime = currTime;
+
+    return target;
+  }
+}
+
 export class SpiralDirGenerator {
   constructor(minDirJumpAngle, maxDirJumpAngle, minPlaneJumpAngle, maxPlaneJumpAngle) {
     this.dirJumpSpan = VTPSpan.createSpan(
@@ -104,7 +137,6 @@ export class SpiralDirGenerator {
       InitUtils.initValue(maxPlaneJumpAngle, 0)
     );
     this.currGenDir  = Randomizer.getRandomUnitVec(new THREE.Vector3());
-
     this.startingNorm = perpendicularUnitVector(new THREE.Vector3(), this.currGenDir);
     this.normRotateVec = this.currGenDir.clone();
     this.normWobbleVec = this.normRotateVec.clone().cross(this.startingNorm);
