@@ -31,11 +31,11 @@ class VTCTestPattern {
     this.bottomColourBlocks = [];
   }
 
-  build() {
+  build(thickness=4) {
     const halfGridSize = this.gridSize / 2.0;
     const colourBlockXSize = 2;
     const colourBlockHalfXSize = colourBlockXSize/2;
-    const colourBlockZSize = 4; // this.gridSize;
+    const colourBlockZSize = thickness; // this.gridSize;
 
     const colourBlockOptions = {samplesPerVoxel: 1, fill: true, castsShadows: false, receivesShadows: false};
     const currPos = new THREE.Vector3();

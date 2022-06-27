@@ -110,7 +110,7 @@ class BlockVisualizerAnimator extends AudioVisualizerAnimator {
       dynamicBlockSize, dynamicBlockSizeTransitionTimeSecs, shuffleBlocks
     } = this.config;
 
-    // If block size is set to be dynamic then adjust the block size based on how many audio intensities are available...
+    // If block size is set to be dynamic then adjust the block size based on how many audio intensities are available
     if (dynamicBlockSize) {
       const fftLength = fft.length;
       const tempBinLookup = AudioVisualizerAnimator.buildBinIndexLookup(fftLength, MAX_NUM_BLOCKS, gamma);
@@ -190,10 +190,10 @@ class BlockVisualizerAnimator extends AudioVisualizerAnimator {
     // Build a random shuffle of the indices (if enabled)
     const indices = this.audioIntensities.map((_, idx) => idx);
     if (shuffle) {
-      this.shuffleLookup = new Array(numBlocks).fill(0);
+      this.shuffleLookup = new Array(this.audioIntensities.length).fill(0);
       // TODO: Have the RNG be seeded for consistency!
       for (let i = 0, numIndices = this.shuffleLookup.length; i < numIndices; i++) {
-        const currIdx = Math.floor(Math.random()*indices.length);
+        const currIdx = Math.min(indices.length-1, Math.floor(Math.random()*indices.length));
         this.shuffleLookup[i] = currIdx;
         indices.splice(currIdx, 1);
       }

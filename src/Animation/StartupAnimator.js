@@ -66,7 +66,7 @@ class StartupAnimator extends VoxelAnimator {
   _buildSceneObjects() {
     const {gridSize} = this.voxelModel;
     this._testPattern = new VTCTestPattern(gridSize);
-    this._testPattern.build();
+    this._testPattern.build(gridSize-2);
 
     this._boxSlices = [];
     for (let i = 0; i < 16; i++) {
@@ -435,7 +435,7 @@ class StartupAnimator extends VoxelAnimator {
     let emitStarted = false;
 
     this._currAnims.push(animate({
-      to: [[0, 1, 0, 0], [1, 0.5, 0, flashBlurSqSigma], [1, 0.5, 0, 0], [1, 0.5, 1, 0]],
+      to: [[0, 1, 0, 0], [1, 0.5, 0, flashBlurSqSigma], [1, 0.25, 0, 0], [1, 0.25, 1, 0]],
       offset: [0, 0.3, 0.6, 1.0],
       ease: [easeInOut, linear, linear],
       duration: 3000,

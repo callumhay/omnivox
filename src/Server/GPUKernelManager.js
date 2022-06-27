@@ -774,19 +774,18 @@ class GPUKernelManager {
     this.blockVisFunc = this.gpu.createKernel(function(audioLevels, shuffleLookup, prevVisTex, colours, blockSize, levelMax, fadeFactor, dt) {
       
       const xyz = [this.thread.z, this.thread.y, this.thread.x];
-      const numBlocksPerSide = this.constants.gridSize / blockSize;
+      const numBlocksPerSide = Math.floor(this.constants.gridSize / blockSize);
+      const numBlocks = numBlocksPerSide*numBlocksPerSide*numBlocksPerSide;
       const blockIdx = [Math.floor(xyz[0] / blockSize), Math.floor(xyz[1] / blockSize), Math.floor(xyz[2] / blockSize)];
-      const levelIdx = shuffleLookup[
-        blockIdx[0]*numBlocksPerSide*numBlocksPerSide + 
-        blockIdx[1]*numBlocksPerSide + 
-        blockIdx[2]
-      ];
+      const levelIdx = Math.min(shuffleLookup[
+        Math.min(blockIdx[0]*numBlocksPerSide*numBlocksPerSide + blockIdx[1]*numBlocksPerSide + blockIdx[2], numBlocks-1)
+      ], numBlocks-1);
 
       const audioLvlNorm = Math.log10(audioLevels[levelIdx]) / levelMax;
       const audioLvlPct  = clampValue(audioLvlNorm, 0.0, 1.0);
       let colourIdxDecimal = audioLvlPct * this.constants.numColoursMinus1;
       const colourIdxLow  = Math.floor(colourIdxDecimal);
-      const colourIdxHigh = Math.ceil(colourIdxDecimal);
+      const colourIdxHigh = Math.min(Math.ceil(colourIdxDecimal), this.constants.numColoursMinus1);
       colourIdxDecimal -= colourIdxLow;
 
       const currColourLow  = colours[colourIdxLow];
