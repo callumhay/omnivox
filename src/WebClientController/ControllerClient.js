@@ -136,9 +136,9 @@ class ControllerClient {
     }
   }
 
-  sendGameFramebufferInfo(width, height, rgbaBuffer) {
+  sendFramebufferSliceInfo(width, height, rgbaBuffer) {
     if (this.socket.readyState === WebSocket.OPEN) {
-      this.socket.send(VoxelProtocol.buildClientGameFramebufferStr(width, height, rgbaBuffer));
+      this.socket.send(VoxelProtocol.buildClientFramebufferSliceStr(width, height, rgbaBuffer));
     }
   }
   

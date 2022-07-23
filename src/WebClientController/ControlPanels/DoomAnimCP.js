@@ -1,9 +1,10 @@
 require('emulators');
 require('emulators-ui');
 import * as THREE from 'three';
-import { doomAnimatorDefaultConfig } from '../../Animation/DoomAnimator';
 
 import VoxelAnimator from '../../Animation/VoxelAnimator';
+import { doomAnimatorDefaultConfig } from '../../Animation/DoomAnimator';
+
 import { CHANGE_EVENT } from '../controlpanelfuncs';
 
 import AnimCP from './AnimCP';
@@ -61,6 +62,11 @@ class DoomAnimCP extends AnimCP {
     super.onLoadControls();
 
     this.rgbaBuffer = new Uint8Array(DOS_NUM_PIXELS * 4);
+    // Every 4th value (alpha channel) is always 255, set it now and don't worry about it later
+    for (let i = 0; i < DOS_NUM_PIXELS; i++) {
+      this.rgbaBuffer[i*4 + 3] = 255;
+    }
+
     this.texture = new THREE.DataTexture(
       this.rgbaBuffer, DOS_WIDTH, DOS_HEIGHT, THREE.RGBAFormat, undefined, undefined, 
       undefined, undefined, THREE.LinearFilter
@@ -82,13 +88,15 @@ class DoomAnimCP extends AnimCP {
       (DOS_WIDTH-DOOM_VIEWPORT_HEIGHT)/2 + DOOM_VIEWPORT_HEIGHT,
       DOOM_VIEWPORT_HEIGHT, 0,
       0, 1
-    ); //0,DOS_WIDTH,DOOM_VIEWPORT_HEIGHT,0,0,1);
+    );
 
     this.renderer = new THREE.WebGLRenderer();
     this.renderer.setSize(DOS_WIDTH*2, DOS_HEIGHT*2);
+    this.renderer.domElement.style.margin = "auto";
 
     this.debugRenderer = new THREE.WebGLRenderer();
     this.debugRenderer.setSize(rtWidth, rtHeight);
+    this.debugRenderer.domElement.style.margin = "20px auto";
 
     document.getElementById(DOS_DIV_ELEMENT_ID).appendChild(this.renderer.domElement);
     if (this.localConfig.showDebugBuffer) {
@@ -99,14 +107,13 @@ class DoomAnimCP extends AnimCP {
       new THREE.PlaneBufferGeometry(DOS_WIDTH,DOS_HEIGHT,1,1), 
       new THREE.MeshBasicMaterial({ map: this.texture })
     );
-
     this.scene.add(this.fsQuad);
 
     const self = this;
     let shouldUpdateTexture = false;
     const serverRGBABuffer = new Uint8Array(rtWidth*rtHeight*4);
 
-    const animate = function () {
+    const animate = () => {
       if (!self.renderer || !self.scene) { return; }
 
       requestAnimationFrame(animate);
@@ -127,14 +134,16 @@ class DoomAnimCP extends AnimCP {
 
         // Move the render target data onto the CPU and send it to the server
         self.debugRenderer.readRenderTargetPixels(self.renderTarget, 0, 0, rtWidth, rtHeight, serverRGBABuffer);
-        self.masterCP.controllerClient.sendGameFramebufferInfo(rtWidth, rtHeight, serverRGBABuffer);
+        self.masterCP.controllerClient.sendFramebufferSliceInfo(rtWidth, rtHeight, serverRGBABuffer);
 
         shouldUpdateTexture = false;
       }
     };
     animate();
 
-    async function runDoom() {
+    const runDoom = async () => {
+      // NOTE: You'll need this bundle in order to run doom, it isn't packed with the repo,
+      // it will need to be downloaded and placed in the dist/dos directory
       const bundle = await emulatorsUi.network.resolveBundle("./dos/doom.jsdos");
       const ci = await emulators.dosWorker(bundle);
       emulatorsUi.sound.audioNode(ci);
@@ -151,6 +160,8 @@ class DoomAnimCP extends AnimCP {
         delete currKeyDowns[keyCode];
       };
       const loseFocusEventFunc = (e) => {
+        // Avoid having "stuck" keys when the window changes focus - keep track
+        // of all the downkeys in a map and un-stick + remove them from the map
         const keyCodes = Object.keys(currKeyDowns);
         for (const keyCode in keyCodes) {
           ci.sendKeyEvent(keyCode, false);
@@ -177,12 +188,11 @@ class DoomAnimCP extends AnimCP {
           self.rgbaBuffer[strideRGBA + 0] = rgb[strideRGB + 0];
           self.rgbaBuffer[strideRGBA + 1] = rgb[strideRGB + 1];
           self.rgbaBuffer[strideRGBA + 2] = rgb[strideRGB + 2];
-          self.rgbaBuffer[strideRGBA + 3] = 255;
+          //self.rgbaBuffer[strideRGBA + 3] = 255; // This is already established when the buffer is created
         }
         shouldUpdateTexture = true;
-        
       });
-    }
+    };
 
     runDoom();
   }
@@ -210,7 +220,6 @@ class DoomAnimCP extends AnimCP {
     this.renderTarget.dispose(); this.renderTarget = null;
     this.debugRenderer.dispose(); this.debugRenderer = null;
   }
-
 
 }
 

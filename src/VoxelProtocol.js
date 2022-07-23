@@ -47,7 +47,7 @@ const BRIGHTNESS_UPDATE_HEADER = "B";
 const GAMEPAD_AXIS_HEADER = "G";
 const GAMEPAD_BUTTON_HEADER = "T";
 const GAMEPAD_STATUS_HEADER = "S";
-const GAME_FRAMEBUFFER_HEADER = "FB";
+const DISPLAY_FRAMEBUFFER_SLICE_HEADER = "FB";
 
 const PACKET_END = ";";
 
@@ -135,7 +135,7 @@ class VoxelProtocol {
   static get GAMEPAD_AXIS_HEADER() {return GAMEPAD_AXIS_HEADER;}
   static get GAMEPAD_BUTTON_HEADER() {return GAMEPAD_BUTTON_HEADER;}
   static get GAMEPAD_STATUS_HEADER() {return GAMEPAD_STATUS_HEADER;}
-  static get GAME_FRAMEBUFFER_HEADER() {return GAME_FRAMEBUFFER_HEADER;}
+  static get DISPLAY_FRAMEBUFFER_SLICE_HEADER() {return DISPLAY_FRAMEBUFFER_SLICE_HEADER;}
 
   static buildWelcomePacketForSlaves(voxelModel) {
     const packetDataBuf = new Uint8Array(3); // slaveid (1 byte), type (1 byte), y-size (1 byte)
@@ -239,9 +239,9 @@ class VoxelProtocol {
       statusEvent,
     });
   }
-  static buildClientGameFramebufferStr(width, height, rgbaBuffer) {
+  static buildClientFramebufferSliceStr(width, height, rgbaBuffer) {
     return JSON.stringify({
-      packetType: GAME_FRAMEBUFFER_HEADER,
+      packetType: DISPLAY_FRAMEBUFFER_SLICE_HEADER,
       width, height, rgbaBuffer: Array.from(rgbaBuffer)
     });
   }
@@ -317,9 +317,9 @@ class VoxelProtocol {
         }
         break;
 
-      case GAME_FRAMEBUFFER_HEADER:
-        if (voxelModel.currentAnimator && voxelModel.currentAnimator.setGameFramebuffer) {
-          voxelModel.currentAnimator.setGameFramebuffer(dataObj.width, dataObj.height, dataObj.rgbaBuffer);
+      case DISPLAY_FRAMEBUFFER_SLICE_HEADER:
+        if (voxelModel.currentAnimator && voxelModel.currentAnimator.updateClientFramebufferSlice) {
+          voxelModel.currentAnimator.updateClientFramebufferSlice(dataObj.width, dataObj.height, dataObj.rgbaBuffer);
         }
         break;
 

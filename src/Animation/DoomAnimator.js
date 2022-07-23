@@ -2,7 +2,7 @@ import VoxelAnimator from "./VoxelAnimator";
 
 export const doomAnimatorDefaultConfig = {
   movingFramebuffer: true,
-  fps: 35, // The original Doom game logic was timed to 35 fps 
+  fps: 35, // The original Doom game logic was timed to 35 fps – we can update faster or slower, but this is a fun default
 };
 
 class DoomAnimator extends VoxelAnimator {
@@ -59,11 +59,12 @@ class DoomAnimator extends VoxelAnimator {
     // giving a basic illusion of depth, it's a neat effect - otherwise just render a single slice
     // to one plane of the voxel grid
     if (movingFramebuffer) {
-      if (this.timeCounter >= 1/fps) {
+      const spf = 1/fps;
+      if (this.timeCounter >= spf) {
         const newGameFrameTex = gpuKernelMgr.insertRGBAIntoFBKernel(this.gameFrameTex, width, height, rgbaBuffer);
         this.gameFrameTex.delete();
         this.gameFrameTex = newGameFrameTex;
-        this.timeCounter = 0;
+        this.timeCounter -= spf;
       }
       framebuffer.setBufferTexture(gpuKernelMgr.copyFramebufferFunc(this.gameFrameTex));
     }
@@ -72,7 +73,8 @@ class DoomAnimator extends VoxelAnimator {
     }
   }
 
-  setGameFramebuffer(width, height, rgbaBuffer) {
+  // Called everytime the client updates the framebuffer slice that represents a frame of the game
+  updateClientFramebufferSlice(width, height, rgbaBuffer) {
     this.currFramebufData = {width, height, rgbaBuffer};
   }
 }
