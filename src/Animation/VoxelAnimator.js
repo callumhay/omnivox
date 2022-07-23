@@ -9,6 +9,7 @@ const VOXEL_ANIM_SCENE              = "Scene";
 const VOXEL_ANIM_BAR_VISUALIZER     = "Bar Visualizer";
 const VOXEL_ANIM_BLOCK_VISUALIZER   = "Block Visualizer";
 const VOXEL_ANIM_GAMEPAD_DJ         = "Gamepad DJ";
+const VOXEL_ANIM_DOOM               = "Doom";
 
 const VOXEL_ANIM_TYPES = [
   VOXEL_ANIM_TYPE_COLOUR,
@@ -21,6 +22,7 @@ const VOXEL_ANIM_TYPES = [
   VOXEL_ANIM_BLOCK_VISUALIZER,
   VOXEL_ANIM_TEXT,
   VOXEL_ANIM_GAMEPAD_DJ,
+  VOXEL_ANIM_DOOM,
 ];
 
 export const DEFAULT_CROSSFADE_TIME_SECS = 1.0;
@@ -44,6 +46,7 @@ class VoxelAnimator {
   static get VOXEL_ANIM_BAR_VISUALIZER() {return VOXEL_ANIM_BAR_VISUALIZER;}
   static get VOXEL_ANIM_BLOCK_VISUALIZER() {return VOXEL_ANIM_BLOCK_VISUALIZER;}
   static get VOXEL_ANIM_GAMEPAD_DJ() {return VOXEL_ANIM_GAMEPAD_DJ;}
+  static get VOXEL_ANIM_DOOM() {return VOXEL_ANIM_DOOM;}
 
   static get VOXEL_ANIM_TYPES() {return VOXEL_ANIM_TYPES;}
 

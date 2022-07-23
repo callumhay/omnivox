@@ -38,11 +38,6 @@ class GPUKernelManager {
       return [colour[0], colour[1], colour[2]];
     }, {...this.pipelineFuncSettings, name:'clearFunc', immutable: false, argumentTypes: {colour: 'Array(3)'}});
 
-    this.multiplyColourFunc = this.gpu.createKernel(function(pipelineTex, colour) {
-      const currVoxel = pipelineTex[this.thread.z][this.thread.y][this.thread.x];
-      return [currVoxel[0]*colour[0], currVoxel[1]*colour[1], currVoxel[2]*colour[2]];
-    }, {...this.pipelineFuncSettings, name:'multiplyColourFunc', argumentTypes: {pipelineTex: 'Array3D(3)', colour: 'Array(3)'}});
-
     // Framebuffer combination kernels
     this.addFramebuffersFunc = this.gpu.createKernel(function(framebufTexA, framebufTexB) {
       const fbAVoxel = framebufTexA[this.thread.z][this.thread.y][this.thread.x];
@@ -748,6 +743,69 @@ class GPUKernelManager {
     });
 
     this._fireKernelsInit = true;
+  }
+
+  initGameFBKernels(gridSize) {
+    if (this._gameFBKernelsInit) { return; }
+
+    const commonSettings = {
+      output: [gridSize, gridSize, gridSize], 
+      pipeline: true,
+      returnType: 'Array(3)',
+      constants: {
+        gridSize,
+        gridSizeMinus1: gridSize-1,
+      },
+    };
+
+    this.initGameFBBuffer4Func = this.gpu.createKernel(function(valueX, valueY, valueZ) {
+      return [valueX, valueY, valueZ];
+    }, {...commonSettings, immutable: true, name: 'initGameFBBuffer4Func', argumentTypes: {
+      valueX: 'Float', valueY: 'Float', valueZ: 'Float',
+    }});
+
+    this.gpu.addFunction(function flatRGBBufferToRGB(xyz, width, height, rgbaFlatBuffer) {
+      const widthScale = width/this.constants.gridSize;
+      const heightScale = height/this.constants.gridSize;
+
+      // Incoming rgba has its origin at the top-left
+      const stride = Math.floor(4.0*(heightScale*this.constants.gridSize*xyz[1] + widthScale*xyz[0]));
+      // Ignore the incoming alpha and just output the rgb, each channel in [0,1]
+      return [
+        rgbaFlatBuffer[stride]   / 255.0,
+        rgbaFlatBuffer[stride+1] / 255.0,
+        rgbaFlatBuffer[stride+2] / 255.0,
+        //rgbaFlatBuffer[stride+3] / 255.0
+      ];
+    }, {name: 'flatRGBBufferToRGB'});
+
+    this.singleSliceRGBAIntoFBKernel = this.gpu.createKernel(function(width, height, rgbaFlatBuffer) {
+      const xyz = [this.thread.z, this.thread.y, this.thread.x];
+      if (xyz[2] !== this.constants.gridSizeMinus1) { return [0,0,0]; }
+      return flatRGBBufferToRGB(xyz, width, height, rgbaFlatBuffer);
+    }, {...commonSettings, immutable: false, name: 'singleSliceRGBAIntoFBKernel', argumentTypes: {
+        width: 'Float', height: 'Float', rgbaFlatBuffer: 'Array',
+      },
+    });
+
+    this.insertRGBAIntoFBKernel = this.gpu.createKernel(function(prevFBTex, width, height, rgbaFlatBuffer) {
+      const xyz = [this.thread.z, this.thread.y, this.thread.x];
+
+      // Shift all the pixels along the z-axis, unless we're in the insertion index
+      if (xyz[2] !== this.constants.gridSizeMinus1) {
+        const zSrcIdx = xyz[2] + 1;
+        return prevFBTex[xyz[0]][xyz[1]][zSrcIdx];
+      }
+
+      // We're in the insertion index, insert the new rgba buffer slice
+      return flatRGBBufferToRGB(xyz, width, height, rgbaFlatBuffer);
+
+    }, {...commonSettings, immutable: true, name: 'insertRGBAIntoFBKernel', argumentTypes: {
+        prevFBTex: 'Array3D(3)', width: 'Float', height: 'Float', rgbaFlatBuffer: 'Array',
+      },
+    });
+
+    this._gameFBKernelsInit = true;
   }
 
   initBlockVisualizerKernels(gridSize, numColours) {

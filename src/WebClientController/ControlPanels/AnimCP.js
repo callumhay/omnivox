@@ -35,6 +35,10 @@ class AnimCP {
     this.loadSettings();
   }
 
+  // Override-able events for loading/unloading the controls for any given animation routine
+  onLoadControls() { console.log("Loading controls for " + this.animatorType()); }
+  onUnloadControls() { console.log("Unloading controls for " + this.animatorType()); }
+
   addControl(parentFolder, controlParam, options, settingsObj=null, configObj=null) {
     const self = this;
     const settingsInUse = settingsObj || self.settings;

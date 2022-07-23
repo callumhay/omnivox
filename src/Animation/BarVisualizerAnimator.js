@@ -96,8 +96,10 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
     this.audioIntensities = null;
     this.audioHistoryBuffer = null;
     this.levelColours = null;
-    this.prevVisTex.delete();
-    this.prevVisTex = null;
+    if (this.prevVisTex) {
+      this.prevVisTex.delete();
+      this.prevVisTex = null;
+    }
     this.binIndexLookup = null;
     this.updateGamma = false;
   }
@@ -172,8 +174,8 @@ class BarVisualizerAnimator extends AudioVisualizerAnimator {
         }
         break;
     }
-    temp.delete();
-
+    if (temp !== this.prevVisTex) { temp.delete(); }
+    
     framebuffer.setBufferTexture(gpuKernelMgr.renderBarVisualizerAlphaFunc(this.prevVisTex));
   }
 

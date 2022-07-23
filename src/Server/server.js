@@ -21,6 +21,7 @@ console.log("The following directory must be the distribution directory: \"" + d
 
 app.use(express.static(distPath));
 app.use(express.static('textures'));
+app.use(express.static('dos'));
 app.set('port', LOCALHOST_WEB_PORT);
 app.get("/viewer", (req, res) => {
   res.sendFile(path.join(distPath, 'webclientviewer.html'));
@@ -28,10 +29,6 @@ app.get("/viewer", (req, res) => {
 app.get("/controller", (req, res) => {
   res.sendFile(path.join(distPath, 'webclientcontroller.html'));
 });
-//app.get("/designer", (req, res) => {
-//  res.sendFile(path.join(distPath, 'webclientdesigner.html'));
-//});
-
 
 const webServer = http.createServer(app);
 

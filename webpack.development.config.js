@@ -2,7 +2,7 @@
 const path = require('path');
 const nodeExternals = require('webpack-node-externals');
 const webpack = require('webpack');
-
+const CopyPlugin = require("copy-webpack-plugin");
 const distPath = path.resolve(__dirname, 'dist');
 
 const commonConfig = {
@@ -45,6 +45,13 @@ const webClientViewerConfig = {...commonConfig,
     filename: 'webclientviewer.js',
     path: distPath,
   },
+  plugins: [...commonConfig.plugins,
+    new CopyPlugin({
+      patterns: [
+        {from: './node_modules/emulators/dist', to: './dos'},
+      ],
+    }),
+  ],
 };
 const webClientControllerConfig = {...commonConfig,
   target: 'web',

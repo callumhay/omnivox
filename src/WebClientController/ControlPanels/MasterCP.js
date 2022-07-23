@@ -16,6 +16,7 @@ import BarVisualizerAnimCP from './BarVisualizerAnimCP';
 import SceneAnimCP from './SceneAnimCP';
 import GamepadDJCP from './GamepadDJCP';
 import BlockVisualizerAnimCP from './BlockVisualizerAnimCP';
+import DoomAnimCP from './DoomAnimCP';
 
 
 class MasterCP {
@@ -32,7 +33,7 @@ class MasterCP {
     });
 
     this.settings = {...this.settings,
-      animatorType: VoxelAnimator.VOXEL_ANIM_TYPE_COLOUR,
+      animatorType: VoxelAnimator.VOXEL_ANIM_TYPE_STARTUP,
       crossfadeTime: DEFAULT_CROSSFADE_TIME_SECS,
       brightness: VoxelConstants.DEFAULT_BRIGHTNESS_MULTIPLIER,
     };
@@ -48,6 +49,7 @@ class MasterCP {
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_BLOCK_VISUALIZER] = new BlockVisualizerAnimCP(this);
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_SCENE] = new SceneAnimCP(this);
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_GAMEPAD_DJ] = new GamepadDJCP(this);
+    this.childControlPanels[VoxelAnimator.VOXEL_ANIM_DOOM] = new DoomAnimCP(this);
 
     this._hideSubFolders();
     this._removeSubFolders();
@@ -95,7 +97,7 @@ class MasterCP {
       this.animatorTypeBlade.value = animatorType;
     }
     else {
-      console.error("Animator type Not implemented!");
+      console.error("Animator type not implemented!");
     }
   }
 
@@ -110,13 +112,20 @@ class MasterCP {
   }
 
   _updateAnimatorType(animType) {
+    const prevAnimatorType = this.settings.animatorType;
     this.settings.animatorType = animType;
     
     this._hideSubFolders();
 
     if (animType in this.childControlPanels) {
+      if (animType !== prevAnimatorType && prevAnimatorType in this.childControlPanels) {
+        const prevChild = this.childControlPanels[prevAnimatorType];
+        prevChild.onUnloadControls();
+      }
+
       const child = this.childControlPanels[animType];
       child.folder.hidden = false;
+      child.onLoadControls();
       this.controllerClient.sendAnimatorChangeCommand(animType, child.config);
     }
     else {
