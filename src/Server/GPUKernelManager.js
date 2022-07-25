@@ -745,8 +745,8 @@ class GPUKernelManager {
     this._fireKernelsInit = true;
   }
 
-  initGameFBKernels(gridSize) {
-    if (this._gameFBKernelsInit) { return; }
+  initDisplayFramebufferSliceKernels(gridSize) {
+    if (this._displayFBSliceKernelsInit) { return; }
 
     const commonSettings = {
       output: [gridSize, gridSize, gridSize], 
@@ -758,9 +758,9 @@ class GPUKernelManager {
       },
     };
 
-    this.initGameFBBuffer4Func = this.gpu.createKernel(function(valueX, valueY, valueZ) {
+    this.initRGBFBBuffer4Func = this.gpu.createKernel(function(valueX, valueY, valueZ) {
       return [valueX, valueY, valueZ];
-    }, {...commonSettings, immutable: true, name: 'initGameFBBuffer4Func', argumentTypes: {
+    }, {...commonSettings, immutable: true, name: 'initRGBFBBuffer4Func', argumentTypes: {
       valueX: 'Float', valueY: 'Float', valueZ: 'Float',
     }});
 
@@ -805,7 +805,7 @@ class GPUKernelManager {
       },
     });
 
-    this._gameFBKernelsInit = true;
+    this._displayFBSliceKernelsInit = true;
   }
 
   initBlockVisualizerKernels(gridSize, numColours) {

@@ -8,8 +8,8 @@ import { doomAnimatorDefaultConfig } from '../../Animation/DoomAnimator';
 import { CHANGE_EVENT } from '../controlpanelfuncs';
 
 import AnimCP from './AnimCP';
+import MasterCP from './MasterCP';
 
-const DOS_DIV_ELEMENT_ID = "dosContainer";
 const DOS_WIDTH = 320;
 const DOS_HEIGHT = 200;
 const DOOM_VIEWPORT_HEIGHT = 168;
@@ -26,7 +26,7 @@ class DoomAnimCP extends AnimCP {
     this.texture = null;
     this.scene = null;
     this.renderer = null;
-    this.debugRenderer = null;
+    this.minmapRenderer = null;
     this.fsQuad = null;
     this.renderTarget = null;
   }
@@ -48,11 +48,11 @@ class DoomAnimCP extends AnimCP {
     this.addControl(folder, 'fps', {label: "Moving Slices Per Second", min:1, max:60, step:1});
 
     folder.addInput(this.localConfig, 'showDebugBuffer', {label: "Show Debug Buffer?"}).on(CHANGE_EVENT, ev => {
-      if (!self.debugRenderer) { return; }
-      if (document.getElementById(DOS_DIV_ELEMENT_ID).contains(self.debugRenderer.domElement)) {
-        document.getElementById(DOS_DIV_ELEMENT_ID).removeChild(self.debugRenderer.domElement);
+      if (!self.minmapRenderer) { return; }
+      if (document.getElementById(MasterCP.FRAMEBUFFER_CONTAINER_DIV_ID).contains(self.minmapRenderer.domElement)) {
+        document.getElementById(MasterCP.FRAMEBUFFER_CONTAINER_DIV_ID).removeChild(self.minmapRenderer.domElement);
       }
-      if (ev.value) { document.getElementById(DOS_DIV_ELEMENT_ID).appendChild(self.debugRenderer.domElement); }
+      if (ev.value) { document.getElementById(MasterCP.FRAMEBUFFER_CONTAINER_DIV_ID).appendChild(self.minmapRenderer.domElement); }
     });
 
     return folder;
@@ -94,13 +94,13 @@ class DoomAnimCP extends AnimCP {
     this.renderer.setSize(DOS_WIDTH*2, DOS_HEIGHT*2);
     this.renderer.domElement.style.margin = "auto";
 
-    this.debugRenderer = new THREE.WebGLRenderer();
-    this.debugRenderer.setSize(rtWidth, rtHeight);
-    this.debugRenderer.domElement.style.margin = "20px auto";
+    this.minmapRenderer = new THREE.WebGLRenderer();
+    this.minmapRenderer.setSize(rtWidth, rtHeight);
+    this.minmapRenderer.domElement.style.margin = "20px auto";
 
-    document.getElementById(DOS_DIV_ELEMENT_ID).appendChild(this.renderer.domElement);
+    document.getElementById(MasterCP.FRAMEBUFFER_CONTAINER_DIV_ID).appendChild(this.renderer.domElement);
     if (this.localConfig.showDebugBuffer) {
-      document.getElementById(DOS_DIV_ELEMENT_ID).appendChild(self.debugRenderer.domElement);
+      document.getElementById(MasterCP.FRAMEBUFFER_CONTAINER_DIV_ID).appendChild(self.minmapRenderer.domElement);
     }
 
     this.fsQuad = new THREE.Mesh(
@@ -125,15 +125,15 @@ class DoomAnimCP extends AnimCP {
         self.texture.needsUpdate = true;
         self.fsQuad.position.set(DOS_WIDTH/2, DOS_HEIGHT/2 - (DOS_HEIGHT-DOOM_VIEWPORT_HEIGHT), 0);
         if (self.localConfig.showDebugBuffer) {
-          self.debugRenderer.render(self.scene, subsampleCamera);
+          self.minmapRenderer.render(self.scene, subsampleCamera);
         }
         // Render into our render target texture - this will be the data that we send to the voxel server for display
-        self.debugRenderer.setRenderTarget(self.renderTarget);
-        self.debugRenderer.render(self.scene, subsampleCamera);
-        self.debugRenderer.setRenderTarget(null);
+        self.minmapRenderer.setRenderTarget(self.renderTarget);
+        self.minmapRenderer.render(self.scene, subsampleCamera);
+        self.minmapRenderer.setRenderTarget(null);
 
         // Move the render target data onto the CPU and send it to the server
-        self.debugRenderer.readRenderTargetPixels(self.renderTarget, 0, 0, rtWidth, rtHeight, serverRGBABuffer);
+        self.minmapRenderer.readRenderTargetPixels(self.renderTarget, 0, 0, rtWidth, rtHeight, serverRGBABuffer);
         self.masterCP.controllerClient.sendFramebufferSliceInfo(rtWidth, rtHeight, serverRGBABuffer);
 
         shouldUpdateTexture = false;
@@ -201,11 +201,11 @@ class DoomAnimCP extends AnimCP {
     super.onUnloadControls();
     if (!this.renderer) { return; }
 
-    if (document.getElementById(DOS_DIV_ELEMENT_ID).contains(this.renderer.domElement)) {
-      document.getElementById(DOS_DIV_ELEMENT_ID).removeChild(this.renderer.domElement);
+    if (document.getElementById(MasterCP.FRAMEBUFFER_CONTAINER_DIV_ID).contains(this.renderer.domElement)) {
+      document.getElementById(MasterCP.FRAMEBUFFER_CONTAINER_DIV_ID).removeChild(this.renderer.domElement);
     }
-    if (document.getElementById(DOS_DIV_ELEMENT_ID).contains(this.debugRenderer.domElement)) {
-      document.getElementById(DOS_DIV_ELEMENT_ID).removeChild(this.debugRenderer.domElement);
+    if (document.getElementById(MasterCP.FRAMEBUFFER_CONTAINER_DIV_ID).contains(this.minmapRenderer.domElement)) {
+      document.getElementById(MasterCP.FRAMEBUFFER_CONTAINER_DIV_ID).removeChild(this.minmapRenderer.domElement);
     }
 
     this.scene.remove(this.fsQuad); this.scene = null;
@@ -218,7 +218,7 @@ class DoomAnimCP extends AnimCP {
     this.rgbaBuffer = null;
     this.renderer.dispose(); this.renderer = null;
     this.renderTarget.dispose(); this.renderTarget = null;
-    this.debugRenderer.dispose(); this.debugRenderer = null;
+    this.minmapRenderer.dispose(); this.minmapRenderer = null;
   }
 
 }

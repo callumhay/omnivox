@@ -20,6 +20,7 @@ import VoxelFramebufferGPU from './VoxelFramebufferGPU';
 import GPUKernelManager from './GPUKernelManager';
 import BlockVisualizerAnimator from '../Animation/BlockVisualizerAnimator';
 import DoomAnimator from '../Animation/DoomAnimator';
+import VideoAnimator from '../Animation/VideoAnimator';
 
 
 export const BLEND_MODE_OVERWRITE = 0;
@@ -88,6 +89,7 @@ class VoxelModel {
       [VoxelAnimator.VOXEL_ANIM_BLOCK_VISUALIZER]  : new BlockVisualizerAnimator(this),
       [VoxelAnimator.VOXEL_ANIM_GAMEPAD_DJ]        : new GamepadDJAnimator(this, this.vtScene),
       [VoxelAnimator.VOXEL_ANIM_DOOM]              : new DoomAnimator(this),
+      [VoxelAnimator.VOXEL_ANIM_VIDEO]             : new VideoAnimator(this), // TODO: Change this!
     };
 
     this.currFrameTime = Date.now();

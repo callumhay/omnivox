@@ -21,6 +21,7 @@ console.log("The following directory must be the distribution directory: \"" + d
 
 app.use(express.static(distPath));
 app.use(express.static('textures'));
+app.use(express.static('video'));
 app.use(express.static('dos'));
 app.set('port', LOCALHOST_WEB_PORT);
 app.get("/viewer", (req, res) => {

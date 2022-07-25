@@ -17,9 +17,14 @@ import SceneAnimCP from './SceneAnimCP';
 import GamepadDJCP from './GamepadDJCP';
 import BlockVisualizerAnimCP from './BlockVisualizerAnimCP';
 import DoomAnimCP from './DoomAnimCP';
+import VideoCP from './VideoCP';
 
 
 class MasterCP {
+
+  static get CONTROL_CONTAINER_DIV_ID() { return "controlContainer"; }
+  static get FRAMEBUFFER_CONTAINER_DIV_ID() { return "framebufferContainer"; }
+
   constructor(gridSize, controllerClient, soundManager) {
 
     this.gridSize = gridSize;
@@ -28,7 +33,7 @@ class MasterCP {
 
     this.pane = new Pane({
       title: VoxelConstants.PROJECT_NAME + " Controller",
-      container: document.getElementById("controlContainer"), 
+      container: document.getElementById(MasterCP.CONTROL_CONTAINER_DIV_ID), 
       expanded: true
     });
 
@@ -50,6 +55,7 @@ class MasterCP {
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_SCENE] = new SceneAnimCP(this);
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_GAMEPAD_DJ] = new GamepadDJCP(this);
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_DOOM] = new DoomAnimCP(this);
+    this.childControlPanels[VoxelAnimator.VOXEL_ANIM_VIDEO] = new VideoCP(this);
 
     this._hideSubFolders();
     this._removeSubFolders();
