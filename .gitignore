@@ -1,11 +1,13 @@
-node_modules
-dist/main.js
-dist/server.js
-
-# Webstorm artifacts
 .DS_Store
 .idea/
+node_modules
 src/embedded/master/argon_firmware_*.bin
 src/embedded/master/target/
-dist/webclientviewer.js
-dist/vtrenderproc.js
+dist/webclientviewer.js*
+dist/vtrenderproc.js*
+dist/webclientcontroller.js*
+dist/server.js*
+dist/dos/**
+dist/textures/**
+dist/video/**
+dist/sounds/**
