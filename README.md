@@ -1,5 +1,5 @@
 
-![](docs/images/omnivox_full_logo.svg)
+<img src="docs/images/omnivox_full_logo.svg" width="50%" />
 
 A code base for driving a custom built voxel LED display. Includes code for the node.js server, viewer client, controller client and the microcontroller code (Teensy).
 
