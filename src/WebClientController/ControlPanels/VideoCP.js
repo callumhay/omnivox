@@ -43,7 +43,9 @@ class VideoCP extends AnimCP {
     this.addControl(folder, 'fps', {label: "Moving Slices Per Second", min:1, max:60, step:1});
     folder.addInput(this.localConfig, 'videoFilename', {label: "Video File"}).on(CHANGE_EVENT, ev => {
       if (!this.videoElement) { return; }
-      this.videoElement.src = VIDEO_PATH + ev.value;
+      // Check if the file is a link...
+      const isLinkRegEx = /((([A-Za-z]{3,9}:(?:\/\/)?)(?:[-;:&=\+\$,\w]+@)?[A-Za-z0-9.-]+|(?:www.|[-;:&=\+\$,\w]+@)[A-Za-z0-9.-]+)((?:\/[\+~%\/.\w-_]*)?\??(?:[-\+=&;%@.\w_]*)#?(?:[\w]*))?)/;
+      this.videoElement.src = ev.value.match(isLinkRegEx) === null ? (VIDEO_PATH + ev.value) : ev.value;
     });
 
     folder.addInput(this.localConfig, 'showDebugBuffer', {label: "Show Debug Buffer?"}).on(CHANGE_EVENT, ev => {
@@ -64,6 +66,7 @@ class VideoCP extends AnimCP {
     this.videoElement.style.maxWidth = MAX_VIDEO_DISPLAY_SIZE;
     this.videoElement.style.maxHeight = MAX_VIDEO_DISPLAY_SIZE;
     this.videoElement.controls = true;
+    this.videoElement.crossOrigin = "anonymous";
     this.videoElement.src = VIDEO_PATH + this.localConfig.videoFilename;
     document.getElementById(MasterCP.FRAMEBUFFER_CONTAINER_DIV_ID).appendChild(this.videoElement);
 
@@ -79,12 +82,14 @@ class VideoCP extends AnimCP {
     }
 
     let subsampleCamera = null;
-    this.videoTexture = new THREE.VideoTexture(this.videoElement);
+    this.videoTexture = new THREE.VideoTexture(
+      this.videoElement, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping,
+      THREE.LinearFilter, THREE.NearestMipmapLinearFilter
+    );
     this.videoTexture.generateMipmaps = true;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0,0,0);
     
-
     const serverRGBABuffer = new Uint8Array(rtWidth*rtHeight*4);
     const self = this;
 
@@ -109,9 +114,7 @@ class VideoCP extends AnimCP {
     };
     animate();
 
-    const updateVideoSize = () => {
-      const {videoWidth, videoHeight} = self.videoElement;
-      
+    const updateVideoSize = (videoWidth, videoHeight) => {
       const minSize = Math.min(videoWidth, videoHeight);
       subsampleCamera = new THREE.OrthographicCamera(
         (videoWidth-minSize)/2, (videoWidth-minSize)/2 + minSize,
@@ -134,9 +137,9 @@ class VideoCP extends AnimCP {
     };
 
     this.videoElement.addEventListener('resize', () => {
-      updateVideoSize();
+      const {videoWidth, videoHeight} = self.videoElement;
+      updateVideoSize(videoWidth, videoHeight);
     }, true);
-
   }
 
   onUnloadControls() {

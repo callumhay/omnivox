@@ -32,11 +32,11 @@ class VoxelServer {
       console.log("Websocket opened...");
       switch (socket.protocol) {
         case VoxelProtocol.WEBSOCKET_PROTOCOL_VIEWER:
-          console.log(VoxelConstants.PROJECT_NAME + " Viewer (" + self.viewerWebSocks.length + ") detected.");
+          console.log(VoxelConstants.PROJECT_NAME + " (v" + VoxelConstants.PROJECT_VERSION + ") viewer (" + self.viewerWebSocks.length + ") detected.");
           self.viewerWebSocks.push(socket);
           break;
         case VoxelProtocol.WEBSOCKET_PROTOCOL_CONTROLLER:
-          console.log(VoxelConstants.PROJECT_NAME + " Controller detected.");
+          console.log(VoxelConstants.PROJECT_NAME + " (v" + VoxelConstants.PROJECT_VERSION + ") controller detected.");
           self.controllerWebSock = socket;
           break;
         default:

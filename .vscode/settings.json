@@ -2,8 +2,9 @@
     "editor.tabSize": 2,
     "editor.tabCompletion": "on",
     "debug.node.autoAttach": "off",
-    "python.pythonPath": "C:\\Users\\beowulf\\AppData\\Local\\Programs\\Python\\Python36\\python.exe",
     "search.exclude": {
       "**/node_modules": false
-    }
+    },
+    "git.ignoreLimitWarning": true,
+    "C_Cpp.default.configurationProvider": "ms-vscode.makefile-tools"
 }

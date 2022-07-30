@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { SQRT3 } from './MathUtils';
 
+const pkg = require('../package.json');
+
 const POS_X_VEC3 = new THREE.Vector3(1,0,0);
 const NEG_X_VEC3 = new THREE.Vector3(-1,0,0);
 const POS_Y_VEC3 = new THREE.Vector3(0,1,0);
@@ -14,7 +16,8 @@ const UNIT_SIZE = 1;
 const DIAGONAL_UNIT_SIZE = Math.sqrt(2*UNIT_SIZE);
 
 class VoxelConstants {
-  static get PROJECT_NAME() { return "Omnivox"; }
+  static get PROJECT_NAME() { return pkg.name; }
+  static get PROJECT_VERSION() { return pkg.version; }
 
   static get VOXEL_GRID_SIZE() { return GRID_SIZE; }
   static get VOXEL_HALF_GRID_SIZE() { return VoxelConstants.VOXEL_GRID_SIZE/2; }

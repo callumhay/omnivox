@@ -11,3 +11,7 @@ dist/dos/**
 dist/textures/**
 dist/video/**
 dist/sounds/**
+
+.vscode/targets.log
+.vscode/dryrun.log
+.vscode/configurationCache.log

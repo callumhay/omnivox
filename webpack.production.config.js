@@ -49,23 +49,6 @@ const webClientControllerConfig = {...commonConfig,
     path: distPath,
   },
 };
-/*
-const webClientDesignerConfig = {...commonConfig,
-  target: 'web',
-  entry: './src/WebClientDesigner/webclientdesigner.js',
-  output: {
-    filename: 'webclientdesigner.js',
-    path: distPath,
-  },
-  module: {
-    rules: [{
-      test: /\.(js|jsx)$/,
-      use: ['babel-loader'],
-      exclude: /node_modules/
-    }]
-  }
-};
-*/
 const serverConfig = {...commonConfig,
   target: 'node',
   externals: [nodeExternals(), 'serialport'],

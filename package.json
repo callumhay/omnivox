@@ -1,7 +1,6 @@
 {
   "name": "omnivox",
-  "version": "1.0.0",
-  "main": "webclientviewer.js",
+  "version": "1.1.0",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node ./dist/server.js",
@@ -15,10 +14,14 @@
   "browser": {
     "child_process": false
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": ["voxel", "volume rendering", "leds"],
+  "author": "Callum Hay",
+  "license": "MIT",
+  "description": "Server (node), slave (Teensy C++ code), visualizer (browser), and controller (browser) for rendering LED voxel art to the Omnivox display (custom LED display driven by Teensy microcontrollers).",
+  "engines": {
+    "node" : "^17.7.2",
+    "npm" : "^8.5.2" 
+  },
   "dependencies": {
     "@serialport/parser-readline": "^10.3.0",
     "bufferutil": "^4.0.1",

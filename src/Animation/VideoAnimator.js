@@ -2,7 +2,7 @@ import VoxelAnimator from "./VoxelAnimator";
 
 export const videoAnimatorDefaultConfig = {
   movingFramebuffer: true,
-  fps: 30, // Typical video fps
+  fps: 30, // Typical video fps (for use when movingFramebuffer is true)
 };
 
 // Super class for displaying video as a set of 2D slices in Omnivox

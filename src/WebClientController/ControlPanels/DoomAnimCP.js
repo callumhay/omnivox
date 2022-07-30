@@ -69,7 +69,7 @@ class DoomAnimCP extends AnimCP {
 
     this.texture = new THREE.DataTexture(
       this.rgbaBuffer, DOS_WIDTH, DOS_HEIGHT, THREE.RGBAFormat, undefined, undefined, 
-      undefined, undefined, THREE.LinearFilter
+      undefined, undefined, THREE.LinearFilter, THREE.NearestMipmapLinearFilter
     );
     // Flip the texture vertically
     this.texture.wrapT = THREE.RepeatWrapping;

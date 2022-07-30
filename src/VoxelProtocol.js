@@ -239,10 +239,10 @@ class VoxelProtocol {
       statusEvent,
     });
   }
-  static buildClientFramebufferSliceStr(width, height, rgbaBuffer) {
+  static buildClientFramebufferSliceStr(width, height, buffer) {
     return JSON.stringify({
       packetType: DISPLAY_FRAMEBUFFER_SLICE_HEADER,
-      width, height, rgbaBuffer: Array.from(rgbaBuffer)
+      width, height, buffer: Array.from(buffer)
     });
   }
 
@@ -319,7 +319,7 @@ class VoxelProtocol {
 
       case DISPLAY_FRAMEBUFFER_SLICE_HEADER:
         if (voxelModel.currentAnimator && voxelModel.currentAnimator.updateClientFramebufferSlice) {
-          voxelModel.currentAnimator.updateClientFramebufferSlice(dataObj.width, dataObj.height, dataObj.rgbaBuffer);
+          voxelModel.currentAnimator.updateClientFramebufferSlice(dataObj.width, dataObj.height, dataObj.buffer);
         }
         break;
 

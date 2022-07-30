@@ -1,3 +1,4 @@
+import VoxelAnimator from "./VoxelAnimator";
 import VideoAnimator from "./VideoAnimator";
 
 export const doomAnimatorDefaultConfig = {
