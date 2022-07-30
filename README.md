@@ -1,7 +1,7 @@
 
-# Omnivox (LED3D)
+![](docs/images/omnivox_full_logo.svg)
 
-A 3D LED display server and client made to drive fun and novel visualizations.
+A code base for driving a custom built voxel LED display. Includes code for the node.js server, viewer client, controller client and the microcontroller code (Teensy).
 
 ## Deployment
 
