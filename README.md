@@ -18,9 +18,9 @@ A code base for driving Omnivox, a custom built voxel LED display. Includes code
 
 
 ## Authors
-- Team Lead: Callum Hay ([@callumhay](https://github.com/callumhay))
+- Quanta Collective ([@quantacollective](https://instagram.com/quantacollective))
+- Team Leads: Callum Hay ([@callumhay](https://github.com/callumhay)) and Sara Vinten 
 - Software and Hardware Design and Development: Callum Hay
 - Prototyping and Physical Design: Sara Vinten and Callum Hay
 - Modeling and Construction: Sara Vinten and Callum Hay
-- Laser Cutting and CnC Assistance: Trish Lamanna, Timothy Wyatt, and Michael Everson
-- Original Idea: Callum Hay, Sara Vinten, Mikhail St. Denis, and Michael Everson
+- Laser Cutting and CnC Assistance: Trish Lamanna
