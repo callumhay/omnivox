@@ -1,6 +1,7 @@
 const path = require('path');
 const nodeExternals = require('webpack-node-externals');
 const webpack = require('webpack');
+const pkg = require('./package');
 
 const distPath = path.resolve(__dirname, 'dist');
 
@@ -14,8 +15,10 @@ const commonConfig = {
     //fs: 'empty',
   },
   plugins: [
-    new webpack.DefinePlugin({DEBUG: false}),
-    //new webpack.HotModuleReplacementPlugin(),
+    new webpack.DefinePlugin({
+      __PROJECT_NAME__ : JSON.stringify(pkg.name),
+      __PROJECT_VERSION__ : JSON.stringify(pkg.version),
+    }),
   ],
   resolve: {
     fallback: {

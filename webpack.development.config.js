@@ -4,6 +4,7 @@ const nodeExternals = require('webpack-node-externals');
 const webpack = require('webpack');
 const CopyPlugin = require("copy-webpack-plugin");
 const distPath = path.resolve(__dirname, 'dist');
+const pkg = require('./package');
 
 const commonConfig = {
   mode: 'development',
@@ -18,8 +19,10 @@ const commonConfig = {
     //fs: 'empty',
   },
   plugins: [
-    new webpack.DefinePlugin({ DEBUG: true }),
-    //new webpack.HotModuleReplacementPlugin(),
+    new webpack.DefinePlugin({
+      __PROJECT_NAME__ : JSON.stringify(pkg.name),
+      __PROJECT_VERSION__ : JSON.stringify(pkg.version + " [dev]"),
+    }),
   ],
   devtool: "source-map",
   resolve: {

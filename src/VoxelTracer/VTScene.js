@@ -198,7 +198,6 @@ class VTScene {
   }
 
   static debugInspectIsOn() {
-    //console.log("DEBUG ON? " + process.execArgv.filter(arg => arg.indexOf('--inspect') !== -1).length > 0);
     return process.execArgv.filter(arg => arg.indexOf('--inspect') !== -1).length > 0;
   }
 

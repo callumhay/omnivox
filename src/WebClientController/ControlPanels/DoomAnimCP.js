@@ -195,6 +195,7 @@ class DoomAnimCP extends AnimCP {
     };
 
     runDoom();
+    document.getElementById(MasterCP.FRAMEBUFFER_CONTAINER_DIV_ID).style.display = "inherit";
   }
 
   onUnloadControls() {
@@ -219,6 +220,8 @@ class DoomAnimCP extends AnimCP {
     this.renderer.dispose(); this.renderer = null;
     this.renderTarget.dispose(); this.renderTarget = null;
     this.minmapRenderer.dispose(); this.minmapRenderer = null;
+
+    document.getElementById(MasterCP.FRAMEBUFFER_CONTAINER_DIV_ID).style.display = "none";
   }
 
 }

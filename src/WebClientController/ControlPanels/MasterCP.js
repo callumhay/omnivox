@@ -18,7 +18,7 @@ import GamepadDJCP from './GamepadDJCP';
 import BlockVisualizerAnimCP from './BlockVisualizerAnimCP';
 import DoomAnimCP from './DoomAnimCP';
 import VideoCP from './VideoCP';
-
+import DepthCP from './DepthCP';
 
 class MasterCP {
 
@@ -56,6 +56,7 @@ class MasterCP {
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_GAMEPAD_DJ] = new GamepadDJCP(this);
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_DOOM] = new DoomAnimCP(this);
     this.childControlPanels[VoxelAnimator.VOXEL_ANIM_VIDEO] = new VideoCP(this);
+    this.childControlPanels[VoxelAnimator.VOXEL_ANIM_DEPTH] = new DepthCP(this);
 
     this._hideSubFolders();
     this._removeSubFolders();

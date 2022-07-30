@@ -1,3 +1,4 @@
+import VoxelConstants from "../VoxelConstants";
 import VoxelProtocol from "../VoxelProtocol";
 import MasterCP from './ControlPanels/MasterCP';
 
@@ -46,6 +47,10 @@ class ControllerClient {
       case VoxelProtocol.SERVER_TO_CLIENT_WELCOME_HEADER:
         const welcomeDataObj = VoxelProtocol.getDataObjFromWelcomePacketStr(messageData);
         if (welcomeDataObj) {
+          // Check that the version of the server matches the version of the controller
+          if (welcomeDataObj.version !== VoxelConstants.PROJECT_VERSION) {
+            console.warn(`Mismatching server and controller versions - this may result in strange behaviour or crashes. [Server Version: ${welcomeDataObj.version}, Controller Version: ${VoxelConstants.PROJECT_VERSION}]`);
+          }
           const {gridSize, currentAnimatorType, currentAnimatorConfig, globalBrightness} = welcomeDataObj;
 
           if (gridSize !== undefined && (!this.controlPanel || this.controlPanel.gridSize !== gridSize)) {

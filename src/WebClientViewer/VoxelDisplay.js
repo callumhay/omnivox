@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 import VoxelConstants from '../VoxelConstants';
 
-const DEFAULT_LED_POINT_SIZE = VoxelConstants.VOXEL_UNIT_SIZE * 1.33;
+const DEFAULT_LED_POINT_SIZE = VoxelConstants.VOXEL_UNIT_SIZE * 2;
 
 const POINTS_VERTEX_SHADER = `
   attribute float size;
@@ -11,7 +11,7 @@ const POINTS_VERTEX_SHADER = `
   varying vec3 vColor;
 
   void main() {
-    vColor = customColour;
+    vColor = customColour/255.0;
     vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
     gl_PointSize = size * (150.0 / -mvPosition.z);
     gl_Position = projectionMatrix * mvPosition;
@@ -33,7 +33,6 @@ const POINTS_FRAGMENT_SHADER = `
 
 class VoxelDisplay {
   constructor(scene, controls) {
-    this.voxels = [];
     this._scene = scene;
     this._controls = controls;
 
@@ -51,7 +50,6 @@ class VoxelDisplay {
     this.leds = null;
     this.outlines = null;
     this.colourBuffer = null;
-    this.voxels = [];
   }
 
   rebuild(gridSize) {
@@ -66,14 +64,13 @@ class VoxelDisplay {
     const numLEDs = this.gridSize*this.gridSize*this.gridSize;
 
     let ledPositions = new Float32Array(numLEDs*3);
-    let ledColours   = new Float32Array(numLEDs*3).fill(1);
+    let ledColours   = new Uint8Array(numLEDs*3).fill(0);
     let ledSizes     = new Float32Array(numLEDs).fill(DEFAULT_LED_POINT_SIZE * 0.5);
 
     let positionIdx = 0;
     for (let x = 0; x < gridSize; x++) {
       for (let y = 0; y < gridSize; y++) {
         for (let z = 0; z < gridSize; z++) {
-
           const currTranslation = new THREE.Vector3(
             x*VoxelConstants.VOXEL_UNIT_SIZE + VoxelConstants.VOXEL_UNIT_SIZE,
             y*VoxelConstants.VOXEL_UNIT_SIZE + VoxelConstants.VOXEL_HALF_UNIT_SIZE,
@@ -107,8 +104,6 @@ class VoxelDisplay {
       fragmentShader: POINTS_FRAGMENT_SHADER,
       blending: THREE.AdditiveBlending,
       depthTest: false,
-      //opacity: 0.75,
-      //transparent: true,
     });
 
     const self = this;
@@ -148,104 +143,27 @@ class VoxelDisplay {
     this.outlines.name = "outlines";
     this.setOutlinesEnabled(this.outlinesEnabled);
     this.setOrbitModeEnabled(this.orbitModeEnabled);
-
-    for (let x = 0; x < this.gridSize; x++) {
-      let currXArr = [];
-      this.voxels.push(currXArr);
-      for (let y = 0; y < this.gridSize; y++) {
-        let currYArr = [];
-        currXArr.push(currYArr);
-        for (let z = 0; z < this.gridSize; z++) {
-
-          const currVoxelObj = {
-            getColourIndex: function() {
-              return (x*self.gridSize*self.gridSize + y*self.gridSize + z)*3;
-            },
-            getColour: function() {
-              const startIdx = this.getColourIndex();
-              const colourArray = self.colourBuffer.array;
-              return THREE.Color(colourArray[startIdx], colourArray[startIdx+1], colourArray[startIdx+2]);
-            },
-            setColourRGB: function(r, g, b) {
-              const startIdx = this.getColourIndex();
-              self.colourBuffer.set([r, g, b], startIdx);
-              self.colourBuffer.needsUpdate = true;
-            },
-            setColour: function(colour) { 
-              const startIdx = this.getColourIndex();
-              self.colourBuffer.set([colour.r, colour.g, colour.b], startIdx);
-              self.colourBuffer.needsUpdate = true;
-            },
-          };
-
-          currYArr.push(currVoxelObj);
-        }
-      }
-    }
   }
 
   setOutlinesEnabled(enable) {
     if (this.outlines) {
-      if (enable) {
-        this._scene.add(this.outlines);
-      }
-      else {
-        this._scene.remove(this.outlines);
-      }
+      if (enable) { this._scene.add(this.outlines); }
+      else { this._scene.remove(this.outlines); }
     }
     this.outlinesEnabled = enable;
   }
+
   setOrbitModeEnabled(enable) {
     this._controls.autoRotate = enable;
-
     this.orbitModeEnabled = enable;
   }
 
-  xSize() { return this.voxels.length; }
-  ySize() { return this.voxels[0].length; }
-  zSize() { return this.voxels[0][0].length; }
+  // Used to update the entire voxel colour buffer in one shot
+  setVoxelBuffer(voxelBuffer) {
+    this.colourBuffer.array = voxelBuffer;
+    this.colourBuffer.needsUpdate = true;
+  } 
 
-  /**
-   * Build a flat list of all of the possible voxel indices (x,y,z) in this display
-   * as a list of THREE.Vector3 objects.
-   */
-  voxelIndexList() {
-    const idxList = [];
-    for (let x = 0; x < this.voxels.length; x++) {
-      for (let y = 0; y < this.voxels[x].length; y++) {
-        for (let z = 0; z < this.voxels[x][y].length; z++) {
-          idxList.push(new THREE.Vector3(x,y,z));
-        }
-      }
-    }
-    return idxList;
-  }
-
-  setVoxelXYZRGB(x,y,z,r,g,b) {
-    const roundedX = Math.floor(x);
-    const roundedY = Math.floor(y);
-    const roundedZ = Math.floor(z);
-
-    if (roundedX >= 0 && roundedX < this.voxels.length &&
-        roundedY >= 0 && roundedY < this.voxels[roundedX].length &&
-        roundedZ >= 0 && roundedZ < this.voxels[roundedX][roundedY].length) {
-
-      this.voxels[roundedX][roundedY][roundedZ].setColourRGB(r, g, b);
-    } 
-  }
-
-  clearRGB(r=0, g=0, b=0) {
-    for (let x = 0; x < this.voxels.length; x++) {
-      for (let y = 0; y < this.voxels[x].length; y++) {
-        for (let z = 0; z < this.voxels[x][y].length; z++) {
-          this.voxels[x][y][z].setColourRGB(r,g,b);
-        }
-      }
-    }
-  }
-  clear(colour) {
-    this.clearRGB(colour.r, colour.g, colour.b);
-  }
 }
 
 export default VoxelDisplay;

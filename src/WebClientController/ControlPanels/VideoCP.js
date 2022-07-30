@@ -140,6 +140,8 @@ class VideoCP extends AnimCP {
       const {videoWidth, videoHeight} = self.videoElement;
       updateVideoSize(videoWidth, videoHeight);
     }, true);
+
+    document.getElementById(MasterCP.FRAMEBUFFER_CONTAINER_DIV_ID).style.display = "inherit";
   }
 
   onUnloadControls() {
@@ -176,6 +178,7 @@ class VideoCP extends AnimCP {
       }
       this.videoElement = null;
     }
+    document.getElementById(MasterCP.FRAMEBUFFER_CONTAINER_DIV_ID).style.display = "none";
   }
 
 }

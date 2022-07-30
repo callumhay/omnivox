@@ -1,15 +1,15 @@
+import VoxelConstants from "../VoxelConstants";
 import VoxelProtocol from "../VoxelProtocol";
 
 const FRAMES_OUT_OF_SEQUENCE_BEFORE_RESET = 30;
 
-class DisplayClient {
+class ViewerClient {
   constructor(voxelDisplay, soundPlayer) {
     this.voxelDisplay = voxelDisplay;
     this.soundPlayer  = soundPlayer;
     this.socket = new WebSocket('ws://' + window.location.hostname + ':' + VoxelProtocol.WEBSOCKET_PORT, VoxelProtocol.WEBSOCKET_PROTOCOL_VIEWER);
     this.lastFrameId = 0;
     this.consecutiveFramesOutofSequence = 0;
-    this.lastFrameHashCode = -1;
   }
 
   start() {
@@ -49,6 +49,10 @@ class DisplayClient {
       case VoxelProtocol.SERVER_TO_CLIENT_WELCOME_HEADER:
         const welcomeDataObj = VoxelProtocol.getDataObjFromWelcomePacketStr(messageData);
         if (welcomeDataObj) {
+          // Check that the version of the server matches the version of the viewer
+          if (welcomeDataObj.version !== VoxelConstants.PROJECT_VERSION) {
+            console.warn(`Mismatching server and viewer versions - this may result in strange behaviour or crashes. [Server Version: ${welcomeDataObj.version}, Viewer Version: ${VoxelConstants.PROJECT_VERSION}]`);
+          }
           const {gridSize} = welcomeDataObj;
           if (gridSize !== undefined && gridSize !== this.voxelDisplay.gridSize) {
             console.log("Resizing the voxel grid.");
@@ -74,10 +78,7 @@ class DisplayClient {
         switch (voxelDataType) {
           
           case VoxelProtocol.VOXEL_DATA_ALL_TYPE:
-            this.lastFrameHashCode = VoxelProtocol.readAndPaintVoxelDataAll(messageData, this.voxelDisplay, this.lastFrameHashCode);
-            if (this.lastFrameHashCode === -1) {
-              console.log("Invalid voxel (all) data.");
-            }
+            VoxelProtocol.readAndPaintVoxelDataAll(messageData, this.voxelDisplay);
             break;
           
           default:
@@ -132,4 +133,4 @@ class DisplayClient {
   }
 }
 
-export default DisplayClient;
+export default ViewerClient;
