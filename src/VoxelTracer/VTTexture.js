@@ -1,4 +1,5 @@
 
+/*
 import * as THREE from 'three';
 import getPixels from 'get-pixels';
 import ndarray from 'ndarray';
@@ -59,9 +60,7 @@ class VTTexture {
     return this.imgData !== null;
   }
 
-  /**
-   * Get a sample (i.e., an array of the channels) at the given u,v coordinates in this texture.
-   */
+  // Get a sample (i.e., an array of the channels) at the given u,v coordinates in this texture.
   sample(uv) {
     if (!this.isLoaded()) {
       return null;
@@ -79,3 +78,4 @@ class VTTexture {
 }
 
 export default VTTexture;
+*/

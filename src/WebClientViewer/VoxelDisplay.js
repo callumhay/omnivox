@@ -12,7 +12,7 @@ const POINTS_VERTEX_SHADER = `
 
   void main() {
     vColor = customColour/255.0;
-    vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     gl_PointSize = size * (150.0 / -mvPosition.z);
     gl_Position = projectionMatrix * mvPosition;
   }
@@ -95,7 +95,7 @@ class VoxelDisplay {
     geometry.setAttribute('customColour', this.colourBuffer);
     geometry.setAttribute('size', new THREE.BufferAttribute(ledSizes, 1));
 
-    let material = new THREE.ShaderMaterial({
+    const material = new THREE.ShaderMaterial({
       uniforms: {
         color: { value: new THREE.Color(0xffffff) },
         pointTexture: { value: new THREE.TextureLoader().load("../textures/disc.png") }

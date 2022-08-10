@@ -2,6 +2,7 @@
   "name": "omnivox",
   "version": "1.1.0",
   "scripts": {
+    "setver": "n 18.7.0",
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node ./dist/server.js",
     "start_debug": "node --inspect=9229 ./dist/server.js",
@@ -14,14 +15,14 @@
   "browser": {
     "child_process": false
   },
-  "keywords": ["voxel", "volume rendering", "leds"],
-  "author": "Callum Hay",
+  "keywords": [
+    "voxel",
+    "volume rendering",
+    "leds"
+  ],
+  "author": "Callum Hay <callumhay@gmail.com>",
   "license": "MIT",
-  "description": "Server (node), slave (Teensy C++ code), visualizer (browser), and controller (browser) for rendering LED voxel art to the Omnivox display (custom LED display driven by Teensy microcontrollers).",
-  "engines": {
-    "node" : "^17.7.2",
-    "npm" : "^8.5.2" 
-  },
+  "description": "Server, slave, visualizer, and controller for rendering LED voxel art to the Omnivox display (custom voxel-LED display).",
   "dependencies": {
     "@serialport/parser-readline": "^10.3.0",
     "bufferutil": "^4.0.1",
@@ -32,18 +33,14 @@
     "emulators-ui": "^0.73.7",
     "express": "^4.17.1",
     "gamepad.js": "^1.0.4",
-    "get-pixels": "^3.3.2",
     "gpu.js": "^2.11.4",
     "howler": "^2.2.3",
     "meyda": "^5.3.0",
-    "ndarray": "^1.0.19",
     "popmotion": "^11.0.3",
-    "seedrandom": "^3.0.5",
     "serialport": "^10.3.0",
     "three": "^0.138.0",
     "three-mesh-bvh": "^0.3.7",
     "tweakpane": "^3.0.2",
-    "utf-8-validate": "^5.0.2",
     "ws": "^8.5.0"
   },
   "devDependencies": {

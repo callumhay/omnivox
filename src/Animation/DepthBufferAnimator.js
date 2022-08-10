@@ -13,6 +13,8 @@ class DepthBufferAnimator extends VoxelAnimator {
 
   load() {
     super.load();
+    const {gridSize, gpuKernelMgr} = this.voxelModel;
+    gpuKernelMgr.initDepthBufferKernels(gridSize);
   }
   unload() {
     super.unload();
@@ -30,6 +32,8 @@ class DepthBufferAnimator extends VoxelAnimator {
   rendersToCPUOnly() { return false; }
 
   render(dt) {
+    
+
   }
 
   // Called everytime the client updates the depth buffer

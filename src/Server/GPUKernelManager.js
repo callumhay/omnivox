@@ -745,6 +745,27 @@ class GPUKernelManager {
     this._fireKernelsInit = true;
   }
 
+  initDepthBufferKernels(gridSize) {
+    if (this._depthBufferKernelsInit) { return; }
+
+    const commonSettings = {
+      output: [gridSize, gridSize, gridSize], 
+      returnType: 'Array(3)',
+      constants: {
+        gridSize
+      }
+    };
+
+    this.depthToVoxelsFunc = this.gpu.createKernel(function(depthBuffer) {
+      const xyz = [this.thread.z, this.thread.y, this.thread.x];
+      const stride = Math.floor(this.constants.gridSize*xyz[1] + xyz[0]);
+      const depth = depthBuffer[stride];
+      return (depth <= xyz[2]) ? [1.0,1.0,1.0] : [0.0, 0.0, 0.0];
+    }, {...commonSettings});
+
+    this._depthBufferKernelsInit = true;
+  }
+
   initDisplayFramebufferSliceKernels(gridSize) {
     if (this._displayFBSliceKernelsInit) { return; }
 
