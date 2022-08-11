@@ -25,9 +25,7 @@ class VoxelTVTurnOffPP extends VoxelPostProcess {
   renderToFramebuffer(dt, framebuffer) {
     const {gpuKernelMgr} = this.voxelModel;
     const {offAmount} = this._config;
-    const currFBTex = framebuffer.getGPUBuffer();
-    const pingPongFBTex = gpuKernelMgr.tvTurnOffFunc(currFBTex, offAmount);
-    currFBTex.delete();
+    const pingPongFBTex = gpuKernelMgr.tvTurnOffFunc(framebuffer.getGPUBuffer(), offAmount);
     framebuffer.setBufferTexture(pingPongFBTex);
   }
 

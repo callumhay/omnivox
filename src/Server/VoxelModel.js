@@ -39,22 +39,6 @@ class VoxelModel {
   static get CPU_FRAMEBUFFER_IDX_0() { return 3; }
   static get CPU_FRAMEBUFFER_IDX_1() { return 4; }
 
-  static getOtherFramebufferIndex(idx) {
-    switch (idx) {
-
-      case VoxelModel.GPU_FRAMEBUFFER_IDX_0: return VoxelModel.GPU_FRAMEBUFFER_IDX_1;
-      case VoxelModel.GPU_FRAMEBUFFER_IDX_1: return VoxelModel.GPU_FRAMEBUFFER_IDX_0;
-  
-      case VoxelModel.CPU_FRAMEBUFFER_IDX_0: return VoxelModel.CPU_FRAMEBUFFER_IDX_1;
-      case VoxelModel.CPU_FRAMEBUFFER_IDX_1: return VoxelModel.CPU_FRAMEBUFFER_IDX_0;
-
-      default:
-        console.log("Invalid framebuffer index.");
-        break;
-    }
-    return null;
-  }
-
   // Framebuffer combination constants
   static get FB1_ALPHA_FB2_ONE_MINUS_ALPHA() { return 0; }
 

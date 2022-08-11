@@ -29,14 +29,13 @@ class VoxelGaussianBlurPP extends VoxelPostProcess {
     const {sqrSigma, conserveEnergy, alpha} = this._config;
     const {gpuKernelMgr} = this.voxelModel;
 
-    const currFBTex = framebuffer.getGPUBuffer();
-    const pingPongFBTex1 = gpuKernelMgr.blurXFunc(currFBTex, sqrSigma, conserveEnergy, alpha);
-    currFBTex.delete();
-    const pingPongFBTex2 = gpuKernelMgr.blurYFunc(pingPongFBTex1, sqrSigma, conserveEnergy, alpha);
-    pingPongFBTex1.delete();
-    const pingPongFBTex3 = gpuKernelMgr.blurZFunc(pingPongFBTex2, sqrSigma, conserveEnergy, alpha);
-    pingPongFBTex2.delete();
-    framebuffer.setBufferTexture(pingPongFBTex3);
+    let pingTex = null, pongTex = null;
+
+    pingTex = gpuKernelMgr.blurXFunc(framebuffer.getGPUBuffer(), sqrSigma, conserveEnergy, alpha);
+    pongTex = gpuKernelMgr.blurYFunc(pingTex, sqrSigma, conserveEnergy, alpha);
+    pingTex = gpuKernelMgr.blurZFunc(pongTex, sqrSigma, conserveEnergy, alpha);
+    
+    framebuffer.setBufferTexture(pingTex);
   }
 }
 

@@ -1,5 +1,5 @@
 import VoxelFramebuffer from './VoxelFramebuffer';
-import VoxelModel, {BLEND_MODE_ADDITIVE, BLEND_MODE_OVERWRITE} from './VoxelModel';
+import VoxelModel, {BLEND_MODE_OVERWRITE} from './VoxelModel';
 
 class VoxelFramebufferGPU extends VoxelFramebuffer {
   constructor(index, gpuKernelMgr) {
@@ -34,14 +34,14 @@ class VoxelFramebufferGPU extends VoxelFramebuffer {
   drawFramebuffer(framebuffer, blendMode) {
     const bufferToDraw = framebuffer.getGPUBuffer();
     switch (blendMode) {
-      case BLEND_MODE_ADDITIVE:
-        this._bufferTexture = this.gpuKernelMgr.addFramebuffersFunc(this._bufferTexture, bufferToDraw);
-        break;
-      case BLEND_MODE_OVERWRITE:
+
+      case BLEND_MODE_OVERWRITE: {
         this._bufferTexture = this.gpuKernelMgr.copyFramebufferFunc(bufferToDraw);
         break;
+      }
+
       default:
-        console.log("Invalid blend mode.");
+        console.error("Invalid/unimplemented blend mode detected!");
         break;
     }
 

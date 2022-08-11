@@ -29,10 +29,8 @@ class VoxelChromaticAberrationPP extends VoxelPostProcess {
     const {intensity, alpha, xyzMask} = this._config;
     const {gpuKernelMgr} = this.voxelModel;
 
-    const currFBTex = framebuffer.getGPUBuffer();
-    const pingPongFBTex1 = gpuKernelMgr.chromaticAberrationFunc(currFBTex, intensity, alpha, xyzMask);
-    currFBTex.delete();
-    framebuffer.setBufferTexture(pingPongFBTex1);
+    const chromaticAberrTex = gpuKernelMgr.chromaticAberrationFunc(framebuffer.getGPUBuffer(), intensity, alpha, xyzMask);
+    framebuffer.setBufferTexture(chromaticAberrTex);
   }
 
 }

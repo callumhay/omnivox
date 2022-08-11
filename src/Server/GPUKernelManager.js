@@ -36,7 +36,10 @@ class GPUKernelManager {
     // Utility kernels
     this.clearFunc = this.gpu.createKernel(function(colour) {
       return [colour[0], colour[1], colour[2]];
-    }, {...this.pipelineFuncSettings, name:'clearFunc', immutable: false, argumentTypes: {colour: 'Array(3)'}});
+    }, {...this.pipelineFuncSettings, name:'clearFunc', argumentTypes: {colour: 'Array(3)'}});
+    this.clearFuncImmutable = this.gpu.createKernel(function(colour) {
+      return [colour[0], colour[1], colour[2]];
+    }, {...this.pipelineFuncSettings, name:'clearFuncImmutable', immutable: true, argumentTypes: {colour: 'Array(3)'}});
 
     // Framebuffer combination kernels
     this.addFramebuffersFunc = this.gpu.createKernel(function(framebufTexA, framebufTexB) {
@@ -259,7 +262,7 @@ class GPUKernelManager {
         Math.min(1.0, shiftedVoxel[1]+noiseAmt),
         Math.min(1.0, shiftedVoxel[2]+noiseAmt)
       ];
-    }, {...distortionPPSettings, name: "distortionFunc", 
+    }, {...distortionPPSettings, name: "distortionFunc", immutable: false,
       argumentTypes: {fbTex: "Array3D(3)", timeCounter: "Float", noiseAlpha: "Float", noiseAxisMask: "Array(3)", noiseSpeed: "Float",
                       distortHorizontal: "Float", distortVertical: "Float"
       }
@@ -274,7 +277,7 @@ class GPUKernelManager {
     const tvTurnOffPPSettings = {
       output: [gridSize, gridSize, gridSize],
       pipeline: true,
-      immutable: true,
+      immutable: false,
       returnType: 'Array(3)',
       constants: {
         gridSize,
@@ -302,7 +305,7 @@ class GPUKernelManager {
     const chromaticAberrationPPSettings = {
       output: [gridSize, gridSize, gridSize],
       pipeline: true,
-      immutable: true,
+      immutable: false,
       returnType: 'Array(3)',
       constants: {
         gridSizeMinus1: gridSize-1,
@@ -352,7 +355,7 @@ class GPUKernelManager {
         kernelOffsetExtent: Math.floor((kernelSize-1)/2),
         TWOPI: 2*Math.PI,
       },
-      immutable: true,
+      immutable: false,
       returnType: 'Array(3)',
     };
 

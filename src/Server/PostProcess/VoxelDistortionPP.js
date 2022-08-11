@@ -34,13 +34,12 @@ class VoxelDistortionPP extends VoxelPostProcess {
     const {gpuKernelMgr} = this.voxelModel;
     const {noiseAlpha, noiseSpeed, noiseAxisMask, distortHorizontal, distortVertical} = this._config;
     this.timeCounter += dt;
-
-    const currFBTex = framebuffer.getGPUBuffer();
-    const pingPongFBTex = gpuKernelMgr.distortionFunc(
-      currFBTex, this.timeCounter, noiseAlpha, noiseAxisMask, noiseSpeed, distortHorizontal, distortVertical
+    
+    const distortedFBTex = gpuKernelMgr.distortionFunc(
+      framebuffer.getGPUBuffer(), this.timeCounter, noiseAlpha, noiseAxisMask, 
+      noiseSpeed, distortHorizontal, distortVertical
     );
-    currFBTex.delete();
-    framebuffer.setBufferTexture(pingPongFBTex);
+    framebuffer.setBufferTexture(distortedFBTex);
   }
 
 }
