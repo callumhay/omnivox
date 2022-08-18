@@ -88,7 +88,7 @@ class AudioVisualizerAnimator extends VoxelAnimator {
     const binIndexLookup = {};
     const startingIdx = Math.floor(7*(numFreqs/512)); // Throw out the first bins, they are boring (i.e., filled with frequencies that don't occur very often in music)
     for (let i = startingIdx; i < numFreqs; i++) {
-      const binIndex = Math.round(Math.pow((i-startingIdx)/numFreqsMinus1, 1.0/gamma) * (numBins-1));
+      const binIndex = THREE.MathUtils.clamp(Math.round(Math.pow((i-startingIdx)/numFreqsMinus1, 1.0/gamma) * (numBins-1)), 0, numBins-1);
       if (binIndex in binIndexLookup) { binIndexLookup[binIndex].push(i); }
       else { binIndexLookup[binIndex] = [i]; }
     }
@@ -96,8 +96,12 @@ class AudioVisualizerAnimator extends VoxelAnimator {
     // Find gaps in the lookup and just have those gaps reference the previous (or next) bin's frequency(ies)
     for (let i = 0; i < numBins; i++) {
       if (i in binIndexLookup) { continue; }
-      if (i-1 in binIndexLookup) { binIndexLookup[i] = binIndexLookup[i-1]; }      // Is there a previous bin? 
-      else if (i+1 in binIndexLookup) { binIndexLookup[i] = binIndexLookup[i+1]; } // Is there a next bin?
+      if (i-1 in binIndexLookup) { // Is there a previous bin?
+        binIndexLookup[i] = binIndexLookup[i-1];
+      } 
+      else if (i+1 in binIndexLookup) {  // Is there a next bin?
+        binIndexLookup[i] = binIndexLookup[i+1]; 
+      } 
       else {
         // There's a large gap between filled bins...
         console.error("Big gap in the number of frequencies to available bins, please find me and write code to fix this issue.");
@@ -110,7 +114,7 @@ class AudioVisualizerAnimator extends VoxelAnimator {
   static calcFFTBinLevelMax(binIndices, fft) {
     let binLevel = 0;
     for (let i = 0; i < binIndices.length; i++) {
-      binLevel = Math.max(binLevel, fft[binIndices[i]]);
+      binLevel = Math.max(binLevel, !(i in binIndices) ? 0 : fft[binIndices[i]]);
     }
     return binLevel;
   }

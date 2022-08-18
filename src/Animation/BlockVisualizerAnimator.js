@@ -35,24 +35,36 @@ class BlockVisualizerAnimator extends AudioVisualizerAnimator {
 
   load() {
     super.load();
+
+    this.currColour = new THREE.Color();
+    this.currColourLums = new Array(NUM_LUM_LEVELS).fill(null);
+    for (let i = 0; i < NUM_LUM_LEVELS; i++) { this.currColourLums[i] = [0,0,0]; }
+    this.timeSinceLastBlockSizeTransition = Infinity;
+
     const {gridSize, gpuKernelMgr} = this.voxelModel;
     gpuKernelMgr.initBlockVisualizerKernels(gridSize, NUM_LUM_LEVELS);
     if (!this.prevVisTex) {
       this.prevVisTex = gpuKernelMgr.initBlockVisualizerBuffer4Func(0,0,0,0);
+
+      // Give the gpu routine the largest possible block size to initialize with,
+      // otherwise it won't allocate enough memory this is probably a bug in gpu.js
+      const maxBlockArr = new Array(MAX_NUM_BLOCKS).fill(0);
+      const temp = this.prevVisTex;
+      this.prevVisTex = gpuKernelMgr.blockVisFunc(
+        maxBlockArr, maxBlockArr, temp, this.currColourLums, MIN_BLOCK_SIZE, 1.0, 1.0, 0.01
+      );
+      temp.delete();
     }
-    this.currColour = new THREE.Color();
-    
-    this.currColourLums = new Array(NUM_LUM_LEVELS).fill(null);
-    for (let i = 0; i < NUM_LUM_LEVELS; i++) { this.currColourLums[i] = [0,0,0]; }
-    this.timeSinceLastBlockSizeTransition = Infinity;
   }
   unload() {
     super.unload();
     this.binIndexLookup = null;
     this.audioIntensities = null;
     this.shuffleLookup = null;
-    this.prevVisTex.delete();
-    this.prevVisTex = null;
+    if (this.prevVisTex) {
+      this.prevVisTex.delete();
+      this.prevVisTex = null;
+    }
     this.currColour = null;
     this.currColourLums = null;
     this.updateGamma = true;
@@ -94,7 +106,7 @@ class BlockVisualizerAnimator extends AudioVisualizerAnimator {
 
     const temp = this.prevVisTex;
     this.prevVisTex = gpuKernelMgr.blockVisFunc(
-      this.audioIntensities, this.shuffleLookup, this.prevVisTex, this.currColourLums, blockSize, levelMax, fadeFactor, dt
+      this.audioIntensities, this.shuffleLookup, temp, this.currColourLums, blockSize, levelMax, fadeFactor, dt
     );
     temp.delete();
 
@@ -186,24 +198,24 @@ class BlockVisualizerAnimator extends AudioVisualizerAnimator {
   _buildBinsAndShuffleLookup(fftLength, numBlocks, gamma, shuffle) {
     this.binIndexLookup   = AudioVisualizerAnimator.buildBinIndexLookup(fftLength, numBlocks, gamma);
     this.audioIntensities = new Array(numBlocks).fill(0);
-    
-    // Build a random shuffle of the indices (if enabled)
+  
     const indices = this.audioIntensities.map((_, idx) => idx);
     if (shuffle) {
-      this.shuffleLookup = new Array(this.audioIntensities.length).fill(0);
-      // TODO: Have the RNG be seeded for consistency!
-      for (let i = 0, numIndices = this.shuffleLookup.length; i < numIndices; i++) {
-        const currIdx = Math.min(indices.length-1, Math.floor(Math.random()*indices.length));
-        this.shuffleLookup[i] = currIdx;
-        indices.splice(currIdx, 1);
-      }
+      this._shuffleArray(indices);
     }
-    else {
-      this.shuffleLookup = indices;
-    }
+    this.shuffleLookup = indices;
   }
 
   _numBlocks(blockSize) { return Math.pow(this.voxelModel.gridSize / blockSize, 3); }
+
+  _shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const temp = array[i];
+      array[i] = array[j];
+      array[j] = temp;
+    }
+  }
 }
 
 export default BlockVisualizerAnimator;

@@ -899,7 +899,10 @@ class GPUKernelManager {
         clampValue(currVoxel[1]*currVoxel[3], 0.0, 1.0), 
         clampValue(currVoxel[2]*currVoxel[3], 0.0, 1.0)
       ];
-    }, {...blockVisFuncSettings, name: 'renderBlockVisualizerAlphaFunc', immutable: false, returnType: 'Array(3)', argumentTypes: {blockrVisTex: 'Array3D(4)'}});
+    }, {...blockVisFuncSettings, 
+      name: 'renderBlockVisualizerAlphaFunc', immutable: false, returnType: 'Array(3)', 
+      argumentTypes: {blockrVisTex: 'Array3D(4)'}
+    });
 
     this._blockVisKernelsInit = true;
   }
