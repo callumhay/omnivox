@@ -33,7 +33,7 @@
     "emulators-ui": "^0.73.7",
     "express": "^4.17.1",
     "gamepad.js": "^1.0.4",
-    "gpu.js": "^2.11.4",
+    "gpu.js": "^2.16.0",
     "howler": "^2.2.3",
     "meyda": "^5.3.0",
     "popmotion": "^11.0.3",
