@@ -11,6 +11,7 @@ const DISCOVERY_ACK_PACKET_HEADER = "ACK";
 // Protocol identifiers
 const WEBSOCKET_PROTOCOL_CONTROLLER = "controller";
 const WEBSOCKET_PROTOCOL_VIEWER = "viewer";
+const WEBSOCKET_PROTOCOL_MIC = "mic";
 
 // NOTE: All packet header constants MUST be a single character string!!!
 
@@ -64,6 +65,7 @@ class VoxelProtocol {
 
   static get WEBSOCKET_PROTOCOL_CONTROLLER() { return WEBSOCKET_PROTOCOL_CONTROLLER; }
   static get WEBSOCKET_PROTOCOL_VIEWER() { return WEBSOCKET_PROTOCOL_VIEWER; }
+  static get WEBSOCKET_PROTOCOL_MIC() { return WEBSOCKET_PROTOCOL_MIC; }
 
   static get SERVER_STATE_EVENT_HEADER() {return SERVER_STATE_EVENT_HEADER;}
   static get SERVER_STATE_EVENT_FULL_TYPE() {return SERVER_STATE_EVENT_FULL_TYPE;}

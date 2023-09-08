@@ -19,6 +19,7 @@ class VoxelServer {
     // Setup websockets
     this.viewerWebSocks = [];
     this.controllerWebSock = null;
+    this.micWebSock = null;
     this.webSocketServer = new ws.Server({
       port: VoxelProtocol.WEBSOCKET_PORT,
       perMessageDeflate: true, // Enable compression... lots of repetitive data.
@@ -31,6 +32,7 @@ class VoxelServer {
     this.webSocketServer.on('connection', function(socket, request, client) {
       console.log("Websocket opened...");
       switch (socket.protocol) {
+
         case VoxelProtocol.WEBSOCKET_PROTOCOL_VIEWER:
           console.log(VoxelConstants.PROJECT_NAME + " (v" + VoxelConstants.PROJECT_VERSION + ") viewer (" + self.viewerWebSocks.length + ") detected.");
           self.viewerWebSocks.push(socket);
@@ -39,6 +41,11 @@ class VoxelServer {
           console.log(VoxelConstants.PROJECT_NAME + " (v" + VoxelConstants.PROJECT_VERSION + ") controller detected.");
           self.controllerWebSock = socket;
           break;
+        case VoxelProtocol.WEBSOCKET_PROTOCOL_MIC:
+          console.log(VoxelConstants.PROJECT_NAME + " (v" + VoxelConstants.PROJECT_VERSION + ") mic detected.");
+          self.micWebSock = socket;
+          break;
+
         default:
           console.error("Invalid websocket protocol found: " + socket.protocol);
           socket.destroy("Invalid websocket protocol.");
@@ -54,6 +61,10 @@ class VoxelServer {
         if (socket === self.controllerWebSock) { 
           self.controllerWebSock = null;
           console.log("Controller websocket closed.");
+        }
+        else if (socket === self.micWebSock) {
+          self.micWebSock = null;
+          console.log("Mic websocket closed.");
         }
         else {
           const idx = self.viewerWebSocks.indexOf(socket);

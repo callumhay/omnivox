@@ -52,6 +52,14 @@ const webClientControllerConfig = {...commonConfig,
     path: distPath,
   },
 };
+const webClientMicConfig = {...commonConfig,
+  target: 'web',
+  entry: './src/WebClientMic/webclientmic.js',
+  output: {
+    filename: 'webclientmic.js',
+    path: distPath,
+  },
+};
 const serverConfig = {...commonConfig,
   target: 'node',
   externals: [nodeExternals(), 'serialport'],
@@ -76,4 +84,10 @@ const renderChildConfig = {...commonConfig,
   },
 };
 
-module.exports = [webClientViewerConfig, webClientControllerConfig, serverConfig, renderChildConfig];
+module.exports = [
+  webClientViewerConfig,
+  webClientControllerConfig,
+  webClientMicConfig,
+  serverConfig,
+  renderChildConfig
+];

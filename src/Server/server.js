@@ -30,6 +30,9 @@ app.get("/viewer", (req, res) => {
 app.get("/controller", (req, res) => {
   res.sendFile(path.join(distPath, 'webclientcontroller.html'));
 });
+app.get("/mic", (req, res) => {
+  res.sendFile(path.join(distPath, 'webclientmic.html'));
+});
 
 const webServer = http.createServer(app);
 
