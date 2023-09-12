@@ -90,7 +90,7 @@ class WaveShape {
 
   tick(dt, waveSpeed) {
     if (this.animationFinished) { return; }
-    this.radius += dt*waveSpeed;
+    this.radius += Math.min(1.0, dt*waveSpeed);
     if (!this.isInsideVoxels()) { this.animationFinished = true; }
   }
 }
