@@ -4,6 +4,7 @@ node_modules
 src/embedded/master/argon_firmware_*.bin
 src/embedded/master/target/
 dist/webclientviewer.js*
+dist/webclientmic.js*
 dist/vtrenderproc.js*
 dist/webclientcontroller.js*
 dist/server.js*
