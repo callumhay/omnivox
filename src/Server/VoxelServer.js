@@ -58,7 +58,7 @@ class VoxelServer {
       });
 
       socket.on('close', function() {
-        if (socket === self.controllerWebSock) { 
+        if (socket === self.controllerWebSock) {
           self.controllerWebSock = null;
           console.log("Controller websocket closed.");
         }
@@ -68,7 +68,7 @@ class VoxelServer {
         }
         else {
           const idx = self.viewerWebSocks.indexOf(socket);
-          if (idx > -1) { 
+          if (idx > -1) {
             self.viewerWebSocks.splice(idx, 1);
             console.log("Viewer (" + idx + ") websocket closed.");
           }
@@ -93,7 +93,7 @@ class VoxelServer {
       //console.log("Number of connected ports: " + self.connectedSerialPorts.length);
 
       // Max 4 serial connections, no need to keep polling for serial ports if they're all connected.
-      // NOTE: The connectedSerialPorts array will get smaller when serial connections are dropped, 
+      // NOTE: The connectedSerialPorts array will get smaller when serial connections are dropped,
       // this will then fall through and reinitialize new connections again
       if (self.connectedSerialPorts.length >= 4) { return; }
 
@@ -116,10 +116,11 @@ class VoxelServer {
               // - USB serial for the teensy, this is used to recieve user messages and debug information.
               // - Hardware serial for the teensy, this is used for fast comm for streaming voxel data.
               let isDebugSerial = availablePort.manufacturer && availablePort.manufacturer.match(/(PJRC|Teensy)/i);
-              let isDataSerial  = availablePort.manufacturer && availablePort.manufacturer.match(/(FTDI)/i);
+              let isDataSerial  = (availablePort.manufacturer && availablePort.manufacturer.match(/(FTDI)/i)) ||
+                                   availablePort.path.match(/(tty.usbserial)/i);
               let newSerialPort = null;
               //let serialPortIdx = self.connectedSerialPorts.length;
-              
+
               if (isDebugSerial) {
                 console.log("Attempting connection with debug/info serial port '" + availablePort.path + "'...");
                 newSerialPort = new SerialPort({
@@ -159,9 +160,9 @@ class VoxelServer {
                   console.log("Serial port closed: " + availablePort.path);
                   delete self.slaveDataMap[availablePort.path];
                   const spIdx = self.connectedSerialPorts.indexOf(newSerialPort);
-                  if (spIdx !== -1) { 
+                  if (spIdx !== -1) {
                     self.connectedSerialPorts.splice(spIdx, 1);
-                    console.log("Removed serial port: " + availablePort.path); 
+                    console.log("Removed serial port: " + availablePort.path);
                     setTimeout(serialPoll, SERIAL_POLLING_INTERVAL_MS); // Poll again soon...
                   }
                 });
@@ -179,11 +180,11 @@ class VoxelServer {
                       console.log("Sent welcome packet to " + availablePort.path);
                     } catch (err) { console.error("Failed to send welcome packet on open: "); console.error(err); }
                   }
-                  
+
                   parser.on('data', (data) => {
                     if (isDataSerial) {
                       const slaveInfoMatch = data.match(/SLAVE_ID (\d)/);
-                      
+
                       if (slaveInfoMatch) {
                         if (!(availablePort.path in self.slaveDataMap)) {
                           const slaveDataObj = { id: parseInt(slaveInfoMatch[1]) };
@@ -192,7 +193,7 @@ class VoxelServer {
                           // First time getting information from the current serial port, send a welcome packet
                           console.log("Slave ID at " + availablePort.path + " = " + self.slaveDataMap[availablePort.path].id);
                           console.log("Sending welcome packet to " + availablePort.path + "...");
-            
+
                           const welcomePacketBuf = VoxelProtocol.buildWelcomePacketForSlaves(self.voxelModel);
                           welcomePacketBuf[0] = slaveDataObj.id;
                           try {
@@ -202,9 +203,9 @@ class VoxelServer {
                         else {
                           const slaveId = parseInt(slaveInfoMatch[1]);
                           self.slaveDataMap[availablePort.path].id = slaveId;
-                          
+
                           /*
-                          // TODO: 
+                          // TODO:
                           // Server event: Slave (slaveId) connected
                           if (this.viewerWebSocks.length > 0) {
                             const statePkt = VoxelProtocol.buildServerStateEventPacketStr(
@@ -244,7 +245,7 @@ class VoxelServer {
           catch (err) {
             console.error("Serial port try-catch error:");
             console.error(err);
-            
+
             console.log("Resetting and closing all serial ports...");
             try {
               for (const port of self.connectedSerialPorts) { port.close(); }
