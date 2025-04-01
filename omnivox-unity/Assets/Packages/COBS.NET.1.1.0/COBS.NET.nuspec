@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>COBS.NET</id>
+    <version>1.1.0</version>
+    <title>COBS.NET</title>
+    <authors>OctSquid</authors>
+    <license type="file">LICENSE</license>
+    <licenseUrl>https://aka.ms/deprecateLicenseUrl</licenseUrl>
+    <readme>README.md</readme>
+    <projectUrl>https://github.com/OctSquid/COBS.NET</projectUrl>
+    <description>A simple .NET implementation of COBS</description>
+    <releaseNotes>First</releaseNotes>
+    <copyright>Copyright (c) 2024 OctSquid</copyright>
+    <tags>cobs dotnet</tags>
+    <repository type="git" url="https://github.com/OctSquid/COBS.NET.git" commit="d07009c73375de92485a93e0510c3baccabb4562" />
+    <dependencies>
+      <group targetFramework=".NETFramework4.7" />
+      <group targetFramework=".NETFramework4.8" />
+      <group targetFramework="net5.0" />
+      <group targetFramework="net6.0" />
+      <group targetFramework="net7.0" />
+      <group targetFramework="net8.0" />
+      <group targetFramework=".NETStandard2.0" />
+      <group targetFramework=".NETStandard2.1" />
+    </dependencies>
+  </metadata>
+</package>

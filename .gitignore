@@ -13,6 +13,13 @@ dist/textures/**
 dist/video/**
 dist/sounds/**
 
+omnivox-unity/Library
+omnivox-unity/Temp
+omnivox-unity/Logs
+*.csproj
+*.sln
+
 .vscode/targets.log
 .vscode/dryrun.log
 .vscode/configurationCache.log
+
