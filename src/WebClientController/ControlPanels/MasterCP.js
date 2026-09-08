@@ -25,11 +25,10 @@ class MasterCP {
   static get CONTROL_CONTAINER_DIV_ID() { return "controlContainer"; }
   static get FRAMEBUFFER_CONTAINER_DIV_ID() { return "framebufferContainer"; }
 
-  constructor(gridSize, controllerClient, soundManager) {
+  constructor(gridSize, controllerClient) {
 
     this.gridSize = gridSize;
     this.controllerClient = controllerClient;
-    this.soundManager = soundManager;
 
     this.pane = new Pane({
       title: VoxelConstants.PROJECT_NAME + " Controller",

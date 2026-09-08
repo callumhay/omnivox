@@ -4,6 +4,7 @@ node_modules
 src/embedded/master/argon_firmware_*.bin
 src/embedded/master/target/
 dist/webclientviewer.js*
+dist/webclientmic.js*
 dist/vtrenderproc.js*
 dist/webclientcontroller.js*
 dist/server.js*
@@ -12,6 +13,13 @@ dist/textures/**
 dist/video/**
 dist/sounds/**
 
+omnivox-unity/Library
+omnivox-unity/Temp
+omnivox-unity/Logs
+*.csproj
+*.sln
+
 .vscode/targets.log
 .vscode/dryrun.log
 .vscode/configurationCache.log
+

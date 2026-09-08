@@ -65,24 +65,15 @@ const webClientControllerConfig = {...commonConfig,
   },
 };
 
-
-/*
-const webClientDesignerConfig = {...commonConfig,
+const webClientMicConfig = {...commonConfig,
   target: 'web',
-  entry: './src/WebClientDesigner/webclientdesigner.js',
+  entry: './src/WebClientMic/webclientmic.js',
   output: {
-    filename: 'webclientdesigner.js',
+    filename: 'webclientmic.js',
     path: distPath,
   },
-  module: {
-    rules: [{
-      test: /\.(js|jsx)$/,
-      use: ['babel-loader'],
-      exclude: /node_modules/
-    }]
-  }
 };
-*/
+
 const serverConfig = {...commonConfig,
   target: 'node',
   externals: [nodeExternals(), 'serialport'],
@@ -110,4 +101,10 @@ const renderChildConfig = {...commonConfig,
   },
 };
 
-module.exports = [webClientViewerConfig, webClientControllerConfig, serverConfig, renderChildConfig];
+module.exports = [
+  webClientViewerConfig, 
+  webClientControllerConfig,
+  webClientMicConfig,
+  serverConfig, 
+  renderChildConfig
+];

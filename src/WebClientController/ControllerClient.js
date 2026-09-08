@@ -3,9 +3,8 @@ import VoxelProtocol from "../VoxelProtocol";
 import MasterCP from './ControlPanels/MasterCP';
 
 class ControllerClient {
-  constructor(soundManager) {
+  constructor() {
     this.socket = new WebSocket('ws://' + window.location.hostname + ':' + VoxelProtocol.WEBSOCKET_PORT, VoxelProtocol.WEBSOCKET_PROTOCOL_CONTROLLER);
-    this.soundManager = soundManager;
     this.controlPanel = null;
     this.commEnabled = false;
   }
@@ -109,11 +108,11 @@ class ControllerClient {
       this.socket.send(VoxelProtocol.buildClientPacketStr(VoxelProtocol.VOXEL_CLEAR_COMMAND_HEADER, null, {r: r, g: g, b: b}));
     }
   }
-  sendAudioInfo(audioInfo) {
-    if (this.socket.readyState === WebSocket.OPEN/* && this.socket.bufferedAmount === 0*/) {
-      this.socket.send(VoxelProtocol.buildClientPacketStrAudio(audioInfo));
-    }
-  }
+  //sendAudioInfo(audioInfo) {
+  //  if (this.socket.readyState === WebSocket.OPEN/* && this.socket.bufferedAmount === 0*/) {
+  //    this.socket.send(VoxelProtocol.buildClientPacketStrAudio(audioInfo));
+  //  }
+  //}
   sendCrossfadeTime(crossfadeTimeInSecs) {
     if (this.socket.readyState === WebSocket.OPEN && this.commEnabled) {
       //console.log("sendCrossfadeTime");
