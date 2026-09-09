@@ -31,7 +31,7 @@
     "cobs": "^0.2.1",
     "emulators": "^0.73.7",
     "emulators-ui": "^0.73.7",
-    "express": "^4.17.1",
+    "express": "^5.2.1",
     "gamepad.js": "^1.0.4",
     "gpu.js": "^2.16.0",
     "howler": "^2.2.3",
