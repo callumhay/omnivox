@@ -41,7 +41,7 @@
     "three": "^0.138.0",
     "three-mesh-bvh": "^0.3.7",
     "tweakpane": "^3.0.2",
-    "ws": "^8.5.0"
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@babel/plugin-transform-runtime": "^7.14.5",
